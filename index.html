@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>okobserver</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+  <script type="text/babel">
+  
+const { useState, useEffect } = React;
+
+const App = () => {
+  const [posts, setPosts] = useState([]);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [categories, setCategories] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPostLoading, setIsPostLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState('posts');
+  const [aboutContent, setAboutContent] = useState(null);
+  const [isAboutLoading, setIsAboutLoading] = useState(false);
+
+  const POSTS_API_URL = 'https://okobserver.org/wp-json/wp/v2/posts';
+  const CATEGORIES_API_URL = 'https://okobserver.org/wp-json/wp/v2/categories';
+  const MEDIA_API_URL = 'https://okobserver.org/wp-json/wp/v2/media';
+  const PAGES_API_URL = 'https://okobserver.org/wp-json/wp/v2/pages';
+
+  const fetchWithRetry = async (url, options = {}, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        return response;
+      } catch (e) {
+        if (i < retries - 1) {
+          const delay = Math.pow(2, i) * 1000;
+          console.warn(`Fetch failed, retrying in ${delay / 1000}s...`, e);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw e;
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const categoriesResponse = await fetchWithRetry(CATEGORIES_API_URL);
+        const categoriesData = await categoriesResponse.json();
+        const categoriesMap = categoriesData.reduce((map, category) => {
+          map[category.id] = category.name;
+          return map;
+        }, {});
+        setCategories(categoriesMap);
+
+        const cartoonCategoryId = categoriesData.find(cat => cat.slug === 'cartoon')?.id ?? null;
+        const cartoonsCategoryId = categoriesData.find(cat => cat.slug === 'cartoons')?.id ?? null;
+
+        const postsResponse = await fetchWithRetry(POSTS_API_URL);
+        const allPosts = await postsResponse.json();
+
+        const filteredPosts = allPosts.filter(post =>
+          !post.categories.includes(cartoonCategoryId) && !post.categories.includes(cartoonsCategoryId)
+        );
+
+        const postsWithImages = await Promise.all(
+          filteredPosts.map(async (post) => {
+            if (post.featured_media > 0) {
+              try {
+                const mediaResponse = await fetchWithRetry(`${MEDIA_API_URL}/${post.featured_media}`);
+                const mediaData = await mediaResponse.json();
+                return { ...post, featuredImage: mediaData.source_url };
+              } catch (mediaError) {
+                console.warn(`Failed to fetch media for post ${post.id}:`, mediaError);
+                return post;
+              }
+            }
+            return post;
+          })
+        );
+
+        setPosts(postsWithImages);
+      } catch (e) {
+        console.error("Failed to fetch posts:", e);
+        setError(e.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, []);
+
+  const sanitizeContent = (html) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, style, iframe').forEach(el => el.remove());
+    let cleanedContent = doc.body.innerHTML
+      .replace(/(<br\s*\/?>\s*){2,}/g, '<br/><br/>')
+      .replace(/<p>\s*<\/p>/g, '')
+      .trim();
+    return cleanedContent;
+  };
+
+  const handlePostClick = async (postId) => {
+    setIsPostLoading(true);
+    try {
+      const postResponse = await fetchWithRetry(`${POSTS_API_URL}/${postId}`);
+      const postData = await postResponse.json();
+      let postWithImage = postData;
+      if (postData.featured_media > 0) {
+        try {
+          const mediaResponse = await fetchWithRetry(`${MEDIA_API_URL}/${postData.featured_media}`);
+          const mediaData = await mediaResponse.json();
+          postWithImage = { ...postData, featuredImage: mediaData.source_url };
+        } catch (mediaError) {
+          console.warn(`Failed to fetch media for post ${postData.id}:`, mediaError);
+        }
+      }
+      setSelectedPost(postWithImage);
+      setCurrentPage('postDetail');
+    } catch (e) {
+      console.error("Failed to fetch single post:", e);
+      setError(e.message);
+    } finally {
+      setIsPostLoading(false);
+    }
+  };
+
+  const handleAboutClick = async () => {
+    setCurrentPage('about');
+    setIsAboutLoading(true);
+    try {
+      const aboutPageResponse = await fetchWithRetry(`${PAGES_API_URL}?slug=contact-about-donate`);
+      const aboutPageData = await aboutPageResponse.json();
+      if (aboutPageData && aboutPageData.length > 0) {
+        setAboutContent(aboutPageData[0].content.rendered);
+      } else {
+        setAboutContent('No about page content found.');
+      }
+    } catch (e) {
+      console.error("Failed to fetch about page:", e);
+      setError(e.message);
+    } finally {
+      setIsAboutLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="text-xl font-semibold text-gray-800">Loading posts...</div>
+    </div>;
+  }
+
+  if (error) {
+    return <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="p-6 bg-red-100 rounded-lg shadow-md text-red-800">
+        <h2 className="text-xl font-bold mb-2">Error</h2>
+        <p>Failed to fetch posts: {error}</p>
+      </div>
+    </div>;
+  }
+
+  const renderContent = () => {
+    switch (currentPage) {
+      case 'postDetail':
+        return <div className="min-h-screen bg-gray-50 text-gray-900 p-4 sm:p-8">
+          <div className="container mx-auto">
+            <button onClick={() => { setSelectedPost(null); setCurrentPage('posts'); }}
+              className="mb-6 px-4 py-2 bg-blue-500 text-white rounded-lg">← Back to Posts</button>
+            {isPostLoading ? <div>Loading post...</div> :
+              <article className="bg-white rounded-lg shadow-lg p-6">
+                {selectedPost.featuredImage && <img src={selectedPost.featuredImage} alt={selectedPost.title.rendered} className="w-full h-96 object-cover rounded-lg mb-6" />}
+                <div dangerouslySetInnerHTML={{ __html: sanitizeContent(selectedPost.content.rendered) }} />
+              </article>}
+          </div>
+        </div>;
+      case 'about':
+        return <div className="min-h-screen bg-gray-50 text-gray-900 p-4 sm:p-8">
+          <div className="container mx-auto">
+            <button onClick={() => setCurrentPage('posts')}
+              className="mb-6 px-4 py-2 bg-blue-500 text-white rounded-lg">← Back to Posts</button>
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h1 className="text-4xl font-bold text-blue-500 mb-4">About Us</h1>
+              {isAboutLoading ? <div>Loading content...</div> :
+                <div dangerouslySetInnerHTML={{ __html: sanitizeContent(aboutContent) }} />}
+            </div>
+          </div>
+        </div>;
+      default:
+        return <div className="min-h-screen bg-gray-50 text-gray-900 p-4 sm:p-8">
+          <div className="container mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {posts.map(post => (
+                <div key={post.id} onClick={() => handlePostClick(post.id)} className="cursor-pointer">
+                  <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full flex flex-col">
+                    {post.featuredImage && <img src={post.featuredImage} alt={post.title.rendered} className="w-full h-48 object-cover" />}
+                    <div className="p-6 flex-grow">
+                      <h2 className="text-base font-semibold text-blue-500"
+                        dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+                      <div className="mt-4 text-gray-700"
+                        dangerouslySetInnerHTML={{ __html: sanitizeContent(post.excerpt.rendered) }} />
+                    </div>
+                    <div className="p-6 pt-0">
+                      <span className="inline-block text-blue-500 font-medium">Read More →</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>;
+    }
+  };
+
+  return <div>
+    <header className="sticky top-0 flex flex-col sm:flex-row justify-between items-center bg-gray-50 shadow-md py-4 px-8">
+      <div className="text-center sm:text-left">
+        <img src="https://okobserver.org/wp-content/uploads/2015/10/Observer-logo.png"
+          alt="Oklahoma Observer logo" className="mx-auto h-16 mb-2" />
+        <h1 className="text-xs font-bold text-blue-500">
+          To Comfort The Afflicted And Afflict The Comfortable
+        </h1>
+      </div>
+      <nav className="mt-4 sm:mt-0">
+        <ul className="flex gap-4">
+          <li>
+            <button onClick={() => { setSelectedPost(null); setCurrentPage('posts'); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${currentPage === 'posts' ? 'bg-blue-500 text-white' : 'bg-white text-blue-500'}`}>
+              Posts
+            </button>
+          </li>
+          <li>
+            <button onClick={handleAboutClick}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${currentPage === 'about' ? 'bg-blue-500 text-white' : 'bg-white text-blue-500'}`}>
+              About
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    {renderContent()}
+  </div>;
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+  </script>
+</body>
+</html>
