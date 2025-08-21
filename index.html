@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OkObserver — Posts</title>
+  <style>
+    :root{--primary:#ffffff;--secondary:#1E90FF}
+    body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
+    header {background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
+    .container{max-width:1100px;margin:0 auto;padding:18px}
+    .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
+    .brand img {height:40px;margin-right:10px}
+    .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600}
+    nav {margin-left:auto;display:flex;gap:10px}
+    nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
+    nav a:hover {background:rgba(255,255,255,0.2);border-radius:6px}
+    main {padding:20px}
+    footer {background:#f3f3f3;font-size:.85em}
+    .center {text-align:center}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+    .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+    .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0}
+    .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
+    .cat{display:inline-block;font-size:.75em;font-weight:700;color:var(--secondary);margin-right:6px}
+    .title{font-size:1.1em;margin:4px 0}
+    .excerpt{font-size:.9em;color:#333}
+    .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
+    .btn[disabled]{opacity:.6;cursor:not-allowed}
+    .btn:hover:not([disabled]){background:#0066cc}
+    .post h1{margin-top:0}
+    .post .meta{font-size:.85em;color:#555}
+    .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
+    .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0}
+    .about-section h1, .about-section h2 {color: var(--secondary); margin-top: 1.2em;}
+    .about-section p {line-height: 1.5em; margin: 0.6em 0;}
+    .about-section ul {margin: 0.6em 0 1em 1.5em;}
+    .about-section li {margin-bottom: 0.4em;}
+    .diag {position:fixed;bottom:0;left:0;right:0;max-height:160px;overflow-y:auto;background:#111;color:#0f0;font-family:monospace;font-size:.8em}
+    .diag .ctl {display:flex;align-items:center;gap:8px;background:#222;color:#ccc;padding:4px 8px;position:sticky;top:0}
+    .diag .row {padding:2px 6px;border-bottom:1px solid #333}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <div class="brand">
+        <img src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png" alt="OkObserver Logo" />
+        <div style="font-size:0.9em;font-style:italic;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
+      </div>
+      <nav>
+        <a href="#/" id="nav-home">Home</a>
+        <a href="#/about" id="nav-about">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container" id="app"><p class="center">Loading…</p></div>
+  </main>
+
+  <footer>
+    <div class="container" style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:16px 18px">
+      <small>Unofficial demo client. © <span id="year"></span></small>
+      <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
+    </div>
+  </footer>
+
+  <div id="diag" class="diag">
+    <div class="ctl">
+      <strong>Diagnostics</strong>
+      <span style="flex:1"></span>
+      <button type="button" onclick="this.closest('#diag').style.display='none'">Hide</button>
+    </div>
+  </div>
+
+  <script>
+    function renderAbout(){
+      const app=document.getElementById('app');
+      app.innerHTML=`
+        <article class="post about-section">
+          <h1>Contact Us</h1>
+          <p>Please email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we will get back to you during normal business hours. Thank you.</p>
+
+          <h1>About</h1>
+          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades, providing news, analysis and commentary unavailable in Oklahoma’s uniformly conservative mainstream media. Our motto: <em>To comfort the afflicted and afflict the comfortable.</em></p>
+          <ul>
+            <li>Focus: government, politics, and social issues</li>
+            <li>Special emphasis: education, health, welfare, civil liberties, church/state separation</li>
+            <li>Known as the “conscience of Oklahoma” for spotlighting corruption and hypocrisy</li>
+          </ul>
+
+          <p>The Observer began with Father John Joyce, who opposed the Vietnam War and lost church support, but Frosty and Helen Troy carried it forward into Oklahoma’s premier independent journal. For 36 years, Helen was publisher and Frosty editor, amassing state and national awards. In 2006, they partnered with Arnold and Beverly Hamilton to transition the Observer forward. Today, the Hamiltons continue to carry its mission.</p>
+
+          <p><strong>Subscriptions:</strong></p>
+          <ul>
+            <li>Print (12 issues) – $60/year</li>
+            <li>Digital – $40/year</li>
+            <li>Total Access (Print + Digital) – $75/year</li>
+          </ul>
+
+          <h2>Arnold Hamilton, Editor</h2>
+          <p>Arnold Hamilton became editor in September 2006, after a 32-year career in daily newspapers including the <em>Dallas Morning News</em>, <em>San Jose Mercury News</em>, <em>Dallas Times Herald</em>, <em>Tulsa Tribune</em> and <em>Oklahoma Journal</em>.</p>
+          <p>His coverage included state Capitols in Oklahoma, Texas, and California; presidential campaigns; national political conventions; the 1995 Oklahoma City bombing (interviewing bomber Timothy McVeigh); Bill Clinton’s 1992 campaign; and major hurricanes Katrina and Rita.</p>
+          <p>He holds a B.S. in organizational behavior from the University of San Francisco and an M.A. in political science from Oklahoma State University.</p>
+          <p>Honors include two Dallas Press Club Katie Awards, recognition by the American Society of Newspaper Editors, the ACLU’s Fran Morris Civil Liberties in Media Award, and induction into the Oklahoma Journalism Hall of Fame (2011).</p>
+        </article>
+          <div style="margin-top:2em;text-align:center;">
+            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
+          </div>`;
+    }
+
+    function aboutRouteHook(){
+      const hash=location.hash||"#/";
+      if(hash==="#/about"){ renderAbout(); }
+    }
+    window.addEventListener('hashchange', aboutRouteHook);
+    window.addEventListener('DOMContentLoaded', aboutRouteHook);
+  </script>
+  <script src="app.js" defer></script>
+</body>
+</html>
