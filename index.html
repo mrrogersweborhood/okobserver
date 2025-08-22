@@ -47,9 +47,9 @@
         <div style="font-size:0.9em;font-style:italic;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
-        <a href="#/" id="nav-home">Home</a>
-        <a href="#/about" id="nav-about">About</a>
-      </nav>
+  <a href="#/" id="nav-home">Home</a>
+  <a href="#/about" id="nav-about">About</a>
+</nav>
     </div>
   </header>
 
@@ -87,10 +87,13 @@
           </div>
         </article>`;
     }
-    function aboutRouteHook(){
-      const hash=location.hash||"#/";
-      if(hash==="#/about"){ renderAbout(); }
-    }
+    function routeHook(){
+  const hash = location.hash || "#/";
+  if (hash === "#/about") {
+    renderAbout();
+  }
+}
+
     window.addEventListener('hashchange', aboutRouteHook);
     window.addEventListener('DOMContentLoaded', aboutRouteHook);
   </script>
