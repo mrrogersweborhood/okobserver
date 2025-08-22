@@ -1,5 +1,5 @@
-// app.js — OkObserver app logic (v1.4)
-const APP_VERSION = "v1.4";
+// app.js — OkObserver app logic (v1.5)
+const APP_VERSION = "v1.5";
 window.APP_VERSION = APP_VERSION;
 
 console.log(
@@ -80,6 +80,7 @@ function renderHome() {
         const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
         const titleText = p.title?.rendered?.replace(/<[^>]*>/g, "") || "Post image";
         const author = esc(getAuthorName(p));
+        const date = new Date(p.date).toLocaleDateString();
 
         const card = document.createElement("div");
         card.className = "card";
@@ -89,6 +90,7 @@ function renderHome() {
             : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`}
           <div class="card-body">
             <h2 class="title">${p.title.rendered}</h2>
+            <div class="meta">${date}</div>
             ${author ? `<div class="author">${author}</div>` : ""}
             <div class="excerpt">${p.excerpt.rendered}</div>
             <a href="#/post/${p.id}" class="btn">Read more</a>
@@ -133,6 +135,7 @@ async function renderPost(id) {
     }
 
     const author = esc(getAuthorName(p));
+    const date = new Date(p.date).toLocaleDateString();
     const tags = getPostTags(p._embedded?.["wp:term"]);
     const tagsHtml =
       tags.length > 0
@@ -149,8 +152,8 @@ async function renderPost(id) {
     app.innerHTML = `
       <article class="post">
         <h1>${p.title.rendered}</h1>
+        <div class="meta">${date}</div>
         ${author ? `<div class="author">${author}</div>` : ""}
-        <div class="meta">${new Date(p.date).toLocaleDateString()}</div>
         ${p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
           ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
           : ""}
