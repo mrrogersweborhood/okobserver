@@ -90,8 +90,10 @@ function renderHome() {
             : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`}
           <div class="card-body">
             <h2 class="title">${p.title.rendered}</h2>
-            <div class="meta">${date}</div>
-            ${author ? `<div class="author">${author}</div>` : ""}
+            <div class="meta-author-date">
+              ${author ? `<span class="author">${author}</span>` : ""}
+              <span class="date">${date}</span>
+            </div>
             <div class="excerpt">${p.excerpt.rendered}</div>
             <a href="#/post/${p.id}" class="btn">Read more</a>
           </div>
@@ -109,7 +111,6 @@ function renderHome() {
       loading = false;
     }
   }
-
   document.getElementById("loadMore").onclick = load;
   load();
 }
@@ -153,8 +154,10 @@ async function renderPost(id) {
     app.innerHTML = `
       <article class="post">
         <h1>${p.title.rendered}</h1>
-        <div class="meta">${date}</div>
-        ${author ? `<div class="author">${author}</div>` : ""}
+        <div class="meta-author-date">
+          ${author ? `<span class="author">${author}</span>` : ""}
+          <span class="date">${date}</span>
+        </div>
         ${p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
           ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
           : ""}

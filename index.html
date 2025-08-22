@@ -23,22 +23,17 @@
     .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
-    .author{font-size:.85em;color:var(--secondary)}
+    .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
     .excerpt{font-size:.9em;color:#333}
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
-    .post .author{font-size:.9em;color:var(--secondary);margin-bottom:8px}
-    .post .meta{font-size:.85em;color:#555}
+    .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0}
-    .about-section h1, .about-section h2 {color: var(--secondary); margin-top: 1.2em;}
-    .about-section p {line-height: 1.5em; margin: 0.6em 0;}
-    .about-section ul {margin: 0.6em 0 1em 1.5em;}
-    .about-section li {margin-bottom: 0.4em;}
     .diag {position:fixed;bottom:0;left:0;right:0;max-height:160px;overflow-y:auto;background:#111;color:#0f0;font-family:monospace;font-size:.8em}
     .diag .ctl {display:flex;align-items:center;gap:8px;background:#222;color:#ccc;padding:4px 8px;position:sticky;top:0}
     .diag .row {padding:2px 6px;border-bottom:1px solid #333}
@@ -77,20 +72,20 @@
     </div>
   </div>
 
-  <!-- About page (inline) -->
+  <!-- About page (inline, kept small) -->
   <script>
     function renderAbout(){
       const app=document.getElementById('app');
       app.innerHTML=`
-        <article class="post about-section">
+        <article class="post">
           <h1>Contact Us</h1>
           <p>Please email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we will get back to you during normal business hours. Thank you.</p>
           <h1>About</h1>
-          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades ...</p>
-        </article>
-        <div style="margin-top:2em;text-align:center;">
-          <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
-        </div>`;
+          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades, providing news, analysis and commentary unavailable in Oklahoma’s uniformly conservative mainstream media.</p>
+          <div style="margin-top:2em;text-align:center;">
+            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
+          </div>
+        </article>`;
     }
     function aboutRouteHook(){
       const hash=location.hash||"#/";
@@ -100,7 +95,7 @@
     window.addEventListener('DOMContentLoaded', aboutRouteHook);
   </script>
 
-  <!-- Version & footer injection -->
+  <!-- Footer injection & version display -->
   <script>
     window.addEventListener('DOMContentLoaded', function(){
       const y = document.getElementById('year');
@@ -112,7 +107,7 @@
     });
   </script>
 
-  <!-- Load external app code -->
+  <!-- IMPORTANT: external app code kept separate to avoid canvas truncation -->
   <script src="app.js?v=1.6" defer></script>
 </body>
 </html>
