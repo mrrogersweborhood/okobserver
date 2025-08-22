@@ -2,6 +2,13 @@
 const APP_VERSION = "v1.4";
 window.APP_VERSION = APP_VERSION;
 
+console.log(
+  "%cOkObserver %c" + APP_VERSION + "%c — loaded",
+  "font-weight:700;",
+  "color:#1E90FF;font-weight:800;",
+  "color:inherit;"
+);
+
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
 const EXCLUDE_CAT = "cartoon";
 
@@ -166,11 +173,12 @@ function router() {
   } else if (hash.startsWith("#/post/")) {
     renderPost(hash.split("/")[2]);
   } else if (hash === "#/about") {
-    return;
+    return; // handled inline
   } else {
     app.innerHTML = `<div class="error-banner">Page not found</div>`;
   }
 }
+
 window.addEventListener("hashchange", router);
 window.addEventListener("load", () => {
   const yearEl = document.getElementById("year");

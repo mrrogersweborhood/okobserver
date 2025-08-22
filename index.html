@@ -93,27 +93,12 @@
             <li>Special emphasis: education, health, welfare, civil liberties, church/state separation</li>
             <li>Known as the “conscience of Oklahoma” for spotlighting corruption and hypocrisy</li>
           </ul>
-
-          <p>The Observer began with Father John Joyce, who opposed the Vietnam War and lost church support, but Frosty and Helen Troy carried it forward into Oklahoma’s premier independent journal. For 36 years, Helen was publisher and Frosty editor, amassing state and national awards. In 2006, they partnered with Arnold and Beverly Hamilton to transition the Observer forward. Today, the Hamiltons continue to carry its mission.</p>
-
-          <p><strong>Subscriptions:</strong></p>
-          <ul>
-            <li>Print (12 issues) – $60/year</li>
-            <li>Digital – $40/year</li>
-            <li>Total Access (Print + Digital) – $75/year</li>
-          </ul>
-
-          <h2>Arnold Hamilton, Editor</h2>
-          <p>Arnold Hamilton became editor in September 2006, after a 32-year career in daily newspapers including the <em>Dallas Morning News</em>, <em>San Jose Mercury News</em>, <em>Dallas Times Herald</em>, <em>Tulsa Tribune</em> and <em>Oklahoma Journal</em>.</p>
-          <p>His coverage included state Capitols in Oklahoma, Texas, and California; presidential campaigns; national political conventions; the 1995 Oklahoma City bombing (interviewing bomber Timothy McVeigh); Bill Clinton’s 1992 campaign; and major hurricanes Katrina and Rita.</p>
-          <p>He holds a B.S. in organizational behavior from the University of San Francisco and an M.A. in political science from Oklahoma State University.</p>
-          <p>Honors include two Dallas Press Club Katie Awards, recognition by the American Society of Newspaper Editors, the ACLU’s Fran Morris Civil Liberties in Media Award, and induction into the Oklahoma Journalism Hall of Fame (2011).</p>
+          <p>The Observer began with Father John Joyce ...</p>
         </article>
-          <div style="margin-top:2em;text-align:center;">
-            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
-          </div>`;
+        <div style="margin-top:2em;text-align:center;">
+          <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
+        </div>`;
     }
-
     function aboutRouteHook(){
       const hash=location.hash||"#/";
       if(hash==="#/about"){ renderAbout(); }
@@ -122,23 +107,19 @@
     window.addEventListener('DOMContentLoaded', aboutRouteHook);
   </script>
 
-  <!-- Your app logic -->
-  <script>
-    window.APP_VERSION = window.APP_VERSION || undefined;
-    try {
-      if (typeof APP_VERSION !== 'undefined') {
-        window.APP_VERSION = APP_VERSION;
-      }
-    } catch(e) {}
-  </script>
-  <script src="app.js?v=1.4" defer></script>
+  <!-- Footer injection -->
   <script>
     window.addEventListener('DOMContentLoaded', function(){
-      if(window.APP_VERSION){
-        const vEl = document.getElementById('appVersion');
-        if(vEl) vEl.textContent = window.APP_VERSION;
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+      if (window.APP_VERSION) {
+        const v = document.getElementById('appVersion');
+        if (v) v.textContent = window.APP_VERSION;
       }
     });
   </script>
+
+  <!-- Load external app.js -->
+  <script src="app.js?v=1.4" defer></script>
 </body>
 </html>
