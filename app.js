@@ -1,5 +1,6 @@
-// app.js — OkObserver app logic
+// app.js — OkObserver app logic (v1.1)
 
+const APP_VERSION = "v1.1";
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
 const EXCLUDE_CAT = "cartoon"; // filter out cartoon posts
 
@@ -7,6 +8,7 @@ const app = document.getElementById("app");
 const diag = document.getElementById("diag");
 
 function log(msg) {
+  if (!diag) return; // guard: diagnostics strip not present
   const row = document.createElement("div");
   row.className = "row";
   row.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -28,7 +30,7 @@ async function fetchPosts(page = 1) {
     return posts.filter(
       (p) =>
         !p._embedded?.["wp:term"]?.[0]?.some(
-          (cat) => cat.name.toLowerCase() === EXCLUDE_CAT
+          (cat) => cat.name?.toLowerCase() === EXCLUDE_CAT
         )
     );
   } catch (err) {
@@ -43,6 +45,7 @@ async function fetchPosts(page = 1) {
 
 // Render posts grid
 function renderHome() {
+  if (!app) return;
   app.innerHTML = `
     <h1 style="margin:6px 0 16px">Latest Posts</h1>
     <div id="grid" class="grid" aria-live="polite" aria-busy="true"></div>
@@ -53,24 +56,27 @@ function renderHome() {
   const grid = document.getElementById("grid");
   let page = 1;
   let loading = false;
+
   async function load() {
     if (loading) return;
     loading = true;
     try {
       const posts = await fetchPosts(page);
       posts.forEach((p) => {
+        const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
+        const titleText = p.title?.rendered?.replace(/<[^>]*>/g, "") || "Post image";
         const card = document.createElement("div");
         card.className = "card";
         card.innerHTML = `
           ${
-            p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
-              ? `<img class="thumb" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
-              : `<div class="thumb"></div>`
+            media
+              ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="${titleText}"></a>`
+              : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`
           }
           <div class="card-body">
             ${
               p._embedded?.["wp:term"]?.[0]
-                ?.filter((cat) => cat.name.toLowerCase() !== EXCLUDE_CAT)
+                ?.filter((cat) => cat.name?.toLowerCase() !== EXCLUDE_CAT)
                 .map((cat) => `<span class="cat">${cat.name}</span>`)
                 .join(" ") || ""
             }
@@ -83,7 +89,8 @@ function renderHome() {
       });
       page++;
       if (posts.length === 0) {
-        document.getElementById("loadMore").disabled = true;
+        const btn = document.getElementById("loadMore");
+        if (btn) btn.disabled = true;
       }
     } catch (e) {
       grid.innerHTML = `<div class="error-banner">Failed to load posts.</div>`;
@@ -91,19 +98,22 @@ function renderHome() {
       loading = false;
     }
   }
-  document.getElementById("loadMore").onclick = load;
+
+  const lm = document.getElementById("loadMore");
+  if (lm) lm.onclick = load;
   load();
 }
 
 // Render detail view
 async function renderPost(id) {
+  if (!app) return;
   app.innerHTML = `<p class="center">Loading post…</p>`;
   try {
     const res = await fetch(`https://okobserver.org/wp-json/wp/v2/posts/${id}?_embed`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const p = await res.json();
     const excluded = p._embedded?.["wp:term"]?.[0]?.some(
-      (cat) => cat.name.toLowerCase() === EXCLUDE_CAT
+      (cat) => cat.name?.toLowerCase() === EXCLUDE_CAT
     );
     if (excluded) {
       app.innerHTML = `<div class="error-banner">This post is not available.</div>`;
@@ -131,20 +141,34 @@ async function renderPost(id) {
 function router() {
   const hash = location.hash || "#/";
   log(`Routing: ${hash}`);
+  if (!app) return; // guard: HTML shell not present
   if (hash === "#/" || hash === "") {
     renderHome();
   } else if (hash.startsWith("#/post/")) {
     const id = hash.split("/")[2];
     renderPost(id);
   } else if (hash === "#/about") {
-    // About page is handled inline in index.html
+    // About page handled inline in index.html
     return;
   } else {
     app.innerHTML = `<div class="error-banner">Page not found</div>`;
   }
 }
+
 window.addEventListener("hashchange", router);
 window.addEventListener("load", () => {
-  document.getElementById("year").textContent = new Date().getFullYear();
+  const yearEl = document.getElementById("year");
+  if (yearEl) yearEl.textContent = new Date().getFullYear(); // guard
+
+  // Add version tag to footer
+  const footer = document.querySelector("footer .container");
+  if (footer) {
+    const v = document.createElement("small");
+    v.style.marginLeft = "10px";
+    v.style.opacity = "0.7";
+    v.textContent = APP_VERSION;
+    footer.appendChild(v);
+  }
+
   router();
 });
