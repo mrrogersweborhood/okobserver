@@ -1,6 +1,6 @@
-// app.js — OkObserver app logic (v1.1)
+// app.js — OkObserver app logic (v1.3)
 
-const APP_VERSION = "v1.1";
+const APP_VERSION = "v1.3";
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
 const EXCLUDE_CAT = "cartoon";
 
@@ -26,6 +26,7 @@ async function fetchPosts(page = 1) {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const posts = await res.json();
+    // Exclude posts that have the "cartoon" category
     return posts.filter(
       (p) =>
         !p._embedded?.["wp:term"]?.[0]?.some(
@@ -72,12 +73,7 @@ function renderHome() {
               : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`
           }
           <div class="card-body">
-            ${
-              p._embedded?.["wp:term"]?.[0]
-                ?.filter((cat) => cat.name?.toLowerCase() !== EXCLUDE_CAT)
-                .map((cat) => `<span class="cat">${cat.name}</span>`)
-                .join(" ") || ""
-            }
+            <!-- Categories intentionally hidden on summary -->
             <h2 class="title">${p.title.rendered}</h2>
             <div class="excerpt">${p.excerpt.rendered}</div>
             <a href="#/post/${p.id}" class="btn">Read more</a>
@@ -102,6 +98,13 @@ function renderHome() {
   load();
 }
 
+function getPostTags(embeddedTerms) {
+  // WordPress embeds terms grouped by taxonomy arrays, typically:
+  // [ [categories...], [tags...] ]
+  if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
+  return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
+}
+
 async function renderPost(id) {
   if (!app) return;
   app.innerHTML = `<p class="center">Loading post…</p>`;
@@ -109,6 +112,8 @@ async function renderPost(id) {
     const res = await fetch(`https://okobserver.org/wp-json/wp/v2/posts/${id}?_embed`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const p = await res.json();
+
+    // Exclude if the post is in the "cartoon" category
     const excluded = p._embedded?.["wp:term"]?.[0]?.some(
       (cat) => cat.name?.toLowerCase() === EXCLUDE_CAT
     );
@@ -116,6 +121,24 @@ async function renderPost(id) {
       app.innerHTML = `<div class="error-banner">This post is not available.</div>`;
       return;
     }
+
+    // Collect post tags (if any) and render as chips
+    const tags = getPostTags(p._embedded?.["wp:term"]);
+    const tagsHtml =
+      tags.length > 0
+        ? `<div class="tags">
+             <span class="label">Tags:</span>
+             ${tags
+               .map((t) => {
+                 const name = t.name || "tag";
+                 const slug = t.slug || "";
+                 const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
+                 return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener" aria-label="Tag: ${name}">${name}</a>`;
+               })
+               .join("")}
+           </div>`
+        : "";
+
     app.innerHTML = `
       <article class="post">
         <h1>${p.title.rendered}</h1>
@@ -126,7 +149,8 @@ async function renderPost(id) {
             : ""
         }
         <div class="content">${p.content.rendered}</div>
-        <p><a href="#/" class="btn">Back to posts</a></p>
+        ${tagsHtml}
+        <p><a href="#/" class="btn" style="margin-top:16px">Back to posts</a></p>
       </article>
     `;
   } catch (err) {
@@ -164,4 +188,3 @@ window.addEventListener("load", () => {
   }
   router();
 });
-
