@@ -1,6 +1,8 @@
 // app.js — OkObserver app logic (v1.3)
 
 const APP_VERSION = "v1.3";
+window.APP_VERSION = APP_VERSION;
+
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
 const EXCLUDE_CAT = "cartoon";
 
@@ -26,7 +28,6 @@ async function fetchPosts(page = 1) {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const posts = await res.json();
-    // Exclude posts that have the "cartoon" category
     return posts.filter(
       (p) =>
         !p._embedded?.["wp:term"]?.[0]?.some(
@@ -99,8 +100,6 @@ function renderHome() {
 }
 
 function getPostTags(embeddedTerms) {
-  // WordPress embeds terms grouped by taxonomy arrays, typically:
-  // [ [categories...], [tags...] ]
   if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
   return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
 }
@@ -113,7 +112,6 @@ async function renderPost(id) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const p = await res.json();
 
-    // Exclude if the post is in the "cartoon" category
     const excluded = p._embedded?.["wp:term"]?.[0]?.some(
       (cat) => cat.name?.toLowerCase() === EXCLUDE_CAT
     );
@@ -122,21 +120,17 @@ async function renderPost(id) {
       return;
     }
 
-    // Collect post tags (if any) and render as chips
     const tags = getPostTags(p._embedded?.["wp:term"]);
     const tagsHtml =
       tags.length > 0
-        ? `<div class="tags">
-             <span class="label">Tags:</span>
-             ${tags
-               .map((t) => {
-                 const name = t.name || "tag";
-                 const slug = t.slug || "";
-                 const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
-                 return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener" aria-label="Tag: ${name}">${name}</a>`;
-               })
-               .join("")}
-           </div>`
+        ? `<div class="tags"><span class="label">Tags:</span>${tags
+            .map((t) => {
+              const name = t.name || "tag";
+              const slug = t.slug || "";
+              const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
+              return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
+            })
+            .join("")}</div>`
         : "";
 
     app.innerHTML = `
@@ -178,13 +172,5 @@ window.addEventListener("hashchange", router);
 window.addEventListener("load", () => {
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = new Date().getFullYear();
-  const footer = document.querySelector("footer .container");
-  if (footer) {
-    const v = document.createElement("small");
-    v.style.marginLeft = "10px";
-    v.style.opacity = "0.7";
-    v.textContent = APP_VERSION;
-    footer.appendChild(v);
-  }
   router();
 });

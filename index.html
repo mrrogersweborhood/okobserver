@@ -62,7 +62,7 @@
 
   <footer>
     <div class="container" style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:16px 18px">
-      <small>Unofficial demo client. © <span id="year"></span></small>
+      <small>Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span></small>
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
@@ -121,6 +121,25 @@
   </script>
 
   <!-- Your app logic -->
-  <script src="app.js" defer></script>
+  <script>
+    // Expose version globally so index.html can access it
+    // This will be overwritten by app.js if defined
+    window.APP_VERSION = window.APP_VERSION || undefined;
+    try {
+      if (typeof APP_VERSION !== 'undefined') {
+        window.APP_VERSION = APP_VERSION;
+      }
+    } catch(e) {}
+  </script>
+  <script src="app.js?v=1.3" defer></script>
+  <script>
+    // Ensure footer version placeholder is populated from app.js APP_VERSION
+    window.addEventListener('DOMContentLoaded', function(){
+      if(window.APP_VERSION){
+        const vEl = document.getElementById('appVersion');
+        if(vEl) vEl.textContent = window.APP_VERSION;
+      }
+    });
+  </script>
 </body>
 </html>
