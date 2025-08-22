@@ -1,6 +1,5 @@
-// app.js — OkObserver app logic (v1.3)
-
-const APP_VERSION = "v1.3";
+// app.js — OkObserver app logic (v1.4)
+const APP_VERSION = "v1.4";
 window.APP_VERSION = APP_VERSION;
 
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
@@ -17,6 +16,14 @@ function log(msg) {
   diag.appendChild(row);
   diag.scrollTop = diag.scrollHeight;
 }
+
+function esc(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[c]);
+}
+const getAuthorName = (post) =>
+  post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
 
 let controller;
 async function fetchPosts(page = 1) {
@@ -65,17 +72,17 @@ function renderHome() {
       posts.forEach((p) => {
         const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
         const titleText = p.title?.rendered?.replace(/<[^>]*>/g, "") || "Post image";
+        const author = esc(getAuthorName(p));
+
         const card = document.createElement("div");
         card.className = "card";
         card.innerHTML = `
-          ${
-            media
-              ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="${titleText}"></a>`
-              : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`
-          }
+          ${media
+            ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="${titleText}"></a>`
+            : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`}
           <div class="card-body">
-            <!-- Categories intentionally hidden on summary -->
             <h2 class="title">${p.title.rendered}</h2>
+            ${author ? `<div class="author">${author}</div>` : ""}
             <div class="excerpt">${p.excerpt.rendered}</div>
             <a href="#/post/${p.id}" class="btn">Read more</a>
           </div>
@@ -93,9 +100,7 @@ function renderHome() {
       loading = false;
     }
   }
-
-  const lm = document.getElementById("loadMore");
-  if (lm) lm.onclick = load;
+  document.getElementById("loadMore").onclick = load;
   load();
 }
 
@@ -120,6 +125,7 @@ async function renderPost(id) {
       return;
     }
 
+    const author = esc(getAuthorName(p));
     const tags = getPostTags(p._embedded?.["wp:term"]);
     const tagsHtml =
       tags.length > 0
@@ -136,12 +142,11 @@ async function renderPost(id) {
     app.innerHTML = `
       <article class="post">
         <h1>${p.title.rendered}</h1>
+        ${author ? `<div class="author">${author}</div>` : ""}
         <div class="meta">${new Date(p.date).toLocaleDateString()}</div>
-        ${
-          p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
-            ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
-            : ""
-        }
+        ${p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
+          ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
+          : ""}
         <div class="content">${p.content.rendered}</div>
         ${tagsHtml}
         <p><a href="#/" class="btn" style="margin-top:16px">Back to posts</a></p>
@@ -159,15 +164,13 @@ function router() {
   if (hash === "#/" || hash === "") {
     renderHome();
   } else if (hash.startsWith("#/post/")) {
-    const id = hash.split("/")[2];
-    renderPost(id);
+    renderPost(hash.split("/")[2]);
   } else if (hash === "#/about") {
     return;
   } else {
     app.innerHTML = `<div class="error-banner">Page not found</div>`;
   }
 }
-
 window.addEventListener("hashchange", router);
 window.addEventListener("load", () => {
   const yearEl = document.getElementById("year");
