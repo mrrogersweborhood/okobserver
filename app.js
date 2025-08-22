@@ -1,5 +1,5 @@
-// app.js — OkObserver app logic (v1.5)
-const APP_VERSION = "v1.5";
+// app.js — OkObserver app logic (v1.6)
+const APP_VERSION = "v1.6";
 window.APP_VERSION = APP_VERSION;
 
 console.log(
@@ -26,7 +26,7 @@ function log(msg) {
 
 function esc(s) {
   return (s || "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
   })[c]);
 }
 const getAuthorName = (post) =>
