@@ -11,6 +11,7 @@ console.log(
 
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
 const EXCLUDE_CAT = "cartoon";
+const WP_LOGIN_URL = "https://okobserver.org/wp-login";
 
 const app = document.getElementById("app");
 const diag = document.getElementById("diag");
@@ -26,7 +27,11 @@ function log(msg) {
 
 function esc(s) {
   return (s || "").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
   })[c]);
 }
 const getAuthorName = (post) =>
@@ -42,6 +47,7 @@ async function fetchPosts(page = 1) {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const posts = await res.json();
+    // Exclude Cartoon category
     return posts.filter(
       (p) =>
         !p._embedded?.["wp:term"]?.[0]?.some(
@@ -85,9 +91,11 @@ function renderHome() {
         const card = document.createElement("div");
         card.className = "card";
         card.innerHTML = `
-          ${media
-            ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="${titleText}"></a>`
-            : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`}
+          ${
+            media
+              ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="${titleText}"></a>`
+              : `<a href="#/post/${p.id}"><div class="thumb" role="img" aria-label="${titleText}"></div></a>`
+          }
           <div class="card-body">
             <h2 class="title">${p.title.rendered}</h2>
             <div class="meta-author-date">
@@ -111,6 +119,7 @@ function renderHome() {
       loading = false;
     }
   }
+
   document.getElementById("loadMore").onclick = load;
   load();
 }
@@ -128,6 +137,7 @@ async function renderPost(id) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const p = await res.json();
 
+    // Exclude Cartoon posts at detail level
     const excluded = p._embedded?.["wp:term"]?.[0]?.some(
       (cat) => cat.name?.toLowerCase() === EXCLUDE_CAT
     );
@@ -158,9 +168,11 @@ async function renderPost(id) {
           ${author ? `<span class="author">${author}</span>` : ""}
           <span class="date">${date}</span>
         </div>
-        ${p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
-          ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
-          : ""}
+        ${
+          p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
+            ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
+            : ""
+        }
         <div class="content">${p.content.rendered}</div>
         ${tagsHtml}
         <p><a href="#/" class="btn" style="margin-top:16px">Back to posts</a></p>
@@ -169,6 +181,34 @@ async function renderPost(id) {
   } catch (err) {
     app.innerHTML = `<div class="error-banner">Error loading post: ${err.message}</div>`;
   }
+}
+
+/**
+ * Render Login route
+ * - Embeds the OkObserver WordPress login in an iframe.
+ * - Shows a fallback button to open the login page directly if the iframe
+ *   is blocked by browser/security headers or if user prefers full-page view.
+ */
+function renderLogin() {
+  if (!app) return;
+  app.innerHTML = `
+    <article class="post">
+      <h1>Login</h1>
+      <p class="center" style="margin:8px 0 14px;">
+        If the login form doesn’t appear below, use the button to open it directly.
+      </p>
+      <div class="center" style="margin-bottom:12px;">
+        <a class="btn" href="${WP_LOGIN_URL}">Open Login Page</a>
+      </div>
+      <iframe
+        id="loginFrame"
+        src="${WP_LOGIN_URL}"
+        title="OkObserver Login"
+        style="width:100%;height:80vh;border:0;border-radius:10px;background:#fff;"
+      ></iframe>
+    </article>
+  `;
+  log("Rendered login route with iframe + fallback button");
 }
 
 function router() {
@@ -180,7 +220,10 @@ function router() {
   } else if (hash.startsWith("#/post/")) {
     renderPost(hash.split("/")[2]);
   } else if (hash === "#/about") {
-    return; // handled inline
+    // handled inline in index.html script
+    return;
+  } else if (hash === "#/login") {
+    renderLogin();
   } else {
     app.innerHTML = `<div class="error-banner">Page not found</div>`;
   }
