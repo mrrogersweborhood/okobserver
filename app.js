@@ -62,7 +62,7 @@ function renderHome() {
   if (!app) return;
   app.innerHTML = `
     <h1 style="margin:6px 0 16px">Latest Posts</h1>
-    <div id="grid" class="grid" aria-live="polite" aria-busy="true"></div>
+    <div id="grid" class="grid"></div>
     <div class="center" style="margin:20px 0 30px">
       <button id="loadMore" class="btn">Load more</button>
     </div>
@@ -109,6 +109,7 @@ function renderHome() {
       loading = false;
     }
   }
+
   document.getElementById("loadMore").onclick = load;
   load();
 }
