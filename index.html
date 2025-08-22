@@ -119,6 +119,20 @@
     window.addEventListener('DOMContentLoaded', aboutRouteHook);
   </script>
 
+  <!-- Make summary thumbnails clickable -->
+  <script>
+    document.addEventListener('click', function (e) {
+      const thumb = e.target.closest('.thumb');
+      if (!thumb) return;
+      const card = thumb.closest('.card');
+      const link = card && card.querySelector('a.btn[href^="#/post/"]');
+      if (link) {
+        e.preventDefault();
+        location.hash = link.getAttribute('href');
+      }
+    });
+  </script>
+
   <!-- Your app logic -->
   <script src="app.js" defer></script>
 </body>

@@ -2,13 +2,13 @@
 
 const APP_VERSION = "v1.1";
 const API = "https://okobserver.org/wp-json/wp/v2/posts?_embed&per_page=12";
-const EXCLUDE_CAT = "cartoon"; // filter out cartoon posts
+const EXCLUDE_CAT = "cartoon";
 
 const app = document.getElementById("app");
 const diag = document.getElementById("diag");
 
 function log(msg) {
-  if (!diag) return; // guard: diagnostics strip not present
+  if (!diag) return;
   const row = document.createElement("div");
   row.className = "row";
   row.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -16,7 +16,6 @@ function log(msg) {
   diag.scrollTop = diag.scrollHeight;
 }
 
-// Fetch posts with AbortController
 let controller;
 async function fetchPosts(page = 1) {
   if (controller) controller.abort();
@@ -43,7 +42,6 @@ async function fetchPosts(page = 1) {
   }
 }
 
-// Render posts grid
 function renderHome() {
   if (!app) return;
   app.innerHTML = `
@@ -104,7 +102,6 @@ function renderHome() {
   load();
 }
 
-// Render detail view
 async function renderPost(id) {
   if (!app) return;
   app.innerHTML = `<p class="center">Loading post…</p>`;
@@ -137,18 +134,16 @@ async function renderPost(id) {
   }
 }
 
-// Router
 function router() {
   const hash = location.hash || "#/";
   log(`Routing: ${hash}`);
-  if (!app) return; // guard: HTML shell not present
+  if (!app) return;
   if (hash === "#/" || hash === "") {
     renderHome();
   } else if (hash.startsWith("#/post/")) {
     const id = hash.split("/")[2];
     renderPost(id);
   } else if (hash === "#/about") {
-    // About page handled inline in index.html
     return;
   } else {
     app.innerHTML = `<div class="error-banner">Page not found</div>`;
@@ -158,9 +153,7 @@ function router() {
 window.addEventListener("hashchange", router);
 window.addEventListener("load", () => {
   const yearEl = document.getElementById("year");
-  if (yearEl) yearEl.textContent = new Date().getFullYear(); // guard
-
-  // Add version tag to footer
+  if (yearEl) yearEl.textContent = new Date().getFullYear();
   const footer = document.querySelector("footer .container");
   if (footer) {
     const v = document.createElement("small");
@@ -169,6 +162,6 @@ window.addEventListener("load", () => {
     v.textContent = APP_VERSION;
     footer.appendChild(v);
   }
-
   router();
 });
+
