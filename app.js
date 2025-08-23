@@ -1,16 +1,16 @@
-// app.js — OkObserver app logic (v1.7)
-const APP_VERSION = "v1.7";
+// app.js — OkObserver app logic (v1.8) — adds HomeCache for instant back navigation
+const APP_VERSION = "v1.8";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
-  const EXCLUDE_CAT_NAME = "cartoon"; // case-insensitive match
+  const EXCLUDE_CAT_NAME = "cartoon"; // case-insensitive
 
   const app = document.getElementById("app");
 
-  // Error banner helper
-  const showError = function (message) {
+  // ------- Error banner helper -------
+  const showError = (message) => {
     if (!app) return;
     const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
     const banner = document.createElement("div");
@@ -22,7 +22,7 @@ window.APP_VERSION = APP_VERSION;
     app.prepend(banner);
   };
 
-  // Escape HTML
+  // ------- Utilities -------
   const esc = (s) =>
     (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -39,7 +39,16 @@ window.APP_VERSION = APP_VERSION;
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
   };
 
-  // --- Category ID lookup & cache ---
+  // ------- Home view cache (for instant back) -------
+  const HomeCache = {
+    html: "",
+    scrollY: 0,
+    hasData: false,
+    search: "",
+    page: 1, // next page to fetch (informational)
+  };
+
+  // ------- Category ID lookup & cache -------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
 
@@ -49,7 +58,10 @@ window.APP_VERSION = APP_VERSION;
 
     const url = `${BASE}/categories?search=${encodeURIComponent(EXCLUDE_CAT_NAME)}&per_page=100`;
     catLookupInFlight = fetch(url)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((cats) => {
         const match = (cats || []).find((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
         excludeCategoryId = match ? match.id : undefined;
@@ -70,16 +82,27 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
-  // --- AbortControllers ---
+  // ------- AbortControllers to kill stale requests -------
   let listController = null;
   let itemController = null;
 
-  function abortList() { if (listController) listController.abort(); }
-  function abortItem() { if (itemController) itemController.abort(); }
+  function abortList() {
+    if (listController) {
+      listController.abort();
+      listController = null;
+    }
+  }
+  function abortItem() {
+    if (itemController) {
+      itemController.abort();
+      itemController = null;
+    }
+  }
 
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
+
     let catId = await getExcludeCategoryId().catch(() => undefined);
     const url = buildPostsUrl({ page, search }, catId);
 
@@ -89,8 +112,8 @@ window.APP_VERSION = APP_VERSION;
       const posts = await res.json();
       return posts.filter((p) => !hasExcludedCategory(p));
     } catch (err) {
-      if (err.name === "AbortError") return [];
-      showError(`Failed to load posts: ${err.message}`);
+      if (err && err.name === "AbortError") return [];
+      showError(`Failed to load posts: ${err?.message || err}`);
       return [];
     } finally {
       listController = null;
@@ -100,31 +123,38 @@ window.APP_VERSION = APP_VERSION;
   async function fetchPostById(id) {
     abortItem();
     itemController = new AbortController();
+    const url = `${BASE}/posts/${id}?_embed=1`;
     try {
-      const res = await fetch(`${BASE}/posts/${id}?_embed=1`, { signal: itemController.signal });
+      const res = await fetch(url, { signal: itemController.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
-      if (err.name === "AbortError") return null;
+      if (err && err.name === "AbortError") return null;
       throw err;
     } finally {
       itemController = null;
     }
   }
 
-  // --- Render Home ---
+  // ------- Renderers -------
   function renderHome({ search = "" } = {}) {
+    // Reset/record cache keys for this home session
+    HomeCache.search = search || "";
+    HomeCache.page = 1;
+
     app.innerHTML = `
       <h1>Latest Posts</h1>
       <div id="grid" class="grid"></div>
-      <div class="center" id="pager"><button id="loadMore" class="btn">Load more</button></div>
+      <div class="center" id="pager">
+        <button id="loadMore" class="btn">Load more</button>
+      </div>
     `;
 
     const grid = document.getElementById("grid");
-    const pager = document.getElementById("pager");
     const moreBtn = document.getElementById("loadMore");
 
-    let page = 1, loading = false;
+    let page = 1;
+    let loading = false;
 
     async function load() {
       if (loading) return;
@@ -135,20 +165,24 @@ window.APP_VERSION = APP_VERSION;
           const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
           const author = esc(getAuthorName(p));
           const date = new Date(p.date).toLocaleDateString();
+
           const card = document.createElement("div");
           card.className = "card";
           card.innerHTML = `
-            ${ media
+            ${
+              media
                 ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
-                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>`
+            }
             <div class="card-body">
               <h2 class="title">
-  <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
-    ${p.title.rendered}
-  </a>
-</h2>
+                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+                  ${p.title.rendered}
+                </a>
+              </h2>
               <div class="meta-author-date">
-                ${author ? `<span class="author">${author}</span>` : ""}<span class="date">${date}</span>
+                ${author ? `<span class="author">${author}</span>` : ""}
+                <span class="date">${date}</span>
               </div>
               <div class="excerpt">${p.excerpt.rendered}</div>
               <a href="#/post/${p.id}" class="btn">Read more</a>
@@ -156,25 +190,53 @@ window.APP_VERSION = APP_VERSION;
           `;
           grid.appendChild(card);
         });
+
         page++;
-        if (posts.length === 0) moreBtn.disabled = true;
+        HomeCache.page = page;
+
+        // Update cache after each successful batch
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = grid.children.length > 0;
       } catch (e) {
         showError(e);
-      } finally { loading = false; }
+      } finally {
+        loading = false;
+      }
+
+      // If fewer than a page came back, disable the button
+      try {
+        if (!moreBtn) return;
+        if (page === 2 && !HomeCache.hasData) {
+          // first batch yielded nothing
+          moreBtn.disabled = true;
+        }
+      } catch {}
     }
 
-    moreBtn.onclick = load;
+    // expose load() so we can re-wire it when restoring from cache
+    window._homeLoadMore = load;
+    if (moreBtn) {
+      moreBtn._wired = true;
+      moreBtn.onclick = load;
+    }
+
+    // initial batch
     load();
   }
 
-  // --- Render Post ---
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
+
     try {
       const p = await fetchPostById(id);
-      if (!p) return;
+      if (!p) return; // aborted
+
+      // Exclude Cartoon in detail, too
       if (hasExcludedCategory(p)) {
-        showError("This post is not available.");
+        app.innerHTML = `<div class="error-banner">
+          <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+          This post is not available.
+        </div>`;
         return;
       }
 
@@ -182,46 +244,103 @@ window.APP_VERSION = APP_VERSION;
       const date = new Date(p.date).toLocaleDateString();
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const tagsHtml = tags.length
-        ? `<div class="tags"><span>Tags:</span>${tags.map(t =>
-            `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`
-          ).join("")}</div>` : "";
+        ? `<div class="tags"><span class="label" style="margin-right:6px;">Tags:</span>${tags
+            .map((t) => {
+              const name = esc(t.name || "tag");
+              const slug = t.slug || "";
+              const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
+              return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
+            })
+            .join("")}</div>`
+        : "";
+
       const hero = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
-        ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">` : "";
+        ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
+        : "";
 
       app.innerHTML = `
         <article class="post">
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
-          <div class="meta-author-date">${author ? `<span>${author}</span>` : ""}<span>${date}</span></div>
+          <div class="meta-author-date">
+            ${author ? `<span class="author">${author}</span>` : ""}
+            <span class="date">${date}</span>
+          </div>
           ${hero}
           <div class="content">${p.content.rendered}</div>
           ${tagsHtml}
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>
       `;
     } catch (err) {
-      showError(`Error loading post: ${err.message}`);
+      app.innerHTML = `<div class="error-banner">
+        <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+        Error loading post: ${err?.message || err}
+      </div>`;
     }
   }
 
-  // --- Router ---
+  // ------- Router with HomeCache restore -------
   function router() {
     const hash = location.hash || "#/";
-    if (hash === "#/" || hash === "") { abortItem(); renderHome(); return; }
-    if (hash.startsWith("#/post/")) { abortList(); renderPost(hash.split("/")[2]); return; }
+
+    if (hash === "#/" || hash === "") {
+      // If we have a cached home view, restore it instantly (no fetch, no repaint flicker)
+      if (HomeCache.hasData && HomeCache.html) {
+        app.innerHTML = HomeCache.html;
+
+        // re-wire Load more button to the real loader
+        const moreBtn = document.getElementById("loadMore");
+        if (moreBtn && !moreBtn._wired && typeof window._homeLoadMore === "function") {
+          moreBtn._wired = true;
+          moreBtn.onclick = window._homeLoadMore;
+        }
+
+        // restore scroll after DOM paints
+        requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
+        return;
+      }
+
+      // first entry or cache cleared: render afresh
+      abortItem();
+      renderHome({ search: HomeCache.search || "" });
+      return;
+    }
+
+    if (hash.startsWith("#/post/")) {
+      // capture home state before leaving
+      if (app && app.querySelector("#grid")) {
+        HomeCache.scrollY = window.scrollY;
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = true;
+      }
+      abortList();
+      const id = hash.split("/")[2];
+      renderPost(id);
+      return;
+    }
+
     if (hash.startsWith("#/search")) {
       abortItem();
       const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
+      // Search is a different dataset—clear home cache so results are consistent
+      HomeCache.html = "";
+      HomeCache.hasData = false;
+      HomeCache.search = q;
       renderHome({ search: q });
       return;
     }
-    showError("Page not found");
+
+    app.innerHTML = `<div class="error-banner">
+      <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+      Page not found
+    </div>`;
   }
 
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
 
-  // Global error handlers
+  // ------- Global error handlers -------
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => {
     showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`);
