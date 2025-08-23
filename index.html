@@ -10,8 +10,7 @@
     header {background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
     .container{max-width:1100px;margin:0 auto;padding:18px}
     .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
-    .brand img {height:40px;margin-right:10px}
-    .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600}
+    .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
     nav {margin-left:auto;display:flex;gap:10px}
     nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
     nav a:hover {background:rgba(255,255,255,0.2);border-radius:6px}
@@ -33,23 +32,21 @@
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
-    .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0}
-    .diag {position:fixed;bottom:0;left:0;right:0;max-height:160px;overflow-y:auto;background:#111;color:#0f0;font-family:monospace;font-size:.8em}
-    .diag .ctl {display:flex;align-items:center;gap:8px;background:#222;color:#ccc;padding:4px 8px;position:sticky;top:0}
-    .diag .row {padding:2px 6px;border-bottom:1px solid #333}
+    .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
+    .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
+    .error-banner .close:hover{opacity:.8}
   </style>
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
-        <img src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png" alt="OkObserver Logo" />
-        <div style="font-size:0.9em;font-style:italic;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div style="font-size:0.9em;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
-  <a href="#/" id="nav-home">Home</a>
-  <a href="#/about" id="nav-about">About</a>
-</nav>
+        <a href="#/" id="nav-home">Home</a>
+        <a href="#/about" id="nav-about">About</a>
+      </nav>
     </div>
   </header>
 
@@ -63,14 +60,6 @@
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
-
-  <div id="diag" class="diag">
-    <div class="ctl">
-      <strong>Diagnostics</strong>
-      <span style="flex:1"></span>
-      <button type="button" onclick="this.closest('#diag').style.display='none'">Hide</button>
-    </div>
-  </div>
 
   <!-- About page (inline, kept small) -->
   <script>
@@ -88,14 +77,40 @@
         </article>`;
     }
     function routeHook(){
-  const hash = location.hash || "#/";
-  if (hash === "#/about") {
-    renderAbout();
-  }
-}
+      const hash=location.hash||"#/";
+      if(hash==="#/about"){ renderAbout(); }
+    }
+    window.addEventListener('hashchange', routeHook);
+    window.addEventListener('DOMContentLoaded', routeHook);
 
-    window.addEventListener('hashchange', aboutRouteHook);
-    window.addEventListener('DOMContentLoaded', aboutRouteHook);
+    // Error banner helper
+    function showError(message) {
+      const host=document.getElementById("app");
+      if(!host) return;
+      const banner=document.createElement("div");
+      banner.className="error-banner";
+      const msg=(message && message.message)?message.message:String(message||"Something went wrong.");
+      banner.innerHTML=`<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${msg}`;
+      host.prepend(banner);
+    }
+
+    // Global error handlers
+    window.addEventListener("error", (e)=>{
+      showError(`Runtime error: ${e.message||"Unknown error"}`);
+    });
+    window.addEventListener("unhandledrejection", (e)=>{
+      const msg=e && e.reason && e.reason.message?e.reason.message:String(e && e.reason||"Unknown promise rejection");
+      showError(`Unhandled promise rejection: ${msg}`);
+    });
+
+    // Dismiss error banners
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.error-banner .close');
+      if (btn) {
+        const banner = btn.closest('.error-banner');
+        if (banner) banner.remove();
+      }
+    });
   </script>
 
   <!-- Footer injection & version display -->
@@ -111,6 +126,6 @@
   </script>
 
   <!-- IMPORTANT: external app code kept separate to avoid canvas truncation -->
-  <script src="app.js?v=1.6" defer></script>
+  <script src="app.js?v=1.7" defer></script>
 </body>
 </html>
