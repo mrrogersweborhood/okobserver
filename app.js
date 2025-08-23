@@ -142,7 +142,11 @@ window.APP_VERSION = APP_VERSION;
                 ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
                 : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
             <div class="card-body">
-              <h2 class="title">${p.title.rendered}</h2>
+              <h2 class="title">
+  <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+    ${p.title.rendered}
+  </a>
+</h2>
               <div class="meta-author-date">
                 ${author ? `<span class="author">${author}</span>` : ""}<span class="date">${date}</span>
               </div>
