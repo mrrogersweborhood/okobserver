@@ -1,4 +1,5 @@
-// app.js — OkObserver app logic (v1.8) — adds HomeCache for instant back navigation
+// OkObserver app.js v1.8 — added home cache & scroll restore
+
 const APP_VERSION = "v1.8";
 window.APP_VERSION = APP_VERSION;
 
@@ -274,75 +275,4 @@ window.APP_VERSION = APP_VERSION;
       `;
     } catch (err) {
       app.innerHTML = `<div class="error-banner">
-        <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
-        Error loading post: ${err?.message || err}
-      </div>`;
-    }
-  }
-
-  // ------- Router with HomeCache restore -------
-  function router() {
-    const hash = location.hash || "#/";
-
-    if (hash === "#/" || hash === "") {
-      // If we have a cached home view, restore it instantly (no fetch, no repaint flicker)
-      if (HomeCache.hasData && HomeCache.html) {
-        app.innerHTML = HomeCache.html;
-
-        // re-wire Load more button to the real loader
-        const moreBtn = document.getElementById("loadMore");
-        if (moreBtn && !moreBtn._wired && typeof window._homeLoadMore === "function") {
-          moreBtn._wired = true;
-          moreBtn.onclick = window._homeLoadMore;
-        }
-
-        // restore scroll after DOM paints
-        requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
-        return;
-      }
-
-      // first entry or cache cleared: render afresh
-      abortItem();
-      renderHome({ search: HomeCache.search || "" });
-      return;
-    }
-
-    if (hash.startsWith("#/post/")) {
-      // capture home state before leaving
-      if (app && app.querySelector("#grid")) {
-        HomeCache.scrollY = window.scrollY;
-        HomeCache.html = app.innerHTML;
-        HomeCache.hasData = true;
-      }
-      abortList();
-      const id = hash.split("/")[2];
-      renderPost(id);
-      return;
-    }
-
-    if (hash.startsWith("#/search")) {
-      abortItem();
-      const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
-      // Search is a different dataset—clear home cache so results are consistent
-      HomeCache.html = "";
-      HomeCache.hasData = false;
-      HomeCache.search = q;
-      renderHome({ search: q });
-      return;
-    }
-
-    app.innerHTML = `<div class="error-banner">
-      <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
-      Page not found
-    </div>`;
-  }
-
-  window.addEventListener("hashchange", router);
-  window.addEventListener("load", router);
-
-  // ------- Global error handlers -------
-  window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e) => {
-    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`);
-  });
-})();
+        <button class="close"
