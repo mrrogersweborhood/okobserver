@@ -117,10 +117,13 @@ window.APP_VERSION = APP_VERSION;
     app.innerHTML = `
       <h1>Latest Posts</h1>
       <div id="grid" class="grid"></div>
-      <div class="center"><button id="loadMore" class="btn">Load more</button></div>
+      <div class="center" id="pager"><button id="loadMore" class="btn">Load more</button></div>
     `;
 
     const grid = document.getElementById("grid");
+    const pager = document.getElementById("pager");
+    const moreBtn = document.getElementById("loadMore");
+
     let page = 1, loading = false;
 
     async function load() {
@@ -150,13 +153,13 @@ window.APP_VERSION = APP_VERSION;
           grid.appendChild(card);
         });
         page++;
-        if (!posts.length) document.getElementById("loadMore").disabled = true;
+        if (posts.length === 0) moreBtn.disabled = true;
       } catch (e) {
         showError(e);
       } finally { loading = false; }
     }
 
-    document.getElementById("loadMore").onclick = load;
+    moreBtn.onclick = load;
     load();
   }
 
@@ -176,7 +179,7 @@ window.APP_VERSION = APP_VERSION;
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const tagsHtml = tags.length
         ? `<div class="tags"><span>Tags:</span>${tags.map(t =>
-            `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank">${esc(t.name)}</a>`
+            `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`
           ).join("")}</div>` : "";
       const hero = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
         ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">` : "";

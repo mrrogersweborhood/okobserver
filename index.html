@@ -126,6 +126,46 @@
   </script>
 
   <!-- IMPORTANT: external app code kept separate to avoid canvas truncation -->
-  <script src="app.js?v=1.7" defer></script>
+  <script src="./app.js?v=1.7" defer></script>
+
+  <!-- UX helper: keep pager hidden until first posts render; show empty-state if none -->
+  <style>#pager{display:none}</style>
+  <script>
+    (function(){
+      const app=document.getElementById('app');
+      if(!app) return;
+      const FIRST_BATCH_TIMEOUT=5000; // ms
+
+      function applyPagerLogic(){
+        const grid=app.querySelector('#grid');
+        const pager=app.querySelector('#pager');
+        if(!grid||!pager) return; // home not mounted yet
+        pager.style.display='none'; // start hidden
+
+        // When a card appears, show pager
+        const mo=new MutationObserver(()=>{
+          if(grid.querySelector('.card')){
+            pager.style.display='block';
+            mo.disconnect();
+          }
+        });
+        mo.observe(grid,{childList:true,subtree:false});
+
+        // After timeout, if no posts and no error banner, show empty-state
+        setTimeout(()=>{
+          if(!grid.querySelector('.card') && !app.querySelector('.error-banner')){
+            grid.innerHTML = '<p class="center">No posts found.</p>';
+            pager.style.display='none';
+          }
+        }, FIRST_BATCH_TIMEOUT);
+      }
+
+      // Run when home mounts and on route changes
+      const rootMo=new MutationObserver(()=>applyPagerLogic());
+      rootMo.observe(app,{childList:true,subtree:true});
+      window.addEventListener('hashchange',()=>setTimeout(applyPagerLogic,0));
+      document.addEventListener('DOMContentLoaded',()=>setTimeout(applyPagerLogic,0));
+    })();
+  </script>
 </body>
 </html>
