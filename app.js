@@ -132,7 +132,6 @@ window.APP_VERSION = APP_VERSION;
     const catId = await getExcludeCategoryId().catch(() => undefined);
     const url = buildPostsUrl({ page, search }, catId);
 
-    // simple retry for transient errors
     const tryFetch = async (attempt = 1) => {
       const res = await fetch(url, { signal: listController.signal });
       if (!res.ok) {
@@ -254,7 +253,6 @@ window.APP_VERSION = APP_VERSION;
         }
 
         if (batch.posts.length > 0) state.page++;
-
         if (state.page > state.totalPages) state.ended = true;
 
         HomeCache.html = app.innerHTML;
@@ -273,7 +271,6 @@ window.APP_VERSION = APP_VERSION;
       }
     }
 
-    // Debounced loader
     let guard = false;
     window._homeLoadMore = function () {
       if (guard) return;
@@ -281,7 +278,7 @@ window.APP_VERSION = APP_VERSION;
       Promise.resolve().then(loadNextBatch).finally(() => { guard = false; });
     };
 
-    window._homeLoadMore(); // initial batch
+    window._homeLoadMore();
   }
 
   // ------- Render Post -------
