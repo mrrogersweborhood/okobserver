@@ -1,10 +1,12 @@
-// app.js — OkObserver app logic (v1.14)
-// Author is bold+blue, date is black+regular (no <strong>).
-const APP_VERSION = "v1.14";
+// app.js — OkObserver app logic (v1.15)
+// Restored infinite scroll + caching + AbortControllers.
+// Author is bold+blue, date is black+regular (no <strong> on date).
+// Links in excerpts/content open in new tabs. Cartoon posts excluded (API + client).
+const APP_VERSION = "v1.15";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
-  const BASE = "/wp-json/wp/v2";  // same-site path
+  const BASE = "/wp-json/wp/v2";  // same-origin WP REST
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
 
@@ -20,6 +22,12 @@ window.APP_VERSION = APP_VERSION;
     app.prepend(banner);
   };
 
+  // Dismiss error banners
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".error-banner .close");
+    if (btn) btn.closest(".error-banner")?.remove();
+  });
+
   // ------- Utilities -------
   const esc = (s) =>
     (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -33,7 +41,7 @@ window.APP_VERSION = APP_VERSION;
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
   };
 
-  // Pretty date formatter (e.g., January 1st, 2025)
+  // Date formatter (e.g., January 1st, 2025)
   function formatDateWithOrdinal(dateString) {
     const d = new Date(dateString);
     const day = d.getDate();
@@ -51,10 +59,10 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Home view cache -------
+  // ------- Home view cache (for back navigation performance) -------
   const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
 
-  // ------- Category ID lookup -------
+  // ------- Category ID lookup (for API-level exclusion) -------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -82,13 +90,13 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
-  // ------- AbortControllers -------
+  // ------- AbortControllers to avoid stale updates -------
   let listController = null;
   let itemController = null;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch posts -------
+  // ------- Fetch helpers -------
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
@@ -98,7 +106,7 @@ window.APP_VERSION = APP_VERSION;
     try {
       const res = await fetch(url, { signal: listController.signal });
       if (!res.ok) {
-        if (res.status === 400) return { posts: [], totalPages: 1 };
+        if (res.status === 400) return { posts: [], totalPages: 1 }; // out-of-range page, etc.
         throw new Error(`HTTP ${res.status}`);
       }
       const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
@@ -128,7 +136,7 @@ window.APP_VERSION = APP_VERSION;
 
   const seenIds = new Set();
 
-  // ------- Render Home -------
+  // ------- Render Home (infinite scroll) -------
   function renderHome({ search = "" } = {}) {
     const state = window._homeState = { search, page: 1, totalPages: Infinity, loading: false, ended: false };
     seenIds.clear();
@@ -186,7 +194,7 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // 🔗 Ensure links in summary excerpts open in new tab
+            // 🔗 Ensure links in summary excerpts open in a new tab
             const excerptEl = card.querySelector(".excerpt");
             if (excerptEl) {
               excerptEl.querySelectorAll("a[href]").forEach(link => {
@@ -202,10 +210,12 @@ window.APP_VERSION = APP_VERSION;
           if (state.page > state.totalPages) state.ended = true;
         }
 
+        // Cache the current home HTML for fast back nav
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
         HomeCache.page = state.page;
         HomeCache.search = state.search;
+        HomeCache.scrollY = window.scrollY;
 
         if (state.ended) setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
         else setStatus("");
@@ -215,6 +225,7 @@ window.APP_VERSION = APP_VERSION;
       } finally { state.loading = false; }
     }
 
+    // IntersectionObserver for infinite scroll
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && !state.loading && !state.ended) {
@@ -224,6 +235,8 @@ window.APP_VERSION = APP_VERSION;
     }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
     io.observe(sentinel);
+
+    // Kick off initial load
     loadNextBatch(PER_PAGE);
   }
 
@@ -266,4 +279,78 @@ window.APP_VERSION = APP_VERSION;
           <div class="content">${p.content.rendered}</div>
           ${tagsHtml}
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
-        </article
+        </article>
+      `;
+
+      // 🔗 Ensure links in post content open in a new tab
+      const contentEl = app.querySelector(".content");
+      if (contentEl) {
+        const links = contentEl.querySelectorAll("a[href]");
+        links.forEach(link => {
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noopener");
+        });
+      }
+    } catch (err) {
+      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
+    }
+  }
+
+  // ------- Simple About -------
+  function renderAbout(){
+    app.innerHTML = `
+      <article class="post">
+        <h1>About</h1>
+        <p><strong>OkObserver</strong> is an unofficial reader for okobserver.org.</p>
+        <p>For official info, visit <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>.</p>
+      </article>
+    `;
+  }
+
+  // ------- Router with cache restore -------
+  function router() {
+    const hash = location.hash || "#/";
+
+    if (hash === "#/" || hash === "") {
+      // If we have cached HTML from prior session, restore instantly
+      if (HomeCache.hasData && HomeCache.html) {
+        app.innerHTML = HomeCache.html;
+        requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
+        return;
+      }
+      abortItem();
+      renderHome({ search: HomeCache.search || "" });
+      return;
+    }
+
+    if (hash.startsWith("#/post/")) {
+      // Persist cache and current scroll before leaving list
+      if (app && app.querySelector("#grid")) {
+        HomeCache.scrollY = window.scrollY;
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = true;
+      }
+      abortList();
+      renderPost(hash.split("/")[2]);
+      return;
+    }
+
+    if (hash.startsWith("#/search")) {
+      abortItem();
+      const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
+      HomeCache.html = ""; HomeCache.hasData = false; HomeCache.search = q;
+      renderHome({ search: q }); return;
+    }
+
+    if (hash === "#/about") { abortList(); abortItem(); renderAbout(); return; }
+
+    app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
+  }
+
+  window.addEventListener("hashchange", router);
+  window.addEventListener("load", router);
+
+  // Global error handlers → visible banners
+  window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
+  window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
+})();
