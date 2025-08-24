@@ -1,4 +1,6 @@
-// app.js — OkObserver app logic (v1.8) — adds HomeCache for instant back navigation
+// app.js — OkObserver app logic (v1.8)
+// Features: HomeCache, AbortController, Cartoon exclusion, clickable image+title,
+// author/date meta, tags on detail, robust Load more, error banners.
 const APP_VERSION = "v1.8";
 window.APP_VERSION = APP_VERSION;
 
@@ -112,20 +114,45 @@ window.APP_VERSION = APP_VERSION;
     }
   }
 
+  // ------- Global delegated click for Load more -------
+  document.addEventListener("click", (e) => {
+    const btn = e.target && e.target.closest && e.target.closest("#loadMore");
+    if (!btn) return;
+    if (typeof window._homeLoadMore === "function") {
+      e.preventDefault();
+      window._homeLoadMore();
+    }
+  });
+
+  // ------- Fetch posts -------
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
 
-    let catId = await getExcludeCategoryId().catch(() => undefined);
+    const catId = await getExcludeCategoryId().catch(() => undefined);
     const url = buildPostsUrl({ page, search }, catId);
 
-    try {
+    // simple retry for transient errors
+    const tryFetch = async (attempt = 1) => {
       const res = await fetch(url, { signal: listController.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 400) {
+          return { posts: [], totalPages: Number(res.headers.get("X-WP-TotalPages") || "1") };
+        }
+        if ((res.status === 429 || res.status >= 500) && attempt < 2) {
+          await new Promise(r => setTimeout(r, 300 * attempt));
+          return tryFetch(attempt + 1);
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
       const items = await res.json();
       const posts = items.filter((p) => !hasExcludedCategory(p));
       return { posts, totalPages };
+    };
+
+    try {
+      return await tryFetch();
     } catch (err) {
       if (err && err.name === "AbortError") return { posts: [], totalPages: 1 };
       showError(`Failed to load posts: ${err?.message || err}`);
@@ -153,8 +180,13 @@ window.APP_VERSION = APP_VERSION;
 
   // ------- Render Home -------
   function renderHome({ search = "" } = {}) {
-    HomeCache.search = search || "";
-    HomeCache.page = 1;
+    const state = window._homeState = {
+      search: search || "",
+      page: 1,
+      totalPages: Infinity,
+      loading: false,
+      ended: false,
+    };
 
     app.innerHTML = `
       <h1>Latest Posts</h1>
@@ -167,29 +199,33 @@ window.APP_VERSION = APP_VERSION;
     const grid = document.getElementById("grid");
     const moreBtn = document.getElementById("loadMore");
 
-    let page = 1;
-    let loading = false;
-    let totalPages = Infinity;
+    const setBtn = (busy) => {
+      if (!moreBtn) return;
+      moreBtn.setAttribute("aria-busy", busy ? "true" : "false");
+      moreBtn.textContent = busy ? "Loading…" : (state.ended ? "No more posts" : "Load more");
+      moreBtn.disabled = !!busy || state.ended;
+    };
 
-    async function load() {
-      if (loading) return;
-      loading = true;
-      if (moreBtn) {
-        moreBtn.setAttribute("aria-busy", "true");
-        moreBtn.textContent = "Loading…";
-      }
+    async function loadNextBatch() {
+      if (state.loading || state.ended) return;
+      state.loading = true;
+      setBtn(true);
 
       try {
-        let batch = { posts: [], totalPages: totalPages === Infinity ? undefined : totalPages };
-        let guard = 0;
+        let batch = { posts: [], totalPages: state.totalPages === Infinity ? undefined : state.totalPages };
+        let skips = 0;
         do {
-          batch = await fetchPosts({ page, search });
-          if (totalPages === Infinity) totalPages = batch.totalPages || 1;
-          if (batch.posts.length === 0) page++;
-          guard++;
-        } while (batch.posts.length === 0 && page <= totalPages && guard < 5);
+          batch = await fetchPosts({ page: state.page, search: state.search });
+          if (state.totalPages === Infinity) state.totalPages = batch.totalPages || 1;
 
-        batch.posts.forEach((p) => {
+          if (batch.posts.length === 0) {
+            state.page++;
+            skips++;
+          }
+          if (state.page > state.totalPages) break;
+        } while (batch.posts.length === 0 && skips < 5);
+
+        for (const p of batch.posts) {
           const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
           const author = esc(getAuthorName(p));
           const date = new Date(p.date).toLocaleDateString();
@@ -215,37 +251,37 @@ window.APP_VERSION = APP_VERSION;
             </div>
           `;
           grid.appendChild(card);
-        });
+        }
 
-        if (batch.posts.length > 0) page++;
-        HomeCache.page = page;
+        if (batch.posts.length > 0) state.page++;
+
+        if (state.page > state.totalPages) state.ended = true;
+
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
+        HomeCache.page = state.page;
+        HomeCache.search = state.search;
 
-        const noMore = page > totalPages;
-        if (moreBtn) moreBtn.disabled = noMore;
-
-        if (grid.children.length === 0 && noMore) {
+        if (!HomeCache.hasData && state.ended) {
           grid.innerHTML = `<p class="center">No posts found.</p>`;
         }
       } catch (e) {
         showError(e);
       } finally {
-        loading = false;
-        if (moreBtn) {
-          moreBtn.setAttribute("aria-busy", "false");
-          moreBtn.textContent = moreBtn.disabled ? "No more posts" : "Load more";
-        }
+        state.loading = false;
+        setBtn(false);
       }
     }
 
-    window._homeLoadMore = load;
-    if (moreBtn) {
-      moreBtn._wired = true;
-      moreBtn.onclick = load;
-    }
+    // Debounced loader
+    let guard = false;
+    window._homeLoadMore = function () {
+      if (guard) return;
+      guard = true;
+      Promise.resolve().then(loadNextBatch).finally(() => { guard = false; });
+    };
 
-    load();
+    window._homeLoadMore(); // initial batch
   }
 
   // ------- Render Post -------
@@ -257,10 +293,7 @@ window.APP_VERSION = APP_VERSION;
       if (!p) return;
 
       if (hasExcludedCategory(p)) {
-        app.innerHTML = `<div class="error-banner">
-          <button class="close">×</button>
-          This post is not available.
-        </div>`;
+        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
       }
 
@@ -297,10 +330,7 @@ window.APP_VERSION = APP_VERSION;
         </article>
       `;
     } catch (err) {
-      app.innerHTML = `<div class="error-banner">
-        <button class="close">×</button>
-        Error loading post: ${err?.message || err}
-      </div>`;
+      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
     }
   }
 
@@ -311,11 +341,6 @@ window.APP_VERSION = APP_VERSION;
     if (hash === "#/" || hash === "") {
       if (HomeCache.hasData && HomeCache.html) {
         app.innerHTML = HomeCache.html;
-        const moreBtn = document.getElementById("loadMore");
-        if (moreBtn && !moreBtn._wired && typeof window._homeLoadMore === "function") {
-          moreBtn._wired = true;
-          moreBtn.onclick = window._homeLoadMore;
-        }
         requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
         return;
       }
@@ -346,10 +371,7 @@ window.APP_VERSION = APP_VERSION;
       return;
     }
 
-    app.innerHTML = `<div class="error-banner">
-      <button class="close">×</button>
-      Page not found
-    </div>`;
+    app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
   }
 
   window.addEventListener("hashchange", router);
