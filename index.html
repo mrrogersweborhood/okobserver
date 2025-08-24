@@ -24,13 +24,41 @@
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
     .title a {color:inherit;text-decoration:none}
     .title a:hover {text-decoration:underline}
-    .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+
+    /* 🔹 Summary card meta */
+    .meta-author-date{
+      font-size:.85em;
+      color:var(--secondary);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-bottom:4px;
+    }
+    .meta-author-date .author,
+    .meta-author-date .date {
+      font-weight:bold;
+    }
+
     .excerpt{font-size:.9em;color:#333}
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
-    .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+
+    /* 🔹 Detail page meta */
+    .post .meta-author-date{
+      font-size:.9em;
+      color:var(--secondary);
+      margin-bottom:8px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .post .meta-author-date .author,
+    .post .meta-author-date .date {
+      font-weight:bold;
+    }
+
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
@@ -79,6 +107,7 @@
     });
   </script>
 
-  <script src="./app.js?v=1.9" defer></script>
+  <!-- 🔹 Reference to new app.js v1.11 -->
+  <script src="./app.js?v=1.11" defer></script>
 </body>
 </html>

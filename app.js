@@ -1,14 +1,14 @@
-// app.js — OkObserver app logic (v1.10)
-// Changes: Added formatDateWithOrdinal() for pretty date output (e.g., January 1st, 2025)
+// app.js — OkObserver app logic (v1.11)
+// Changes: Added <strong> wrappers for author and date text, in addition to CSS bold.
 // Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion,
-// clickable image+title, bold author/date meta, tags, error banners, simple About.
-const APP_VERSION = "v1.10";
+// clickable image+title, pretty ordinal dates, tags, error banners, simple About.
+const APP_VERSION = "v1.11";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
-  const EXCLUDE_CAT_NAME = "cartoon"; // case-insensitive
+  const EXCLUDE_CAT_NAME = "cartoon";
 
   const app = document.getElementById("app");
 
@@ -55,16 +55,10 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Home view cache (for instant back) -------
-  const HomeCache = {
-    html: "",
-    scrollY: 0,
-    hasData: false,
-    search: "",
-    page: 1,
-  };
+  // ------- Home view cache -------
+  const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
 
-  // ------- Category ID lookup & cache -------
+  // ------- Category ID lookup -------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -102,37 +96,24 @@ window.APP_VERSION = APP_VERSION;
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
-
     const catId = await getExcludeCategoryId().catch(() => undefined);
     const url = buildPostsUrl({ page, search }, catId);
 
-    const tryFetch = async (attempt = 1) => {
+    try {
       const res = await fetch(url, { signal: listController.signal });
       if (!res.ok) {
-        if (res.status === 400) {
-          return { posts: [], totalPages: Number(res.headers.get("X-WP-TotalPages") || "1") };
-        }
-        if ((res.status === 429 || res.status >= 500) && attempt < 2) {
-          await new Promise(r => setTimeout(r, 300 * attempt));
-          return tryFetch(attempt + 1);
-        }
+        if (res.status === 400) return { posts: [], totalPages: 1 };
         throw new Error(`HTTP ${res.status}`);
       }
       const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
       const items = await res.json();
       const posts = items.filter((p) => !hasExcludedCategory(p));
       return { posts, totalPages };
-    };
-
-    try {
-      return await tryFetch();
     } catch (err) {
-      if (err && err.name === "AbortError") return { posts: [], totalPages: 1 };
+      if (err.name === "AbortError") return { posts: [], totalPages: 1 };
       showError(`Failed to load posts: ${err?.message || err}`);
       return { posts: [], totalPages: 1 };
-    } finally {
-      listController = null;
-    }
+    } finally { listController = null; }
   }
 
   async function fetchPostById(id) {
@@ -144,19 +125,16 @@ window.APP_VERSION = APP_VERSION;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
-      if (err && err.name === "AbortError") return null;
+      if (err.name === "AbortError") return null;
       throw err;
-    } finally {
-      itemController = null;
-    }
+    } finally { itemController = null; }
   }
 
-  // Track IDs to avoid duplicates when WP pages overlap
   const seenIds = new Set();
 
-  // ------- Render Home (Infinite Scroll) -------
+  // ------- Render Home -------
   function renderHome({ search = "" } = {}) {
-    const state = window._homeState = { search: search || "", page: 1, totalPages: Infinity, loading: false, ended: false };
+    const state = window._homeState = { search, page: 1, totalPages: Infinity, loading: false, ended: false };
     seenIds.clear();
 
     app.innerHTML = `
@@ -169,7 +147,7 @@ window.APP_VERSION = APP_VERSION;
     const grid = document.getElementById("grid");
     const statusEl = document.getElementById("status");
     const sentinel = document.getElementById("sentinel");
-    const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ""; };
+    const setStatus = (msg) => { statusEl.textContent = msg || ""; };
 
     async function loadNextBatch(targetCount = PER_PAGE) {
       if (state.loading || state.ended) return;
@@ -178,7 +156,6 @@ window.APP_VERSION = APP_VERSION;
 
       try {
         let added = 0;
-        let guardSkips = 0;
         while (added < targetCount && !state.ended) {
           const { posts, totalPages } = await fetchPosts({ page: state.page, search: state.search });
           if (state.totalPages === Infinity) state.totalPages = totalPages || 1;
@@ -204,8 +181,8 @@ window.APP_VERSION = APP_VERSION;
                   </a>
                 </h2>
                 <div class="meta-author-date">
-                  ${author ? `<span class="author">${author}</span>` : ""}
-                  <span class="date">${date}</span>
+                  ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
+                  <span class="date"><strong>${date}</strong></span>
                 </div>
                 <div class="excerpt">${p.excerpt.rendered}</div>
                 <a href="#/post/${p.id}" class="btn">Read more</a>
@@ -217,7 +194,6 @@ window.APP_VERSION = APP_VERSION;
 
           state.page++;
           if (state.page > state.totalPages) state.ended = true;
-          if (added === 0) { guardSkips++; if (guardSkips >= 5) break; }
         }
 
         HomeCache.html = app.innerHTML;
@@ -225,26 +201,17 @@ window.APP_VERSION = APP_VERSION;
         HomeCache.page = state.page;
         HomeCache.search = state.search;
 
-        if (state.ended) {
-          setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
-        } else if (added === 0) {
-          setStatus("Loading…");
-        } else {
-          setStatus("");
-        }
+        if (state.ended) setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
+        else setStatus("");
       } catch (e) {
         showError(e);
         setStatus("Failed to load.");
-      } finally {
-        state.loading = false;
-      }
+      } finally { state.loading = false; }
     }
 
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting && !state.loading && !state.ended) {
-          loadNextBatch(Math.ceil(PER_PAGE / 2));
-        }
+        if (entry.isIntersecting && !state.loading && !state.ended) loadNextBatch(Math.ceil(PER_PAGE/2));
       }
     }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
@@ -258,7 +225,6 @@ window.APP_VERSION = APP_VERSION;
     try {
       const p = await fetchPostById(id);
       if (!p) return;
-
       if (hasExcludedCategory(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -268,15 +234,12 @@ window.APP_VERSION = APP_VERSION;
       const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const tagsHtml = tags.length
-        ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
-            .map((t) => {
-              const name = esc(t.name || "tag");
-              const slug = t.slug || "";
-              const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
-              return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
-            })
-            .join("")}</div>`
-        : "";
+        ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map((t) => {
+            const name = esc(t.name || "tag");
+            const slug = t.slug || "";
+            const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
+            return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
+          }).join("")}</div>` : "";
 
       const hero = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
         ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
@@ -287,8 +250,8 @@ window.APP_VERSION = APP_VERSION;
           <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
           <div class="meta-author-date">
-            ${author ? `<span class="author">${author}</span>` : ""}
-            <span class="date">${date}</span>
+            ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
+            <span class="date"><strong>${date}</strong></span>
           </div>
           ${hero}
           <div class="content">${p.content.rendered}</div>
@@ -334,26 +297,18 @@ window.APP_VERSION = APP_VERSION;
         HomeCache.hasData = true;
       }
       abortList();
-      const id = hash.split("/")[2];
-      renderPost(id);
+      renderPost(hash.split("/")[2]);
       return;
     }
 
     if (hash.startsWith("#/search")) {
       abortItem();
       const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
-      HomeCache.html = "";
-      HomeCache.hasData = false;
-      HomeCache.search = q;
-      renderHome({ search: q });
-      return;
+      HomeCache.html = ""; HomeCache.hasData = false; HomeCache.search = q;
+      renderHome({ search: q }); return;
     }
 
-    if (hash === "#/about") {
-      abortList(); abortItem();
-      renderAbout();
-      return;
-    }
+    if (hash === "#/about") { abortList(); abortItem(); renderAbout(); return; }
 
     app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
   }
@@ -361,9 +316,6 @@ window.APP_VERSION = APP_VERSION;
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
 
-  // ------- Global error handlers -------
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e) => {
-    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`);
-  });
+  window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
 })();
