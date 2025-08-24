@@ -1,8 +1,9 @@
-// app.js — OkObserver app logic (v1.11)
-// Changes: Added <strong> wrappers for author and date text, in addition to CSS bold.
+// app.js — OkObserver app logic (v1.12)
+// Changes: Post content links now open in a new tab (target="_blank" rel="noopener").
 // Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion,
-// clickable image+title, pretty ordinal dates, tags, error banners, simple About.
-const APP_VERSION = "v1.11";
+// clickable image+title, pretty ordinal dates, bold author/date (CSS + <strong>),
+// tags, error banners, simple About.
+const APP_VERSION = "v1.12";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -35,23 +36,21 @@ window.APP_VERSION = APP_VERSION;
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
   };
 
-  // Pretty date formatter
+  // Pretty date formatter (e.g., January 1st, 2025)
   function formatDateWithOrdinal(dateString) {
     const d = new Date(dateString);
     const day = d.getDate();
     const month = d.toLocaleString("en-US", { month: "long" });
     const year = d.getFullYear();
-
-    const suffix = (day) => {
-      if (day > 3 && day < 21) return "th";
-      switch (day % 10) {
+    const suffix = (n) => {
+      if (n > 3 && n < 21) return "th";
+      switch (n % 10) {
         case 1: return "st";
         case 2: return "nd";
         case 3: return "rd";
         default: return "th";
       }
     };
-
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
@@ -132,7 +131,7 @@ window.APP_VERSION = APP_VERSION;
 
   const seenIds = new Set();
 
-  // ------- Render Home -------
+  // ------- Render Home (Infinite Scroll) -------
   function renderHome({ search = "" } = {}) {
     const state = window._homeState = { search, page: 1, totalPages: Infinity, loading: false, ended: false };
     seenIds.clear();
@@ -211,7 +210,9 @@ window.APP_VERSION = APP_VERSION;
 
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting && !state.loading && !state.ended) loadNextBatch(Math.ceil(PER_PAGE/2));
+        if (entry.isIntersecting && !state.loading && !state.ended) {
+          loadNextBatch(Math.ceil(PER_PAGE/2));
+        }
       }
     }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
@@ -239,7 +240,8 @@ window.APP_VERSION = APP_VERSION;
             const slug = t.slug || "";
             const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
             return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
-          }).join("")}</div>` : "";
+          }).join("")}</div>`
+        : "";
 
       const hero = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
         ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
@@ -259,6 +261,16 @@ window.APP_VERSION = APP_VERSION;
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>
       `;
+
+      // 🔗 Ensure links in post content open in a new tab
+      const contentEl = app.querySelector(".content");
+      if (contentEl) {
+        const links = contentEl.querySelectorAll("a[href]");
+        links.forEach(link => {
+          link.setAttribute("target", "_blank");
+          link.setAttribute("rel", "noopener");
+        });
+      }
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
     }
