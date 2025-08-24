@@ -22,6 +22,8 @@
     .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
+    .title a {color:inherit;text-decoration:none}
+    .title a:hover {text-decoration:underline}
     .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
     .excerpt{font-size:.9em;color:#333}
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
@@ -61,58 +63,6 @@
     </div>
   </footer>
 
-  <!-- About page (inline, kept small) -->
-  <script>
-    function renderAbout(){
-      const app=document.getElementById('app');
-      app.innerHTML=`
-        <article class="post">
-          <h1>Contact Us</h1>
-          <p>Please email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we will get back to you during normal business hours. Thank you.</p>
-          <h1>About</h1>
-          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades, providing news, analysis and commentary unavailable in Oklahoma’s uniformly conservative mainstream media.</p>
-          <div style="margin-top:2em;text-align:center;">
-            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
-          </div>
-        </article>`;
-    }
-    function routeHook(){
-      const hash=location.hash||"#/";
-      if(hash==="#/about"){ renderAbout(); }
-    }
-    window.addEventListener('hashchange', routeHook);
-    window.addEventListener('DOMContentLoaded', routeHook);
-
-    // Error banner helper
-    function showError(message) {
-      const host=document.getElementById("app");
-      if(!host) return;
-      const banner=document.createElement("div");
-      banner.className="error-banner";
-      const msg=(message && message.message)?message.message:String(message||"Something went wrong.");
-      banner.innerHTML=`<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${msg}`;
-      host.prepend(banner);
-    }
-
-    // Global error handlers
-    window.addEventListener("error", (e)=>{
-      showError(`Runtime error: ${e.message||"Unknown error"}`);
-    });
-    window.addEventListener("unhandledrejection", (e)=>{
-      const msg=e && e.reason && e.reason.message?e.reason.message:String(e && e.reason||"Unknown promise rejection");
-      showError(`Unhandled promise rejection: ${msg}`);
-    });
-
-    // Dismiss error banners
-    document.addEventListener('click', function(e){
-      const btn = e.target.closest('.error-banner .close');
-      if (btn) {
-        const banner = btn.closest('.error-banner');
-        if (banner) banner.remove();
-      }
-    });
-  </script>
-
   <!-- Footer injection & version display -->
   <script>
     window.addEventListener('DOMContentLoaded', function(){
@@ -126,6 +76,6 @@
   </script>
 
   <!-- IMPORTANT: external app code kept separate to avoid canvas truncation -->
-  <script src="app.js?v=1.8" defer></script>
+  <script src="./app.js?v=1.8" defer></script>
 </body>
 </html>

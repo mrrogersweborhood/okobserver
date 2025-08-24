@@ -56,7 +56,7 @@ window.APP_VERSION = APP_VERSION;
     scrollY: 0,
     hasData: false,
     search: "",
-    page: 1, // next page to fetch (informational)
+    page: 1,
   };
 
   // ------- Category ID lookup & cache -------
@@ -95,7 +95,7 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
-  // ------- AbortControllers to kill stale requests -------
+  // ------- AbortControllers -------
   let listController = null;
   let itemController = null;
 
@@ -122,12 +122,14 @@ window.APP_VERSION = APP_VERSION;
     try {
       const res = await fetch(url, { signal: listController.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const posts = await res.json();
-      return posts.filter((p) => !hasExcludedCategory(p));
+      const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
+      const items = await res.json();
+      const posts = items.filter((p) => !hasExcludedCategory(p));
+      return { posts, totalPages };
     } catch (err) {
-      if (err && err.name === "AbortError") return [];
+      if (err && err.name === "AbortError") return { posts: [], totalPages: 1 };
       showError(`Failed to load posts: ${err?.message || err}`);
-      return [];
+      return { posts: [], totalPages: 1 };
     } finally {
       listController = null;
     }
@@ -149,9 +151,8 @@ window.APP_VERSION = APP_VERSION;
     }
   }
 
-  // ------- Renderers -------
+  // ------- Render Home -------
   function renderHome({ search = "" } = {}) {
-    // Reset/record cache keys for this home session
     HomeCache.search = search || "";
     HomeCache.page = 1;
 
@@ -159,7 +160,7 @@ window.APP_VERSION = APP_VERSION;
       <h1>Latest Posts</h1>
       <div id="grid" class="grid"></div>
       <div class="center" id="pager">
-        <button id="loadMore" class="btn">Load more</button>
+        <button id="loadMore" class="btn" aria-busy="false">Load more</button>
       </div>
     `;
 
@@ -168,13 +169,27 @@ window.APP_VERSION = APP_VERSION;
 
     let page = 1;
     let loading = false;
+    let totalPages = Infinity;
 
     async function load() {
       if (loading) return;
       loading = true;
+      if (moreBtn) {
+        moreBtn.setAttribute("aria-busy", "true");
+        moreBtn.textContent = "Loading…";
+      }
+
       try {
-        const posts = await fetchPosts({ page, search });
-        posts.forEach((p) => {
+        let batch = { posts: [], totalPages: totalPages === Infinity ? undefined : totalPages };
+        let guard = 0;
+        do {
+          batch = await fetchPosts({ page, search });
+          if (totalPages === Infinity) totalPages = batch.totalPages || 1;
+          if (batch.posts.length === 0) page++;
+          guard++;
+        } while (batch.posts.length === 0 && page <= totalPages && guard < 5);
+
+        batch.posts.forEach((p) => {
           const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
           const author = esc(getAuthorName(p));
           const date = new Date(p.date).toLocaleDateString();
@@ -182,11 +197,9 @@ window.APP_VERSION = APP_VERSION;
           const card = document.createElement("div");
           card.className = "card";
           card.innerHTML = `
-            ${
-              media
+            ${ media
                 ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
-                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>`
-            }
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
             <div class="card-body">
               <h2 class="title">
                 <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
@@ -204,46 +217,48 @@ window.APP_VERSION = APP_VERSION;
           grid.appendChild(card);
         });
 
-        page++;
+        if (batch.posts.length > 0) page++;
         HomeCache.page = page;
-
-        // Update cache after each successful batch
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
 
-        // If fewer than a page returned, disable the button
-        if (posts.length < PER_PAGE) {
-          if (moreBtn) moreBtn.disabled = true;
+        const noMore = page > totalPages;
+        if (moreBtn) moreBtn.disabled = noMore;
+
+        if (grid.children.length === 0 && noMore) {
+          grid.innerHTML = `<p class="center">No posts found.</p>`;
         }
       } catch (e) {
         showError(e);
       } finally {
         loading = false;
+        if (moreBtn) {
+          moreBtn.setAttribute("aria-busy", "false");
+          moreBtn.textContent = moreBtn.disabled ? "No more posts" : "Load more";
+        }
       }
     }
 
-    // expose load() so we can re-wire it when restoring from cache
     window._homeLoadMore = load;
     if (moreBtn) {
       moreBtn._wired = true;
       moreBtn.onclick = load;
     }
 
-    // initial batch
     load();
   }
 
+  // ------- Render Post -------
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
 
     try {
       const p = await fetchPostById(id);
-      if (!p) return; // aborted
+      if (!p) return;
 
-      // Exclude Cartoon in detail, too
       if (hasExcludedCategory(p)) {
         app.innerHTML = `<div class="error-banner">
-          <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+          <button class="close">×</button>
           This post is not available.
         </div>`;
         return;
@@ -253,7 +268,7 @@ window.APP_VERSION = APP_VERSION;
       const date = new Date(p.date).toLocaleDateString();
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const tagsHtml = tags.length
-        ? `<div class="tags"><span class="label" style="margin-right:6px;">Tags:</span>${tags
+        ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
             .map((t) => {
               const name = esc(t.name || "tag");
               const slug = t.slug || "";
@@ -283,41 +298,33 @@ window.APP_VERSION = APP_VERSION;
       `;
     } catch (err) {
       app.innerHTML = `<div class="error-banner">
-        <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+        <button class="close">×</button>
         Error loading post: ${err?.message || err}
       </div>`;
     }
   }
 
-  // ------- Router with HomeCache restore -------
+  // ------- Router -------
   function router() {
     const hash = location.hash || "#/";
 
     if (hash === "#/" || hash === "") {
-      // If we have a cached home view, restore it instantly (no fetch, no repaint flicker)
       if (HomeCache.hasData && HomeCache.html) {
         app.innerHTML = HomeCache.html;
-
-        // re-wire Load more button to the real loader
         const moreBtn = document.getElementById("loadMore");
         if (moreBtn && !moreBtn._wired && typeof window._homeLoadMore === "function") {
           moreBtn._wired = true;
           moreBtn.onclick = window._homeLoadMore;
         }
-
-        // restore scroll after DOM paints
         requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
         return;
       }
-
-      // first entry or cache cleared: render afresh
       abortItem();
       renderHome({ search: HomeCache.search || "" });
       return;
     }
 
     if (hash.startsWith("#/post/")) {
-      // capture home state before leaving
       if (app && app.querySelector("#grid")) {
         HomeCache.scrollY = window.scrollY;
         HomeCache.html = app.innerHTML;
@@ -332,7 +339,6 @@ window.APP_VERSION = APP_VERSION;
     if (hash.startsWith("#/search")) {
       abortItem();
       const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
-      // Search is a different dataset—clear home cache so results are consistent
       HomeCache.html = "";
       HomeCache.hasData = false;
       HomeCache.search = q;
@@ -341,7 +347,7 @@ window.APP_VERSION = APP_VERSION;
     }
 
     app.innerHTML = `<div class="error-banner">
-      <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+      <button class="close">×</button>
       Page not found
     </div>`;
   }
