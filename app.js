@@ -1,9 +1,9 @@
-// app.js — OkObserver app logic (v1.12)
-// Changes: Post content links now open in a new tab (target="_blank" rel="noopener").
-// Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion,
-// clickable image+title, pretty ordinal dates, bold author/date (CSS + <strong>),
-// tags, error banners, simple About.
-const APP_VERSION = "v1.12";
+// app.js — OkObserver app logic (v1.13)
+// New in v1.13: Excerpt (summary) links now open in a new tab (target="_blank" rel="noopener").
+// v1.12 added the same behavior for full post content.
+// Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion, clickable image+title,
+// pretty ordinal dates, bold author/date (CSS + <strong>), tags, error banners, simple About.
+const APP_VERSION = "v1.13";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -188,6 +188,16 @@ window.APP_VERSION = APP_VERSION;
               </div>
             `;
             grid.appendChild(card);
+
+            // 🔗 Ensure links in summary excerpt open in a new tab
+            const excerptEl = card.querySelector(".excerpt");
+            if (excerptEl) {
+              excerptEl.querySelectorAll("a[href]").forEach(link => {
+                link.setAttribute("target", "_blank");
+                link.setAttribute("rel", "noopener");
+              });
+            }
+
             added++;
           }
 
