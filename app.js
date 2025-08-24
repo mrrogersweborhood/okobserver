@@ -1,13 +1,10 @@
-// app.js — OkObserver app logic (v1.13)
-// New in v1.13: Excerpt (summary) links now open in a new tab (target="_blank" rel="noopener").
-// v1.12 added the same behavior for full post content.
-// Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion, clickable image+title,
-// pretty ordinal dates, bold author/date (CSS + <strong>), tags, error banners, simple About.
-const APP_VERSION = "v1.13";
+// app.js — OkObserver app logic (v1.14)
+// Author is bold+blue, date is black+regular (no <strong>).
+const APP_VERSION = "v1.14";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
-  const BASE = "https://okobserver.org/wp-json/wp/v2";
+  const BASE = "/wp-json/wp/v2";  // same-site path
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
 
@@ -131,7 +128,7 @@ window.APP_VERSION = APP_VERSION;
 
   const seenIds = new Set();
 
-  // ------- Render Home (Infinite Scroll) -------
+  // ------- Render Home -------
   function renderHome({ search = "" } = {}) {
     const state = window._homeState = { search, page: 1, totalPages: Infinity, loading: false, ended: false };
     seenIds.clear();
@@ -181,7 +178,7 @@ window.APP_VERSION = APP_VERSION;
                 </h2>
                 <div class="meta-author-date">
                   ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
-                  <span class="date"><strong>${date}</strong></span>
+                  <span class="date">${date}</span>
                 </div>
                 <div class="excerpt">${p.excerpt.rendered}</div>
                 <a href="#/post/${p.id}" class="btn">Read more</a>
@@ -189,7 +186,7 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // 🔗 Ensure links in summary excerpt open in a new tab
+            // 🔗 Ensure links in summary excerpts open in new tab
             const excerptEl = card.querySelector(".excerpt");
             if (excerptEl) {
               excerptEl.querySelectorAll("a[href]").forEach(link => {
@@ -263,81 +260,10 @@ window.APP_VERSION = APP_VERSION;
           <h1>${p.title.rendered}</h1>
           <div class="meta-author-date">
             ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
-            <span class="date"><strong>${date}</strong></span>
+            <span class="date">${date}</span>
           </div>
           ${hero}
           <div class="content">${p.content.rendered}</div>
           ${tagsHtml}
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
-        </article>
-      `;
-
-      // 🔗 Ensure links in post content open in a new tab
-      const contentEl = app.querySelector(".content");
-      if (contentEl) {
-        const links = contentEl.querySelectorAll("a[href]");
-        links.forEach(link => {
-          link.setAttribute("target", "_blank");
-          link.setAttribute("rel", "noopener");
-        });
-      }
-    } catch (err) {
-      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
-    }
-  }
-
-  // ------- Simple About -------
-  function renderAbout(){
-    app.innerHTML = `
-      <article class="post">
-        <h1>About</h1>
-        <p><strong>OkObserver</strong> is an unofficial reader for okobserver.org.</p>
-        <p>For official info, visit <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>.</p>
-      </article>
-    `;
-  }
-
-  // ------- Router -------
-  function router() {
-    const hash = location.hash || "#/";
-
-    if (hash === "#/" || hash === "") {
-      if (HomeCache.hasData && HomeCache.html) {
-        app.innerHTML = HomeCache.html;
-        requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
-        return;
-      }
-      abortItem();
-      renderHome({ search: HomeCache.search || "" });
-      return;
-    }
-
-    if (hash.startsWith("#/post/")) {
-      if (app && app.querySelector("#grid")) {
-        HomeCache.scrollY = window.scrollY;
-        HomeCache.html = app.innerHTML;
-        HomeCache.hasData = true;
-      }
-      abortList();
-      renderPost(hash.split("/")[2]);
-      return;
-    }
-
-    if (hash.startsWith("#/search")) {
-      abortItem();
-      const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
-      HomeCache.html = ""; HomeCache.hasData = false; HomeCache.search = q;
-      renderHome({ search: q }); return;
-    }
-
-    if (hash === "#/about") { abortList(); abortItem(); renderAbout(); return; }
-
-    app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
-  }
-
-  window.addEventListener("hashchange", router);
-  window.addEventListener("load", router);
-
-  window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
-})();
+        </article
