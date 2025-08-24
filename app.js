@@ -1,8 +1,8 @@
-// app.js — OkObserver app logic (v1.9)
-// Changes: Infinite scroll via IntersectionObserver (no Load more button).
-// Still includes: HomeCache, AbortController, Cartoon exclusion, clickable image+title,
-// author/date meta, tags on detail, error banners, tiny About route.
-const APP_VERSION = "v1.9";
+// app.js — OkObserver app logic (v1.10)
+// Changes: Added formatDateWithOrdinal() for pretty date output (e.g., January 1st, 2025)
+// Still includes: Infinite scroll, HomeCache, AbortController, Cartoon exclusion,
+// clickable image+title, bold author/date meta, tags, error banners, simple About.
+const APP_VERSION = "v1.10";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -34,6 +34,26 @@ window.APP_VERSION = APP_VERSION;
     if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
   };
+
+  // Pretty date formatter
+  function formatDateWithOrdinal(dateString) {
+    const d = new Date(dateString);
+    const day = d.getDate();
+    const month = d.toLocaleString("en-US", { month: "long" });
+    const year = d.getFullYear();
+
+    const suffix = (day) => {
+      if (day > 3 && day < 21) return "th";
+      switch (day % 10) {
+        case 1: return "st";
+        case 2: return "nd";
+        case 3: return "rd";
+        default: return "th";
+      }
+    };
+
+    return `${month} ${day}${suffix(day)}, ${year}`;
+  }
 
   // ------- Home view cache (for instant back) -------
   const HomeCache = {
@@ -78,7 +98,7 @@ window.APP_VERSION = APP_VERSION;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch posts (returns {posts,totalPages}) -------
+  // ------- Fetch posts -------
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
@@ -169,7 +189,7 @@ window.APP_VERSION = APP_VERSION;
 
             const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
             const author = esc(getAuthorName(p));
-            const date = new Date(p.date).toLocaleDateString();
+            const date = formatDateWithOrdinal(p.date);
 
             const card = document.createElement("div");
             card.className = "card";
@@ -195,20 +215,11 @@ window.APP_VERSION = APP_VERSION;
             added++;
           }
 
-          // we consumed this WP page
           state.page++;
-
-          // detect end
           if (state.page > state.totalPages) state.ended = true;
-
-          // page yielded nothing visible after filtering – allow a few skips to move past Cartoon-heavy pages
-          if (added === 0) {
-            guardSkips++;
-            if (guardSkips >= 5) break;
-          }
+          if (added === 0) { guardSkips++; if (guardSkips >= 5) break; }
         }
 
-        // Update cache for instant Back
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
         HomeCache.page = state.page;
@@ -229,18 +240,15 @@ window.APP_VERSION = APP_VERSION;
       }
     }
 
-    // Auto-load when near bottom
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && !state.loading && !state.ended) {
-          loadNextBatch(Math.ceil(PER_PAGE / 2)); // half-page chunks feel snappier
+          loadNextBatch(Math.ceil(PER_PAGE / 2));
         }
       }
     }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
     io.observe(sentinel);
-
-    // Initial batch
     loadNextBatch(PER_PAGE);
   }
 
@@ -257,7 +265,7 @@ window.APP_VERSION = APP_VERSION;
       }
 
       const author = esc(getAuthorName(p));
-      const date = new Date(p.date).toLocaleDateString();
+      const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const tagsHtml = tags.length
         ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
