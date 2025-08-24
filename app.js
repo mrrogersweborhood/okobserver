@@ -1,28 +1,27 @@
-// app.js — OkObserver app logic (v1.15)
-// Restored infinite scroll + caching + AbortControllers.
-// Author is bold+blue, date is black+regular (no <strong> on date).
-// Links in excerpts/content open in new tabs. Cartoon posts excluded (API + client).
-const APP_VERSION = "v1.15";
+// app.js — OkObserver app logic (v1.16)
+// Fix: auto-detect REST base; fallback to absolute URL to avoid 404 when not on okobserver.org.
+// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
+const APP_VERSION = "v1.16";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
-  const BASE = "/wp-json/wp/v2";  // same-origin WP REST
+  // --- Auto-detect REST base ---
+  const onOkobserver = location.hostname.endsWith("okobserver.org");
+  let BASE = onOkobserver ? "/wp-json/wp/v2" : "https://okobserver.org/wp-json/wp/v2";
+
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
-
   const app = document.getElementById("app");
 
   // ------- Error banner helper -------
-  const showError = (message) => {
+  function showError(message) {
     if (!app) return;
     const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
     const banner = document.createElement("div");
     banner.className = "error-banner";
     banner.innerHTML = `<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${text}`;
     app.prepend(banner);
-  };
-
-  // Dismiss error banners
+  }
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(".error-banner .close");
     if (btn) btn.closest(".error-banner")?.remove();
@@ -59,10 +58,10 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Home view cache (for back navigation performance) -------
+  // ------- Home view cache -------
   const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
 
-  // ------- Category ID lookup (for API-level exclusion) -------
+  // ------- Category ID lookup (API-level exclusion) -------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -90,13 +89,38 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
-  // ------- AbortControllers to avoid stale updates -------
+  // ------- AbortControllers -------
   let listController = null;
   let itemController = null;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch helpers -------
+  // ------- Fetch helpers with fallback detection -------
+  async function fetchWithFallback(input, init) {
+    // If we’re on okobserver.org we expect the relative path to work.
+    // If it fails with 404/0 (e.g. CORS blocked/gh-pages), retry once with absolute base.
+    try {
+      const r = await fetch(input, init);
+      if (r.status === 404 || r.status === 0) {
+        // Switch to absolute base and retry once
+        if (BASE.startsWith("/")) {
+          BASE = "https://okobserver.org/wp-json/wp/v2";
+        }
+        const rebuilt = String(input).replace(/^(?:https?:\/\/[^/]+)?\/wp-json\/wp\/v2/, BASE);
+        return await fetch(rebuilt, init);
+      }
+      return r;
+    } catch (e) {
+      // Network errors → try absolute
+      if (BASE.startsWith("/")) {
+        BASE = "https://okobserver.org/wp-json/wp/v2";
+        const rebuilt = String(input).replace(/^(?:https?:\/\/[^/]+)?\/wp-json\/wp\/v2/, BASE);
+        return await fetch(rebuilt, init);
+      }
+      throw e;
+    }
+  }
+
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
@@ -104,9 +128,9 @@ window.APP_VERSION = APP_VERSION;
     const url = buildPostsUrl({ page, search }, catId);
 
     try {
-      const res = await fetch(url, { signal: listController.signal });
+      const res = await fetchWithFallback(url, { signal: listController.signal });
       if (!res.ok) {
-        if (res.status === 400) return { posts: [], totalPages: 1 }; // out-of-range page, etc.
+        if (res.status === 400) return { posts: [], totalPages: 1 };
         throw new Error(`HTTP ${res.status}`);
       }
       const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
@@ -125,7 +149,7 @@ window.APP_VERSION = APP_VERSION;
     itemController = new AbortController();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
-      const res = await fetch(url, { signal: itemController.signal });
+      const res = await fetchWithFallback(url, { signal: itemController.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -210,7 +234,6 @@ window.APP_VERSION = APP_VERSION;
           if (state.page > state.totalPages) state.ended = true;
         }
 
-        // Cache the current home HTML for fast back nav
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
         HomeCache.page = state.page;
@@ -225,7 +248,6 @@ window.APP_VERSION = APP_VERSION;
       } finally { state.loading = false; }
     }
 
-    // IntersectionObserver for infinite scroll
     const io = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && !state.loading && !state.ended) {
@@ -235,8 +257,6 @@ window.APP_VERSION = APP_VERSION;
     }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
     io.observe(sentinel);
-
-    // Kick off initial load
     loadNextBatch(PER_PAGE);
   }
 
@@ -307,12 +327,11 @@ window.APP_VERSION = APP_VERSION;
     `;
   }
 
-  // ------- Router with cache restore -------
+  // ------- Router -------
   function router() {
     const hash = location.hash || "#/";
 
     if (hash === "#/" || hash === "") {
-      // If we have cached HTML from prior session, restore instantly
       if (HomeCache.hasData && HomeCache.html) {
         app.innerHTML = HomeCache.html;
         requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
@@ -324,7 +343,6 @@ window.APP_VERSION = APP_VERSION;
     }
 
     if (hash.startsWith("#/post/")) {
-      // Persist cache and current scroll before leaving list
       if (app && app.querySelector("#grid")) {
         HomeCache.scrollY = window.scrollY;
         HomeCache.html = app.innerHTML;
