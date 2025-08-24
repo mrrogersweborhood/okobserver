@@ -28,15 +28,18 @@
     /* 🔹 Summary card meta */
     .meta-author-date{
       font-size:.85em;
-      color:var(--secondary);
       display:flex;
       gap:8px;
       align-items:center;
       margin-bottom:4px;
     }
-    .meta-author-date .author,
-    .meta-author-date .date {
+    .meta-author-date .author {
+      color:var(--secondary);
       font-weight:bold;
+    }
+    .meta-author-date .date {
+      color:#000; /* black */
+      font-weight:normal; /* regular font */
     }
 
     .excerpt{font-size:.9em;color:#333}
@@ -48,15 +51,18 @@
     /* 🔹 Detail page meta */
     .post .meta-author-date{
       font-size:.9em;
-      color:var(--secondary);
       margin-bottom:8px;
       display:flex;
       gap:8px;
       align-items:center;
     }
-    .post .meta-author-date .author,
-    .post .meta-author-date .date {
+    .post .meta-author-date .author {
+      color:var(--secondary);
       font-weight:bold;
+    }
+    .post .meta-author-date .date {
+      color:#000; /* black */
+      font-weight:normal; /* regular font */
     }
 
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
@@ -107,7 +113,7 @@
     });
   </script>
 
-  <!-- 🔹 Reference to new app.js v1.12 -->
+  <!-- Reference latest app.js -->
   <script src="./app.js?v=1.13" defer></script>
 </body>
 </html>
