@@ -1,7 +1,8 @@
-// app.js — OkObserver app logic (v1.8)
-// Features: HomeCache, AbortController, Cartoon exclusion, clickable image+title,
-// author/date meta, tags on detail, robust Load more, error banners.
-const APP_VERSION = "v1.8";
+// app.js — OkObserver app logic (v1.9)
+// Changes: Infinite scroll via IntersectionObserver (no Load more button).
+// Still includes: HomeCache, AbortController, Cartoon exclusion, clickable image+title,
+// author/date meta, tags on detail, error banners, tiny About route.
+const APP_VERSION = "v1.9";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -14,39 +15,21 @@ window.APP_VERSION = APP_VERSION;
   // ------- Error banner helper -------
   const showError = (message) => {
     if (!app) return;
-    const text =
-      (message && message.message)
-        ? message.message
-        : String(message || "Something went wrong.");
+    const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
     const banner = document.createElement("div");
     banner.className = "error-banner";
-    banner.innerHTML = `
-      <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
-      ${text}
-    `;
+    banner.innerHTML = `<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${text}`;
     app.prepend(banner);
   };
 
   // ------- Utilities -------
   const esc = (s) =>
-    (s || "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[c]));
-
-  const getAuthorName = (post) =>
-    post?._embedded?.author?.[0]?.name
-      ? String(post._embedded.author[0].name)
-      : "";
-
+    (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const getAuthorName = (post) => post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
   const hasExcludedCategory = (post) => {
     const cats = post?._embedded?.["wp:term"]?.[0] || [];
     return cats.some((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
   };
-
   const getPostTags = (embeddedTerms) => {
     if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
@@ -64,26 +47,18 @@ window.APP_VERSION = APP_VERSION;
   // ------- Category ID lookup & cache -------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
-
   async function getExcludeCategoryId() {
     if (excludeCategoryId !== null) return excludeCategoryId;
     if (catLookupInFlight) return catLookupInFlight;
-
     const url = `${BASE}/categories?search=${encodeURIComponent(EXCLUDE_CAT_NAME)}&per_page=100`;
     catLookupInFlight = fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((cats) => {
-        const match = (cats || []).find(
-          (c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME
-        );
+        const match = (cats || []).find((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
         excludeCategoryId = match ? match.id : undefined;
         return excludeCategoryId;
       })
       .catch(() => undefined);
-
     return catLookupInFlight;
   }
 
@@ -100,31 +75,10 @@ window.APP_VERSION = APP_VERSION;
   // ------- AbortControllers -------
   let listController = null;
   let itemController = null;
+  function abortList() { if (listController) { listController.abort(); listController = null; } }
+  function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  function abortList() {
-    if (listController) {
-      listController.abort();
-      listController = null;
-    }
-  }
-  function abortItem() {
-    if (itemController) {
-      itemController.abort();
-      itemController = null;
-    }
-  }
-
-  // ------- Global delegated click for Load more -------
-  document.addEventListener("click", (e) => {
-    const btn = e.target && e.target.closest && e.target.closest("#loadMore");
-    if (!btn) return;
-    if (typeof window._homeLoadMore === "function") {
-      e.preventDefault();
-      window._homeLoadMore();
-    }
-  });
-
-  // ------- Fetch posts -------
+  // ------- Fetch posts (returns {posts,totalPages}) -------
   async function fetchPosts({ page = 1, search = "" } = {}) {
     abortList();
     listController = new AbortController();
@@ -177,114 +131,122 @@ window.APP_VERSION = APP_VERSION;
     }
   }
 
-  // ------- Render Home -------
+  // Track IDs to avoid duplicates when WP pages overlap
+  const seenIds = new Set();
+
+  // ------- Render Home (Infinite Scroll) -------
   function renderHome({ search = "" } = {}) {
-    const state = window._homeState = {
-      search: search || "",
-      page: 1,
-      totalPages: Infinity,
-      loading: false,
-      ended: false,
-    };
+    const state = window._homeState = { search: search || "", page: 1, totalPages: Infinity, loading: false, ended: false };
+    seenIds.clear();
 
     app.innerHTML = `
       <h1>Latest Posts</h1>
       <div id="grid" class="grid"></div>
-      <div class="center" id="pager">
-        <button id="loadMore" class="btn" aria-busy="false">Load more</button>
-      </div>
+      <div id="status" class="center" style="margin:10px 0; font-size:.9em;"></div>
+      <div id="sentinel" style="height:1px;"></div>
     `;
 
     const grid = document.getElementById("grid");
-    const moreBtn = document.getElementById("loadMore");
+    const statusEl = document.getElementById("status");
+    const sentinel = document.getElementById("sentinel");
+    const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ""; };
 
-    const setBtn = (busy) => {
-      if (!moreBtn) return;
-      moreBtn.setAttribute("aria-busy", busy ? "true" : "false");
-      moreBtn.textContent = busy ? "Loading…" : (state.ended ? "No more posts" : "Load more");
-      moreBtn.disabled = !!busy || state.ended;
-    };
-
-    async function loadNextBatch() {
+    async function loadNextBatch(targetCount = PER_PAGE) {
       if (state.loading || state.ended) return;
       state.loading = true;
-      setBtn(true);
+      setStatus("Loading…");
 
       try {
-        let batch = { posts: [], totalPages: state.totalPages === Infinity ? undefined : state.totalPages };
-        let skips = 0;
-        do {
-          batch = await fetchPosts({ page: state.page, search: state.search });
-          if (state.totalPages === Infinity) state.totalPages = batch.totalPages || 1;
+        let added = 0;
+        let guardSkips = 0;
+        while (added < targetCount && !state.ended) {
+          const { posts, totalPages } = await fetchPosts({ page: state.page, search: state.search });
+          if (state.totalPages === Infinity) state.totalPages = totalPages || 1;
 
-          if (batch.posts.length === 0) {
-            state.page++;
-            skips++;
-          }
-          if (state.page > state.totalPages) break;
-        } while (batch.posts.length === 0 && skips < 5);
+          for (const p of posts) {
+            if (seenIds.has(p.id)) continue;
+            seenIds.add(p.id);
 
-        for (const p of batch.posts) {
-          const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
-          const author = esc(getAuthorName(p));
-          const date = new Date(p.date).toLocaleDateString();
+            const media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
+            const author = esc(getAuthorName(p));
+            const date = new Date(p.date).toLocaleDateString();
 
-          const card = document.createElement("div");
-          card.className = "card";
-          card.innerHTML = `
-            ${ media
-                ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
-                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
-            <div class="card-body">
-              <h2 class="title">
-                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
-                  ${p.title.rendered}
-                </a>
-              </h2>
-              <div class="meta-author-date">
-                ${author ? `<span class="author">${author}</span>` : ""}
-                <span class="date">${date}</span>
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+              ${ media
+                  ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+                  : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+              <div class="card-body">
+                <h2 class="title">
+                  <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+                    ${p.title.rendered}
+                  </a>
+                </h2>
+                <div class="meta-author-date">
+                  ${author ? `<span class="author">${author}</span>` : ""}
+                  <span class="date">${date}</span>
+                </div>
+                <div class="excerpt">${p.excerpt.rendered}</div>
+                <a href="#/post/${p.id}" class="btn">Read more</a>
               </div>
-              <div class="excerpt">${p.excerpt.rendered}</div>
-              <a href="#/post/${p.id}" class="btn">Read more</a>
-            </div>
-          `;
-          grid.appendChild(card);
+            `;
+            grid.appendChild(card);
+            added++;
+          }
+
+          // we consumed this WP page
+          state.page++;
+
+          // detect end
+          if (state.page > state.totalPages) state.ended = true;
+
+          // page yielded nothing visible after filtering – allow a few skips to move past Cartoon-heavy pages
+          if (added === 0) {
+            guardSkips++;
+            if (guardSkips >= 5) break;
+          }
         }
 
-        if (batch.posts.length > 0) state.page++;
-        if (state.page > state.totalPages) state.ended = true;
-
+        // Update cache for instant Back
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
         HomeCache.page = state.page;
         HomeCache.search = state.search;
 
-        if (!HomeCache.hasData && state.ended) {
-          grid.innerHTML = `<p class="center">No posts found.</p>`;
+        if (state.ended) {
+          setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
+        } else if (added === 0) {
+          setStatus("Loading…");
+        } else {
+          setStatus("");
         }
       } catch (e) {
         showError(e);
+        setStatus("Failed to load.");
       } finally {
         state.loading = false;
-        setBtn(false);
       }
     }
 
-    let guard = false;
-    window._homeLoadMore = function () {
-      if (guard) return;
-      guard = true;
-      Promise.resolve().then(loadNextBatch).finally(() => { guard = false; });
-    };
+    // Auto-load when near bottom
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && !state.loading && !state.ended) {
+          loadNextBatch(Math.ceil(PER_PAGE / 2)); // half-page chunks feel snappier
+        }
+      }
+    }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
 
-    window._homeLoadMore();
+    io.observe(sentinel);
+
+    // Initial batch
+    loadNextBatch(PER_PAGE);
   }
 
   // ------- Render Post -------
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
-
     try {
       const p = await fetchPostById(id);
       if (!p) return;
@@ -331,6 +293,17 @@ window.APP_VERSION = APP_VERSION;
     }
   }
 
+  // ------- Simple About -------
+  function renderAbout(){
+    app.innerHTML = `
+      <article class="post">
+        <h1>About</h1>
+        <p><strong>OkObserver</strong> is an unofficial reader for okobserver.org.</p>
+        <p>For official info, visit <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>.</p>
+      </article>
+    `;
+  }
+
   // ------- Router -------
   function router() {
     const hash = location.hash || "#/";
@@ -365,6 +338,12 @@ window.APP_VERSION = APP_VERSION;
       HomeCache.hasData = false;
       HomeCache.search = q;
       renderHome({ search: q });
+      return;
+    }
+
+    if (hash === "#/about") {
+      abortList(); abortItem();
+      renderAbout();
       return;
     }
 
