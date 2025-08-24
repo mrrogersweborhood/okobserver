@@ -1,5 +1,4 @@
-// OkObserver app.js v1.8 — added home cache & scroll restore
-
+// app.js — OkObserver app logic (v1.8) — adds HomeCache for instant back navigation
 const APP_VERSION = "v1.8";
 window.APP_VERSION = APP_VERSION;
 
@@ -13,7 +12,10 @@ window.APP_VERSION = APP_VERSION;
   // ------- Error banner helper -------
   const showError = (message) => {
     if (!app) return;
-    const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
+    const text =
+      (message && message.message)
+        ? message.message
+        : String(message || "Something went wrong.");
     const banner = document.createElement("div");
     banner.className = "error-banner";
     banner.innerHTML = `
@@ -25,10 +27,18 @@ window.APP_VERSION = APP_VERSION;
 
   // ------- Utilities -------
   const esc = (s) =>
-    (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    (s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
 
   const getAuthorName = (post) =>
-    post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
+    post?._embedded?.author?.[0]?.name
+      ? String(post._embedded.author[0].name)
+      : "";
 
   const hasExcludedCategory = (post) => {
     const cats = post?._embedded?.["wp:term"]?.[0] || [];
@@ -64,7 +74,9 @@ window.APP_VERSION = APP_VERSION;
         return r.json();
       })
       .then((cats) => {
-        const match = (cats || []).find((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
+        const match = (cats || []).find(
+          (c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME
+        );
         excludeCategoryId = match ? match.id : undefined;
         return excludeCategoryId;
       })
@@ -198,20 +210,16 @@ window.APP_VERSION = APP_VERSION;
         // Update cache after each successful batch
         HomeCache.html = app.innerHTML;
         HomeCache.hasData = grid.children.length > 0;
+
+        // If fewer than a page returned, disable the button
+        if (posts.length < PER_PAGE) {
+          if (moreBtn) moreBtn.disabled = true;
+        }
       } catch (e) {
         showError(e);
       } finally {
         loading = false;
       }
-
-      // If fewer than a page came back, disable the button
-      try {
-        if (!moreBtn) return;
-        if (page === 2 && !HomeCache.hasData) {
-          // first batch yielded nothing
-          moreBtn.disabled = true;
-        }
-      } catch {}
     }
 
     // expose load() so we can re-wire it when restoring from cache
@@ -275,4 +283,75 @@ window.APP_VERSION = APP_VERSION;
       `;
     } catch (err) {
       app.innerHTML = `<div class="error-banner">
-        <button class="close"
+        <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+        Error loading post: ${err?.message || err}
+      </div>`;
+    }
+  }
+
+  // ------- Router with HomeCache restore -------
+  function router() {
+    const hash = location.hash || "#/";
+
+    if (hash === "#/" || hash === "") {
+      // If we have a cached home view, restore it instantly (no fetch, no repaint flicker)
+      if (HomeCache.hasData && HomeCache.html) {
+        app.innerHTML = HomeCache.html;
+
+        // re-wire Load more button to the real loader
+        const moreBtn = document.getElementById("loadMore");
+        if (moreBtn && !moreBtn._wired && typeof window._homeLoadMore === "function") {
+          moreBtn._wired = true;
+          moreBtn.onclick = window._homeLoadMore;
+        }
+
+        // restore scroll after DOM paints
+        requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
+        return;
+      }
+
+      // first entry or cache cleared: render afresh
+      abortItem();
+      renderHome({ search: HomeCache.search || "" });
+      return;
+    }
+
+    if (hash.startsWith("#/post/")) {
+      // capture home state before leaving
+      if (app && app.querySelector("#grid")) {
+        HomeCache.scrollY = window.scrollY;
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = true;
+      }
+      abortList();
+      const id = hash.split("/")[2];
+      renderPost(id);
+      return;
+    }
+
+    if (hash.startsWith("#/search")) {
+      abortItem();
+      const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
+      // Search is a different dataset—clear home cache so results are consistent
+      HomeCache.html = "";
+      HomeCache.hasData = false;
+      HomeCache.search = q;
+      renderHome({ search: q });
+      return;
+    }
+
+    app.innerHTML = `<div class="error-banner">
+      <button class="close" aria-label="Dismiss error" title="Dismiss">×</button>
+      Page not found
+    </div>`;
+  }
+
+  window.addEventListener("hashchange", router);
+  window.addEventListener("load", router);
+
+  // ------- Global error handlers -------
+  window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
+  window.addEventListener("unhandledrejection", (e) => {
+    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`);
+  });
+})();
