@@ -1,8 +1,8 @@
-// app.js — OkObserver app logic (v1.17)
-// Video fix: responsive iframes/videos + add allow/allowfullscreen/loading + optional wrappers.
-// Also keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
-// Auto REST base fallback from v1.16.
-const APP_VERSION = "v1.17";
+// app.js — OkObserver app logic (v1.18)
+// NEW: client-side oEmbed resolver -> fixes "player not embedded" when REST returns bare URLs.
+// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
+// Auto REST base fallback retained.
+const APP_VERSION = "v1.18";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -13,6 +13,13 @@ window.APP_VERSION = APP_VERSION;
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
   const app = document.getElementById("app");
+
+  function apiOrigin() {
+    try {
+      if (BASE.startsWith("http")) return new URL(BASE).origin;
+      return location.origin;
+    } catch { return "https://okobserver.org"; }
+  }
 
   // ------- Error banner helper -------
   function showError(message) {
@@ -59,27 +66,24 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Enhance embeds (videos/iframes) -------
+  // ------- Enhance + resolve embeds -------
   function enhanceEmbeds(root) {
     if (!root) return;
 
-    // 1) Make links in excerpts/content open in new tab (kept from earlier)
+    // Open links in new tab
     root.querySelectorAll("a[href]").forEach((a) => {
       a.setAttribute("target", "_blank");
       a.setAttribute("rel", "noopener");
     });
 
-    // 2) Tweak iframes (YouTube, Vimeo, WP oEmbed)
+    // If iframe without size, wrap to force aspect ratio
     root.querySelectorAll("iframe").forEach((f) => {
-      // Add permissions & fullscreen
       if (!f.hasAttribute("allow")) {
         f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
       }
       f.setAttribute("allowfullscreen", "");
       if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
       if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-
-      // If no explicit size and no parent wrapper, wrap to force aspect ratio
       const hasSize = f.getAttribute("width") || f.getAttribute("height");
       const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
       if (!hasSize && !parentIsWrapper) {
@@ -90,15 +94,68 @@ window.APP_VERSION = APP_VERSION;
       }
     });
 
-    // 3) Tweak <video> tags
+    // Make <video> responsive with sane defaults
     root.querySelectorAll("video").forEach((v) => {
       v.setAttribute("controls", "");
       if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
       if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
-      // width/height removed → CSS makes it responsive
       v.removeAttribute("width");
       v.removeAttribute("height");
       if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
+    });
+
+    // Resolve bare embed URLs:
+    // - Gutenberg: <div class="wp-block-embed__wrapper">https://youtu...</div>
+    // - Sometimes: <p>https://vimeo...</p>
+    const candidates = [
+      ...root.querySelectorAll(".wp-block-embed__wrapper"),
+      ...Array.from(root.querySelectorAll("p")).filter(p => {
+        const t = p.textContent.trim();
+        return /^https?:\/\/\S+$/.test(t) && p.children.length === 0;
+      })
+    ];
+
+    candidates.forEach(async (node) => {
+      const url = node.textContent.trim();
+      if (!/^https?:\/\/\S+$/.test(url)) return;
+
+      try {
+        const origin = apiOrigin();
+        const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error(`oEmbed HTTP ${res.status}`);
+        const data = await res.json(); // { html: "<iframe ...>" , ... }
+        if (data && data.html) {
+          const wrap = document.createElement("div");
+          wrap.className = "embed-wrap";
+          wrap.innerHTML = data.html;
+          node.replaceWith(wrap);
+
+          // Tweak the newly inserted iframe too
+          enhanceEmbeds(wrap);
+        }
+      } catch (e) {
+        // Fallback for common providers if oEmbed blocked:
+        if (/youtube\.com|youtu\.be/i.test(url)) {
+          const id = url.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
+          if (id) {
+            const wrap = document.createElement("div");
+            wrap.className = "embed-wrap";
+            wrap.innerHTML = `<iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>`;
+            node.replaceWith(wrap);
+          }
+        } else if (/vimeo\.com/i.test(url)) {
+          const id = url.match(/vimeo\.com\/(\d+)/)?.[1];
+          if (id) {
+            const wrap = document.createElement("div");
+            wrap.className = "embed-wrap";
+            wrap.innerHTML = `<iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://player.vimeo.com/video/${id}"></iframe>`;
+            node.replaceWith(wrap);
+          }
+        } else {
+          // Leave the URL as-is if we can't resolve
+          console.warn("oEmbed failed for", url, e);
+        }
+      }
     });
   }
 
@@ -139,7 +196,7 @@ window.APP_VERSION = APP_VERSION;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch helpers with fallback (from v1.16) -------
+  // ------- Fetch helpers with fallback -------
   async function fetchWithFallback(input, init) {
     try {
       const r = await fetch(input, init);
@@ -258,9 +315,8 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // Make excerpt links open in new tab & fix embeds if present
-            const excerptEl = card.querySelector(".excerpt");
-            if (excerptEl) enhanceEmbeds(excerptEl);
+            // Enhance excerpt (open links, fix embeds)
+            enhanceEmbeds(card.querySelector(".excerpt"));
 
             added++;
           }
@@ -337,9 +393,8 @@ window.APP_VERSION = APP_VERSION;
         </article>
       `;
 
-      // Make content links open in new tab & fix embeds
-      const contentEl = app.querySelector(".content");
-      if (contentEl) enhanceEmbeds(contentEl);
+      // Enhance embeds/links inside the content (now includes oEmbed resolving)
+      enhanceEmbeds(app.querySelector(".content"));
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
     }
@@ -397,7 +452,6 @@ window.APP_VERSION = APP_VERSION;
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
 
-  // Global error banners
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
 })();

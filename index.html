@@ -25,7 +25,6 @@
     .title a {color:inherit;text-decoration:none}
     .title a:hover {text-decoration:underline}
 
-    /* 🔹 Summary card meta */
     .meta-author-date{font-size:.85em;display:flex;gap:8px;align-items:center;margin-bottom:4px}
     .meta-author-date .author{color:var(--secondary);font-weight:bold}
     .meta-author-date .date{color:#000;font-weight:normal}
@@ -36,7 +35,6 @@
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
 
-    /* 🔹 Detail page meta */
     .post .meta-author-date{font-size:.9em;margin-bottom:8px;display:flex;gap:8px;align-items:center}
     .post .meta-author-date .author{color:var(--secondary);font-weight:bold}
     .post .meta-author-date .date{color:#000;font-weight:normal}
@@ -48,12 +46,11 @@
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
 
-    /* 🎬 Responsive embeds (detail + excerpts) */
+    /* Responsive embeds */
     .content iframe,
     .content video,
     .excerpt iframe,
     .excerpt video{max-width:100%;width:100%;height:auto;display:block;border:0}
-    /* For providers that set fixed heights, force a 16:9 aspect when no size given */
     .content .embed-wrap,
     .excerpt .embed-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:10px}
     .content .embed-wrap > iframe,
@@ -96,10 +93,7 @@
     });
   </script>
 
-  <!-- Reference latest app.js -->
-  <script src="./app.js?v=1.17" defer></script>
-
-  <!-- Helps some WordPress oEmbeds auto-size if needed -->
+  <script src="./app.js?v=1.18" defer></script>
   <script async src="https://okobserver.org/wp-includes/js/wp-embed.min.js"></script>
 </body>
 </html>
