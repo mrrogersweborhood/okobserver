@@ -1,8 +1,8 @@
-// app.js — OkObserver app logic (v1.18)
-// NEW: client-side oEmbed resolver -> fixes "player not embedded" when REST returns bare URLs.
-// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
-// Auto REST base fallback retained.
-const APP_VERSION = "v1.18";
+// app.js — OkObserver app logic (v1.19)
+// Adds Facebook (post/video) embed fallback using the official iframe plugins.
+// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling,
+// responsive embeds, and oEmbed proxy resolution with absolute/relative REST base fallback.
+const APP_VERSION = "v1.19";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -66,7 +66,7 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Enhance + resolve embeds -------
+  // ------- Enhance + resolve embeds (now includes Facebook fallback) -------
   function enhanceEmbeds(root) {
     if (!root) return;
 
@@ -105,8 +105,8 @@ window.APP_VERSION = APP_VERSION;
     });
 
     // Resolve bare embed URLs:
-    // - Gutenberg: <div class="wp-block-embed__wrapper">https://youtu...</div>
-    // - Sometimes: <p>https://vimeo...</p>
+    // - Gutenberg: <div class="wp-block-embed__wrapper">https://provider/...</div>
+    // - Sometimes: <p>https://provider/...</p>
     const candidates = [
       ...root.querySelectorAll(".wp-block-embed__wrapper"),
       ...Array.from(root.querySelectorAll("p")).filter(p => {
@@ -119,6 +119,28 @@ window.APP_VERSION = APP_VERSION;
       const url = node.textContent.trim();
       if (!/^https?:\/\/\S+$/.test(url)) return;
 
+      // 🔵 Facebook direct fallback (post/video/reel/watch)
+      if (/facebook\.com|fb\.watch/i.test(url)) {
+        const wrap = document.createElement("div");
+        wrap.className = "embed-wrap";
+        let src;
+        if (/\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url)) {
+          // Video plugin
+          src = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false`;
+        } else {
+          // Post plugin
+          src = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&show_text=true`;
+        }
+        wrap.innerHTML = `<iframe loading="lazy"
+                                   allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                                   allowfullscreen
+                                   referrerpolicy="strict-origin-when-cross-origin"
+                                   src="${src}"></iframe>`;
+        node.replaceWith(wrap);
+        return; // done
+      }
+
+      // Try WordPress oEmbed proxy for other providers
       try {
         const origin = apiOrigin();
         const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
@@ -129,12 +151,11 @@ window.APP_VERSION = APP_VERSION;
           wrap.className = "embed-wrap";
           wrap.innerHTML = data.html;
           node.replaceWith(wrap);
-
-          // Tweak the newly inserted iframe too
-          enhanceEmbeds(wrap);
+          enhanceEmbeds(wrap); // add attrs/wrapper if needed
+          return;
         }
       } catch (e) {
-        // Fallback for common providers if oEmbed blocked:
+        // Fallback for common providers if proxy blocked
         if (/youtube\.com|youtu\.be/i.test(url)) {
           const id = url.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
           if (id) {
@@ -142,6 +163,7 @@ window.APP_VERSION = APP_VERSION;
             wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>`;
             node.replaceWith(wrap);
+            return;
           }
         } else if (/vimeo\.com/i.test(url)) {
           const id = url.match(/vimeo\.com\/(\d+)/)?.[1];
@@ -150,11 +172,11 @@ window.APP_VERSION = APP_VERSION;
             wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://player.vimeo.com/video/${id}"></iframe>`;
             node.replaceWith(wrap);
+            return;
           }
-        } else {
-          // Leave the URL as-is if we can't resolve
-          console.warn("oEmbed failed for", url, e);
         }
+        // Otherwise leave the URL as-is
+        console.warn("oEmbed failed for", url, e);
       }
     });
   }
@@ -196,7 +218,7 @@ window.APP_VERSION = APP_VERSION;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch helpers with fallback -------
+  // ------- Fetch helpers with fallback (BASE auto-switch) -------
   async function fetchWithFallback(input, init) {
     try {
       const r = await fetch(input, init);
@@ -315,7 +337,7 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // Enhance excerpt (open links, fix embeds)
+            // Enhance excerpt (open links, fix embeds, resolve URLs)
             enhanceEmbeds(card.querySelector(".excerpt"));
 
             added++;
@@ -393,7 +415,7 @@ window.APP_VERSION = APP_VERSION;
         </article>
       `;
 
-      // Enhance embeds/links inside the content (now includes oEmbed resolving)
+      // Enhance embeds/links inside the content (includes FB fallback + oEmbed)
       enhanceEmbeds(app.querySelector(".content"));
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
