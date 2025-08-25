@@ -1,11 +1,12 @@
-// app.js — OkObserver app logic (v1.16)
-// Fix: auto-detect REST base; fallback to absolute URL to avoid 404 when not on okobserver.org.
-// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
-const APP_VERSION = "v1.16";
+// app.js — OkObserver app logic (v1.17)
+// Video fix: responsive iframes/videos + add allow/allowfullscreen/loading + optional wrappers.
+// Also keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling.
+// Auto REST base fallback from v1.16.
+const APP_VERSION = "v1.17";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
-  // --- Auto-detect REST base ---
+  // Auto-detect REST base (works on okobserver.org or elsewhere)
   const onOkobserver = location.hostname.endsWith("okobserver.org");
   let BASE = onOkobserver ? "/wp-json/wp/v2" : "https://okobserver.org/wp-json/wp/v2";
 
@@ -58,6 +59,49 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
+  // ------- Enhance embeds (videos/iframes) -------
+  function enhanceEmbeds(root) {
+    if (!root) return;
+
+    // 1) Make links in excerpts/content open in new tab (kept from earlier)
+    root.querySelectorAll("a[href]").forEach((a) => {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    });
+
+    // 2) Tweak iframes (YouTube, Vimeo, WP oEmbed)
+    root.querySelectorAll("iframe").forEach((f) => {
+      // Add permissions & fullscreen
+      if (!f.hasAttribute("allow")) {
+        f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+      }
+      f.setAttribute("allowfullscreen", "");
+      if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
+      if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+
+      // If no explicit size and no parent wrapper, wrap to force aspect ratio
+      const hasSize = f.getAttribute("width") || f.getAttribute("height");
+      const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
+      if (!hasSize && !parentIsWrapper) {
+        const wrap = document.createElement("div");
+        wrap.className = "embed-wrap";
+        f.replaceWith(wrap);
+        wrap.appendChild(f);
+      }
+    });
+
+    // 3) Tweak <video> tags
+    root.querySelectorAll("video").forEach((v) => {
+      v.setAttribute("controls", "");
+      if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
+      if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
+      // width/height removed → CSS makes it responsive
+      v.removeAttribute("width");
+      v.removeAttribute("height");
+      if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
+    });
+  }
+
   // ------- Home view cache -------
   const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
 
@@ -95,14 +139,11 @@ window.APP_VERSION = APP_VERSION;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // ------- Fetch helpers with fallback detection -------
+  // ------- Fetch helpers with fallback (from v1.16) -------
   async function fetchWithFallback(input, init) {
-    // If we’re on okobserver.org we expect the relative path to work.
-    // If it fails with 404/0 (e.g. CORS blocked/gh-pages), retry once with absolute base.
     try {
       const r = await fetch(input, init);
       if (r.status === 404 || r.status === 0) {
-        // Switch to absolute base and retry once
         if (BASE.startsWith("/")) {
           BASE = "https://okobserver.org/wp-json/wp/v2";
         }
@@ -111,7 +152,6 @@ window.APP_VERSION = APP_VERSION;
       }
       return r;
     } catch (e) {
-      // Network errors → try absolute
       if (BASE.startsWith("/")) {
         BASE = "https://okobserver.org/wp-json/wp/v2";
         const rebuilt = String(input).replace(/^(?:https?:\/\/[^/]+)?\/wp-json\/wp\/v2/, BASE);
@@ -218,14 +258,9 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // 🔗 Ensure links in summary excerpts open in a new tab
+            // Make excerpt links open in new tab & fix embeds if present
             const excerptEl = card.querySelector(".excerpt");
-            if (excerptEl) {
-              excerptEl.querySelectorAll("a[href]").forEach(link => {
-                link.setAttribute("target", "_blank");
-                link.setAttribute("rel", "noopener");
-              });
-            }
+            if (excerptEl) enhanceEmbeds(excerptEl);
 
             added++;
           }
@@ -302,15 +337,9 @@ window.APP_VERSION = APP_VERSION;
         </article>
       `;
 
-      // 🔗 Ensure links in post content open in a new tab
+      // Make content links open in new tab & fix embeds
       const contentEl = app.querySelector(".content");
-      if (contentEl) {
-        const links = contentEl.querySelectorAll("a[href]");
-        links.forEach(link => {
-          link.setAttribute("target", "_blank");
-          link.setAttribute("rel", "noopener");
-        });
-      }
+      if (contentEl) enhanceEmbeds(contentEl);
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
     }
@@ -368,7 +397,7 @@ window.APP_VERSION = APP_VERSION;
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
 
-  // Global error handlers → visible banners
+  // Global error banners
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
 })();

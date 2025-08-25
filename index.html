@@ -26,21 +26,9 @@
     .title a:hover {text-decoration:underline}
 
     /* 🔹 Summary card meta */
-    .meta-author-date{
-      font-size:.85em;
-      display:flex;
-      gap:8px;
-      align-items:center;
-      margin-bottom:4px;
-    }
-    .meta-author-date .author {
-      color:var(--secondary);
-      font-weight:bold;
-    }
-    .meta-author-date .date {
-      color:#000;
-      font-weight:normal;
-    }
+    .meta-author-date{font-size:.85em;display:flex;gap:8px;align-items:center;margin-bottom:4px}
+    .meta-author-date .author{color:var(--secondary);font-weight:bold}
+    .meta-author-date .date{color:#000;font-weight:normal}
 
     .excerpt{font-size:.9em;color:#333}
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
@@ -49,21 +37,9 @@
     .post h1{margin-top:0;color:var(--secondary)}
 
     /* 🔹 Detail page meta */
-    .post .meta-author-date{
-      font-size:.9em;
-      margin-bottom:8px;
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    .post .meta-author-date .author {
-      color:var(--secondary);
-      font-weight:bold;
-    }
-    .post .meta-author-date .date {
-      color:#000;
-      font-weight:normal;
-    }
+    .post .meta-author-date{font-size:.9em;margin-bottom:8px;display:flex;gap:8px;align-items:center}
+    .post .meta-author-date .author{color:var(--secondary);font-weight:bold}
+    .post .meta-author-date .date{color:#000;font-weight:normal}
 
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
     .tags{margin-top:12px;font-size:.85em}
@@ -71,18 +47,25 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
+
+    /* 🎬 Responsive embeds (detail + excerpts) */
+    .content iframe,
+    .content video,
+    .excerpt iframe,
+    .excerpt video{max-width:100%;width:100%;height:auto;display:block;border:0}
+    /* For providers that set fixed heights, force a 16:9 aspect when no size given */
+    .content .embed-wrap,
+    .excerpt .embed-wrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:10px}
+    .content .embed-wrap > iframe,
+    .excerpt .embed-wrap > iframe{position:absolute;inset:0;width:100%;height:100%}
   </style>
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
-        <img src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-             alt="OkObserver Logo"
-             style="max-height:60px; margin-bottom:6px;">
-        <div style="font-size:0.9em;margin-top:4px;">
-          To Comfort The Afflicted And Afflict The Comfortable
-        </div>
+        <img src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png" alt="OkObserver Logo" style="max-height:60px;margin-bottom:6px">
+        <div style="font-size:0.9em;margin-top:4px">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
         <a href="#/" id="nav-home">Home</a>
@@ -114,6 +97,9 @@
   </script>
 
   <!-- Reference latest app.js -->
-  <script src="./app.js?v=1.16" defer></script>
+  <script src="./app.js?v=1.17" defer></script>
+
+  <!-- Helps some WordPress oEmbeds auto-size if needed -->
+  <script async src="https://okobserver.org/wp-includes/js/wp-embed.min.js"></script>
 </body>
 </html>
