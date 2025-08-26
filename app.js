@@ -1,21 +1,30 @@
-// app.js — OkObserver (v1.25)
-// New: fall back to the first <img> inside post HTML when Featured Image is missing.
-const APP_VERSION = "v1.25";
+// app.js — OkObserver (v1.26, consolidated)
+// Includes:
+// - Infinite scroll with IntersectionObserver
+// - AbortController for stale requests
+// - Category exclusion: "cartoon" (API-level + client-side guard)
+// - Search route
+// - Author + date (January 1st, 2025 format)
+// - Tags on post detail
+// - Link hardening (target=_blank, rel=noopener)
+// - Embed handling: Facebook (SDK divs, bare URLs, existing plugin iframes), YouTube, Vimeo
+// - oEmbed proxy
+// - Hero fallback: featured image -> oEmbed thumbnail -> first <img> in content -> FB placeholder
+// - Error banners + global handlers
+const APP_VERSION = "v1.26";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
+  // REST base autodetect
   const onOkobserver = location.hostname.endsWith("okobserver.org");
   let BASE = onOkobserver ? "/wp-json/wp/v2" : "https://okobserver.org/wp-json/wp/v2";
 
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
+
   const app = document.getElementById("app");
 
-  function apiOrigin() {
-    try { return BASE.startsWith("http") ? new URL(BASE).origin : location.origin; }
-    catch { return "https://okobserver.org"; }
-  }
-
+  // ---------------- Error UI ----------------
   function showError(message) {
     if (!app) return;
     const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
@@ -29,17 +38,23 @@ window.APP_VERSION = APP_VERSION;
     if (btn) btn.closest(".error-banner")?.remove();
   });
 
+  // ---------------- Utils ----------------
   const esc = (s) =>
     (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const getAuthorName = (post) => post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
-  const hasExcludedCategory = (post) => {
+
+  function getAuthorName(post) {
+    return post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
+  }
+
+  function hasExcludedCategory(post) {
     const cats = post?._embedded?.["wp:term"]?.[0] || [];
     return cats.some((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
-  };
-  const getPostTags = (embeddedTerms) => {
+  }
+
+  function getPostTags(embeddedTerms) {
     if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
-  };
+  }
 
   function formatDateWithOrdinal(dateString) {
     const d = new Date(dateString);
@@ -48,12 +63,24 @@ window.APP_VERSION = APP_VERSION;
     const year = d.getFullYear();
     const suffix = (n) => {
       if (n > 3 && n < 21) return "th";
-      switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
+      switch (n % 10) {
+        case 1: return "st";
+        case 2: return "nd";
+        case 3: return "rd";
+        default: return "th";
+      }
     };
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // Extract first provider URL
+  function apiOrigin() {
+    try {
+      if (BASE.startsWith("http")) return new URL(BASE).origin;
+      return location.origin;
+    } catch { return "https://okobserver.org"; }
+  }
+
+  // First provider URL from HTML (embed wrappers, bare <p> URL, or first anchor to known providers)
   function extractFirstEmbedUrlFromHtml(html) {
     const div = document.createElement("div");
     div.innerHTML = html || "";
@@ -74,16 +101,14 @@ window.APP_VERSION = APP_VERSION;
     return null;
   }
 
-  // 🔹 NEW: extract first <img> src (or data-src/srcset) from HTML
+  // First <img> URL from HTML (prefers last srcset candidate)
   function extractFirstImageSrcFromHtml(html) {
     const div = document.createElement("div");
     div.innerHTML = html || "";
     const img = div.querySelector("img");
     if (!img) return null;
-    // pick best available
     const srcset = img.getAttribute("srcset");
     if (srcset) {
-      // choose last candidate (usually largest)
       const last = srcset.split(",").map(s => s.trim()).pop();
       const url = last?.split(" ")?.[0];
       if (url) return url;
@@ -102,58 +127,60 @@ window.APP_VERSION = APP_VERSION;
     } catch { return null; }
   }
 
+  // ---------------- Embeds Enhancer ----------------
   function enhanceEmbeds(root) {
     if (!root) return;
-    root.querySelectorAll("a[href]").forEach((a) => { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); });
 
-    // Convert Facebook SDK blocks
+    // Open all links in new tab
+    root.querySelectorAll("a[href]").forEach((a) => {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    });
+
+    // Convert Facebook SDK blocks to plugin iframes
     root.querySelectorAll('div.fb-video[data-href], div.fb-post[data-href]').forEach((el) => {
-      const href = el.getAttribute('data-href'); if (!href) return;
+      const href = el.getAttribute('data-href');
+      if (!href) return;
       const isVideo = el.classList.contains('fb-video');
       const width = 720, height = 405;
       const plugin = isVideo ? "video" : "post";
       const showText = isVideo ? "false" : "true";
       const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(href)}&show_text=${showText}&width=${width}&height=${height}`;
-      const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+
+      const wrap = document.createElement("div");
+      wrap.className = "embed-wrap";
+
       const iframe = document.createElement("iframe");
       iframe.loading = "lazy";
       iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
       iframe.setAttribute("allowfullscreen", "");
       iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      iframe.width = String(width); iframe.height = String(height);
-      iframe.src = src; iframe.style.border = "0"; iframe.style.width = "100%"; iframe.style.height = "100%";
+      iframe.width = String(width);
+      iframe.height = String(height);
+      iframe.src = src;
+      iframe.style.border = "0";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+
       const fallback = document.createElement("div");
       fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-      fallback.innerHTML = `Facebook embed didn’t load.<div style="margin-top:6px"><a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a></div>`;
+      fallback.innerHTML = `
+        Facebook embed didn’t load. This is often caused by an extension blocking it.
+        <div style="margin-top:6px">
+          <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
+        </div>`;
+
       let loaded = false;
       const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
       iframe.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
       iframe.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
-      wrap.appendChild(iframe); wrap.appendChild(fallback); el.replaceWith(wrap);
+
+      wrap.appendChild(iframe);
+      wrap.appendChild(fallback);
+      el.replaceWith(wrap);
     });
 
-    // Normalize iframes
-    root.querySelectorAll("iframe").forEach((f) => {
-      if (!f.hasAttribute("allow")) f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
-      f.setAttribute("allowfullscreen", "");
-      if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
-      if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      const hasSize = f.getAttribute("width") || f.getAttribute("height");
-      const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
-      if (!hasSize && !parentIsWrapper) {
-        const wrap = document.createElement("div"); wrap.className = "embed-wrap";
-        f.replaceWith(wrap); wrap.appendChild(f);
-      }
-    });
-
-    root.querySelectorAll("video").forEach((v) => {
-      v.setAttribute("controls", ""); if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
-      if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
-      v.removeAttribute("width"); v.removeAttribute("height");
-      if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
-    });
-
-    // Resolve bare embed URLs
+    // Resolve bare embed URLs (FB/YouTube/Vimeo)
     const candidates = [
       ...root.querySelectorAll(".wp-block-embed__wrapper"),
       ...Array.from(root.querySelectorAll("p")).filter(p => {
@@ -161,68 +188,149 @@ window.APP_VERSION = APP_VERSION;
         return /^https?:\/\/\S+$/.test(t) && p.children.length === 0;
       })
     ];
+
     candidates.forEach(async (node) => {
       const url = node.textContent.trim();
       if (!/^https?:\/\/\S+$/.test(url)) return;
 
+      // Facebook → plugin iframe + fallback
       if (/(?:^|\.)facebook\.com|fb\.watch/i.test(url)) {
-        const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+        const wrap = document.createElement("div");
+        wrap.className = "embed-wrap";
         const isVideo = /\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url);
         const width = 720, height = 405;
         const plugin = isVideo ? "video" : "post";
         const showText = isVideo ? "false" : "true";
         const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(url)}&show_text=${showText}&width=${width}&height=${height}`;
+
         const iframe = document.createElement("iframe");
         iframe.loading = "lazy";
         iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
         iframe.setAttribute("allowfullscreen", "");
         iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-        iframe.width = String(width); iframe.height = String(height);
-        iframe.src = src; iframe.style.border = "0"; iframe.style.width = "100%"; iframe.style.height = "100%";
+        iframe.width = String(width);
+        iframe.height = String(height);
+        iframe.src = src;
+        iframe.style.border = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+
         const fallback = document.createElement("div");
         fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-        fallback.innerHTML = `Facebook embed didn’t load.<div style="margin-top:6px"><a href="${url}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a></div>`;
+        fallback.innerHTML = `
+          Facebook embed didn’t load. This is often caused by an extension blocking it.
+          <div style="margin-top:6px">
+            <a href="${url}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
+          </div>`;
+
         let loaded = false;
         const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
         iframe.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
         iframe.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
-        wrap.appendChild(iframe); wrap.appendChild(fallback); node.replaceWith(wrap);
+
+        wrap.appendChild(iframe);
+        wrap.appendChild(fallback);
+        node.replaceWith(wrap);
         return;
       }
 
+      // Other providers via oEmbed proxy, then normalize/rehydrate
       try {
         const origin = apiOrigin();
         const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error(`oEmbed HTTP ${res.status}`);
         const data = await res.json();
         if (data && data.html) {
-          const wrap = document.createElement("div"); wrap.className = "embed-wrap";
-          wrap.innerHTML = data.html; node.replaceWith(wrap); enhanceEmbeds(wrap);
+          const wrap = document.createElement("div");
+          wrap.className = "embed-wrap";
+          wrap.innerHTML = data.html;
+          node.replaceWith(wrap);
+          enhanceEmbeds(wrap);
           return;
         }
       } catch (e) {
+        // Manual YouTube/Vimeo fallback
         if (/youtube\.com|youtu\.be/i.test(url)) {
           const id = url.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
           if (id) {
-            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+            const wrap = document.createElement("div");
+            wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>`;
-            node.replaceWith(wrap); return;
+            node.replaceWith(wrap);
+            return;
           }
         } else if (/vimeo\.com/i.test(url)) {
           const id = url.match(/vimeo\.com\/(\d+)/)?.[1];
           if (id) {
-            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+            const wrap = document.createElement("div");
+            wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://player.vimeo.com/video/${id}"></iframe>`;
-            node.replaceWith(wrap); return;
+            node.replaceWith(wrap);
+            return;
           }
         }
         console.warn("oEmbed failed for", url, e);
       }
     });
+
+    // Normalize iframes and attach FB watchdog/fallback for iframes already present in content
+    root.querySelectorAll("iframe").forEach((f) => {
+      // Normalize attributes
+      if (!f.hasAttribute("allow")) {
+        f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+      }
+      f.setAttribute("allowfullscreen", "");
+      if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
+      if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+
+      // Ensure responsive wrapper
+      const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
+      if (!parentIsWrapper) {
+        const wrap = document.createElement("div");
+        wrap.className = "embed-wrap";
+        f.replaceWith(wrap);
+        wrap.appendChild(f);
+      }
+
+      // Facebook plugin iframe watchdog
+      const src = (f.getAttribute("src") || "").toLowerCase();
+      if (/facebook\.com\/plugins\/(video|post)\.php/.test(src)) {
+        const fallback = document.createElement("div");
+        fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
+        let original = "";
+        try {
+          const u = new URL(f.src, location.href);
+          original = u.searchParams.get("href") || "";
+        } catch {}
+        const href = original || "https://www.facebook.com/";
+        fallback.innerHTML = `
+          Facebook embed didn’t load. This is often caused by a browser extension or privacy setting.
+          <div style="margin-top:6px">
+            <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
+          </div>`;
+
+        f.parentElement.appendChild(fallback);
+
+        let loaded = false;
+        const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
+        f.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
+        f.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
+      }
+    });
+
+    // Make <video> responsive with sane defaults
+    root.querySelectorAll("video").forEach((v) => {
+      v.setAttribute("controls", "");
+      if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
+      if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
+      v.removeAttribute("width");
+      v.removeAttribute("height");
+      if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
+    });
   }
 
-  const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
-
+  // ---------------- API helpers ----------------
+  // Category ID lookup (for API-level categories_exclude)
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -250,10 +358,12 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
+  // AbortControllers
   let listController = null, itemController = null;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
+  // Fetch with fallback (handle GitHub Pages origin vs okobserver.org)
   async function fetchWithFallback(input, init) {
     try {
       const r = await fetch(input, init);
@@ -310,6 +420,8 @@ window.APP_VERSION = APP_VERSION;
     } finally { itemController = null; }
   }
 
+  // ---------------- Views ----------------
+  const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
   const seenIds = new Set();
 
   function renderHome({ search = "" } = {}) {
@@ -343,7 +455,7 @@ window.APP_VERSION = APP_VERSION;
             if (seenIds.has(p.id)) continue;
             seenIds.add(p.id);
 
-            // Card image priority: featured -> first <img> from content/excerpt -> blank
+            // Card image priority: featured -> first <img> from excerpt/content -> blank
             let media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
             if (!media) {
               media = extractFirstImageSrcFromHtml(p.excerpt?.rendered) ||
@@ -375,7 +487,9 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
+            // Harden links/embeds inside excerpt
             enhanceEmbeds(card.querySelector(".excerpt"));
+
             added++;
           }
 
@@ -389,7 +503,8 @@ window.APP_VERSION = APP_VERSION;
         HomeCache.search = state.search;
         HomeCache.scrollY = window.scrollY;
 
-        setStatus(state.ended ? (HomeCache.hasData ? "No more posts." : "No posts found.") : "");
+        if (state.ended) setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
+        else setStatus("");
       } catch (e) {
         showError(e);
         setStatus("Failed to load.");
@@ -430,7 +545,7 @@ window.APP_VERSION = APP_VERSION;
           }).join("")}</div>`
         : "";
 
-      // HERO priority: featured -> oEmbed thumb -> first <img> in content -> FB placeholder
+      // HERO priority: featured -> oEmbed thumb -> first <img> in content -> FB blue placeholder
       let heroHtml = "";
       let heroSrc = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
       let heroLink = "";
@@ -456,12 +571,11 @@ window.APP_VERSION = APP_VERSION;
           }
         }
       }
-      // 🔹 NEW: if still no hero (and not using FB placeholder), take first <img> from content
+      // If still no hero, use first <img> from content
       if (!heroHtml && !heroSrc) {
         const firstImg = extractFirstImageSrcFromHtml(p.content?.rendered);
         if (firstImg) heroSrc = firstImg;
       }
-
       if (!heroHtml && heroSrc) {
         const img = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
         heroHtml = heroLink ? `<a href="${heroLink}" target="_blank" rel="noopener">${img}</a>` : img;
@@ -497,32 +611,49 @@ window.APP_VERSION = APP_VERSION;
       </article>`;
   }
 
+  // ---------------- Router ----------------
   function router() {
     const hash = location.hash || "#/";
+
     if (hash === "#/" || hash === "") {
       if (HomeCache.hasData && HomeCache.html) {
         app.innerHTML = HomeCache.html;
         requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
         return;
       }
-      abortItem(); renderHome({ search: HomeCache.search || "" }); return;
+      abortItem();
+      renderHome({ search: HomeCache.search || "" });
+      return;
     }
+
     if (hash.startsWith("#/post/")) {
       if (app && app.querySelector("#grid")) {
-        HomeCache.scrollY = window.scrollY; HomeCache.html = app.innerHTML; HomeCache.hasData = true;
+        HomeCache.scrollY = window.scrollY;
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = true;
       }
-      abortList(); renderPost(hash.split("/")[2]); return;
+      abortList();
+      renderPost(hash.split("/")[2]);
+      return;
     }
+
     if (hash.startsWith("#/search")) {
-      abortItem(); const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
-      HomeCache.html = ""; HomeCache.hasData = false; HomeCache.search = q; renderHome({ search: q }); return;
+      abortItem();
+      const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
+      HomeCache.html = ""; HomeCache.hasData = false; HomeCache.search = q;
+      renderHome({ search: q });
+      return;
     }
+
     if (hash === "#/about") { abortList(); abortItem(); renderAbout(); return; }
+
     app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
   }
 
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
+
+  // Global error handlers -> banner
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
 })();
