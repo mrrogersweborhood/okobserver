@@ -1,8 +1,8 @@
-// app.js — OkObserver app logic (v1.19)
-// Adds Facebook (post/video) embed fallback using the official iframe plugins.
-// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, author/date styling,
-// responsive embeds, and oEmbed proxy resolution with absolute/relative REST base fallback.
-const APP_VERSION = "v1.19";
+// app.js — OkObserver app logic (v1.21)
+// Adds Facebook embed fallback + graceful timeout message.
+// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, responsive embeds,
+// oEmbed proxy resolution, and REST base auto-fallback.
+const APP_VERSION = "v1.21";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -66,7 +66,7 @@ window.APP_VERSION = APP_VERSION;
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
-  // ------- Enhance + resolve embeds (now includes Facebook fallback) -------
+  // ------- Enhance + resolve embeds (incl. Facebook) -------
   function enhanceEmbeds(root) {
     if (!root) return;
 
@@ -119,23 +119,50 @@ window.APP_VERSION = APP_VERSION;
       const url = node.textContent.trim();
       if (!/^https?:\/\/\S+$/.test(url)) return;
 
-      // 🔵 Facebook direct fallback (post/video/reel/watch)
-      if (/facebook\.com|fb\.watch/i.test(url)) {
+      // 🔵 Facebook direct fallback (post/video/reel/watch, incl. m.facebook.com) + graceful timeout
+      if (/(?:^|\.)facebook\.com|fb\.watch/i.test(url)) {
         const wrap = document.createElement("div");
         wrap.className = "embed-wrap";
-        let src;
-        if (/\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url)) {
-          // Video plugin
-          src = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false`;
-        } else {
-          // Post plugin
-          src = `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&show_text=true`;
-        }
-        wrap.innerHTML = `<iframe loading="lazy"
-                                   allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                                   allowfullscreen
-                                   referrerpolicy="strict-origin-when-cross-origin"
-                                   src="${src}"></iframe>`;
+
+        const isVideo = /\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url);
+        const width = 720;   // explicit size helps FB; CSS keeps it responsive visually
+        const height = 405;  // 16:9
+        const showText = isVideo ? "false" : "true";
+        const plugin = isVideo ? "video" : "post";
+        const src = `https://www.facebook.com/plugins/${plugin}.php` +
+                    `?href=${encodeURIComponent(url)}&show_text=${showText}&width=${width}&height=${height}`;
+
+        const iframe = document.createElement("iframe");
+        iframe.loading = "lazy";
+        iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        iframe.width = String(width);
+        iframe.height = String(height);
+        iframe.src = src;
+        iframe.style.border = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+
+        const fallback = document.createElement("div");
+        fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
+        fallback.innerHTML = `
+          Facebook embed didn’t load. This is often caused by an extension blocking it.
+          <div style="margin-top:6px">
+            <a href="${url}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
+          </div>
+        `;
+
+        let loaded = false;
+        const timer = setTimeout(() => {
+          if (!loaded) fallback.style.display = "block";
+        }, 10000);
+
+        iframe.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
+        iframe.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
+
+        wrap.appendChild(iframe);
+        wrap.appendChild(fallback);
         node.replaceWith(wrap);
         return; // done
       }
