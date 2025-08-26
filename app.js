@@ -1,8 +1,7 @@
-// app.js — OkObserver app logic (v1.21)
-// Adds Facebook embed fallback + graceful timeout message.
-// Keeps: infinite scroll, cache, AbortControllers, link targets, Cartoon exclusion, responsive embeds,
-// oEmbed proxy resolution, and REST base auto-fallback.
-const APP_VERSION = "v1.21";
+// app.js — OkObserver app logic (v1.22)
+// New: if no featured image, fetch provider thumbnail via WP oEmbed proxy and show as hero.
+// Keeps: FB fallback + timeout, responsive embeds, infinite scroll, aborts, exclusions, etc.
+const APP_VERSION = "v1.22";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -119,7 +118,7 @@ window.APP_VERSION = APP_VERSION;
       const url = node.textContent.trim();
       if (!/^https?:\/\/\S+$/.test(url)) return;
 
-      // 🔵 Facebook direct fallback (post/video/reel/watch, incl. m.facebook.com) + graceful timeout
+      // 🔵 Facebook direct fallback (post/video/reel/watch) + graceful timeout
       if (/(?:^|\.)facebook\.com|fb\.watch/i.test(url)) {
         const wrap = document.createElement("div");
         wrap.className = "embed-wrap";
@@ -172,7 +171,7 @@ window.APP_VERSION = APP_VERSION;
         const origin = apiOrigin();
         const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error(`oEmbed HTTP ${res.status}`);
-        const data = await res.json(); // { html: "<iframe ...>" , ... }
+        const data = await res.json(); // { html, thumbnail_url, ... }
         if (data && data.html) {
           const wrap = document.createElement("div");
           wrap.className = "embed-wrap";
@@ -206,6 +205,44 @@ window.APP_VERSION = APP_VERSION;
         console.warn("oEmbed failed for", url, e);
       }
     });
+  }
+
+  // ------- Try to extract first provider URL from post HTML -------
+  function extractFirstEmbedUrlFromHtml(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    // 1) WordPress embed wrapper
+    const w = div.querySelector(".wp-block-embed__wrapper");
+    if (w) {
+      const t = (w.textContent || "").trim();
+      if (/^https?:\/\/\S+$/.test(t)) return t;
+    }
+    // 2) Plain <p> with only a URL
+    const p = Array.from(div.querySelectorAll("p")).find(el => {
+      const t = el.textContent.trim();
+      return /^https?:\/\/\S+$/.test(t) && el.children.length === 0;
+    });
+    if (p) return p.textContent.trim();
+    // 3) First <a href> to a known provider
+    const a = Array.from(div.querySelectorAll("a[href]")).find(el =>
+      /(facebook\.com|fb\.watch|youtu\.be|youtube\.com|vimeo\.com)/i.test(el.href)
+    );
+    if (a) return a.href;
+    return null;
+  }
+
+  // ------- Get a thumbnail from WP's oEmbed proxy (if available) -------
+  async function getOembedThumb(url) {
+    if (!url) return null;
+    try {
+      const origin = apiOrigin();
+      const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
+      if (!res.ok) return null;
+      const data = await res.json(); // includes thumbnail_url for many providers
+      return data?.thumbnail_url || null;
+    } catch {
+      return null;
+    }
   }
 
   // ------- Home view cache -------
@@ -423,9 +460,26 @@ window.APP_VERSION = APP_VERSION;
           }).join("")}</div>`
         : "";
 
-      const hero = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url
-        ? `<img class="hero" src="${p._embedded["wp:featuredmedia"][0].source_url}" alt="">`
-        : "";
+      // Prefer WP featured image; if missing, try to derive a thumbnail via oEmbed proxy
+      let heroHtml = "";
+      let heroSrc = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+      let heroLink = ""; // for provider URL if we get one
+
+      if (!heroSrc) {
+        const providerUrl = extractFirstEmbedUrlFromHtml(p.content.rendered);
+        if (providerUrl) {
+          heroLink = providerUrl;
+          const thumb = await getOembedThumb(providerUrl);
+          if (thumb) {
+            heroSrc = thumb;
+          }
+        }
+      }
+
+      if (heroSrc) {
+        const img = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
+        heroHtml = heroLink ? `<a href="${heroLink}" target="_blank" rel="noopener">${img}</a>` : img;
+      }
 
       app.innerHTML = `
         <article class="post">
@@ -435,7 +489,7 @@ window.APP_VERSION = APP_VERSION;
             ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
             <span class="date">${date}</span>
           </div>
-          ${hero}
+          ${heroHtml}
           <div class="content">${p.content.rendered}</div>
           ${tagsHtml}
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
