@@ -1,17 +1,17 @@
-// app.js — OkObserver (v1.26, consolidated)
+// app.js — OkObserver (v1.27, consolidated)
 // Includes:
 // - Infinite scroll with IntersectionObserver
 // - AbortController for stale requests
 // - Category exclusion: "cartoon" (API-level + client-side guard)
 // - Search route
-// - Author + date (January 1st, 2025 format)
+// - Author + date (January 1st, 2025 format — ordinal day)
 // - Tags on post detail
 // - Link hardening (target=_blank, rel=noopener)
-// - Embed handling: Facebook (SDK divs, bare URLs, existing plugin iframes), YouTube, Vimeo
-// - oEmbed proxy
+// - Embed handling: Facebook (SDK divs, bare URLs, existing plugin iframes) + watchdog/fallback
+// - oEmbed proxy for many providers, YouTube/Vimeo manual fallback
 // - Hero fallback: featured image -> oEmbed thumbnail -> first <img> in content -> FB placeholder
 // - Error banners + global handlers
-const APP_VERSION = "v1.26";
+const APP_VERSION = "v1.27";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
@@ -127,6 +127,47 @@ window.APP_VERSION = APP_VERSION;
     } catch { return null; }
   }
 
+  // Helper: attach watchdog + quick fallback to a Facebook plugin iframe
+  function attachFbWatchdog(iframe, linkHref) {
+    const fallback = document.createElement("div");
+    fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
+    const href = linkHref || (()=>{
+      try { const u = new URL(iframe.src, location.href); return u.searchParams.get("href") || ""; } catch { return ""; }
+    })() || "https://www.facebook.com/";
+    fallback.innerHTML = `
+      Facebook embed didn’t load. This is often caused by a browser extension or privacy setting.
+      <div style="margin-top:6px">
+        <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
+      </div>`;
+    iframe.parentElement.appendChild(fallback);
+
+    let loaded = false;
+
+    // Quick check ~1.5s: if iframe remains collapsed/hidden, show fallback
+    const quick = setTimeout(() => {
+      const h = iframe.clientHeight;
+      const w = iframe.clientWidth;
+      if (!loaded && (h === 0 || w === 0)) {
+        fallback.style.display = "block";
+      }
+    }, 1500);
+
+    // Hard timeout 3s: always show if not loaded
+    const hard = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 3000);
+
+    iframe.addEventListener("load", () => {
+      loaded = true;
+      clearTimeout(quick);
+      clearTimeout(hard);
+    });
+    iframe.addEventListener("error", () => {
+      loaded = false;
+      clearTimeout(quick);
+      clearTimeout(hard);
+      fallback.style.display = "block";
+    });
+  }
+
   // ---------------- Embeds Enhancer ----------------
   function enhanceEmbeds(root) {
     if (!root) return;
@@ -162,21 +203,8 @@ window.APP_VERSION = APP_VERSION;
       iframe.style.width = "100%";
       iframe.style.height = "100%";
 
-      const fallback = document.createElement("div");
-      fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-      fallback.innerHTML = `
-        Facebook embed didn’t load. This is often caused by an extension blocking it.
-        <div style="margin-top:6px">
-          <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
-        </div>`;
-
-      let loaded = false;
-      const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
-      iframe.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
-      iframe.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
-
       wrap.appendChild(iframe);
-      wrap.appendChild(fallback);
+      attachFbWatchdog(iframe, href);
       el.replaceWith(wrap);
     });
 
@@ -215,21 +243,8 @@ window.APP_VERSION = APP_VERSION;
         iframe.style.width = "100%";
         iframe.style.height = "100%";
 
-        const fallback = document.createElement("div");
-        fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-        fallback.innerHTML = `
-          Facebook embed didn’t load. This is often caused by an extension blocking it.
-          <div style="margin-top:6px">
-            <a href="${url}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
-          </div>`;
-
-        let loaded = false;
-        const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
-        iframe.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
-        iframe.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
-
         wrap.appendChild(iframe);
-        wrap.appendChild(fallback);
+        attachFbWatchdog(iframe, url);
         node.replaceWith(wrap);
         return;
       }
@@ -295,26 +310,7 @@ window.APP_VERSION = APP_VERSION;
       // Facebook plugin iframe watchdog
       const src = (f.getAttribute("src") || "").toLowerCase();
       if (/facebook\.com\/plugins\/(video|post)\.php/.test(src)) {
-        const fallback = document.createElement("div");
-        fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-        let original = "";
-        try {
-          const u = new URL(f.src, location.href);
-          original = u.searchParams.get("href") || "";
-        } catch {}
-        const href = original || "https://www.facebook.com/";
-        fallback.innerHTML = `
-          Facebook embed didn’t load. This is often caused by a browser extension or privacy setting.
-          <div style="margin-top:6px">
-            <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
-          </div>`;
-
-        f.parentElement.appendChild(fallback);
-
-        let loaded = false;
-        const timer = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 10000);
-        f.addEventListener("load", () => { loaded = true; clearTimeout(timer); });
-        f.addEventListener("error", () => { loaded = false; clearTimeout(timer); fallback.style.display = "block"; });
+        attachFbWatchdog(f, /* linkHref */ "");
       }
     });
 
@@ -455,11 +451,11 @@ window.APP_VERSION = APP_VERSION;
             if (seenIds.has(p.id)) continue;
             seenIds.add(p.id);
 
-            // Card image priority: featured -> first <img> from excerpt/content -> blank
+            // Card image priority: featured -> first <img> from content -> (then) excerpt -> blank
             let media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
             if (!media) {
-              media = extractFirstImageSrcFromHtml(p.excerpt?.rendered) ||
-                      extractFirstImageSrcFromHtml(p.content?.rendered) || "";
+              media = extractFirstImageSrcFromHtml(p.content?.rendered) ||
+                      extractFirstImageSrcFromHtml(p.excerpt?.rendered) || "";
             }
 
             const author = esc(getAuthorName(p));
@@ -567,7 +563,8 @@ window.APP_VERSION = APP_VERSION;
                     <polygon points="40,30 72,48 40,66" fill="white"/>
                   </svg>
                 </div>
-              </a>`;
+              </a>
+              <div style="font-size:.85em;color:#555;margin-top:6px">If the player doesn’t appear, click the banner above to open on Facebook.</div>`;
           }
         }
       }
