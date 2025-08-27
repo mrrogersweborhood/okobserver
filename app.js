@@ -1,11 +1,10 @@
-// app.js — OkObserver (v1.30)
-// Changes vs 1.29:
-// - Keep absolute BASE (GitHub Pages safe)
-// - Router try/catch
-// - enhanceEmbeds(): wraps iframes in .embed-wrap, converts FB SDK blocks & bare URLs,
-//   and attaches watchdog so a fallback button appears if blocked.
-// - Cards/detail still exclude "cartoon"; author/date UI preserved.
-const APP_VERSION = "v1.30";
+// app.js — OkObserver (v1.31)
+// Changes vs 1.30:
+// - Robust featured image selection via getBestFeaturedImage()
+// - Card thumbnail error fallback → graceful gray box
+// - Kept: absolute BASE (GH Pages safe), router guard, embeds enhancer + FB fallback,
+//   infinite scroll, Cartoon exclusion, author/date/tags, new-tab links, oEmbed thumbs.
+const APP_VERSION = "v1.31";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -108,6 +107,23 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (url) return url;
     }
     return img.getAttribute("data-src") || img.getAttribute("src") || null;
+  }
+
+  // ✅ Robust featured image picker (checks common sizes, then source_url)
+  function getBestFeaturedImage(post) {
+    const m = post?._embedded?.["wp:featuredmedia"]?.[0];
+    if (!m) return "";
+    const sizes = m.media_details?.sizes || {};
+    return (
+      sizes?.["2048x2048"]?.source_url ||
+      sizes?.["1536x1536"]?.source_url ||
+      sizes?.full?.source_url ||
+      sizes?.large?.source_url ||
+      sizes?.medium_large?.source_url ||
+      sizes?.medium?.source_url ||
+      m.source_url ||
+      ""
+    );
   }
 
   async function getOembedThumb(url) {
@@ -343,8 +359,8 @@ console.info("OkObserver app loaded", APP_VERSION);
             if (seenIds.has(p.id)) continue;
             seenIds.add(p.id);
 
-            // Card image priority: featured -> (Newsmakers video thumb) -> first <img> in content -> then excerpt -> blank
-            let media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+            // ✅ Card image priority: featured -> (Newsmakers video thumb) -> first <img> in content -> then excerpt -> blank
+            let media = getBestFeaturedImage(p);
             if (!media && isInCategory(p, NEWSMAKERS_CAT_NAME)) {
               const vUrl = extractFirstEmbedUrlFromHtml(p.content?.rendered);
               if (vUrl) {
@@ -381,6 +397,15 @@ console.info("OkObserver app loaded", APP_VERSION);
               </div>
             `;
             grid.appendChild(card);
+
+            // ✅ Thumbnail error → graceful fallback
+            const thumbImg = card.querySelector("img.thumb");
+            if (thumbImg) {
+              thumbImg.addEventListener("error", () => {
+                const a = thumbImg.closest("a");
+                if (a) a.innerHTML = `<div class="thumb"></div>`;
+              }, { once: true });
+            }
 
             // Harden links/embeds inside excerpt
             enhanceEmbeds(card.querySelector(".excerpt"));
@@ -430,6 +455,16 @@ console.info("OkObserver app loaded", APP_VERSION);
       const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
 
+      // Build content first; embeds will be enhanced after insertion
+      const contentHtml = p.content?.rendered || "";
+
+      // Optional hero: try featured image first (detail view remains content-first iframes)
+      let heroSrc = getBestFeaturedImage(p);
+      let heroHtml = "";
+      if (heroSrc) {
+        heroHtml = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
+      }
+
       app.innerHTML = `
         <article class="post">
           <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
@@ -438,7 +473,8 @@ console.info("OkObserver app loaded", APP_VERSION);
             ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
             <span class="date">${date}</span>
           </div>
-          <div class="content">${p.content.rendered}</div>
+          ${heroHtml}
+          <div class="content">${contentHtml}</div>
           ${tags.length ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map((t) => {
               const name = esc(t.name || "tag");
               const slug = t.slug || "";
