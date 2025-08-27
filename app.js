@@ -1,30 +1,24 @@
-// app.js — OkObserver (v1.27, consolidated)
-// Includes:
-// - Infinite scroll with IntersectionObserver
-// - AbortController for stale requests
-// - Category exclusion: "cartoon" (API-level + client-side guard)
-// - Search route
-// - Author + date (January 1st, 2025 format — ordinal day)
-// - Tags on post detail
-// - Link hardening (target=_blank, rel=noopener)
-// - Embed handling: Facebook (SDK divs, bare URLs, existing plugin iframes) + watchdog/fallback
-// - oEmbed proxy for many providers, YouTube/Vimeo manual fallback
-// - Hero fallback: featured image -> oEmbed thumbnail -> first <img> in content -> FB placeholder
-// - Error banners + global handlers
-const APP_VERSION = "v1.27";
+// app.js — OkObserver (v1.28)
+// New in v1.28:
+// - Newsmakers-first video logic:
+//   * If post category is "Newsmakers" and content has a video URL, embed it as hero on detail.
+//   * For cards without a featured image, fetch the oEmbed thumbnail of that video.
+// - Keeps: FB watchdog/fallback, infinite scroll, AbortControllers, Cartoon exclusion,
+//   author/date, tags, new-tab links, oEmbed proxy, YouTube/Vimeo fallback, image fallbacks.
+const APP_VERSION = "v1.28";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
-  // REST base autodetect
   const onOkobserver = location.hostname.endsWith("okobserver.org");
   let BASE = onOkobserver ? "/wp-json/wp/v2" : "https://okobserver.org/wp-json/wp/v2";
 
   const PER_PAGE = 12;
   const EXCLUDE_CAT_NAME = "cartoon";
+  const NEWSMAKERS_CAT_NAME = "newsmakers";
 
   const app = document.getElementById("app");
 
-  // ---------------- Error UI ----------------
+  // ---------- Error UI ----------
   function showError(message) {
     if (!app) return;
     const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
@@ -38,23 +32,30 @@ window.APP_VERSION = APP_VERSION;
     if (btn) btn.closest(".error-banner")?.remove();
   });
 
-  // ---------------- Utils ----------------
+  // ---------- Utils ----------
   const esc = (s) =>
     (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  function getAuthorName(post) {
-    return post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
-  }
+  const getAuthorName = (post) => post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
 
-  function hasExcludedCategory(post) {
+  const hasExcludedCategory = (post) => {
     const cats = post?._embedded?.["wp:term"]?.[0] || [];
     return cats.some((c) => (c?.name || "").toLowerCase() === EXCLUDE_CAT_NAME);
-  }
+  };
 
-  function getPostTags(embeddedTerms) {
+  const isInCategory = (post, catNameLower) => {
+    const cats = post?._embedded?.["wp:term"]?.[0] || [];
+    return cats.some((c) => {
+      const name = (c?.name || "").toLowerCase();
+      const slug = (c?.slug || "").toLowerCase();
+      return name === catNameLower || slug === catNameLower;
+    });
+  };
+
+  const getPostTags = (embeddedTerms) => {
     if (!embeddedTerms || !Array.isArray(embeddedTerms)) return [];
     return embeddedTerms.flat().filter((t) => t?.taxonomy === "post_tag");
-  }
+  };
 
   function formatDateWithOrdinal(dateString) {
     const d = new Date(dateString);
@@ -63,21 +64,14 @@ window.APP_VERSION = APP_VERSION;
     const year = d.getFullYear();
     const suffix = (n) => {
       if (n > 3 && n < 21) return "th";
-      switch (n % 10) {
-        case 1: return "st";
-        case 2: return "nd";
-        case 3: return "rd";
-        default: return "th";
-      }
+      switch (n % 10) { case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th"; }
     };
     return `${month} ${day}${suffix(day)}, ${year}`;
   }
 
   function apiOrigin() {
-    try {
-      if (BASE.startsWith("http")) return new URL(BASE).origin;
-      return location.origin;
-    } catch { return "https://okobserver.org"; }
+    try { return BASE.startsWith("http") ? new URL(BASE).origin : location.origin; }
+    catch { return "https://okobserver.org"; }
   }
 
   // First provider URL from HTML (embed wrappers, bare <p> URL, or first anchor to known providers)
@@ -127,7 +121,7 @@ window.APP_VERSION = APP_VERSION;
     } catch { return null; }
   }
 
-  // Helper: attach watchdog + quick fallback to a Facebook plugin iframe
+  // FB watchdog + quick fallback
   function attachFbWatchdog(iframe, linkHref) {
     const fallback = document.createElement("div");
     fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
@@ -142,37 +136,21 @@ window.APP_VERSION = APP_VERSION;
     iframe.parentElement.appendChild(fallback);
 
     let loaded = false;
-
-    // Quick check ~1.5s: if iframe remains collapsed/hidden, show fallback
     const quick = setTimeout(() => {
-      const h = iframe.clientHeight;
-      const w = iframe.clientWidth;
-      if (!loaded && (h === 0 || w === 0)) {
-        fallback.style.display = "block";
-      }
+      const h = iframe.clientHeight, w = iframe.clientWidth;
+      if (!loaded && (h === 0 || w === 0)) fallback.style.display = "block";
     }, 1500);
-
-    // Hard timeout 3s: always show if not loaded
     const hard = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 3000);
 
-    iframe.addEventListener("load", () => {
-      loaded = true;
-      clearTimeout(quick);
-      clearTimeout(hard);
-    });
-    iframe.addEventListener("error", () => {
-      loaded = false;
-      clearTimeout(quick);
-      clearTimeout(hard);
-      fallback.style.display = "block";
-    });
+    iframe.addEventListener("load", () => { loaded = true; clearTimeout(quick); clearTimeout(hard); });
+    iframe.addEventListener("error", () => { loaded = false; clearTimeout(quick); clearTimeout(hard); fallback.style.display = "block"; });
   }
 
-  // ---------------- Embeds Enhancer ----------------
+  // ---------- Embeds Enhancer ----------
   function enhanceEmbeds(root) {
     if (!root) return;
 
-    // Open all links in new tab
+    // Open links in new tab
     root.querySelectorAll("a[href]").forEach((a) => {
       a.setAttribute("target", "_blank");
       a.setAttribute("rel", "noopener");
@@ -180,35 +158,28 @@ window.APP_VERSION = APP_VERSION;
 
     // Convert Facebook SDK blocks to plugin iframes
     root.querySelectorAll('div.fb-video[data-href], div.fb-post[data-href]').forEach((el) => {
-      const href = el.getAttribute('data-href');
-      if (!href) return;
+      const href = el.getAttribute('data-href'); if (!href) return;
       const isVideo = el.classList.contains('fb-video');
       const width = 720, height = 405;
       const plugin = isVideo ? "video" : "post";
       const showText = isVideo ? "false" : "true";
       const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(href)}&show_text=${showText}&width=${width}&height=${height}`;
 
-      const wrap = document.createElement("div");
-      wrap.className = "embed-wrap";
-
+      const wrap = document.createElement("div"); wrap.className = "embed-wrap";
       const iframe = document.createElement("iframe");
       iframe.loading = "lazy";
       iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
       iframe.setAttribute("allowfullscreen", "");
       iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-      iframe.width = String(width);
-      iframe.height = String(height);
-      iframe.src = src;
-      iframe.style.border = "0";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
+      iframe.width = String(width); iframe.height = String(height);
+      iframe.src = src; iframe.style.border = "0"; iframe.style.width = "100%"; iframe.style.height = "100%";
 
       wrap.appendChild(iframe);
       attachFbWatchdog(iframe, href);
       el.replaceWith(wrap);
     });
 
-    // Resolve bare embed URLs (FB/YouTube/Vimeo)
+    // Resolve bare embed URLs
     const candidates = [
       ...root.querySelectorAll(".wp-block-embed__wrapper"),
       ...Array.from(root.querySelectorAll("p")).filter(p => {
@@ -221,10 +192,9 @@ window.APP_VERSION = APP_VERSION;
       const url = node.textContent.trim();
       if (!/^https?:\/\/\S+$/.test(url)) return;
 
-      // Facebook → plugin iframe + fallback
+      // Facebook → plugin iframe
       if (/(?:^|\.)facebook\.com|fb\.watch/i.test(url)) {
-        const wrap = document.createElement("div");
-        wrap.className = "embed-wrap";
+        const wrap = document.createElement("div"); wrap.className = "embed-wrap";
         const isVideo = /\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url);
         const width = 720, height = 405;
         const plugin = isVideo ? "video" : "post";
@@ -236,12 +206,8 @@ window.APP_VERSION = APP_VERSION;
         iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
         iframe.setAttribute("allowfullscreen", "");
         iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-        iframe.width = String(width);
-        iframe.height = String(height);
-        iframe.src = src;
-        iframe.style.border = "0";
-        iframe.style.width = "100%";
-        iframe.style.height = "100%";
+        iframe.width = String(width); iframe.height = String(height);
+        iframe.src = src; iframe.style.border = "0"; iframe.style.width = "100%"; iframe.style.height = "100%";
 
         wrap.appendChild(iframe);
         attachFbWatchdog(iframe, url);
@@ -249,48 +215,40 @@ window.APP_VERSION = APP_VERSION;
         return;
       }
 
-      // Other providers via oEmbed proxy, then normalize/rehydrate
+      // Other providers via oEmbed proxy
       try {
         const origin = apiOrigin();
         const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error(`oEmbed HTTP ${res.status}`);
         const data = await res.json();
         if (data && data.html) {
-          const wrap = document.createElement("div");
-          wrap.className = "embed-wrap";
-          wrap.innerHTML = data.html;
-          node.replaceWith(wrap);
-          enhanceEmbeds(wrap);
+          const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+          wrap.innerHTML = data.html; node.replaceWith(wrap); enhanceEmbeds(wrap);
           return;
         }
       } catch (e) {
-        // Manual YouTube/Vimeo fallback
+        // Manual fallbacks
         if (/youtube\.com|youtu\.be/i.test(url)) {
           const id = url.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
           if (id) {
-            const wrap = document.createElement("div");
-            wrap.className = "embed-wrap";
+            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>`;
-            node.replaceWith(wrap);
-            return;
+            node.replaceWith(wrap); return;
           }
         } else if (/vimeo\.com/i.test(url)) {
           const id = url.match(/vimeo\.com\/(\d+)/)?.[1];
           if (id) {
-            const wrap = document.createElement("div");
-            wrap.className = "embed-wrap";
+            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
             wrap.innerHTML = `<iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://player.vimeo.com/video/${id}"></iframe>`;
-            node.replaceWith(wrap);
-            return;
+            node.replaceWith(wrap); return;
           }
         }
         console.warn("oEmbed failed for", url, e);
       }
     });
 
-    // Normalize iframes and attach FB watchdog/fallback for iframes already present in content
+    // Normalize iframes + FB watchdog for existing plugin iframes
     root.querySelectorAll("iframe").forEach((f) => {
-      // Normalize attributes
       if (!f.hasAttribute("allow")) {
         f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
       }
@@ -298,35 +256,29 @@ window.APP_VERSION = APP_VERSION;
       if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
       if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
 
-      // Ensure responsive wrapper
       const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
       if (!parentIsWrapper) {
-        const wrap = document.createElement("div");
-        wrap.className = "embed-wrap";
-        f.replaceWith(wrap);
-        wrap.appendChild(f);
+        const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+        f.replaceWith(wrap); wrap.appendChild(f);
       }
 
-      // Facebook plugin iframe watchdog
       const src = (f.getAttribute("src") || "").toLowerCase();
       if (/facebook\.com\/plugins\/(video|post)\.php/.test(src)) {
-        attachFbWatchdog(f, /* linkHref */ "");
+        attachFbWatchdog(f, "");
       }
     });
 
-    // Make <video> responsive with sane defaults
+    // Videos
     root.querySelectorAll("video").forEach((v) => {
       v.setAttribute("controls", "");
       if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
       if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
-      v.removeAttribute("width");
-      v.removeAttribute("height");
+      v.removeAttribute("width"); v.removeAttribute("height");
       if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
     });
   }
 
-  // ---------------- API helpers ----------------
-  // Category ID lookup (for API-level categories_exclude)
+  // ---------- API helpers ----------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -354,12 +306,10 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
-  // AbortControllers
   let listController = null, itemController = null;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
 
-  // Fetch with fallback (handle GitHub Pages origin vs okobserver.org)
   async function fetchWithFallback(input, init) {
     try {
       const r = await fetch(input, init);
@@ -398,7 +348,7 @@ window.APP_VERSION = APP_VERSION;
     } catch (err) {
       if (err.name === "AbortError") return { posts: [], totalPages: 1 };
       showError(`Failed to load posts: ${err?.message || err}`);
-      return { posts: [], totalPages: 1 };
+      return { posts, totalPages: 1 };
     } finally { listController = null; }
   }
 
@@ -416,7 +366,7 @@ window.APP_VERSION = APP_VERSION;
     } finally { itemController = null; }
   }
 
-  // ---------------- Views ----------------
+  // ---------- Views ----------
   const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
   const seenIds = new Set();
 
@@ -451,8 +401,15 @@ window.APP_VERSION = APP_VERSION;
             if (seenIds.has(p.id)) continue;
             seenIds.add(p.id);
 
-            // Card image priority: featured -> first <img> from content -> (then) excerpt -> blank
+            // Card image priority: featured -> (Newsmakers video thumb) -> first <img> in content -> then excerpt -> blank
             let media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+            if (!media && isInCategory(p, NEWSMAKERS_CAT_NAME)) {
+              const vUrl = extractFirstEmbedUrlFromHtml(p.content?.rendered);
+              if (vUrl) {
+                const thumb = await getOembedThumb(vUrl);
+                if (thumb) media = thumb;
+              }
+            }
             if (!media) {
               media = extractFirstImageSrcFromHtml(p.content?.rendered) ||
                       extractFirstImageSrcFromHtml(p.excerpt?.rendered) || "";
@@ -483,7 +440,6 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
-            // Harden links/embeds inside excerpt
             enhanceEmbeds(card.querySelector(".excerpt"));
 
             added++;
@@ -499,8 +455,7 @@ window.APP_VERSION = APP_VERSION;
         HomeCache.search = state.search;
         HomeCache.scrollY = window.scrollY;
 
-        if (state.ended) setStatus(HomeCache.hasData ? "No more posts." : "No posts found.");
-        else setStatus("");
+        setStatus(state.ended ? (HomeCache.hasData ? "No more posts." : "No posts found.") : "");
       } catch (e) {
         showError(e);
         setStatus("Failed to load.");
@@ -532,28 +487,68 @@ window.APP_VERSION = APP_VERSION;
       const author = esc(getAuthorName(p));
       const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
-      const tagsHtml = tags.length
-        ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map((t) => {
-            const name = esc(t.name || "tag");
-            const slug = t.slug || "";
-            const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
-            return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
-          }).join("")}</div>`
-        : "";
+      const isNewsmakers = isInCategory(p, NEWSMAKERS_CAT_NAME);
 
-      // HERO priority: featured -> oEmbed thumb -> first <img> in content -> FB blue placeholder
+      // HERO priority:
+      // 1) If Newsmakers and has video URL in content → EMBED PLAYER as hero (FB/YT/Vimeo)
+      // 2) Else featured image
+      // 3) Else oEmbed thumb (from first provider URL)
+      // 4) Else first <img> in content
+      // 5) Else FB blue placeholder if provider is FB
       let heroHtml = "";
       let heroSrc = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
       let heroLink = "";
 
-      if (!heroSrc) {
-        const providerUrl = extractFirstEmbedUrlFromHtml(p.content.rendered);
-        if (providerUrl) {
+      const contentHtml = p.content?.rendered || "";
+      const providerUrl = extractFirstEmbedUrlFromHtml(contentHtml);
+
+      if (isNewsmakers && providerUrl) {
+        // Prefer embedding the player directly
+        if (/(?:^|\.)facebook\.com|fb\.watch/i.test(providerUrl)) {
+          const width = 720, height = 405;
+          const isVideo = /\/videos?\//i.test(providerUrl) || /\/reel\//i.test(providerUrl) || /fb\.watch/i.test(providerUrl);
+          const plugin = isVideo ? "video" : "post";
+          const showText = isVideo ? "false" : "true";
+          const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(providerUrl)}&show_text=${showText}&width=${width}&height=${height}`;
+          heroHtml = `
+            <div class="embed-wrap">
+              <iframe loading="lazy" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowfullscreen referrerpolicy="strict-origin-when-cross-origin"
+                width="${width}" height="${height}" src="${src}" style="border:0;width:100%;height:100%"></iframe>
+            </div>`;
+          // Post-render, attach watchdog
+          setTimeout(() => {
+            const f = app.querySelector(".post .embed-wrap iframe");
+            if (f) attachFbWatchdog(f, providerUrl);
+          }, 0);
+        } else if (/youtube\.com|youtu\.be/i.test(providerUrl)) {
+          const id = providerUrl.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
+          if (id) {
+            heroHtml = `
+              <div class="embed-wrap">
+                <iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>
+              </div>`;
+          }
+        } else if (/vimeo\.com/i.test(providerUrl)) {
+          const id = providerUrl.match(/vimeo\.com\/(\d+)/)?.[1];
+          if (id) {
+            heroHtml = `
+              <div class="embed-wrap">
+                <iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen
+                  src="https://player.vimeo.com/video/${id}"></iframe>
+              </div>`;
+          }
+        }
+      }
+
+      if (!heroHtml) {
+        // Not Newsmakers video-first, or no supported provider → fallbacks
+        if (!heroSrc && providerUrl) {
           heroLink = providerUrl;
           const thumb = await getOembedThumb(providerUrl);
-          if (thumb) {
-            heroSrc = thumb;
-          } else if (/(?:^|\.)facebook\.com|fb\.watch/i.test(providerUrl)) {
+          if (thumb) heroSrc = thumb;
+          else if (/(?:^|\.)facebook\.com|fb\.watch/i.test(providerUrl)) {
             heroHtml = `
               <a href="${providerUrl}" target="_blank" rel="noopener"
                 style="display:block;border-radius:10px;overflow:hidden;margin:16px 0;text-decoration:none">
@@ -567,15 +562,14 @@ window.APP_VERSION = APP_VERSION;
               <div style="font-size:.85em;color:#555;margin-top:6px">If the player doesn’t appear, click the banner above to open on Facebook.</div>`;
           }
         }
-      }
-      // If still no hero, use first <img> from content
-      if (!heroHtml && !heroSrc) {
-        const firstImg = extractFirstImageSrcFromHtml(p.content?.rendered);
-        if (firstImg) heroSrc = firstImg;
-      }
-      if (!heroHtml && heroSrc) {
-        const img = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
-        heroHtml = heroLink ? `<a href="${heroLink}" target="_blank" rel="noopener">${img}</a>` : img;
+        if (!heroHtml && !heroSrc) {
+          const firstImg = extractFirstImageSrcFromHtml(contentHtml);
+          if (firstImg) heroSrc = firstImg;
+        }
+        if (!heroHtml && heroSrc) {
+          const img = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
+          heroHtml = heroLink ? `<a href="${heroLink}" target="_blank" rel="noopener">${img}</a>` : img;
+        }
       }
 
       app.innerHTML = `
@@ -588,7 +582,12 @@ window.APP_VERSION = APP_VERSION;
           </div>
           ${heroHtml}
           <div class="content">${p.content.rendered}</div>
-          ${tagsHtml}
+          ${tags.length ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map((t) => {
+              const name = esc(t.name || "tag");
+              const slug = t.slug || "";
+              const href = slug ? `https://okobserver.org/tag/${slug}/` : "#";
+              return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
+            }).join("")}</div>` : ""}
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>
       `;
@@ -608,7 +607,10 @@ window.APP_VERSION = APP_VERSION;
       </article>`;
   }
 
-  // ---------------- Router ----------------
+  // ---------- Router ----------
+  const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
+  const seenIds = new Set();
+
   function router() {
     const hash = location.hash || "#/";
 
@@ -647,10 +649,10 @@ window.APP_VERSION = APP_VERSION;
     app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
   }
 
+  // ---------- Boot ----------
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
-
-  // Global error handlers -> banner
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
+
 })();
