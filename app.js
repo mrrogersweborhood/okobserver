@@ -1,14 +1,12 @@
-// app.js — OkObserver (v1.28)
-// New in v1.28:
-// - Newsmakers-first video logic:
-//   * If post category is "Newsmakers" and content has a video URL, embed it as hero on detail.
-//   * For cards without a featured image, fetch the oEmbed thumbnail of that video.
-// - Keeps: FB watchdog/fallback, infinite scroll, AbortControllers, Cartoon exclusion,
-//   author/date, tags, new-tab links, oEmbed proxy, YouTube/Vimeo fallback, image fallbacks.
-const APP_VERSION = "v1.28";
+// app.js — OkObserver (v1.29, consolidated & fixed)
+// Adds: "Newsmakers" video-first logic + FB watchdog/fallback
+// Keeps: infinite scroll, AbortControllers, Cartoon exclusion, author/date/tags,
+// link hardening, oEmbed proxy, YouTube/Vimeo fallback, image fallbacks, error banners.
+const APP_VERSION = "v1.29";
 window.APP_VERSION = APP_VERSION;
 
 (() => {
+  // REST base autodetect
   const onOkobserver = location.hostname.endsWith("okobserver.org");
   let BASE = onOkobserver ? "/wp-json/wp/v2" : "https://okobserver.org/wp-json/wp/v2";
 
@@ -18,7 +16,7 @@ window.APP_VERSION = APP_VERSION;
 
   const app = document.getElementById("app");
 
-  // ---------- Error UI ----------
+  // ---------------- Error UI ----------------
   function showError(message) {
     if (!app) return;
     const text = (message && message.message) ? message.message : String(message || "Something went wrong.");
@@ -32,11 +30,12 @@ window.APP_VERSION = APP_VERSION;
     if (btn) btn.closest(".error-banner")?.remove();
   });
 
-  // ---------- Utils ----------
+  // ---------------- Utils ----------------
   const esc = (s) =>
     (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  const getAuthorName = (post) => post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
+  const getAuthorName = (post) =>
+    post?._embedded?.author?.[0]?.name ? String(post._embedded.author[0].name) : "";
 
   const hasExcludedCategory = (post) => {
     const cats = post?._embedded?.["wp:term"]?.[0] || [];
@@ -146,7 +145,7 @@ window.APP_VERSION = APP_VERSION;
     iframe.addEventListener("error", () => { loaded = false; clearTimeout(quick); clearTimeout(hard); fallback.style.display = "block"; });
   }
 
-  // ---------- Embeds Enhancer ----------
+  // ---------------- Embeds Enhancer ----------------
   function enhanceEmbeds(root) {
     if (!root) return;
 
@@ -278,7 +277,7 @@ window.APP_VERSION = APP_VERSION;
     });
   }
 
-  // ---------- API helpers ----------
+  // ---------------- API helpers ----------------
   let excludeCategoryId = null;
   let catLookupInFlight = null;
   async function getExcludeCategoryId() {
@@ -306,6 +305,7 @@ window.APP_VERSION = APP_VERSION;
     return `${BASE}/posts?${params.toString()}`;
   }
 
+  // AbortControllers
   let listController = null, itemController = null;
   function abortList() { if (listController) { listController.abort(); listController = null; } }
   function abortItem() { if (itemController) { itemController.abort(); itemController = null; } }
@@ -348,7 +348,7 @@ window.APP_VERSION = APP_VERSION;
     } catch (err) {
       if (err.name === "AbortError") return { posts: [], totalPages: 1 };
       showError(`Failed to load posts: ${err?.message || err}`);
-      return { posts, totalPages: 1 };
+      return { posts: [], totalPages: 1 };
     } finally { listController = null; }
   }
 
@@ -366,7 +366,7 @@ window.APP_VERSION = APP_VERSION;
     } finally { itemController = null; }
   }
 
-  // ---------- Views ----------
+  // ---------------- Views & Router ----------------
   const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
   const seenIds = new Set();
 
@@ -440,6 +440,7 @@ window.APP_VERSION = APP_VERSION;
             `;
             grid.appendChild(card);
 
+            // Harden links/embeds inside excerpt
             enhanceEmbeds(card.querySelector(".excerpt"));
 
             added++;
@@ -489,7 +490,7 @@ window.APP_VERSION = APP_VERSION;
       const tags = getPostTags(p._embedded?.["wp:term"]);
       const isNewsmakers = isInCategory(p, NEWSMAKERS_CAT_NAME);
 
-      // HERO priority:
+      // HERO priority (detail):
       // 1) If Newsmakers and has video URL in content → EMBED PLAYER as hero (FB/YT/Vimeo)
       // 2) Else featured image
       // 3) Else oEmbed thumb (from first provider URL)
@@ -607,10 +608,6 @@ window.APP_VERSION = APP_VERSION;
       </article>`;
   }
 
-  // ---------- Router ----------
-  const HomeCache = { html: "", scrollY: 0, hasData: false, search: "", page: 1 };
-  const seenIds = new Set();
-
   function router() {
     const hash = location.hash || "#/";
 
@@ -649,10 +646,9 @@ window.APP_VERSION = APP_VERSION;
     app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
   }
 
-  // ---------- Boot ----------
+  // ---------------- Boot ----------------
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
   window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
-
 })();
