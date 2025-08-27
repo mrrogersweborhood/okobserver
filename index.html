@@ -39,6 +39,24 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
+
+    /* ✅ Responsive embed area for FB/YouTube/Vimeo iframes */
+    .embed-wrap{
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;     /* gives the wrapper real height */
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+    .embed-wrap iframe{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
   </style>
 </head>
 <body>
@@ -65,6 +83,6 @@
     </div>
   </footer>
 
-  <script src="./app.js?v=1.29" defer></script>
+  <script src="./app.js?v=1.30" defer></script>
 </body>
 </html>

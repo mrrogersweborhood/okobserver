@@ -1,8 +1,11 @@
-// app.js — OkObserver (v1.29, consolidated & fixed)
-// Adds: "Newsmakers" video-first logic + FB watchdog/fallback
-// Keeps: infinite scroll, AbortControllers, Cartoon exclusion, author/date/tags,
-// link hardening, oEmbed proxy, YouTube/Vimeo fallback, image fallbacks, error banners.
-const APP_VERSION = "v1.29";
+// app.js — OkObserver (v1.30)
+// Changes vs 1.29:
+// - Keep absolute BASE (GitHub Pages safe)
+// - Router try/catch
+// - enhanceEmbeds(): wraps iframes in .embed-wrap, converts FB SDK blocks & bare URLs,
+//   and attaches watchdog so a fallback button appears if blocked.
+// - Cards/detail still exclude "cartoon"; author/date UI preserved.
+const APP_VERSION = "v1.30";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -122,15 +125,20 @@ console.info("OkObserver app loaded", APP_VERSION);
   function attachFbWatchdog(iframe, linkHref) {
     const fallback = document.createElement("div");
     fallback.style.cssText = "color:#900;background:#ffeaea;border:1px solid #f9caca;border-radius:8px;padding:10px;margin-top:8px;font-size:.9em;display:none";
-    const href = linkHref || "https://www.facebook.com/";
+    const href = linkHref || (()=>{
+      try { const u = new URL(iframe.src, location.href); return u.searchParams.get("href") || ""; } catch { return ""; }
+    })() || "https://www.facebook.com/";
     fallback.innerHTML = `
-      Facebook embed didn’t load.
+      Facebook embed didn’t load. This is often caused by a browser extension or privacy setting.
       <div style="margin-top:6px">
         <a href="${href}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px">Open on Facebook</a>
       </div>`;
     iframe.parentElement.appendChild(fallback);
     let loaded = false;
-    const quick = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 1500);
+    const quick = setTimeout(() => {
+      const h = iframe.clientHeight, w = iframe.clientWidth;
+      if (!loaded && (h === 0 || w === 0)) fallback.style.display = "block";
+    }, 1500);
     const hard = setTimeout(() => { if (!loaded) fallback.style.display = "block"; }, 3000);
     iframe.addEventListener("load", () => { loaded = true; clearTimeout(quick); clearTimeout(hard); });
     iframe.addEventListener("error", () => { loaded = false; fallback.style.display = "block"; });
@@ -139,9 +147,110 @@ console.info("OkObserver app loaded", APP_VERSION);
   // ---------------- Embeds Enhancer ----------------
   function enhanceEmbeds(root) {
     if (!root) return;
+
+    // All anchors: open in new tab
     root.querySelectorAll("a[href]").forEach((a) => {
-      a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener");
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
     });
+
+    // Convert Facebook SDK blocks to plugin iframes
+    root.querySelectorAll('div.fb-video[data-href], div.fb-post[data-href]').forEach((el) => {
+      const href = el.getAttribute('data-href'); if (!href) return;
+      const isVideo = el.classList.contains('fb-video');
+      const width = 720, height = 405;
+      const plugin = isVideo ? "video" : "post";
+      const showText = isVideo ? "false" : "true";
+      const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(href)}&show_text=${showText}&width=${width}&height=${height}`;
+
+      const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+      const iframe = document.createElement("iframe");
+      iframe.loading = "lazy";
+      iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
+      iframe.setAttribute("allowfullscreen", "");
+      iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      iframe.width = String(width); iframe.height = String(height);
+      iframe.src = src;
+
+      wrap.appendChild(iframe);
+      attachFbWatchdog(iframe, href);
+      el.replaceWith(wrap);
+    });
+
+    // Bare embed URLs (FB/YT/Vimeo) in wrappers or lone <p>
+    const candidates = [
+      ...root.querySelectorAll(".wp-block-embed__wrapper"),
+      ...Array.from(root.querySelectorAll("p")).filter(p => {
+        const t = p.textContent.trim();
+        return /^https?:\/\/\S+$/.test(t) && p.children.length === 0;
+      })
+    ];
+
+    candidates.forEach(async (node) => {
+      const url = node.textContent.trim();
+      if (!/^https?:\/\/\S+$/.test(url)) return;
+
+      // Facebook → plugin iframe
+      if (/(?:^|\.)facebook\.com|fb\.watch/i.test(url)) {
+        const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+        const isVideo = /\/videos?\//i.test(url) || /\/reel\//i.test(url) || /fb\.watch/i.test(url);
+        const width = 720, height = 405;
+        const plugin = isVideo ? "video" : "post";
+        const showText = isVideo ? "false" : "true";
+        const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(url)}&show_text=${showText}&width=${width}&height=${height}`;
+
+        const iframe = document.createElement("iframe");
+        iframe.loading = "lazy";
+        iframe.allow = "autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share";
+        iframe.setAttribute("allowfullscreen", "");
+        iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+        iframe.width = String(width); iframe.height = String(height);
+        iframe.src = src;
+
+        wrap.appendChild(iframe);
+        attachFbWatchdog(iframe, url);
+        node.replaceWith(wrap);
+        return;
+      }
+
+      // oEmbed proxy for others; if blocked, we still normalize below
+      try {
+        const origin = apiOrigin();
+        const res = await fetch(`${origin}/wp-json/oembed/1.0/proxy?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error(`oEmbed HTTP ${res.status}`);
+        const data = await res.json();
+        if (data && data.html) {
+          const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+          wrap.innerHTML = data.html;
+          node.replaceWith(wrap);
+          // Re-run to normalize the inner iframe
+          enhanceEmbeds(wrap);
+          return;
+        }
+      } catch (e) {
+        // Manual YouTube/Vimeo fallback
+        if (/youtube\.com|youtu\.be/i.test(url)) {
+          const id = url.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
+          if (id) {
+            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+            wrap.innerHTML = `<iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>`;
+            node.replaceWith(wrap);
+            return;
+          }
+        } else if (/vimeo\.com/i.test(url)) {
+          const id = url.match(/vimeo\.com\/(\d+)/)?.[1];
+          if (id) {
+            const wrap = document.createElement("div"); wrap.className = "embed-wrap";
+            wrap.innerHTML = `<iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen src="https://player.vimeo.com/video/${id}"></iframe>`;
+            node.replaceWith(wrap);
+            return;
+          }
+        }
+        console.warn("oEmbed failed for", url, e);
+      }
+    });
+
+    // Normalize any existing iframes and ensure .embed-wrap wrapper is present
     root.querySelectorAll("iframe").forEach((f) => {
       if (!f.hasAttribute("allow")) {
         f.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
@@ -149,8 +258,28 @@ console.info("OkObserver app loaded", APP_VERSION);
       f.setAttribute("allowfullscreen", "");
       if (!f.hasAttribute("loading")) f.setAttribute("loading", "lazy");
       if (!f.hasAttribute("referrerpolicy")) f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+
+      const parentIsWrapper = f.parentElement && f.parentElement.classList.contains("embed-wrap");
+      if (!parentIsWrapper) {
+        const wrap = document.createElement("div");
+        wrap.className = "embed-wrap";
+        f.replaceWith(wrap);
+        wrap.appendChild(f);
+      }
+
       const src = (f.getAttribute("src") || "").toLowerCase();
-      if (/facebook\.com\/plugins\/(video|post)\.php/.test(src)) attachFbWatchdog(f, "");
+      if (/facebook\.com\/plugins\/(video|post)\.php/.test(src)) {
+        attachFbWatchdog(f, /* linkHref */ "");
+      }
+    });
+
+    // Make <video> elements sane
+    root.querySelectorAll("video").forEach((v) => {
+      v.setAttribute("controls", "");
+      if (!v.hasAttribute("playsinline")) v.setAttribute("playsinline", "");
+      if (!v.hasAttribute("preload")) v.setAttribute("preload", "metadata");
+      v.removeAttribute("width"); v.removeAttribute("height");
+      if (!v.hasAttribute("loading")) v.setAttribute("loading", "lazy");
     });
   }
 
@@ -214,6 +343,7 @@ console.info("OkObserver app loaded", APP_VERSION);
             if (seenIds.has(p.id)) continue;
             seenIds.add(p.id);
 
+            // Card image priority: featured -> (Newsmakers video thumb) -> first <img> in content -> then excerpt -> blank
             let media = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
             if (!media && isInCategory(p, NEWSMAKERS_CAT_NAME)) {
               const vUrl = extractFirstEmbedUrlFromHtml(p.content?.rendered);
@@ -226,8 +356,10 @@ console.info("OkObserver app loaded", APP_VERSION);
               media = extractFirstImageSrcFromHtml(p.content?.rendered) ||
                       extractFirstImageSrcFromHtml(p.excerpt?.rendered) || "";
             }
+
             const author = esc(getAuthorName(p));
             const date = formatDateWithOrdinal(p.date);
+
             const card = document.createElement("div");
             card.className = "card";
             card.innerHTML = `
@@ -249,17 +381,26 @@ console.info("OkObserver app loaded", APP_VERSION);
               </div>
             `;
             grid.appendChild(card);
+
+            // Harden links/embeds inside excerpt
             enhanceEmbeds(card.querySelector(".excerpt"));
+
             added++;
           }
           state.page++;
           if (state.page > state.totalPages) state.ended = true;
         }
-        HomeCache.html = app.innerHTML; HomeCache.hasData = grid.children.length > 0;
-        HomeCache.page = state.page; HomeCache.search = state.search; HomeCache.scrollY = window.scrollY;
+
+        HomeCache.html = app.innerHTML;
+        HomeCache.hasData = grid.children.length > 0;
+        HomeCache.page = state.page;
+        HomeCache.search = state.search;
+        HomeCache.scrollY = window.scrollY;
+
         setStatus(state.ended ? (HomeCache.hasData ? "No more posts." : "No posts found.") : "");
       } catch (e) {
-        showError(e); setStatus("Failed to load.");
+        showError(e);
+        setStatus("Failed to load.");
       } finally { state.loading = false; }
     }
 
@@ -281,11 +422,14 @@ console.info("OkObserver app loaded", APP_VERSION);
       const p = await fetchPostById(id);
       if (!p) return;
       if (hasExcludedCategory(p)) {
-        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`; return;
+        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
+        return;
       }
+
       const author = esc(getAuthorName(p));
       const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
+
       app.innerHTML = `
         <article class="post">
           <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
@@ -302,7 +446,10 @@ console.info("OkObserver app loaded", APP_VERSION);
               return `<a class="tag-chip" href="${href}" target="_blank" rel="noopener">${name}</a>`;
             }).join("")}</div>` : ""}
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
-        </article>`;
+        </article>
+      `;
+
+      // Enhance embeds inside the content (wrap iframes, FB conversion, watchdog)
       enhanceEmbeds(app.querySelector(".content"));
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
@@ -328,13 +475,16 @@ console.info("OkObserver app loaded", APP_VERSION);
           requestAnimationFrame(() => window.scrollTo(0, HomeCache.scrollY || 0));
           return;
         }
-        renderHome({ search: HomeCache.search || "" }); return;
+        renderHome({ search: HomeCache.search || "" });
+        return;
       }
       if (hash.startsWith("#/post/")) {
         if (app && app.querySelector("#grid")) {
           HomeCache.scrollY = window.scrollY; HomeCache.html = app.innerHTML; HomeCache.hasData = true;
         }
-        renderPost(hash.split("/")[2]); return;
+        const id = hash.split("/")[2]?.split("?")[0];
+        renderPost(id);
+        return;
       }
       if (hash.startsWith("#/search")) {
         const q = decodeURIComponent((hash.split("?q=")[1] || "").trim());
