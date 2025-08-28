@@ -39,35 +39,10 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
-
-    /* Responsive embed area for iframes (FB, YouTube, Vimeo, etc.) */
-    .embed-wrap{
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      background: #000;
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 16px 0;
-    }
-    .embed-wrap iframe{
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-
-    /* Overlay CTA button (always available on embeds) */
-    .embed-cta{
-      position:absolute;
-      right:10px; bottom:10px;
-      background:rgba(30,144,255,.95);
-      color:#fff; border-radius:20px;
-      padding:6px 10px; font-size:.85em;
-      text-decoration:none;
-    }
-    .embed-cta:hover{ background:#0066cc; }
+    .embed-wrap{position: relative;width: 100%;aspect-ratio: 16 / 9;background: #000;border-radius: 10px;overflow: hidden;margin: 16px 0;}
+    .embed-wrap iframe{position: absolute;inset: 0;width: 100%;height: 100%;border: 0;}
+    .embed-cta{position:absolute;right:10px;bottom:10px;background:rgba(30,144,255,.95);color:#fff;border-radius:20px;padding:6px 10px;font-size:.85em;text-decoration:none;}
+    .embed-cta:hover{background:#0066cc;}
   </style>
 </head>
 <body>
@@ -82,18 +57,15 @@
       </nav>
     </div>
   </header>
-
   <main>
     <div class="container" id="app"><p class="center">Loading…</p></div>
   </main>
-
   <footer>
     <div class="container" style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:16px 18px">
       <small>Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span></small>
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
-
   <script src="./app.js?v=1.33" defer></script>
 </body>
 </html>
