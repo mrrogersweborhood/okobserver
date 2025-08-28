@@ -66,6 +66,16 @@
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
-  <script src="./app.js?v=1.33" defer></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var y = document.getElementById('year');
+    if (y) y.textContent = new Date().getFullYear();
+    if (window.APP_VERSION) {
+      var v = document.getElementById('appVersion');
+      if (v) v.textContent = window.APP_VERSION;
+    }
+  });
+</script>
+  <script src="./app.js?v=1.33.3" defer></script>
 </body>
 </html>
