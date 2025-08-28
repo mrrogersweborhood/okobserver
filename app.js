@@ -1,10 +1,9 @@
-// app.js — OkObserver (v1.31)
-// Changes vs 1.30:
-// - Robust featured image selection via getBestFeaturedImage()
-// - Card thumbnail error fallback → graceful gray box
-// - Kept: absolute BASE (GH Pages safe), router guard, embeds enhancer + FB fallback,
-//   infinite scroll, Cartoon exclusion, author/date/tags, new-tab links, oEmbed thumbs.
-const APP_VERSION = "v1.31";
+// app.js — OkObserver (v1.32)
+// Focus: Newsmakers hero always visible (embed or clear fallback).
+// Also keeps: absolute BASE (GH Pages safe), router guard, robust featured images,
+// infinite scroll, AbortControllers removed for simplicity, Cartoon exclusion,
+// author/date/tags, new-tab links, oEmbed thumbs, FB watchdog.
+const APP_VERSION = "v1.32";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -109,7 +108,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return img.getAttribute("data-src") || img.getAttribute("src") || null;
   }
 
-  // ✅ Robust featured image picker (checks common sizes, then source_url)
+  // ✅ Robust featured image picker
   function getBestFeaturedImage(post) {
     const m = post?._embedded?.["wp:featuredmedia"]?.[0];
     if (!m) return "";
@@ -454,15 +453,75 @@ console.info("OkObserver app loaded", APP_VERSION);
       const author = esc(getAuthorName(p));
       const date = formatDateWithOrdinal(p.date);
       const tags = getPostTags(p._embedded?.["wp:term"]);
-
-      // Build content first; embeds will be enhanced after insertion
       const contentHtml = p.content?.rendered || "";
+      const isNewsmakers = isInCategory(p, NEWSMAKERS_CAT_NAME);
 
-      // Optional hero: try featured image first (detail view remains content-first iframes)
-      let heroSrc = getBestFeaturedImage(p);
+      // --- HERO decision ---
       let heroHtml = "";
-      if (heroSrc) {
-        heroHtml = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
+      const providerUrl = extractFirstEmbedUrlFromHtml(contentHtml);
+
+      if (isNewsmakers && providerUrl) {
+        // Prefer to embed the provider player
+        if (/(?:^|\.)facebook\.com|fb\.watch/i.test(providerUrl)) {
+          const width = 720, height = 405;
+          const isVideo = /\/videos?\//i.test(providerUrl) || /\/reel\//i.test(providerUrl) || /fb\.watch/i.test(providerUrl);
+          const plugin = isVideo ? "video" : "post";
+          const showText = isVideo ? "false" : "true";
+          const src = `https://www.facebook.com/plugins/${plugin}.php?href=${encodeURIComponent(providerUrl)}&show_text=${showText}&width=${width}&height=${height}`;
+          heroHtml = `
+            <div class="embed-wrap">
+              <iframe loading="lazy" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowfullscreen referrerpolicy="strict-origin-when-cross-origin"
+                width="${width}" height="${height}" src="${src}"></iframe>
+            </div>
+            <div style="font-size:.85em;color:#555;margin-top:6px">
+              If the player doesn’t appear, <a class="btn" style="padding:4px 10px" target="_blank" rel="noopener" href="${providerUrl}">Open on Facebook</a>
+            </div>`;
+          // Attach watchdog after insertion
+          // (done in enhanceEmbeds when it normalizes iframes below)
+        } else if (/youtube\.com|youtu\.be/i.test(providerUrl)) {
+          const id = providerUrl.match(/(?:v=|\/)([A-Za-z0-9_-]{11})/)?.[1];
+          if (id) {
+            heroHtml = `
+              <div class="embed-wrap">
+                <iframe loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen src="https://www.youtube.com/embed/${id}"></iframe>
+              </div>`;
+          }
+        } else if (/vimeo\.com/i.test(providerUrl)) {
+          const id = providerUrl.match(/vimeo\.com\/(\d+)/)?.[1];
+          if (id) {
+            heroHtml = `
+              <div class="embed-wrap">
+                <iframe loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen
+                  src="https://player.vimeo.com/video/${id}"></iframe>
+              </div>`;
+          }
+        }
+
+        // If for some reason we couldn't build an embed, show a visible FB placeholder button
+        if (!heroHtml) {
+          heroHtml = `
+            <a href="${providerUrl}" target="_blank" rel="noopener"
+              style="display:block;border-radius:10px;overflow:hidden;margin:16px 0;text-decoration:none">
+              <div class="embed-wrap" style="background:#1877f2;display:flex;align-items:center;justify-content:center;">
+                <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+                  <circle cx="48" cy="48" r="46" fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="2"/>
+                  <polygon points="40,30 72,48 40,66" fill="white"/>
+                </svg>
+              </div>
+            </a>
+            <div style="font-size:.85em;color:#555;margin-top:6px">Open the video on Facebook if the player doesn’t appear.</div>`;
+        }
+      }
+
+      // Non-Newsmakers hero (optional featured image)
+      if (!heroHtml) {
+        const heroSrc = getBestFeaturedImage(p) ||
+                        extractFirstImageSrcFromHtml(contentHtml) || "";
+        if (heroSrc) {
+          heroHtml = `<img class="hero" src="${heroSrc}" alt="" loading="lazy" style="background:#000;border-radius:10px;max-height:420px;object-fit:cover;width:100%;margin:16px 0;">`;
+        }
       }
 
       app.innerHTML = `
@@ -487,6 +546,8 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       // Enhance embeds inside the content (wrap iframes, FB conversion, watchdog)
       enhanceEmbeds(app.querySelector(".content"));
+      // And also normalize the hero embed iframe we inserted (ensures watchdog binds)
+      enhanceEmbeds(app.querySelector(".post"));
     } catch (err) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${err?.message || err}</div>`;
     }
