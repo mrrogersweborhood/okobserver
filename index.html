@@ -40,11 +40,11 @@
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
 
-    /* ✅ Responsive embed area for FB/YouTube/Vimeo iframes */
+    /* Responsive embed area for iframes (FB, YouTube, Vimeo, etc.) */
     .embed-wrap{
       position: relative;
       width: 100%;
-      aspect-ratio: 16 / 9;     /* gives the wrapper real height */
+      aspect-ratio: 16 / 9;
       background: #000;
       border-radius: 10px;
       overflow: hidden;
@@ -57,6 +57,17 @@
       height: 100%;
       border: 0;
     }
+
+    /* Overlay CTA button (always available on embeds) */
+    .embed-cta{
+      position:absolute;
+      right:10px; bottom:10px;
+      background:rgba(30,144,255,.95);
+      color:#fff; border-radius:20px;
+      padding:6px 10px; font-size:.85em;
+      text-decoration:none;
+    }
+    .embed-cta:hover{ background:#0066cc; }
   </style>
 </head>
 <body>
@@ -83,6 +94,6 @@
     </div>
   </footer>
 
-  <script src="./app.js?v=1.32" defer></script>
+  <script src="./app.js?v=1.33" defer></script>
 </body>
 </html>
