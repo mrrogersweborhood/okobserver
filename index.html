@@ -57,25 +57,18 @@
       </nav>
     </div>
   </header>
+
   <main>
     <div class="container" id="app"><p class="center">Loading…</p></div>
   </main>
+
   <footer>
     <div class="container" style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:16px 18px">
       <small>Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span></small>
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    var y = document.getElementById('year');
-    if (y) y.textContent = new Date().getFullYear();
-    if (window.APP_VERSION) {
-      var v = document.getElementById('appVersion');
-      if (v) v.textContent = window.APP_VERSION;
-    }
-  });
-</script>
-  <script src="./app.js?v=1.33.3" defer></script>
+
+  <script src="./app.js?v=1.33.6" defer></script>
 </body>
 </html>
