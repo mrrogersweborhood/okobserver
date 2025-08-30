@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.34.5 full stable)
-const APP_VERSION = "v1.34.5";
+// app.js — OkObserver (v1.35.0 — infinite scroll)
+const APP_VERSION = "v1.35.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -80,13 +80,15 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
   // API
-  async function fetchPosts({ page=1, search="" } = {}) {
-    const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${search?`&search=${encodeURIComponent(search)}`:""}`;
+  async function fetchPosts({ page = 1, search = "" } = {}) {
+    const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
+      search ? `&search=${encodeURIComponent(search)}` : ""
+    }`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
     const items = await res.json();
-    return { posts: items.filter(p => !hasExcluded(p)), totalPages };
+    return { posts: items.filter((p) => !hasExcluded(p)), totalPages };
   }
 
   async function fetchPost(id) {
@@ -95,93 +97,159 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // Home
-  function renderHome({ search="" } = {}) {
+  // Home (with Infinite Scroll + button fallback)
+  function renderHome({ search = "" } = {}) {
+    // Disconnect any prior observer (when navigating back from a post)
+    try { window.__okInfObs?.disconnect(); } catch {}
+    window.__okInfObs = null;
+
     app.innerHTML = `
       <h1>Latest Posts</h1>
       <div id="grid" class="grid"></div>
       <div class="center" style="margin:12px 0;">
         <button id="loadMore" class="btn">Load more</button>
-      </div>`;
+      </div>
+      <!-- sentinel triggers infinite scrolling when visible -->
+      <div id="sentinel" style="height:1px;"></div>
+    `;
+
     const grid = document.getElementById("grid");
     const loadMore = document.getElementById("loadMore");
-    let page = 1, totalPages = 1, loading = false, seen = new Set();
+    const sentinel = document.getElementById("sentinel");
+
+    let page = 1;
+    let totalPages = 1;
+    let loading = false;
+    const seen = new Set();
 
     async function load() {
-      if (loading) return; 
+      if (loading) return;
       loading = true;
-      loadMore.disabled = true; 
-      loadMore.textContent = "Loading…";
+      if (loadMore) {
+        loadMore.disabled = true;
+        loadMore.textContent = "Loading…";
+      }
+
       try {
         const { posts, totalPages: tp } = await fetchPosts({ page, search });
         totalPages = tp || 1;
+
         for (const p of posts) {
-          if (seen.has(p.id)) continue; 
+          if (seen.has(p.id)) continue;
           seen.add(p.id);
 
-          let media = featuredImage(p) || 
-                      firstImgFromHTML(p.content?.rendered) || 
-                      firstImgFromHTML(p.excerpt?.rendered) || "";
+          const media =
+            featuredImage(p) ||
+            firstImgFromHTML(p.content?.rendered) ||
+            firstImgFromHTML(p.excerpt?.rendered) ||
+            "";
 
-          const author = esc(getAuthor(p)), date = ordinalDate(p.date);
+          const author = esc(getAuthor(p));
+          const date = ordinalDate(p.date);
+
           const el = document.createElement("div");
           el.className = "card";
           el.innerHTML = `
-            ${ media ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>` : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+            ${
+              media
+                ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>`
+            }
             <div class="card-body">
-              <h2 class="title"><a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">${p.title.rendered}</a></h2>
+              <h2 class="title">
+                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+                  ${p.title.rendered}
+                </a>
+              </h2>
               <div class="meta-author-date">
                 ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
                 <span class="date">${date}</span>
               </div>
               <div class="excerpt">${p.excerpt.rendered}</div>
               <a class="btn" href="#/post/${p.id}">Read more</a>
-            </div>`;
+            </div>
+          `;
           grid.appendChild(el);
 
           const t = el.querySelector("img.thumb");
           if (t) {
-            t.addEventListener("error", () => { 
-              const a = t.closest("a"); 
-              if (a) a.innerHTML = `<div class="thumb"></div>`; 
-            }, { once:true });
+            t.addEventListener(
+              "error",
+              () => {
+                const a = t.closest("a");
+                if (a) a.innerHTML = `<div class="thumb"></div>`;
+              },
+              { once: true }
+            );
           }
-
           hardenLinks(el.querySelector(".excerpt"));
         }
 
         page++;
-        if (page > totalPages) { 
-          loadMore.textContent = "No more posts."; 
-          loadMore.disabled = true; 
-        } else { 
-          loadMore.textContent = "Load more"; 
-          loadMore.disabled = false; 
+
+        const done = page > totalPages;
+        if (done) {
+          if (loadMore) {
+            loadMore.textContent = "No more posts.";
+            loadMore.disabled = true;
+          }
+          if (window.__okInfObs) window.__okInfObs.disconnect();
+        } else {
+          if (loadMore) {
+            loadMore.textContent = "Load more";
+            loadMore.disabled = false;
+          }
         }
       } catch (e) {
-        showError(`Failed to load posts: ${e.message||e}`);
-        loadMore.textContent = "Retry"; 
-        loadMore.disabled = false;
-      } finally { 
-        loading = false; 
+        showError(`Failed to load posts: ${e.message || e}`);
+        if (loadMore) {
+          loadMore.textContent = "Retry";
+          loadMore.disabled = false;
+        }
+      } finally {
+        loading = false;
       }
     }
 
-    loadMore.addEventListener("click", load);
-    load(); // initial
+    // Button fallback
+    loadMore?.addEventListener("click", load);
+
+    // Infinite scroll via IntersectionObserver
+    if ("IntersectionObserver" in window && sentinel) {
+      const obs = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              if (page <= totalPages && !loading) load();
+            }
+          }
+        },
+        { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 }
+      );
+      obs.observe(sentinel);
+      window.__okInfObs = obs;
+      // initial load
+      load();
+    } else {
+      // Old browsers: show button and load first page
+      load();
+    }
   }
-  // Post
+  // Post detail
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
-      if (hasExcluded(p)) { 
-        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`; 
-        return; 
+
+      // Exclusion guard
+      if (hasExcluded(p)) {
+        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
+        return;
       }
 
-      const author = esc(getAuthor(p)), date = ordinalDate(p.date);
+      const author = esc(getAuthor(p));
+      const date = ordinalDate(p.date);
       const tags = getTags(p._embedded?.["wp:term"]) || [];
       const contentHtml = p.content?.rendered || "";
       const hero = featuredImage(p) || firstImgFromHTML(contentHtml) || "";
@@ -196,29 +264,40 @@ console.info("OkObserver app loaded", APP_VERSION);
           </div>
           ${hero ? `<img class="hero" src="${hero}" alt="" loading="lazy">` : ""}
           <div class="content">${contentHtml}</div>
-          ${tags.length ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map(t=>
-            `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`
-          ).join("")}</div>`:""}
+          ${
+            tags.length
+              ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
+                  .map(
+                    (t) =>
+                      `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(
+                        t.name
+                      )}</a>`
+                  )
+                  .join("")}</div>`
+              : ""
+          }
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
-        </article>`;
+        </article>
+      `;
 
+      // Make links in post body open in a new tab
       hardenLinks(document.querySelector(".post"));
     } catch (e) {
-      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message||e}</div>`;
+      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
     }
   }
   // Router
   function router() {
     try {
       const hash = location.hash || "#/";
-      if (hash === "#/" || hash === "") { 
-        renderHome({ search: "" }); 
-        return; 
+      if (hash === "#/" || hash === "") {
+        renderHome({ search: "" });
+        return;
       }
-      if (hash.startsWith("#/post/")) { 
-        const id = hash.split("/")[2]?.split("?")[0]; 
-        renderPost(id); 
-        return; 
+      if (hash.startsWith("#/post/")) {
+        const id = hash.split("/")[2]?.split("?")[0];
+        renderPost(id);
+        return;
       }
       if (hash === "#/about") {
         app.innerHTML = `<article class="post">
@@ -228,14 +307,16 @@ console.info("OkObserver app loaded", APP_VERSION);
         return;
       }
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
-    } catch(e) { 
-      showError(`Router crash: ${e?.message||e}`); 
+    } catch (e) {
+      showError(`Router crash: ${e?.message || e}`);
     }
   }
 
   // Wire up router + global error handlers
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
-  window.addEventListener("error", (e)=>showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e)=>showError(`Unhandled promise rejection: ${e.reason?.message||e.reason}`));
+  window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
+  window.addEventListener("unhandledrejection", (e) =>
+    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`)
+  );
 })();
