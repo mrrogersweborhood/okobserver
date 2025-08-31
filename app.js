@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.35.0 — infinite scroll)
-const APP_VERSION = "v1.35.0";
+// app.js — OkObserver (v1.36.0 — infinite scroll + FB embed normalization)
+const APP_VERSION = "v1.36.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -78,6 +78,50 @@ console.info("OkObserver app loaded", APP_VERSION);
       a.target="_blank"; 
       a.rel="noopener"; 
     });
+  }
+
+  // NEW: Normalize problematic embed blocks (esp. Facebook) to a visible fallback
+  function normalizeContent(html) {
+    const root = document.createElement("div");
+    root.innerHTML = html || "";
+
+    // Replace Facebook embeds/wrappers with a clear fallback button
+    const fbSelectors = [
+      'iframe[src*="facebook.com"]',
+      '.wp-block-embed-facebook',
+      '.wp-block-embed__wrapper a[href*="facebook.com"]',
+      '.wp-block-embed a[href*="facebook.com"]'
+    ];
+    root.querySelectorAll(fbSelectors.join(",")).forEach((node) => {
+      let url = null;
+      if (node.tagName === "IFRAME") {
+        url = node.src;
+      } else if (node.tagName === "A") {
+        url = node.href;
+      } else {
+        const a = node.querySelector('a[href*="facebook.com"]');
+        if (a) url = a.href;
+      }
+
+      const box = document.createElement("div");
+      box.className = "embed-fallback";
+      box.innerHTML = `
+        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+          <div style="margin-bottom:8px;">This video can’t be embedded here.</div>
+          ${url ? `<a class="btn" href="${url}" target="_blank" rel="noopener">Open on Facebook</a>` : ""}
+        </div>
+      `;
+
+      const wrapper = node.closest(".wp-block-embed, .wp-block-embed__wrapper") || node;
+      wrapper.replaceWith(box);
+    });
+
+    // Clean up any empty embed wrappers that still reserve space
+    root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
+      if (!el.querySelector("iframe, a, img, video")) el.remove();
+    });
+
+    return root.innerHTML;
   }
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
@@ -235,7 +279,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       load();
     }
   }
-  // Post detail
+  // Post detail (uses normalizeContent to fix FB embeds)
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
@@ -251,8 +295,13 @@ console.info("OkObserver app loaded", APP_VERSION);
       const author = esc(getAuthor(p));
       const date = ordinalDate(p.date);
       const tags = getTags(p._embedded?.["wp:term"]) || [];
-      const contentHtml = p.content?.rendered || "";
-      const hero = featuredImage(p) || firstImgFromHTML(contentHtml) || "";
+
+      // Normalize content to replace blocked/blank FB embeds with a visible fallback
+      const rawHtml = p.content?.rendered || "";
+      const normalizedHtml = normalizeContent(rawHtml);
+
+      // Pick a hero image from featured media or first image in normalized content
+      const hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
 
       app.innerHTML = `
         <article class="post">
@@ -263,7 +312,7 @@ console.info("OkObserver app loaded", APP_VERSION);
             <span class="date">${date}</span>
           </div>
           ${hero ? `<img class="hero" src="${hero}" alt="" loading="lazy">` : ""}
-          <div class="content">${contentHtml}</div>
+          <div class="content">${normalizedHtml}</div>
           ${
             tags.length
               ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
