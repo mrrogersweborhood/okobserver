@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.36.0 — infinite scroll + FB embed normalization)
-const APP_VERSION = "v1.36.0";
+// app.js — OkObserver (v1.37.0 — infinite scroll + FB embed normalization + FB thumb fallback)
+const APP_VERSION = "v1.37.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -32,11 +32,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // Utils
   const esc = (s) => (s || "").replace(/[&<>"']/g, c => ({ 
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;" 
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
   const getAuthor = (p) => p?._embedded?.author?.[0]?.name || "";
   const hasExcluded = (p) => (p?._embedded?.["wp:term"]?.[0] || [])
@@ -44,7 +40,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   const getTags = (emb) => (emb?.flat() || []).filter(t => t?.taxonomy === "post_tag");
 
   function ordinalDate(iso) {
-    const d = new Date(iso); 
+    const d = new Date(iso);
     const day = d.getDate();
     const suf = (n)=> (n>3 && n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");
     return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
@@ -80,12 +76,11 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // NEW: Normalize problematic embed blocks (esp. Facebook) to a visible fallback
+  // Normalize problematic embeds (esp. Facebook) to a visible fallback
   function normalizeContent(html) {
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
-    // Replace Facebook embeds/wrappers with a clear fallback button
     const fbSelectors = [
       'iframe[src*="facebook.com"]',
       '.wp-block-embed-facebook',
@@ -111,7 +106,6 @@ console.info("OkObserver app loaded", APP_VERSION);
           ${url ? `<a class="btn" href="${url}" target="_blank" rel="noopener">Open on Facebook</a>` : ""}
         </div>
       `;
-
       const wrapper = node.closest(".wp-block-embed, .wp-block-embed__wrapper") || node;
       wrapper.replaceWith(box);
     });
@@ -122,6 +116,31 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
 
     return root.innerHTML;
+  }
+
+  // Facebook video helpers (thumbnail fallback)
+  function extractFacebookVideoId(url) {
+    try {
+      const u = new URL(url);
+      if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
+        return u.searchParams.get("v"); // /watch/?v=123
+      }
+      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); // /<page>/videos/123/
+      if (m && m[1]) return m[1];
+    } catch {}
+    return null;
+  }
+  function findFacebookVideoIdInHtml(html) {
+    const div = document.createElement("div"); 
+    div.innerHTML = html || "";
+    const a = div.querySelector('a[href*="facebook.com/watch"], a[href*="facebook.com/"], a[href*="/videos/"]');
+    if (a && a.href) return extractFacebookVideoId(a.href);
+    const iframe = div.querySelector('iframe[src*="facebook.com"]');
+    if (iframe && iframe.src) return extractFacebookVideoId(iframe.src);
+    return null;
+  }
+  function fbVideoThumbUrl(videoId) {
+    return `https://graph.facebook.com/${videoId}/picture?type=large`;
   }
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
@@ -141,7 +160,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // Home (with Infinite Scroll + button fallback)
+  // Home (Infinite Scroll + button fallback)
   function renderHome({ search = "" } = {}) {
     // Disconnect any prior observer (when navigating back from a post)
     try { window.__okInfObs?.disconnect(); } catch {}
@@ -182,11 +201,16 @@ console.info("OkObserver app loaded", APP_VERSION);
           if (seen.has(p.id)) continue;
           seen.add(p.id);
 
-          const media =
+          // Choose media for the card (featured image, first <img>, or FB video thumb)
+          let media =
             featuredImage(p) ||
             firstImgFromHTML(p.content?.rendered) ||
             firstImgFromHTML(p.excerpt?.rendered) ||
             "";
+          if (!media) {
+            const fbVid = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+            if (fbVid) media = fbVideoThumbUrl(fbVid);
+          }
 
           const author = esc(getAuthor(p));
           const date = ordinalDate(p.date);
@@ -215,6 +239,7 @@ console.info("OkObserver app loaded", APP_VERSION);
           `;
           grid.appendChild(el);
 
+          // If the media 403s/404s, collapse to gray placeholder so there's no blank space
           const t = el.querySelector("img.thumb");
           if (t) {
             t.addEventListener(
@@ -279,14 +304,14 @@ console.info("OkObserver app loaded", APP_VERSION);
       load();
     }
   }
-  // Post detail (uses normalizeContent to fix FB embeds)
+  // Post detail (normalize FB embeds + FB thumbnail fallback)
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
 
-      // Exclusion guard
+      // Exclusion guard (hide Cartoon posts everywhere)
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -300,8 +325,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
-      // Pick a hero image from featured media or first image in normalized content
-      const hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
+      // Pick a hero image from featured media, first <img>, or FB video thumbnail
+      let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
+      if (!hero) {
+        const fbVid = findFacebookVideoIdInHtml(normalizedHtml);
+        if (fbVid) hero = fbVideoThumbUrl(fbVid);
+      }
 
       app.innerHTML = `
         <article class="post">
@@ -316,12 +345,7 @@ console.info("OkObserver app loaded", APP_VERSION);
           ${
             tags.length
               ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
-                  .map(
-                    (t) =>
-                      `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(
-                        t.name
-                      )}</a>`
-                  )
+                  .map((t) => `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`)
                   .join("")}</div>`
               : ""
           }
@@ -331,6 +355,11 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       // Make links in post body open in a new tab
       hardenLinks(document.querySelector(".post"));
+
+      // If hero fails (403/404 from FB Graph), remove it so there's no blank box
+      const heroImg = document.querySelector(".post img.hero");
+      if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
+
     } catch (e) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
     }
