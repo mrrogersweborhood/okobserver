@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.37.0 — infinite scroll + FB embed normalization + FB thumb fallback)
-const APP_VERSION = "v1.37.0";
+// app.js — OkObserver (v1.38.0 — FB raw text embed fix)
+const APP_VERSION = "v1.38.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -76,28 +76,18 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // Normalize problematic embeds (esp. Facebook) to a visible fallback
+  // Normalize embeds (fix for FB iframes, anchors, and RAW TEXT urls)
   function normalizeContent(html) {
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
-    const fbSelectors = [
-      'iframe[src*="facebook.com"]',
-      '.wp-block-embed-facebook',
-      '.wp-block-embed__wrapper a[href*="facebook.com"]',
-      '.wp-block-embed a[href*="facebook.com"]'
-    ];
-    root.querySelectorAll(fbSelectors.join(",")).forEach((node) => {
-      let url = null;
-      if (node.tagName === "IFRAME") {
-        url = node.src;
-      } else if (node.tagName === "A") {
-        url = node.href;
-      } else {
-        const a = node.querySelector('a[href*="facebook.com"]');
-        if (a) url = a.href;
-      }
+    function extractFacebookUrlFromText(s) {
+      if (!s) return null;
+      const m = s.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) || s.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+      return m ? m[0] : null;
+    }
 
+    function buildFallback(url) {
       const box = document.createElement("div");
       box.className = "embed-fallback";
       box.innerHTML = `
@@ -106,42 +96,88 @@ console.info("OkObserver app loaded", APP_VERSION);
           ${url ? `<a class="btn" href="${url}" target="_blank" rel="noopener">Open on Facebook</a>` : ""}
         </div>
       `;
+      return box;
+    }
+
+    // Replace FB embeds
+    const fbSelectors = [
+      'iframe[src*="facebook.com"]',
+      '.wp-block-embed-facebook',
+      '.wp-block-embed__wrapper a[href*="facebook.com"]',
+      '.wp-block-embed a[href*="facebook.com"]'
+    ];
+    root.querySelectorAll(fbSelectors.join(",")).forEach((node) => {
+      let url = null;
+      if (node.tagName === "IFRAME") url = node.src;
+      else if (node.tagName === "A") url = node.href;
+      else {
+        const a = node.querySelector('a[href*="facebook.com"]');
+        if (a) url = a.href;
+      }
       const wrapper = node.closest(".wp-block-embed, .wp-block-embed__wrapper") || node;
-      wrapper.replaceWith(box);
+      wrapper.replaceWith(buildFallback(url));
     });
 
-    // Clean up any empty embed wrappers that still reserve space
+    // Handle RAW TEXT urls inside wrappers
     root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
-      if (!el.querySelector("iframe, a, img, video")) el.remove();
+      if (el.closest(".embed-fallback")) return;
+      if (!el.querySelector("iframe, a, img, video")) {
+        const url = extractFacebookUrlFromText(el.textContent.trim());
+        if (url) {
+          el.replaceWith(buildFallback(url));
+          return;
+        }
+        if (!el.textContent.trim()) el.remove();
+      }
     });
 
     return root.innerHTML;
   }
 
-  // Facebook video helpers (thumbnail fallback)
+  // Facebook video helpers
   function extractFacebookVideoId(url) {
     try {
       const u = new URL(url);
       if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
-        return u.searchParams.get("v"); // /watch/?v=123
+        return u.searchParams.get("v");
       }
-      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); // /<page>/videos/123/
+      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/);
       if (m && m[1]) return m[1];
     } catch {}
     return null;
   }
   function findFacebookVideoIdInHtml(html) {
-    const div = document.createElement("div"); 
+    const div = document.createElement("div");
     div.innerHTML = html || "";
+
+    // 1) Anchors
     const a = div.querySelector('a[href*="facebook.com/watch"], a[href*="facebook.com/"], a[href*="/videos/"]');
-    if (a && a.href) return extractFacebookVideoId(a.href);
+    if (a && a.href) {
+      const id = extractFacebookVideoId(a.href);
+      if (id) return id;
+    }
+
+    // 2) Iframes
     const iframe = div.querySelector('iframe[src*="facebook.com"]');
-    if (iframe && iframe.src) return extractFacebookVideoId(iframe.src);
+    if (iframe && iframe.src) {
+      const id = extractFacebookVideoId(iframe.src);
+      if (id) return id;
+    }
+
+    // 3) Raw text
+    const text = div.textContent || "";
+    const m = text.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) || text.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+    if (m) {
+      const id = extractFacebookVideoId(m[0]);
+      if (id) return id;
+    }
     return null;
   }
+
   function fbVideoThumbUrl(videoId) {
     return `https://graph.facebook.com/${videoId}/picture?type=large`;
   }
+
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -162,7 +198,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // Home (Infinite Scroll + button fallback)
   function renderHome({ search = "" } = {}) {
-    // Disconnect any prior observer (when navigating back from a post)
     try { window.__okInfObs?.disconnect(); } catch {}
     window.__okInfObs = null;
 
@@ -172,7 +207,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       <div class="center" style="margin:12px 0;">
         <button id="loadMore" class="btn">Load more</button>
       </div>
-      <!-- sentinel triggers infinite scrolling when visible -->
       <div id="sentinel" style="height:1px;"></div>
     `;
 
@@ -188,10 +222,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     async function load() {
       if (loading) return;
       loading = true;
-      if (loadMore) {
-        loadMore.disabled = true;
-        loadMore.textContent = "Loading…";
-      }
+      if (loadMore) { loadMore.disabled = true; loadMore.textContent = "Loading…"; }
 
       try {
         const { posts, totalPages: tp } = await fetchPosts({ page, search });
@@ -201,12 +232,11 @@ console.info("OkObserver app loaded", APP_VERSION);
           if (seen.has(p.id)) continue;
           seen.add(p.id);
 
-          // Choose media for the card (featured image, first <img>, or FB video thumb)
+          // Media logic: featured image, first <img>, or FB thumbnail
           let media =
             featuredImage(p) ||
             firstImgFromHTML(p.content?.rendered) ||
-            firstImgFromHTML(p.excerpt?.rendered) ||
-            "";
+            firstImgFromHTML(p.excerpt?.rendered) || "";
           if (!media) {
             const fbVid = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
             if (fbVid) media = fbVideoThumbUrl(fbVid);
@@ -218,11 +248,9 @@ console.info("OkObserver app loaded", APP_VERSION);
           const el = document.createElement("div");
           el.className = "card";
           el.innerHTML = `
-            ${
-              media
+            ${ media
                 ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
-                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>`
-            }
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
             <div class="card-body">
               <h2 class="title">
                 <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
@@ -239,70 +267,40 @@ console.info("OkObserver app loaded", APP_VERSION);
           `;
           grid.appendChild(el);
 
-          // If the media 403s/404s, collapse to gray placeholder so there's no blank space
           const t = el.querySelector("img.thumb");
           if (t) {
-            t.addEventListener(
-              "error",
-              () => {
-                const a = t.closest("a");
-                if (a) a.innerHTML = `<div class="thumb"></div>`;
-              },
-              { once: true }
-            );
+            t.addEventListener("error", () => {
+              const a = t.closest("a");
+              if (a) a.innerHTML = `<div class="thumb"></div>`;
+            }, { once: true });
           }
           hardenLinks(el.querySelector(".excerpt"));
         }
 
         page++;
-
         const done = page > totalPages;
         if (done) {
-          if (loadMore) {
-            loadMore.textContent = "No more posts.";
-            loadMore.disabled = true;
-          }
+          if (loadMore) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
           if (window.__okInfObs) window.__okInfObs.disconnect();
         } else {
-          if (loadMore) {
-            loadMore.textContent = "Load more";
-            loadMore.disabled = false;
-          }
+          if (loadMore) { loadMore.textContent = "Load more"; loadMore.disabled = false; }
         }
       } catch (e) {
         showError(`Failed to load posts: ${e.message || e}`);
-        if (loadMore) {
-          loadMore.textContent = "Retry";
-          loadMore.disabled = false;
-        }
-      } finally {
-        loading = false;
-      }
+        if (loadMore) { loadMore.textContent = "Retry"; loadMore.disabled = false; }
+      } finally { loading = false; }
     }
 
-    // Button fallback
     loadMore?.addEventListener("click", load);
 
-    // Infinite scroll via IntersectionObserver
     if ("IntersectionObserver" in window && sentinel) {
-      const obs = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              if (page <= totalPages && !loading) load();
-            }
-          }
-        },
-        { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 }
-      );
+      const obs = new IntersectionObserver((entries) => {
+        for (const entry of entries) if (entry.isIntersecting) { if (page <= totalPages && !loading) load(); }
+      }, { rootMargin: "600px 0px 600px 0px" });
       obs.observe(sentinel);
       window.__okInfObs = obs;
-      // initial load
       load();
-    } else {
-      // Old browsers: show button and load first page
-      load();
-    }
+    } else { load(); }
   }
   // Post detail (normalize FB embeds + FB thumbnail fallback)
   async function renderPost(id) {
@@ -311,7 +309,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const p = await fetchPost(id);
       if (!p) return;
 
-      // Exclusion guard (hide Cartoon posts everywhere)
+      // Exclusion guard
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -321,11 +319,11 @@ console.info("OkObserver app loaded", APP_VERSION);
       const date = ordinalDate(p.date);
       const tags = getTags(p._embedded?.["wp:term"]) || [];
 
-      // Normalize content to replace blocked/blank FB embeds with a visible fallback
+      // Normalize content (handles FB iframes, anchors, and RAW TEXT urls)
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
-      // Pick a hero image from featured media, first <img>, or FB video thumbnail
+      // Choose hero: featured image, first <img>, or FB thumbnail
       let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
       if (!hero) {
         const fbVid = findFacebookVideoIdInHtml(normalizedHtml);
@@ -353,10 +351,10 @@ console.info("OkObserver app loaded", APP_VERSION);
         </article>
       `;
 
-      // Make links in post body open in a new tab
+      // Open any links in new tab
       hardenLinks(document.querySelector(".post"));
 
-      // If hero fails (403/404 from FB Graph), remove it so there's no blank box
+      // If hero image fails (e.g., FB Graph blocked), remove to avoid blank space
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
 
