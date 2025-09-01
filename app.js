@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.39.0 — FB raw text embed + scrub fix)
-const APP_VERSION = "v1.39.0";
+// app.js — OkObserver (v1.39.1 — fix: renderHome included + FB raw text embed + scrub)
+const APP_VERSION = "v1.39.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -75,12 +75,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       a.rel = "noopener";
     });
   }
+
   // Aggressive normalization of Gutenberg embeds (handles iframes, anchors, RAW TEXT URLs)
   function normalizeContent(html) {
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
-    // find a FB URL in plain text
     const findFbUrlInText = (s) => {
       if (!s) return null;
       const m = s.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) ||
@@ -88,7 +88,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       return m ? m[0] : null;
     };
 
-    // visible fallback block
     const buildFallback = (url) => {
       const box = document.createElement("div");
       box.className = "embed-fallback";
@@ -101,7 +100,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       return box;
     };
 
-    // target outer Gutenberg containers and replace the entire container
     const containers = root.querySelectorAll([
       "figure.wp-block-embed",
       "div.wp-block-embed",
@@ -112,29 +110,24 @@ console.info("OkObserver app loaded", APP_VERSION);
     containers.forEach((cont) => {
       let url = null;
 
-      // iframe src
       const iframe = cont.querySelector('iframe[src*="facebook.com"]');
       if (iframe?.src) url = iframe.src;
 
-      // anchor href
       if (!url) {
         const a = cont.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]');
         if (a?.href) url = a.href;
       }
 
-      // raw text inside wrapper
       if (!url) {
         const raw = findFbUrlInText(cont.textContent?.trim() || "");
         if (raw) url = raw;
       }
 
-      // replace whole container if FB-like or empty embed
       if (url || !cont.querySelector("iframe, a, img, video")) {
         cont.replaceWith(buildFallback(url));
       }
     });
 
-    // cleanup leftover empty wrappers
     root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
       if (!el.querySelector("iframe, a, img, video") && !el.textContent.trim()) el.remove();
     });
@@ -146,17 +139,14 @@ console.info("OkObserver app loaded", APP_VERSION);
   function extractFacebookVideoId(url) {
     try {
       const u = new URL(url);
-      // https://www.facebook.com/watch/?v=123
       if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
-        return u.searchParams.get("v");
+        return u.searchParams.get("v"); // https://www.facebook.com/watch/?v=123
       }
-      // https://www.facebook.com/<page>/videos/123/
-      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/);
+      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); // /<page>/videos/123/
       if (m && m[1]) return m[1];
     } catch {}
     return null;
   }
-
   function findFacebookVideoIdInHtml(html) {
     const div = document.createElement("div");
     div.innerHTML = html || "";
@@ -190,13 +180,11 @@ console.info("OkObserver app loaded", APP_VERSION);
     return `https://graph.facebook.com/${videoId}/picture?type=large`;
   }
 
-  // Final DOM sweep: replace lone FB anchors that slipped through with a visible fallback
+  // Final DOM sweep: replace lone FB anchors with visible fallback
   function scrubBlankFacebookBlocks(scope) {
     const host = scope || document;
     host.querySelectorAll("p, div, figure").forEach((el) => {
-      // skip if there is media or our fallback already
       if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
-      // only a single child and it's an <a>?
       if (el.childElementCount !== 1) return;
       const a = el.querySelector("a[href]");
       if (!a) return;
@@ -214,6 +202,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       el.replaceWith(box);
     });
   }
+
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -231,16 +220,134 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
+  // Home (Infinite Scroll + button fallback)
+  function renderHome({ search = "" } = {}) {
+    // Disconnect any prior observer (when navigating back from a post)
+    try { window.__okInfObs?.disconnect(); } catch {}
+    window.__okInfObs = null;
 
-  // Home (Infinite Scroll + button fallback) unchanged...
+    app.innerHTML = `
+      <h1>Latest Posts</h1>
+      <div id="grid" class="grid"></div>
+      <div class="center" style="margin:12px 0;">
+        <button id="loadMore" class="btn">Load more</button>
+      </div>
+      <!-- sentinel triggers infinite scrolling when visible -->
+      <div id="sentinel" style="height:1px;"></div>
+    `;
 
-  // Post detail (normalize + scrub FB blocks)
+    const grid = document.getElementById("grid");
+    const loadMore = document.getElementById("loadMore");
+    const sentinel = document.getElementById("sentinel");
+
+    let page = 1;
+    let totalPages = 1;
+    let loading = false;
+    const seen = new Set();
+
+    async function load() {
+      if (loading) return;
+      loading = true;
+      if (loadMore) { loadMore.disabled = true; loadMore.textContent = "Loading…"; }
+
+      try {
+        const { posts, totalPages: tp } = await fetchPosts({ page, search });
+        totalPages = tp || 1;
+
+        for (const p of posts) {
+          if (seen.has(p.id)) continue;
+          seen.add(p.id);
+
+          // Media for the card: featured image, first <img>, or Facebook video thumbnail
+          let media =
+            featuredImage(p) ||
+            firstImgFromHTML(p.content?.rendered) ||
+            firstImgFromHTML(p.excerpt?.rendered) || "";
+          if (!media) {
+            const fbVid = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+            if (fbVid) media = fbVideoThumbUrl(fbVid);
+          }
+
+          const author = esc(getAuthor(p));
+          const date = ordinalDate(p.date);
+
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `
+            ${ media
+                ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+            <div class="card-body">
+              <h2 class="title">
+                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+                  ${p.title.rendered}
+                </a>
+              </h2>
+              <div class="meta-author-date">
+                ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
+                <span class="date">${date}</span>
+              </div>
+              <div class="excerpt">${p.excerpt.rendered}</div>
+              <a class="btn" href="#/post/${p.id}">Read more</a>
+            </div>
+          `;
+          grid.appendChild(el);
+
+          // Collapse broken thumbs to placeholder
+          const t = el.querySelector("img.thumb");
+          if (t) {
+            t.addEventListener("error", () => {
+              const a = t.closest("a");
+              if (a) a.innerHTML = `<div class="thumb"></div>`;
+            }, { once: true });
+          }
+          hardenLinks(el.querySelector(".excerpt"));
+        }
+
+        page++;
+        const done = page > totalPages;
+        if (done) {
+          if (loadMore) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
+          if (window.__okInfObs) window.__okInfObs.disconnect();
+        } else {
+          if (loadMore) { loadMore.textContent = "Load more"; loadMore.disabled = false; }
+        }
+      } catch (e) {
+        showError(`Failed to load posts: ${e.message || e}`);
+        if (loadMore) { loadMore.textContent = "Retry"; loadMore.disabled = false; }
+      } finally { loading = false; }
+    }
+
+    // Button fallback
+    loadMore?.addEventListener("click", load);
+
+    // Infinite scroll via IntersectionObserver
+    if ("IntersectionObserver" in window && sentinel) {
+      const obs = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (page <= totalPages && !loading) load();
+          }
+        }
+      }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
+      obs.observe(sentinel);
+      window.__okInfObs = obs;
+      // initial load
+      load();
+    } else {
+      // Old browsers: show button and load first page
+      load();
+    }
+  }
+
+  // Post detail (normalize FB embeds + FB thumbnail fallback + final scrub)
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
 
+      // Exclude Cartoon posts
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -250,9 +357,11 @@ console.info("OkObserver app loaded", APP_VERSION);
       const date = ordinalDate(p.date);
       const tags = getTags(p._embedded?.["wp:term"]) || [];
 
+      // Normalize content (handles FB iframes, anchors, and RAW TEXT urls)
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
+      // Choose hero: featured image, first <img>, or FB thumbnail
       let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
       if (!hero) {
         const fbVid = findFacebookVideoIdInHtml(normalizedHtml);
@@ -280,13 +389,13 @@ console.info("OkObserver app loaded", APP_VERSION);
         </article>
       `;
 
-      // Harden links
+      // Make links open in a new tab
       hardenLinks(document.querySelector(".post"));
 
-      // Scrub stray blank FB blocks
+      // Scrub any leftover blank FB-only blocks
       scrubBlankFacebookBlocks(document.querySelector(".post"));
 
-      // If hero fails (blocked image), remove
+      // If hero image fails (e.g., FB Graph blocked), remove to avoid blank box
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
 
