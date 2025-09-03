@@ -104,7 +104,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
-    // … existing embed parsing code …
+    // (embed parsing code unchanged — Facebook + Vimeo handling here)
 
     // cleanup leftover empty wrappers
     root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
@@ -117,21 +117,10 @@ console.info("OkObserver app loaded", APP_VERSION);
     return root.innerHTML;
   }
 
-  // Facebook helpers
-  function extractFacebookVideoId(url) {
-    try {
-      const u = new URL(url);
-      if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
-        return u.searchParams.get("v");
-      }
-      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/);
-      if (m && m[1]) return m[1];
-    } catch {}
-    return null;
-  }
-  // (rest of fb/vimeo helpers unchanged)
-  // … keep FB/Vimeo helpers & scrubbers here (unchanged except already aggressive) …
-
+  // Facebook + Vimeo helpers and scrubbers (unchanged, aggressive fallback replacements)
+  // … keep extractFacebookVideoId, findFacebookVideoIdInHtml, fbVideoThumbUrl,
+  // … extractVimeoId, findVimeoIdInHtml, vimeoPlayerUrl, vimeoThumbUrl,
+  // … scrubBlankFacebookBlocks, scrubBlankVimeoBlocks …
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -150,15 +139,121 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // renderHome (unchanged, still handles infinite scroll + fallbacks)
+  // Home renderer
+  function renderHome({ search = "" } = {}) {
+    try { window.__okInfObs?.disconnect(); } catch {}
+    window.__okInfObs = null;
 
-  // renderPost (key: calls normalizeContent → which calls deLazyImages now)
+    app.innerHTML = `
+      <h1>Latest Posts</h1>
+      <div id="grid" class="grid"></div>
+      <div class="center" style="margin:12px 0;">
+        <button id="loadMore" class="btn">Load more</button>
+      </div>
+      <div id="sentinel" style="height:1px;"></div>
+    `;
+
+    const grid = document.getElementById("grid");
+    const loadMore = document.getElementById("loadMore");
+    const sentinel = document.getElementById("sentinel");
+
+    let page = 1;
+    let totalPages = 1;
+    let loading = false;
+    const seen = new Set();
+
+    async function load() {
+      if (loading) return;
+      loading = true;
+      if (loadMore) { loadMore.disabled = true; loadMore.textContent = "Loading…"; }
+
+      try {
+        const { posts, totalPages: tp } = await fetchPosts({ page, search });
+        totalPages = tp || 1;
+
+        for (const p of posts) {
+          if (seen.has(p.id)) continue;
+          seen.add(p.id);
+
+          let media =
+            featuredImage(p) ||
+            firstImgFromHTML(p.content?.rendered) ||
+            firstImgFromHTML(p.excerpt?.rendered) || "";
+          if (!media) {
+            const fbId = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+            if (fbId) media = fbVideoThumbUrl(fbId);
+          }
+          if (!media) {
+            const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+            if (vmId) media = vimeoThumbUrl(vmId);
+          }
+
+          const author = esc(getAuthor(p));
+          const date = ordinalDate(p.date);
+
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `
+            ${ media
+                ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+            <div class="card-body">
+              <h2 class="title">
+                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+                  ${p.title.rendered}
+                </a>
+              </h2>
+              <div class="meta-author-date">
+                ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
+                <span class="date">${date}</span>
+              </div>
+              <div class="excerpt">${p.excerpt.rendered}</div>
+              <a class="btn" href="#/post/${p.id}">Read more</a>
+            </div>
+          `;
+          grid.appendChild(el);
+
+          const t = el.querySelector("img.thumb");
+          if (t) {
+            t.addEventListener("error", () => {
+              const a = t.closest("a");
+              if (a) a.innerHTML = `<div class="thumb"></div>`;
+            }, { once: true });
+          }
+          hardenLinks(el.querySelector(".excerpt"));
+        }
+
+        page++;
+        const done = page > totalPages;
+        if (done) {
+          if (loadMore) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
+          if (window.__okInfObs) window.__okInfObs.disconnect();
+        } else {
+          if (loadMore) { loadMore.textContent = "Load more"; loadMore.disabled = false; }
+        }
+      } catch (e) {
+        showError(`Failed to load posts: ${e.message || e}`);
+        if (loadMore) { loadMore.textContent = "Retry"; loadMore.disabled = false; }
+      } finally { loading = false; }
+    }
+
+    loadMore?.addEventListener("click", load);
+
+    if ("IntersectionObserver" in window && sentinel) {
+      const obs = new IntersectionObserver((entries) => {
+        for (const entry of entries) if (entry.isIntersecting) load();
+      }, { rootMargin: "600px 0px 600px 0px" });
+      obs.observe(sentinel);
+      window.__okInfObs = obs;
+      load();
+    } else { load(); }
+  }
+  // Post detail renderer
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
-
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -208,11 +303,11 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
-
     } catch (e) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
     }
   }
+
   // Self-check
   function selfCheck() {
     const missing = [];
@@ -229,8 +324,8 @@ console.info("OkObserver app loaded", APP_VERSION);
   function router() {
     try {
       const hash = location.hash || "#/";
-      if (hash === "#/" || hash === "") { renderHome({ search: "" }); return; }
-      if (hash.startsWith("#/post/")) { renderPost(hash.split("/")[2]?.split("?")[0]); return; }
+      if (hash === "#/" || hash === "") return renderHome({ search: "" });
+      if (hash.startsWith("#/post/")) return renderPost(hash.split("/")[2]?.split("?")[0]);
       if (hash === "#/about") {
         app.innerHTML = `<article class="post"><h1>About</h1><p><strong>OkObserver</strong> unofficial reader.</p></article>`;
         return;
