@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.40.2 — de-lazy images + stronger FB/Vimeo scrub)
-const APP_VERSION = "v1.40.2";
+// app.js — OkObserver (v1.40.3 — de-lazy images + strong FB/Vimeo scrub + self-check)
+const APP_VERSION = "v1.40.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -99,28 +99,223 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // Aggressive normalization of Gutenberg embeds (Facebook + Vimeo)
+  // ===== Embeds: normalize + helpers + scrubbers =====
   function normalizeContent(html) {
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
-    // (embed parsing code unchanged — Facebook + Vimeo handling here)
+    const findFbUrlInText = (s) => {
+      if (!s) return null;
+      const m = s.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) ||
+                s.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+      return m ? m[0] : null;
+    };
+    const findVimeoUrlInText = (s) => {
+      if (!s) return null;
+      const m = s.match(/https?:\/\/(?:www\.|player\.)?vimeo\.com\/[^\s<>"']+/i);
+      return m ? m[0] : null;
+    };
 
-    // cleanup leftover empty wrappers
+    const buildFallback = (url, kind="generic") => {
+      let thumb = "";
+      if (kind === "vimeo") {
+        const id = extractVimeoId(url || "");
+        if (id) thumb = `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">`;
+      }
+      const box = document.createElement("div");
+      box.className = "embed-fallback";
+      box.innerHTML = `
+        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+          ${thumb}
+          <div style="margin-bottom:8px;">This ${kind==="vimeo"?"Vimeo":kind==="facebook"?"Facebook":"external"} video can’t be embedded here.</div>
+          ${url ? `<a class="btn" href="${url}" target="_blank" rel="noopener">Open on ${kind==="vimeo"?"Vimeo":"Facebook"}</a>` : ""}
+        </div>
+      `;
+      return box;
+    };
+
+    // Replace outer Gutenberg embed containers entirely
+    const containers = root.querySelectorAll([
+      "figure.wp-block-embed",
+      "div.wp-block-embed",
+      ".wp-block-embed-facebook",
+      ".wp-block-embed-vimeo",
+      ".wp-block-embed__wrapper"
+    ].join(","));
+
+    containers.forEach((cont) => {
+      let url = null;
+      let kind = "generic";
+
+      // iframe
+      const iframe = cont.querySelector('iframe[src*="facebook.com"], iframe[src*="vimeo.com"]');
+      if (iframe?.src) {
+        url = iframe.src;
+        kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com/i.test(url) ? "facebook" : "generic";
+      }
+
+      // anchor
+      if (!url) {
+        const a = cont.querySelector('a[href*="facebook.com"], a[href*="fb.watch"], a[href*="vimeo.com"]');
+        if (a?.href) {
+          url = a.href;
+          kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com|fb\.watch/i.test(url) ? "facebook" : "generic";
+        }
+      }
+
+      // raw text
+      if (!url) {
+        const rawVm = findVimeoUrlInText(cont.textContent?.trim() || "");
+        const rawFb = findFbUrlInText(cont.textContent?.trim() || "");
+        if (rawVm) { url = rawVm; kind = "vimeo"; }
+        else if (rawFb) { url = rawFb; kind = "facebook"; }
+      }
+
+      if (url || !cont.querySelector("iframe, a, img, video")) {
+        cont.replaceWith(buildFallback(url, kind));
+      }
+    });
+
+    // Cleanup leftover empty wrappers
     root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
       if (!el.querySelector("iframe, a, img, video") && !el.textContent.trim()) el.remove();
     });
 
-    // ✅ New: convert lazy images to real images
+    // Convert lazy images so they actually load
     deLazyImages(root);
 
     return root.innerHTML;
   }
 
-  // Facebook + Vimeo helpers and scrubbers (unchanged, aggressive fallback replacements)
-  // … keep extractFacebookVideoId, findFacebookVideoIdInHtml, fbVideoThumbUrl,
-  // … extractVimeoId, findVimeoIdInHtml, vimeoPlayerUrl, vimeoThumbUrl,
-  // … scrubBlankFacebookBlocks, scrubBlankVimeoBlocks …
+  // ---------- Facebook helpers ----------
+  function extractFacebookVideoId(url) {
+    try {
+      const u = new URL(url);
+      if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
+        return u.searchParams.get("v"); // /watch/?v=123
+      }
+      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); // /<page>/videos/123/
+      if (m && m[1]) return m[1];
+    } catch {}
+    return null;
+  }
+  function findFacebookVideoIdInHtml(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    const a = div.querySelector('a[href*="facebook.com/watch"], a[href*="facebook.com/"], a[href*="/videos/"]');
+    if (a?.href) {
+      const id = extractFacebookVideoId(a.href);
+      if (id) return id;
+    }
+    const iframe = div.querySelector('iframe[src*="facebook.com"]');
+    if (iframe?.src) {
+      const id = extractFacebookVideoId(iframe.src);
+      if (id) return id;
+    }
+    const text = div.textContent || "";
+    const m = text.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) ||
+              text.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+    if (m) {
+      const id = extractFacebookVideoId(m[0]);
+      if (id) return id;
+    }
+    return null;
+  }
+  function fbVideoThumbUrl(videoId) {
+    return `https://graph.facebook.com/${videoId}/picture?type=large`;
+  }
+
+  // ---------- Vimeo helpers ----------
+  function extractVimeoId(url) {
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./,'');
+      if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
+      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); // player.vimeo.com/video/ID
+      if (m && m[1]) return m[1];
+      m = u.pathname.match(/\/(\d+)(?:\/|$)/); // vimeo.com/ID
+      if (m && m[1]) return m[1];
+    } catch {}
+    return null;
+  }
+  function findVimeoIdInHtml(html) {
+    const div = document.createElement("div");
+    div.innerHTML = html || "";
+    const a = div.querySelector('a[href*="vimeo.com"]');
+    if (a?.href) {
+      const id = extractVimeoId(a.href);
+      if (id) return id;
+    }
+    const iframe = div.querySelector('iframe[src*="vimeo.com"]');
+    if (iframe?.src) {
+      const id = extractVimeoId(iframe.src);
+      if (id) return id;
+    }
+    const text = div.textContent || "";
+    const m = text.match(/https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d+)/i);
+    if (m && m[1]) return m[1];
+    return null;
+  }
+  function vimeoPlayerUrl(id) { return `https://player.vimeo.com/video/${id}`; }
+  function vimeoThumbUrl(id) { return `https://vumbnail.com/${id}.jpg`; }
+
+  // ---------- Aggressive scrubbers (kill blank clickable blocks) ----------
+  function scrubBlankFacebookBlocks(scope) {
+    const host = scope || document;
+    host.querySelectorAll("p, div, figure").forEach((el) => {
+      if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
+      const anchors = Array.from(el.querySelectorAll('a[href]'))
+        .filter(a => /facebook\.com|fb\.watch/i.test(a.getAttribute('href') || ''));
+      if (anchors.length !== 1) return;
+
+      const clone = el.cloneNode(true);
+      const a = clone.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]');
+      if (a) a.remove();
+      if ((clone.textContent || '').trim() !== '') return;
+
+      const href = anchors[0].getAttribute('href') || '#';
+      const box = document.createElement("div");
+      box.className = "embed-fallback";
+      box.innerHTML = `
+        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+          <div style="margin-bottom:8px;">This Facebook video can’t be embedded here.</div>
+          <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Facebook</a>
+        </div>
+      `;
+      el.replaceWith(box);
+    });
+  }
+  function scrubBlankVimeoBlocks(scope) {
+    const host = scope || document;
+    host.querySelectorAll("p, div, figure").forEach((el) => {
+      if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
+      const anchors = Array.from(el.querySelectorAll('a[href]'))
+        .filter(a => /vimeo\.com/i.test(a.getAttribute('href') || ''));
+      if (anchors.length !== 1) return;
+
+      const clone = el.cloneNode(true);
+      const a = clone.querySelector('a[href*="vimeo.com"]');
+      if (a) a.remove();
+      if ((clone.textContent || '').trim() !== '') return;
+
+      const href = anchors[0].getAttribute('href') || '#';
+      let thumb = "";
+      try {
+        const id = extractVimeoId(href);
+        if (id) thumb = `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">`;
+      } catch {}
+      const box = document.createElement("div");
+      box.className = "embed-fallback";
+      box.innerHTML = `
+        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+          ${thumb}
+          <div style="margin-bottom:8px;">This Vimeo video can’t be embedded here.</div>
+          <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Vimeo</a>
+        </div>
+      `;
+      el.replaceWith(box);
+    });
+  }
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -139,7 +334,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // Home renderer
+  // Home (Infinite Scroll + button fallback)
   function renderHome({ search = "" } = {}) {
     try { window.__okInfObs?.disconnect(); } catch {}
     window.__okInfObs = null;
@@ -150,6 +345,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       <div class="center" style="margin:12px 0;">
         <button id="loadMore" class="btn">Load more</button>
       </div>
+      <!-- sentinel triggers infinite scrolling when visible -->
       <div id="sentinel" style="height:1px;"></div>
     `;
 
@@ -175,6 +371,7 @@ console.info("OkObserver app loaded", APP_VERSION);
           if (seen.has(p.id)) continue;
           seen.add(p.id);
 
+          // Media: featured image, first <img>, Facebook/Vimeo thumbnail
           let media =
             featuredImage(p) ||
             firstImgFromHTML(p.content?.rendered) ||
@@ -213,6 +410,7 @@ console.info("OkObserver app loaded", APP_VERSION);
           `;
           grid.appendChild(el);
 
+          // Collapse broken thumbs to placeholder
           const t = el.querySelector("img.thumb");
           if (t) {
             t.addEventListener("error", () => {
@@ -220,6 +418,7 @@ console.info("OkObserver app loaded", APP_VERSION);
               if (a) a.innerHTML = `<div class="thumb"></div>`;
             }, { once: true });
           }
+          // Ensure links in excerpts open in a new tab
           hardenLinks(el.querySelector(".excerpt"));
         }
 
@@ -237,23 +436,36 @@ console.info("OkObserver app loaded", APP_VERSION);
       } finally { loading = false; }
     }
 
+    // Button fallback
     loadMore?.addEventListener("click", load);
 
+    // Infinite scroll via IntersectionObserver
     if ("IntersectionObserver" in window && sentinel) {
       const obs = new IntersectionObserver((entries) => {
-        for (const entry of entries) if (entry.isIntersecting) load();
-      }, { rootMargin: "600px 0px 600px 0px" });
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (page <= totalPages && !loading) load();
+          }
+        }
+      }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
       obs.observe(sentinel);
       window.__okInfObs = obs;
+      // initial load
       load();
-    } else { load(); }
+    } else {
+      // Old browsers: show button and load first page
+      load();
+    }
   }
-  // Post detail renderer
+
+  // Post detail (normalize + FB/Vimeo thumbnail fallback + final scrubs)
   async function renderPost(id) {
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
+
+      // Exclude Cartoon posts
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -266,6 +478,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
+      // Hero: featured image, first <img>, Facebook/Vimeo thumbnail
       let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
       if (!hero) {
         const fbId = findFacebookVideoIdInHtml(normalizedHtml);
@@ -278,37 +491,41 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       app.innerHTML = `
         <article class="post">
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
           <div class="meta-author-date">
             ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
             <span class="date">${date}</span>
           </div>
-          ${hero ? `<img class="hero" src="${hero}" alt="">` : ""}
+          ${hero ? `<img class="hero" src="${hero}" alt="" loading="lazy">` : ""}
           <div class="content">${normalizedHtml}</div>
           ${
             tags.length
-              ? `<div class="tags">Tags: ${tags
+              ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
                   .map((t) => `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`)
                   .join("")}</div>`
               : ""
           }
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>
       `;
 
       hardenLinks(document.querySelector(".post"));
-      scrubBlankFacebookBlocks(document.querySelector(".post"));
-      scrubBlankVimeoBlocks(document.querySelector(".post"));
 
+      // Scrub any leftover blank FB/Vimeo-only blocks
+      const scope = document.querySelector(".post");
+      scrubBlankFacebookBlocks(scope);
+      scrubBlankVimeoBlocks(scope);
+
+      // If hero image fails, remove to avoid blank box
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
+
     } catch (e) {
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
     }
   }
-
-  // Self-check
+  // Self-check to catch partial/omitted builds early
   function selfCheck() {
     const missing = [];
     if (typeof renderHome !== "function") missing.push("renderHome");
@@ -321,21 +538,37 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
 
+  // Router + handlers
   function router() {
     try {
       const hash = location.hash || "#/";
-      if (hash === "#/" || hash === "") return renderHome({ search: "" });
-      if (hash.startsWith("#/post/")) return renderPost(hash.split("/")[2]?.split("?")[0]);
+      if (hash === "#/" || hash === "") {
+        renderHome({ search: "" });
+        return;
+      }
+      if (hash.startsWith("#/post/")) {
+        const id = hash.split("/")[2]?.split("?")[0];
+        renderPost(id);
+        return;
+      }
       if (hash === "#/about") {
-        app.innerHTML = `<article class="post"><h1>About</h1><p><strong>OkObserver</strong> unofficial reader.</p></article>`;
+        app.innerHTML = `<article class="post">
+          <h1>About</h1>
+          <p><strong>OkObserver</strong> is an unofficial reader for okobserver.org.</p>
+        </article>`;
         return;
       }
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
-    } catch (e) { showError(`Router crash: ${e?.message || e}`); }
+    } catch (e) {
+      showError(`Router crash: ${e?.message || e}`);
+    }
   }
 
+  // Wire up
   window.addEventListener("hashchange", router);
   window.addEventListener("load", () => { try { selfCheck(); router(); } catch {} });
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
+  window.addEventListener("unhandledrejection", (e) =>
+    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`)
+  );
 })();
