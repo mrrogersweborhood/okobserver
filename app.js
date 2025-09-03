@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.40.0 — Vimeo + Facebook raw-text embed fixes + final scrubs)
-const APP_VERSION = "v1.40.0";
+// app.js — OkObserver (v1.40.1 — stronger FB/Vimeo scrub; no blank blocks)
+const APP_VERSION = "v1.40.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -93,7 +93,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     };
 
     const buildFallback = (url, kind="generic") => {
-      // Add a visible thumbnail for Vimeo if possible (FB is handled via hero logic)
       let thumb = "";
       if (kind === "vimeo") {
         const id = extractVimeoId(url || "");
@@ -111,7 +110,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       return box;
     };
 
-    // Target outer Gutenberg containers and replace entirely
+    // Replace entire outer container
     const containers = root.querySelectorAll([
       "figure.wp-block-embed",
       "div.wp-block-embed",
@@ -239,17 +238,21 @@ console.info("OkObserver app loaded", APP_VERSION);
   function vimeoPlayerUrl(id) { return `https://player.vimeo.com/video/${id}`; }
   function vimeoThumbUrl(id) { return `https://vumbnail.com/${id}.jpg`; }
 
-  // Final DOM sweeps to replace lone anchors with visible fallbacks
+  // Final DOM sweeps (aggressive): replace blocks that are only a video link + whitespace
   function scrubBlankFacebookBlocks(scope) {
     const host = scope || document;
     host.querySelectorAll("p, div, figure").forEach((el) => {
       if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
-      if (el.childElementCount !== 1) return;
-      const a = el.querySelector("a[href]");
-      if (!a) return;
-      const href = a.getAttribute("href") || "";
-      if (!/facebook\.com|fb\.watch/i.test(href)) return;
+      const anchors = Array.from(el.querySelectorAll('a[href]'))
+        .filter(a => /facebook\.com|fb\.watch/i.test(a.getAttribute('href') || ''));
+      if (anchors.length !== 1) return;
 
+      const clone = el.cloneNode(true);
+      const a = clone.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]');
+      if (a) a.remove();
+      if ((clone.textContent || '').trim() !== '') return;
+
+      const href = anchors[0].getAttribute('href') || '#';
       const box = document.createElement("div");
       box.className = "embed-fallback";
       box.innerHTML = `
@@ -265,14 +268,21 @@ console.info("OkObserver app loaded", APP_VERSION);
     const host = scope || document;
     host.querySelectorAll("p, div, figure").forEach((el) => {
       if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
-      if (el.childElementCount !== 1) return;
-      const a = el.querySelector("a[href]");
-      if (!a) return;
-      const href = a.getAttribute("href") || "";
-      if (!/vimeo\.com/i.test(href)) return;
+      const anchors = Array.from(el.querySelectorAll('a[href]'))
+        .filter(a => /vimeo\.com/i.test(a.getAttribute('href') || ''));
+      if (anchors.length !== 1) return;
 
-      const id = extractVimeoId(href);
-      const thumb = id ? `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">` : "";
+      const clone = el.cloneNode(true);
+      const a = clone.querySelector('a[href*="vimeo.com"]');
+      if (a) a.remove();
+      if ((clone.textContent || '').trim() !== '') return;
+
+      const href = anchors[0].getAttribute('href') || '#';
+      let thumb = "";
+      try {
+        const id = extractVimeoId(href);
+        if (id) thumb = `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">`;
+      } catch {}
       const box = document.createElement("div");
       box.className = "embed-fallback";
       box.innerHTML = `
@@ -467,7 +477,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       hardenLinks(document.querySelector(".post"));
 
-      // Scrub any leftover blank FB/Vimeo-only blocks
+      // Scrub any leftover FB/Vimeo-only blank blocks
       const scope = document.querySelector(".post");
       scrubBlankFacebookBlocks(scope);
       scrubBlankVimeoBlocks(scope);
