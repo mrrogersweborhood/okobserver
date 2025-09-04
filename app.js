@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.41.0 — cache + scroll restore, de-lazy images, FB/Vimeo scrub)
-const APP_VERSION = "v1.41.0";
+// app.js — OkObserver (v1.41.1 — solid back restore, cache, de-lazy imgs, FB/Vimeo scrub)
+const APP_VERSION = "v1.41.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -9,12 +9,16 @@ console.info("OkObserver app loaded", APP_VERSION);
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
 
+  // Make scroll restoration fully manual (so we control it)
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
+
   // 🔹 Simple client cache for home view
   window.__okCache = window.__okCache || {
-    posts: [],        // array of WP post objects (already _embed-ded)
+    posts: [],        // cached _embedded posts
     page: 1,          // next page to fetch
     totalPages: 1,
     scrollY: 0,       // last scroll position on home
+    scrollAnchorPostId: null, // last clicked card's postId (for precise restore)
     searchKey: ""     // normalized search string
   };
 
@@ -237,9 +241,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       const u = new URL(url);
       const host = u.hostname.replace(/^www\./,'');
       if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
-      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/);
+      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); // player.vimeo.com/video/ID
       if (m && m[1]) return m[1];
-      m = u.pathname.match(/\/(\d+)(?:\/|$)/);
+      m = u.pathname.match(/\/(\d+)(?:\/|$)/); // vimeo.com/ID
       if (m && m[1]) return m[1];
     } catch {}
     return null;
@@ -322,6 +326,18 @@ console.info("OkObserver app loaded", APP_VERSION);
       el.replaceWith(box);
     });
   }
+  // Capture scroll + anchor BEFORE navigating into a post
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest('a[href^="#/post/"]');
+    if (!link) return;
+    try {
+      window.__okCache.scrollY = window.scrollY || 0;
+      const card = link.closest(".card");
+      const idFromHref = (link.getAttribute("href") || "").split("/")[2];
+      window.__okCache.scrollAnchorPostId = (card && card.dataset.postId) || idFromHref || null;
+    } catch {}
+  });
+
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -360,6 +376,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     const el = document.createElement("div");
     el.className = "card";
+    el.dataset.postId = p.id; // ← crucial for anchor restore
     el.innerHTML = `
       ${ media
           ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
@@ -390,6 +407,30 @@ console.info("OkObserver app loaded", APP_VERSION);
     hardenLinks(el.querySelector(".excerpt"));
   }
 
+  // Try hard to restore scroll — anchor first, then absolute Y, retry while images load
+  function restoreHomeScroll() {
+    const cache = window.__okCache || {};
+    const targetId = cache.scrollAnchorPostId;
+    const targetY = cache.scrollY || 0;
+    let attempts = 0;
+    const max = 20; // ~1s of retries
+
+    function tick() {
+      let usedAnchor = false;
+      if (targetId) {
+        const card = document.querySelector(`.card[data-post-id="${CSS.escape(String(targetId))}"]`);
+        if (card) {
+          const y = Math.max(0, card.getBoundingClientRect().top + window.scrollY - 8);
+          window.scrollTo(0, y);
+          usedAnchor = true;
+        }
+      }
+      if (!usedAnchor) window.scrollTo(0, targetY);
+      if (++attempts < max) setTimeout(tick, 50);
+    }
+    requestAnimationFrame(tick);
+  }
+
   // Home (Infinite Scroll + button fallback) with cache + scroll restore
   function renderHome({ search = "" } = {}) {
     try { window.__okInfObs?.disconnect(); } catch {}
@@ -398,7 +439,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const key = (search || "").trim().toLowerCase();
     // Reset cache when search changes
     if (window.__okCache.searchKey !== key) {
-      window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, searchKey: key };
+      window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
     }
 
     app.innerHTML = `
@@ -427,12 +468,9 @@ console.info("OkObserver app loaded", APP_VERSION);
           appendCard(p, grid);
         }
       });
-      // Restore scroll (after DOM paints)
-      requestAnimationFrame(() => {
-        window.scrollTo(0, window.__okCache.scrollY || 0);
-        setTimeout(() => window.scrollTo(0, window.__okCache.scrollY || 0), 50);
-      });
-      // Enable/disable button based on cached pagination
+      // Restore scroll after DOM paints (and re-apply during image loads)
+      restoreHomeScroll();
+      // Button state reflects cached pagination
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
     }
 
@@ -488,7 +526,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   }
   // Post detail (normalize + FB/Vimeo thumbnail fallback + final scrubs)
   async function renderPost(id) {
-    // Save scroll position before leaving home
+    // Fallback: also save scroll here in case navigation came from elsewhere
     try { window.__okCache.scrollY = window.scrollY || 0; } catch {}
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
@@ -540,8 +578,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       `;
 
       hardenLinks(document.querySelector(".post"));
-
-      // Scrub any leftover blank FB/Vimeo-only blocks
       const scope = document.querySelector(".post");
       scrubBlankFacebookBlocks(scope);
       scrubBlankVimeoBlocks(scope);
