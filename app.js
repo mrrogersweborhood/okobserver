@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.40.3 — de-lazy images + strong FB/Vimeo scrub + self-check)
-const APP_VERSION = "v1.40.3";
+// app.js — OkObserver (v1.41.0 — cache + scroll restore, de-lazy images, FB/Vimeo scrub)
+const APP_VERSION = "v1.41.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -8,6 +8,15 @@ console.info("OkObserver app loaded", APP_VERSION);
   const PER_PAGE = 12;
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
+
+  // 🔹 Simple client cache for home view
+  window.__okCache = window.__okCache || {
+    posts: [],        // array of WP post objects (already _embed-ded)
+    page: 1,          // next page to fetch
+    totalPages: 1,
+    scrollY: 0,       // last scroll position on home
+    searchKey: ""     // normalized search string
+  };
 
   // Footer year + version
   window.addEventListener("DOMContentLoaded", () => {
@@ -147,14 +156,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       let url = null;
       let kind = "generic";
 
-      // iframe
       const iframe = cont.querySelector('iframe[src*="facebook.com"], iframe[src*="vimeo.com"]');
       if (iframe?.src) {
         url = iframe.src;
         kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com/i.test(url) ? "facebook" : "generic";
       }
 
-      // anchor
       if (!url) {
         const a = cont.querySelector('a[href*="facebook.com"], a[href*="fb.watch"], a[href*="vimeo.com"]');
         if (a?.href) {
@@ -163,7 +170,6 @@ console.info("OkObserver app loaded", APP_VERSION);
         }
       }
 
-      // raw text
       if (!url) {
         const rawVm = findVimeoUrlInText(cont.textContent?.trim() || "");
         const rawFb = findFbUrlInText(cont.textContent?.trim() || "");
@@ -231,9 +237,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       const u = new URL(url);
       const host = u.hostname.replace(/^www\./,'');
       if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
-      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); // player.vimeo.com/video/ID
+      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/);
       if (m && m[1]) return m[1];
-      m = u.pathname.match(/\/(\d+)(?:\/|$)/); // vimeo.com/ID
+      m = u.pathname.match(/\/(\d+)(?:\/|$)/);
       if (m && m[1]) return m[1];
     } catch {}
     return null;
@@ -334,10 +340,66 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // Home (Infinite Scroll + button fallback)
+  // Card renderer (shared for cache replay and fresh loads)
+  function appendCard(p, grid) {
+    let media =
+      featuredImage(p) ||
+      firstImgFromHTML(p.content?.rendered) ||
+      firstImgFromHTML(p.excerpt?.rendered) || "";
+    if (!media) {
+      const fbId = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+      if (fbId) media = fbVideoThumbUrl(fbId);
+    }
+    if (!media) {
+      const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+      if (vmId) media = vimeoThumbUrl(vmId);
+    }
+
+    const author = esc(getAuthor(p));
+    const date = ordinalDate(p.date);
+
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = `
+      ${ media
+          ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+          : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
+      <div class="card-body">
+        <h2 class="title">
+          <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
+            ${p.title.rendered}
+          </a>
+        </h2>
+        <div class="meta-author-date">
+          ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
+          <span class="date">${date}</span>
+        </div>
+        <div class="excerpt">${p.excerpt.rendered}</div>
+        <a class="btn" href="#/post/${p.id}">Read more</a>
+      </div>
+    `;
+    grid.appendChild(el);
+
+    const t = el.querySelector("img.thumb");
+    if (t) {
+      t.addEventListener("error", () => {
+        const a = t.closest("a");
+        if (a) a.innerHTML = `<div class="thumb"></div>`;
+      }, { once: true });
+    }
+    hardenLinks(el.querySelector(".excerpt"));
+  }
+
+  // Home (Infinite Scroll + button fallback) with cache + scroll restore
   function renderHome({ search = "" } = {}) {
     try { window.__okInfObs?.disconnect(); } catch {}
     window.__okInfObs = null;
+
+    const key = (search || "").trim().toLowerCase();
+    // Reset cache when search changes
+    if (window.__okCache.searchKey !== key) {
+      window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, searchKey: key };
+    }
 
     app.innerHTML = `
       <h1>Latest Posts</h1>
@@ -345,7 +407,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       <div class="center" style="margin:12px 0;">
         <button id="loadMore" class="btn">Load more</button>
       </div>
-      <!-- sentinel triggers infinite scrolling when visible -->
       <div id="sentinel" style="height:1px;"></div>
     `;
 
@@ -353,10 +414,27 @@ console.info("OkObserver app loaded", APP_VERSION);
     const loadMore = document.getElementById("loadMore");
     const sentinel = document.getElementById("sentinel");
 
-    let page = 1;
-    let totalPages = 1;
+    let page = window.__okCache.page || 1;
+    let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
     const seen = new Set();
+
+    // Replay cache if available
+    if (window.__okCache.posts.length) {
+      window.__okCache.posts.forEach(p => {
+        if (!hasExcluded(p) && !seen.has(p.id)) {
+          seen.add(p.id);
+          appendCard(p, grid);
+        }
+      });
+      // Restore scroll (after DOM paints)
+      requestAnimationFrame(() => {
+        window.scrollTo(0, window.__okCache.scrollY || 0);
+        setTimeout(() => window.scrollTo(0, window.__okCache.scrollY || 0), 50);
+      });
+      // Enable/disable button based on cached pagination
+      if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
+    }
 
     async function load() {
       if (loading) return;
@@ -370,59 +448,15 @@ console.info("OkObserver app loaded", APP_VERSION);
         for (const p of posts) {
           if (seen.has(p.id)) continue;
           seen.add(p.id);
-
-          // Media: featured image, first <img>, Facebook/Vimeo thumbnail
-          let media =
-            featuredImage(p) ||
-            firstImgFromHTML(p.content?.rendered) ||
-            firstImgFromHTML(p.excerpt?.rendered) || "";
-          if (!media) {
-            const fbId = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
-            if (fbId) media = fbVideoThumbUrl(fbId);
-          }
-          if (!media) {
-            const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
-            if (vmId) media = vimeoThumbUrl(vmId);
-          }
-
-          const author = esc(getAuthor(p));
-          const date = ordinalDate(p.date);
-
-          const el = document.createElement("div");
-          el.className = "card";
-          el.innerHTML = `
-            ${ media
-                ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
-                : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
-            <div class="card-body">
-              <h2 class="title">
-                <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
-                  ${p.title.rendered}
-                </a>
-              </h2>
-              <div class="meta-author-date">
-                ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
-                <span class="date">${date}</span>
-              </div>
-              <div class="excerpt">${p.excerpt.rendered}</div>
-              <a class="btn" href="#/post/${p.id}">Read more</a>
-            </div>
-          `;
-          grid.appendChild(el);
-
-          // Collapse broken thumbs to placeholder
-          const t = el.querySelector("img.thumb");
-          if (t) {
-            t.addEventListener("error", () => {
-              const a = t.closest("a");
-              if (a) a.innerHTML = `<div class="thumb"></div>`;
-            }, { once: true });
-          }
-          // Ensure links in excerpts open in a new tab
-          hardenLinks(el.querySelector(".excerpt"));
+          appendCard(p, grid);
+          // push into cache
+          window.__okCache.posts.push(p);
         }
 
         page++;
+        window.__okCache.page = page;
+        window.__okCache.totalPages = totalPages;
+
         const done = page > totalPages;
         if (done) {
           if (loadMore) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
@@ -436,36 +470,31 @@ console.info("OkObserver app loaded", APP_VERSION);
       } finally { loading = false; }
     }
 
-    // Button fallback
     loadMore?.addEventListener("click", load);
 
-    // Infinite scroll via IntersectionObserver
     if ("IntersectionObserver" in window && sentinel) {
       const obs = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            if (page <= totalPages && !loading) load();
-          }
+        for (const entry of entries) if (entry.isIntersecting) {
+          if (page <= totalPages && !loading) load();
         }
-      }, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
+      }, { rootMargin: "600px 0px 600px 0px" });
       obs.observe(sentinel);
       window.__okInfObs = obs;
-      // initial load
-      load();
+      // If no cache, trigger initial load
+      if (!window.__okCache.posts.length) load();
     } else {
-      // Old browsers: show button and load first page
-      load();
+      if (!window.__okCache.posts.length) load();
     }
   }
-
   // Post detail (normalize + FB/Vimeo thumbnail fallback + final scrubs)
   async function renderPost(id) {
+    // Save scroll position before leaving home
+    try { window.__okCache.scrollY = window.scrollY || 0; } catch {}
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
 
-      // Exclude Cartoon posts
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -517,7 +546,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       scrubBlankFacebookBlocks(scope);
       scrubBlankVimeoBlocks(scope);
 
-      // If hero image fails, remove to avoid blank box
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
 
@@ -525,6 +553,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
     }
   }
+
   // Self-check to catch partial/omitted builds early
   function selfCheck() {
     const missing = [];
