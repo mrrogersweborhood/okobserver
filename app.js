@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.41.1 — solid back restore, cache, de-lazy imgs, FB/Vimeo scrub)
-const APP_VERSION = "v1.41.1";
+// app.js — OkObserver (v1.41.2 — solid back restore, cache, de-lazy imgs, FB/Vimeo scrub)
+const APP_VERSION = "v1.41.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -338,6 +338,19 @@ console.info("OkObserver app loaded", APP_VERSION);
     } catch {}
   });
 
+  // Treat "Back to posts" like a real back navigation
+  document.addEventListener("click", (e) => {
+    const back = e.target.closest('a[href="#/"]');
+    if (!back) return;
+    e.preventDefault();
+    const before = location.hash;
+    history.back();
+    setTimeout(() => {
+      // If back() didn’t navigate (e.g., first page), ensure we go home
+      if (location.hash === before) location.hash = "#/";
+    }, 150);
+  });
+
   // API
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -367,7 +380,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (fbId) media = fbVideoThumbUrl(fbId);
     }
     if (!media) {
-      const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
+      const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered) || "";
       if (vmId) media = vimeoThumbUrl(vmId);
     }
 
@@ -376,7 +389,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     const el = document.createElement("div");
     el.className = "card";
-    el.dataset.postId = p.id; // ← crucial for anchor restore
+    el.dataset.postId = p.id;
     el.innerHTML = `
       ${ media
           ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
@@ -437,7 +450,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     window.__okInfObs = null;
 
     const key = (search || "").trim().toLowerCase();
-    // Reset cache when search changes
     if (window.__okCache.searchKey !== key) {
       window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
     }
@@ -468,9 +480,7 @@ console.info("OkObserver app loaded", APP_VERSION);
           appendCard(p, grid);
         }
       });
-      // Restore scroll after DOM paints (and re-apply during image loads)
       restoreHomeScroll();
-      // Button state reflects cached pagination
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
     }
 
@@ -487,7 +497,6 @@ console.info("OkObserver app loaded", APP_VERSION);
           if (seen.has(p.id)) continue;
           seen.add(p.id);
           appendCard(p, grid);
-          // push into cache
           window.__okCache.posts.push(p);
         }
 
@@ -518,7 +527,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       }, { rootMargin: "600px 0px 600px 0px" });
       obs.observe(sentinel);
       window.__okInfObs = obs;
-      // If no cache, trigger initial load
       if (!window.__okCache.posts.length) load();
     } else {
       if (!window.__okCache.posts.length) load();
