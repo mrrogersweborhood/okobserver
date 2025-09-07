@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.41.2 — solid back restore, cache, de-lazy imgs, FB/Vimeo scrub)
-const APP_VERSION = "v1.41.2";
+// app.js — OkObserver (v1.44.0 — AbortController, preconnect-ready, fast grid + cache)
+const APP_VERSION = "v1.44.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -9,18 +9,28 @@ console.info("OkObserver app loaded", APP_VERSION);
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
 
-  // Make scroll restoration fully manual (so we control it)
+  // Manual scroll restoration to preserve position on return
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
-  // 🔹 Simple client cache for home view
+  // Home cache (persists across refresh via sessionStorage)
   window.__okCache = window.__okCache || {
-    posts: [],        // cached _embedded posts
-    page: 1,          // next page to fetch
+    posts: [],
+    page: 1,
     totalPages: 1,
-    scrollY: 0,       // last scroll position on home
-    scrollAnchorPostId: null, // last clicked card's postId (for precise restore)
-    searchKey: ""     // normalized search string
+    scrollY: 0,
+    scrollAnchorPostId: null,
+    searchKey: ""
   };
+  function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{} }
+  (function loadHomeCache(){
+    try {
+      const raw = sessionStorage.getItem("__okCache");
+      if (raw) {
+        const val = JSON.parse(raw);
+        if (val && typeof val === "object") window.__okCache = { ...window.__okCache, ...val };
+      }
+    } catch {}
+  })();
 
   // Footer year + version
   window.addEventListener("DOMContentLoaded", () => {
@@ -30,7 +40,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (v) v.textContent = APP_VERSION;
   });
 
-  // Error banner helper
+  // Error banner
   function showError(message) {
     const msg = (message && message.message) ? message.message : String(message || "Something went wrong.");
     const div = document.createElement("div");
@@ -45,7 +55,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // Utils
   const esc = (s) => (s || "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
   const getAuthor = (p) => p?._embedded?.author?.[0]?.name || "";
   const hasExcluded = (p) => (p?._embedded?.["wp:term"]?.[0] || [])
@@ -55,7 +65,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function ordinalDate(iso) {
     const d = new Date(iso);
     const day = d.getDate();
-    const suf = (n) => (n > 3 && n < 21) ? "th" : (["th","st","nd","rd"][Math.min(n % 10, 4)] || "th");
+    const suf = (n)=> (n>3 && n<21) ? "th" : (["th","st","nd","rd"][Math.min(n%10,4)] || "th");
     return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
   }
 
@@ -83,44 +93,45 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   function hardenLinks(root) {
     if (!root) return;
-    root.querySelectorAll("a[href]").forEach(a => {
-      a.target = "_blank";
-      a.rel = "noopener";
-    });
+    root.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
   }
-  // De-lazy images (Smush/Jetpack style placeholders)
+
+  // Query helpers (#/?q=term)
+  function parseQueryFromHash() {
+    const h = location.hash || "#/";
+    const qMatch = h.match(/[?&]q=([^&]+)/i);
+    return qMatch ? decodeURIComponent(qMatch[1].replace(/\+/g, " ")) : "";
+  }
+  function setQueryInHash(q) {
+    const base = "#/";
+    const s = q ? `${base}?q=${encodeURIComponent(q.trim())}` : base;
+    if (location.hash !== s) location.hash = s;
+  }
+  // De-lazy images (Smush/Jetpack placeholders)
   function deLazyImages(root) {
     if (!root) return;
     root.querySelectorAll("img").forEach((img) => {
-      const realSrc =
-        img.getAttribute("data-src") ||
-        img.getAttribute("data-lazy-src") ||
-        img.getAttribute("data-original") || "";
-      const realSrcset =
-        img.getAttribute("data-srcset") ||
-        img.getAttribute("data-lazy-srcset") || "";
-
+      const realSrc = img.getAttribute("data-src") || img.getAttribute("data-lazy-src") || img.getAttribute("data-original") || "";
+      const realSrcset = img.getAttribute("data-srcset") || img.getAttribute("data-lazy-srcset") || "";
       if (realSrc) img.setAttribute("src", realSrc);
       if (realSrcset) img.setAttribute("srcset", realSrcset);
-
-      img.classList.remove("lazyload", "lazy", "jetpack-lazy-image");
-
-      img.loading = "lazy";
-      img.decoding = "async";
+      img.classList.remove("lazyload","lazy","jetpack-lazy-image");
+      img.loading = "lazy"; img.decoding = "async";
       img.style.maxWidth = img.style.maxWidth || "100%";
       img.style.height = img.style.height || "auto";
+      img.addEventListener("load", () => { img.style.opacity = "1"; img.style.transition = "opacity .25s ease"; }, {once:true});
+      if (!img.style.opacity) img.style.opacity = "0";
     });
   }
 
-  // ===== Embeds: normalize + helpers + scrubbers =====
+  // ===== Embeds normalize + scrubbers =====
   function normalizeContent(html) {
     const root = document.createElement("div");
     root.innerHTML = html || "";
 
     const findFbUrlInText = (s) => {
       if (!s) return null;
-      const m = s.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) ||
-                s.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+      const m = s.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) || s.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
       return m ? m[0] : null;
     };
     const findVimeoUrlInText = (s) => {
@@ -142,156 +153,98 @@ console.info("OkObserver app loaded", APP_VERSION);
           ${thumb}
           <div style="margin-bottom:8px;">This ${kind==="vimeo"?"Vimeo":kind==="facebook"?"Facebook":"external"} video can’t be embedded here.</div>
           ${url ? `<a class="btn" href="${url}" target="_blank" rel="noopener">Open on ${kind==="vimeo"?"Vimeo":"Facebook"}</a>` : ""}
-        </div>
-      `;
+        </div>`;
       return box;
     };
 
-    // Replace outer Gutenberg embed containers entirely
     const containers = root.querySelectorAll([
-      "figure.wp-block-embed",
-      "div.wp-block-embed",
-      ".wp-block-embed-facebook",
-      ".wp-block-embed-vimeo",
-      ".wp-block-embed__wrapper"
+      "figure.wp-block-embed","div.wp-block-embed",".wp-block-embed-facebook",".wp-block-embed-vimeo",".wp-block-embed__wrapper"
     ].join(","));
 
     containers.forEach((cont) => {
-      let url = null;
-      let kind = "generic";
-
+      let url = null; let kind = "generic";
       const iframe = cont.querySelector('iframe[src*="facebook.com"], iframe[src*="vimeo.com"]');
-      if (iframe?.src) {
-        url = iframe.src;
-        kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com/i.test(url) ? "facebook" : "generic";
-      }
-
+      if (iframe?.src) { url = iframe.src; kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com/i.test(url) ? "facebook" : "generic"; }
       if (!url) {
         const a = cont.querySelector('a[href*="facebook.com"], a[href*="fb.watch"], a[href*="vimeo.com"]');
-        if (a?.href) {
-          url = a.href;
-          kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com|fb\.watch/i.test(url) ? "facebook" : "generic";
-        }
+        if (a?.href) { url = a.href; kind = /vimeo\.com/i.test(url) ? "vimeo" : /facebook\.com|fb\.watch/i.test(url) ? "facebook" : "generic"; }
       }
-
       if (!url) {
         const rawVm = findVimeoUrlInText(cont.textContent?.trim() || "");
         const rawFb = findFbUrlInText(cont.textContent?.trim() || "");
         if (rawVm) { url = rawVm; kind = "vimeo"; }
         else if (rawFb) { url = rawFb; kind = "facebook"; }
       }
-
-      if (url || !cont.querySelector("iframe, a, img, video")) {
-        cont.replaceWith(buildFallback(url, kind));
-      }
+      if (url || !cont.querySelector("iframe, a, img, video")) cont.replaceWith(buildFallback(url, kind));
     });
 
-    // Cleanup leftover empty wrappers
     root.querySelectorAll(".wp-block-embed, .wp-block-embed__wrapper").forEach((el) => {
       if (!el.querySelector("iframe, a, img, video") && !el.textContent.trim()) el.remove();
     });
 
-    // Convert lazy images so they actually load
     deLazyImages(root);
-
     return root.innerHTML;
   }
 
-  // ---------- Facebook helpers ----------
+  // Facebook helpers
   function extractFacebookVideoId(url) {
     try {
       const u = new URL(url);
-      if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) {
-        return u.searchParams.get("v"); // /watch/?v=123
-      }
-      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); // /<page>/videos/123/
-      if (m && m[1]) return m[1];
+      if ((u.hostname.endsWith("facebook.com") || u.hostname.endsWith("fb.watch")) && u.searchParams.get("v")) return u.searchParams.get("v");
+      const m = u.pathname.match(/\/videos\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
     } catch {}
     return null;
   }
   function findFacebookVideoIdInHtml(html) {
-    const div = document.createElement("div");
-    div.innerHTML = html || "";
+    const div = document.createElement("div"); div.innerHTML = html || "";
     const a = div.querySelector('a[href*="facebook.com/watch"], a[href*="facebook.com/"], a[href*="/videos/"]');
-    if (a?.href) {
-      const id = extractFacebookVideoId(a.href);
-      if (id) return id;
-    }
+    if (a?.href) { const id = extractFacebookVideoId(a.href); if (id) return id; }
     const iframe = div.querySelector('iframe[src*="facebook.com"]');
-    if (iframe?.src) {
-      const id = extractFacebookVideoId(iframe.src);
-      if (id) return id;
-    }
+    if (iframe?.src) { const id = extractFacebookVideoId(iframe.src); if (id) return id; }
     const text = div.textContent || "";
-    const m = text.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) ||
-              text.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
-    if (m) {
-      const id = extractFacebookVideoId(m[0]);
-      if (id) return id;
-    }
+    const m = text.match(/https?:\/\/(?:www\.)?facebook\.com\/[^\s<>"']+/i) || text.match(/https?:\/\/fb\.watch\/[^\s<>"']+/i);
+    if (m) { const id = extractFacebookVideoId(m[0]); if (id) return id; }
     return null;
   }
-  function fbVideoThumbUrl(videoId) {
-    return `https://graph.facebook.com/${videoId}/picture?type=large`;
-  }
+  function fbVideoThumbUrl(videoId){ return `https://graph.facebook.com/${videoId}/picture?type=large`; }
 
-  // ---------- Vimeo helpers ----------
+  // Vimeo helpers
   function extractVimeoId(url) {
     try {
-      const u = new URL(url);
-      const host = u.hostname.replace(/^www\./,'');
+      const u = new URL(url); const host = u.hostname.replace(/^www\./,'');
       if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
-      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); // player.vimeo.com/video/ID
-      if (m && m[1]) return m[1];
-      m = u.pathname.match(/\/(\d+)(?:\/|$)/); // vimeo.com/ID
-      if (m && m[1]) return m[1];
+      let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
+      m = u.pathname.match(/\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
     } catch {}
     return null;
   }
   function findVimeoIdInHtml(html) {
-    const div = document.createElement("div");
-    div.innerHTML = html || "";
-    const a = div.querySelector('a[href*="vimeo.com"]');
-    if (a?.href) {
-      const id = extractVimeoId(a.href);
-      if (id) return id;
-    }
-    const iframe = div.querySelector('iframe[src*="vimeo.com"]');
-    if (iframe?.src) {
-      const id = extractVimeoId(iframe.src);
-      if (id) return id;
-    }
-    const text = div.textContent || "";
-    const m = text.match(/https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d+)/i);
+    const div = document.createElement("div"); div.innerHTML = html || "";
+    const a = div.querySelector('a[href*="vimeo.com"]'); if (a?.href) { const id = extractVimeoId(a.href); if (id) return id; }
+    const iframe = div.querySelector('iframe[src*="vimeo.com"]'); if (iframe?.src) { const id = extractVimeoId(iframe.src); if (id) return id; }
+    const text = div.textContent || ""; const m = text.match(/https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d+)/i);
     if (m && m[1]) return m[1];
     return null;
   }
-  function vimeoPlayerUrl(id) { return `https://player.vimeo.com/video/${id}`; }
-  function vimeoThumbUrl(id) { return `https://vumbnail.com/${id}.jpg`; }
+  function vimeoPlayerUrl(id){ return `https://player.vimeo.com/video/${id}`; }
+  function vimeoThumbUrl(id){ return `https://vumbnail.com/${id}.jpg`; }
 
-  // ---------- Aggressive scrubbers (kill blank clickable blocks) ----------
+  // Scrub blank clickable FB/Vimeo blocks
   function scrubBlankFacebookBlocks(scope) {
     const host = scope || document;
     host.querySelectorAll("p, div, figure").forEach((el) => {
       if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
-      const anchors = Array.from(el.querySelectorAll('a[href]'))
-        .filter(a => /facebook\.com|fb\.watch/i.test(a.getAttribute('href') || ''));
+      const anchors = Array.from(el.querySelectorAll('a[href]')).filter(a => /facebook\.com|fb\.watch/i.test(a.getAttribute('href') || ''));
       if (anchors.length !== 1) return;
-
-      const clone = el.cloneNode(true);
-      const a = clone.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]');
-      if (a) a.remove();
+      const clone = el.cloneNode(true); const a = clone.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]'); if (a) a.remove();
       if ((clone.textContent || '').trim() !== '') return;
-
       const href = anchors[0].getAttribute('href') || '#';
       const box = document.createElement("div");
       box.className = "embed-fallback";
-      box.innerHTML = `
-        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
-          <div style="margin-bottom:8px;">This Facebook video can’t be embedded here.</div>
-          <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Facebook</a>
-        </div>
-      `;
+      box.innerHTML = `<div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+        <div style="margin-bottom:8px;">This Facebook video can’t be embedded here.</div>
+        <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Facebook</a>
+      </div>`;
       el.replaceWith(box);
     });
   }
@@ -299,34 +252,23 @@ console.info("OkObserver app loaded", APP_VERSION);
     const host = scope || document;
     host.querySelectorAll("p, div, figure").forEach((el) => {
       if (el.querySelector("img, iframe, video, .embed-fallback, .btn")) return;
-      const anchors = Array.from(el.querySelectorAll('a[href]'))
-        .filter(a => /vimeo\.com/i.test(a.getAttribute('href') || ''));
+      const anchors = Array.from(el.querySelectorAll('a[href]')).filter(a => /vimeo\.com/i.test(a.getAttribute('href') || ''));
       if (anchors.length !== 1) return;
-
-      const clone = el.cloneNode(true);
-      const a = clone.querySelector('a[href*="vimeo.com"]');
-      if (a) a.remove();
+      const clone = el.cloneNode(true); const a = clone.querySelector('a[href*="vimeo.com"]'); if (a) a.remove();
       if ((clone.textContent || '').trim() !== '') return;
-
       const href = anchors[0].getAttribute('href') || '#';
-      let thumb = "";
-      try {
-        const id = extractVimeoId(href);
-        if (id) thumb = `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">`;
-      } catch {}
+      let thumb = ""; try { const id = extractVimeoId(href); if (id) thumb = `<img src="${vimeoThumbUrl(id)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px" onerror="this.remove()">`; } catch {}
       const box = document.createElement("div");
       box.className = "embed-fallback";
-      box.innerHTML = `
-        <div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
-          ${thumb}
-          <div style="margin-bottom:8px;">This Vimeo video can’t be embedded here.</div>
-          <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Vimeo</a>
-        </div>
-      `;
+      box.innerHTML = `<div class="center" style="margin:12px 0;padding:16px;border:1px solid #ddd;border-radius:10px;background:#fafafa">
+        ${thumb}
+        <div style="margin-bottom:8px;">This Vimeo video can’t be embedded here.</div>
+        <a class="btn" href="${href}" target="_blank" rel="noopener">Open on Vimeo</a>
+      </div>`;
       el.replaceWith(box);
     });
   }
-  // Capture scroll + anchor BEFORE navigating into a post
+  // Track scroll + anchor BEFORE navigating into a post
   document.addEventListener("click", (e) => {
     const link = e.target.closest('a[href^="#/post/"]');
     if (!link) return;
@@ -335,55 +277,75 @@ console.info("OkObserver app loaded", APP_VERSION);
       const card = link.closest(".card");
       const idFromHref = (link.getAttribute("href") || "").split("/")[2];
       window.__okCache.scrollAnchorPostId = (card && card.dataset.postId) || idFromHref || null;
+      saveHomeCache();
     } catch {}
   });
 
-  // Treat "Back to posts" like a real back navigation
+  // Treat "Back to posts" like real history back
   document.addEventListener("click", (e) => {
     const back = e.target.closest('a[href="#/"]');
     if (!back) return;
     e.preventDefault();
     const before = location.hash;
     history.back();
-    setTimeout(() => {
-      // If back() didn’t navigate (e.g., first page), ensure we go home
-      if (location.hash === before) location.hash = "#/";
-    }, 150);
+    setTimeout(() => { if (location.hash === before) location.hash = "#/"; }, 150);
   });
 
-  // API
-  async function fetchPosts({ page = 1, search = "" } = {}) {
-    const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
-      search ? `&search=${encodeURIComponent(search)}` : ""
-    }`;
-    const res = await fetch(url);
+  // Offline/online banner
+  function ensureNetBannerRoot(){
+    let el = document.getElementById("net-banner");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "net-banner";
+      el.style.cssText = "display:none;position:sticky;top:0;z-index:20;padding:8px 12px;background:#fffae6;border-bottom:1px solid #f0d000;text-align:center;font-size:.9em";
+      document.body.prepend(el);
+    }
+    return el;
+  }
+  function setNetBanner(text){
+    const el = ensureNetBannerRoot();
+    if (!text) { el.style.display="none"; el.textContent=""; return; }
+    el.textContent = text; el.style.display="block";
+  }
+  window.addEventListener("online",  () => setNetBanner("You’re back online."), {passive:true});
+  window.addEventListener("offline", () => setNetBanner("You’re offline. Some actions may not work."), {passive:true});
+  if (!navigator.onLine) setNetBanner("You’re offline. Some actions may not work.");
+
+  // ===== AbortController wiring (separate controllers for list vs detail) =====
+  let listController = null;
+  let detailController = null;
+
+  function abortList() { try { listController?.abort(); } catch {} finally { listController = null; } }
+  function abortDetail() { try { detailController?.abort(); } catch {} finally { detailController = null; } }
+
+  async function fetchPosts({ page=1, search="" } = {}) {
+    abortList(); // cancel any in-flight list fetch
+    listController = new AbortController();
+
+    const fields = "id,date,title,excerpt,_embedded.wp:featuredmedia,_embedded.author";
+    const url = `${BASE}/posts?_embed=1&_fields=${encodeURIComponent(fields)}&per_page=${PER_PAGE}&page=${page}${
+      search ? `&search=${encodeURIComponent(search)}` : "" }`;
+
+    const res = await fetch(url, { signal: listController.signal, credentials:"omit" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const totalPages = Number(res.headers.get("X-WP-TotalPages") || "1");
     const items = await res.json();
-    return { posts: items.filter((p) => !hasExcluded(p)), totalPages };
+    return { posts: items.filter(p => !hasExcluded(p)), totalPages };
   }
 
   async function fetchPost(id) {
-    const res = await fetch(`${BASE}/posts/${id}?_embed=1`);
+    abortDetail(); // cancel any in-flight detail fetch
+    detailController = new AbortController();
+
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    const res = await fetch(url, { signal: detailController.signal, credentials:"omit" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
-  // Card renderer (shared for cache replay and fresh loads)
-  function appendCard(p, grid) {
-    let media =
-      featuredImage(p) ||
-      firstImgFromHTML(p.content?.rendered) ||
-      firstImgFromHTML(p.excerpt?.rendered) || "";
-    if (!media) {
-      const fbId = findFacebookVideoIdInHtml(p.content?.rendered || p.excerpt?.rendered || "");
-      if (fbId) media = fbVideoThumbUrl(fbId);
-    }
-    if (!media) {
-      const vmId = findVimeoIdInHtml(p.content?.rendered || p.excerpt?.rendered) || "";
-      if (vmId) media = vimeoThumbUrl(vmId);
-    }
-
+  // Build a card element (fast; no full content parsing)
+  function buildCardElement(p) {
+    let media = featuredImage(p) || firstImgFromHTML(p.excerpt?.rendered) || "";
     const author = esc(getAuthor(p));
     const date = ordinalDate(p.date);
 
@@ -392,94 +354,119 @@ console.info("OkObserver app loaded", APP_VERSION);
     el.dataset.postId = p.id;
     el.innerHTML = `
       ${ media
-          ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+          ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="" sizes="(max-width:600px) 100vw, 33vw"></a>`
           : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
       <div class="card-body">
-        <h2 class="title">
-          <a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">
-            ${p.title.rendered}
-          </a>
-        </h2>
+        <h2 class="title"><a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">${p.title.rendered}</a></h2>
         <div class="meta-author-date">
           ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
           <span class="date">${date}</span>
         </div>
         <div class="excerpt">${p.excerpt.rendered}</div>
         <a class="btn" href="#/post/${p.id}">Read more</a>
-      </div>
-    `;
-    grid.appendChild(el);
-
+      </div>`;
     const t = el.querySelector("img.thumb");
-    if (t) {
-      t.addEventListener("error", () => {
-        const a = t.closest("a");
-        if (a) a.innerHTML = `<div class="thumb"></div>`;
-      }, { once: true });
-    }
+    if (t) t.addEventListener("error", () => { const a = t.closest("a"); if (a) a.innerHTML = `<div class="thumb"></div>`; }, { once:true });
     hardenLinks(el.querySelector(".excerpt"));
+    return el;
   }
 
-  // Try hard to restore scroll — anchor first, then absolute Y, retry while images load
+  // Skeleton helpers
+  function skeletonCardHTML(){
+    return `<div class="card skeleton">
+      <div class="thumb skeleton-thumb"></div>
+      <div class="card-body">
+        <div class="skeleton-line" style="width:70%;height:16px;margin:6px 0;"></div>
+        <div class="skeleton-line" style="width:45%;height:12px;margin:6px 0;"></div>
+        <div class="skeleton-line" style="width:90%;height:12px;margin:10px 0;"></div>
+        <div class="skeleton-line" style="width:80%;height:12px;margin:6px 0;"></div>
+        <div class="skeleton-pill" style="width:110px;height:30px;margin-top:8px;"></div>
+      </div></div>`;
+  }
+  function showSkeletons(container, count=6){
+    const frag = document.createDocumentFragment();
+    for (let i=0;i<count;i++){ const d=document.createElement("div"); d.innerHTML=skeletonCardHTML(); frag.appendChild(d.firstElementChild); }
+    container.appendChild(frag);
+  }
+  function clearSkeletons(container){ container.querySelectorAll(".skeleton").forEach(n=>n.remove()); }
+  // Restore scroll (anchor first, then Y; retry while images settle)
   function restoreHomeScroll() {
     const cache = window.__okCache || {};
     const targetId = cache.scrollAnchorPostId;
     const targetY = cache.scrollY || 0;
-    let attempts = 0;
-    const max = 20; // ~1s of retries
-
-    function tick() {
-      let usedAnchor = false;
+    let attempts = 0, max = 20;
+    function tick(){
+      let used=false;
       if (targetId) {
         const card = document.querySelector(`.card[data-post-id="${CSS.escape(String(targetId))}"]`);
         if (card) {
           const y = Math.max(0, card.getBoundingClientRect().top + window.scrollY - 8);
-          window.scrollTo(0, y);
-          usedAnchor = true;
+          window.scrollTo(0,y); used=true;
         }
       }
-      if (!usedAnchor) window.scrollTo(0, targetY);
+      if (!used) window.scrollTo(0,targetY);
       if (++attempts < max) setTimeout(tick, 50);
     }
     requestAnimationFrame(tick);
   }
 
-  // Home (Infinite Scroll + button fallback) with cache + scroll restore
+  // Home (infinite scroll + button) with cache + search
   function renderHome({ search = "" } = {}) {
     try { window.__okInfObs?.disconnect(); } catch {}
     window.__okInfObs = null;
 
-    const key = (search || "").trim().toLowerCase();
+    // Abort any detail fetch as we’re leaving detail
+    abortDetail();
+
+    const qFromHash = parseQueryFromHash();
+    const effectiveSearch = (search || qFromHash || "").trim();
+    const key = effectiveSearch.toLowerCase();
+
     if (window.__okCache.searchKey !== key) {
       window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
+      saveHomeCache();
     }
 
     app.innerHTML = `
-      <h1>Latest Posts</h1>
-      <div id="grid" class="grid"></div>
-      <div class="center" style="margin:12px 0;">
-        <button id="loadMore" class="btn">Load more</button>
+      <h1 style="margin-bottom:10px;">Latest Posts</h1>
+      <div style="margin:8px 0 16px 0;">
+        <input id="searchBox" type="search" placeholder="Search posts…" value="${esc(effectiveSearch)}"
+          style="width:100%;max-width:420px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:1em" />
       </div>
+      <div id="grid" class="grid"></div>
+      <div class="center" style="margin:12px 0;"><button id="loadMore" class="btn">Load more</button></div>
       <div id="sentinel" style="height:1px;"></div>
     `;
 
     const grid = document.getElementById("grid");
     const loadMore = document.getElementById("loadMore");
     const sentinel = document.getElementById("sentinel");
+    const searchBox = document.getElementById("searchBox");
 
     let page = window.__okCache.page || 1;
     let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
     const seen = new Set();
 
-    // Replay cache if available
+    // Debounced search → update hash
+    let tId=null;
+    searchBox.addEventListener("input", () => {
+      const val = searchBox.value.trim();
+      if (tId) clearTimeout(tId);
+      tId = setTimeout(() => setQueryInHash(val), 250);
+    });
+
+    // Skeletons if cold
+    if (!window.__okCache.posts.length) showSkeletons(grid, 6);
+
+    // Replay cache
     if (window.__okCache.posts.length) {
+      const frag = document.createDocumentFragment();
       window.__okCache.posts.forEach(p => {
-        if (!hasExcluded(p) && !seen.has(p.id)) {
-          seen.add(p.id);
-          appendCard(p, grid);
-        }
+        if (!hasExcluded(p) && !seen.has(p.id)) { seen.add(p.id); frag.appendChild(buildCardElement(p)); }
       });
+      grid.appendChild(frag);
+      clearSkeletons(grid);
       restoreHomeScroll();
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
     }
@@ -488,21 +475,22 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (loading) return;
       loading = true;
       if (loadMore) { loadMore.disabled = true; loadMore.textContent = "Loading…"; }
+      showSkeletons(grid, 3);
 
       try {
-        const { posts, totalPages: tp } = await fetchPosts({ page, search });
+        const { posts, totalPages: tp } = await fetchPosts({ page, search: effectiveSearch });
         totalPages = tp || 1;
 
+        const frag = document.createDocumentFragment();
         for (const p of posts) {
           if (seen.has(p.id)) continue;
           seen.add(p.id);
-          appendCard(p, grid);
+          frag.appendChild(buildCardElement(p));
           window.__okCache.posts.push(p);
         }
+        grid.appendChild(frag);
 
-        page++;
-        window.__okCache.page = page;
-        window.__okCache.totalPages = totalPages;
+        page++; window.__okCache.page = page; window.__okCache.totalPages = totalPages; saveHomeCache();
 
         const done = page > totalPages;
         if (done) {
@@ -510,11 +498,21 @@ console.info("OkObserver app loaded", APP_VERSION);
           if (window.__okInfObs) window.__okInfObs.disconnect();
         } else {
           if (loadMore) { loadMore.textContent = "Load more"; loadMore.disabled = false; }
+          if ("requestIdleCallback" in window) {
+            requestIdleCallback(() => { fetchPosts({ page, search: effectiveSearch }).catch(()=>{}); }, { timeout: 1000 });
+          }
         }
       } catch (e) {
-        showError(`Failed to load posts: ${e.message || e}`);
-        if (loadMore) { loadMore.textContent = "Retry"; loadMore.disabled = false; }
-      } finally { loading = false; }
+        if (e.name === "AbortError") {
+          // stale list fetch — ignore quietly
+        } else {
+          showError(`Failed to load posts: ${e.message || e}`);
+          if (loadMore) { loadMore.textContent = "Retry"; loadMore.disabled = false; }
+        }
+      } finally {
+        clearSkeletons(grid);
+        loading = false;
+      }
     }
 
     loadMore?.addEventListener("click", load);
@@ -532,19 +530,18 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (!window.__okCache.posts.length) load();
     }
   }
-  // Post detail (normalize + FB/Vimeo thumbnail fallback + final scrubs)
+
+  // Post detail
   async function renderPost(id) {
-    // Fallback: also save scroll here in case navigation came from elsewhere
-    try { window.__okCache.scrollY = window.scrollY || 0; } catch {}
+    // Abort any list fetch as we leave home
+    abortList();
+
+    try { window.__okCache.scrollY = window.scrollY || 0; saveHomeCache(); } catch {}
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
       if (!p) return;
-
-      if (hasExcluded(p)) {
-        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
-        return;
-      }
+      if (hasExcluded(p)) { app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`; return; }
 
       const author = esc(getAuthor(p));
       const date = ordinalDate(p.date);
@@ -553,16 +550,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
-      // Hero: featured image, first <img>, Facebook/Vimeo thumbnail
       let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
-      if (!hero) {
-        const fbId = findFacebookVideoIdInHtml(normalizedHtml);
-        if (fbId) hero = fbVideoThumbUrl(fbId);
-      }
-      if (!hero) {
-        const vmId = findVimeoIdInHtml(normalizedHtml);
-        if (vmId) hero = vimeoThumbUrl(vmId);
-      }
+      if (!hero) { const fbId = findFacebookVideoIdInHtml(normalizedHtml); if (fbId) hero = fbVideoThumbUrl(fbId); }
+      if (!hero) { const vmId = findVimeoIdInHtml(normalizedHtml); if (vmId) hero = vimeoThumbUrl(vmId); }
 
       app.innerHTML = `
         <article class="post">
@@ -574,16 +564,9 @@ console.info("OkObserver app loaded", APP_VERSION);
           </div>
           ${hero ? `<img class="hero" src="${hero}" alt="" loading="lazy">` : ""}
           <div class="content">${normalizedHtml}</div>
-          ${
-            tags.length
-              ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags
-                  .map((t) => `<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`)
-                  .join("")}</div>`
-              : ""
-          }
+          ${ tags.length ? `<div class="tags"><span style="margin-right:6px;">Tags:</span>${tags.map(t=>`<a class="tag-chip" href="https://okobserver.org/tag/${t.slug}/" target="_blank" rel="noopener">${esc(t.name)}</a>`).join("")}</div>` : "" }
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
-        </article>
-      `;
+        </article>`;
 
       hardenLinks(document.querySelector(".post"));
       const scope = document.querySelector(".post");
@@ -594,54 +577,48 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (heroImg) heroImg.addEventListener("error", () => heroImg.remove(), { once: true });
 
     } catch (e) {
-      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
+      if (e.name === "AbortError") {
+        // stale detail fetch — do nothing
+      } else {
+        app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message || e}</div>`;
+      }
     }
   }
 
-  // Self-check to catch partial/omitted builds early
-  function selfCheck() {
-    const missing = [];
-    if (typeof renderHome !== "function") missing.push("renderHome");
-    if (typeof renderPost !== "function") missing.push("renderPost");
-    if (typeof fetchPosts !== "function") missing.push("fetchPosts");
-    if (typeof fetchPost !== "function") missing.push("fetchPost");
-    if (missing.length) {
-      showError(`App init error: missing functions → ${missing.join(", ")}`);
-      throw new Error("App self-check failed");
-    }
+  // Self-check
+  function selfCheck(){
+    const missing=[];
+    if (typeof renderHome!=="function") missing.push("renderHome");
+    if (typeof renderPost!=="function") missing.push("renderPost");
+    if (typeof fetchPosts!=="function") missing.push("fetchPosts");
+    if (typeof fetchPost!=="function") missing.push("fetchPost");
+    if (missing.length){ showError(`App init error: missing functions → ${missing.join(", ")}`); throw new Error("App self-check failed"); }
   }
 
-  // Router + handlers
-  function router() {
-    try {
+  // Router
+  function router(){
+    try{
       const hash = location.hash || "#/";
-      if (hash === "#/" || hash === "") {
-        renderHome({ search: "" });
-        return;
+      if (hash.startsWith("#/?") || hash === "#/" || hash === ""){
+        renderHome({ search: parseQueryFromHash() }); return;
       }
-      if (hash.startsWith("#/post/")) {
+      if (hash.startsWith("#/post/")){
         const id = hash.split("/")[2]?.split("?")[0];
-        renderPost(id);
-        return;
+        renderPost(id); return;
       }
-      if (hash === "#/about") {
+      if (hash === "#/about"){
         app.innerHTML = `<article class="post">
           <h1>About</h1>
           <p><strong>OkObserver</strong> is an unofficial reader for okobserver.org.</p>
-        </article>`;
-        return;
+        </article>`; return;
       }
       app.innerHTML = `<div class="error-banner"><button class="close">×</button>Page not found</div>`;
-    } catch (e) {
-      showError(`Router crash: ${e?.message || e}`);
-    }
+    }catch(e){ showError(`Router crash: ${e?.message || e}`); }
   }
 
   // Wire up
   window.addEventListener("hashchange", router);
   window.addEventListener("load", () => { try { selfCheck(); router(); } catch {} });
   window.addEventListener("error", (e) => showError(`Runtime error: ${e.message}`));
-  window.addEventListener("unhandledrejection", (e) =>
-    showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`)
-  );
+  window.addEventListener("unhandledrejection", (e) => showError(`Unhandled promise rejection: ${e.reason?.message || e.reason}`));
 })();

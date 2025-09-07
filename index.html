@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OkObserver — Posts</title>
+
+  <!-- Speed: warm up connections to WP + media -->
+  <link rel="preconnect" href="https://okobserver.org" crossorigin>
+  <link rel="dns-prefetch" href="//okobserver.org">
+
   <style>
     :root{--primary:#ffffff;--secondary:#1E90FF}
     body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
@@ -13,7 +18,7 @@
     .container{max-width:1100px;margin:0 auto;padding:18px}
     .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
     .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
-    .brand .motto {font-size:0.9em;margin-top:4px;font-style:normal} /* not italic */
+    .brand .motto {font-size:0.9em;margin-top:4px;font-style:normal}
     nav {margin-left:auto;display:flex;gap:10px}
     nav a {display:flex;align-items:center;height:40px;color:#fff;text-decoration:none;padding:6px 10px;font-weight:500;border-radius:6px}
     nav a:hover {background:rgba(255,255,255,0.2)}
@@ -26,12 +31,12 @@
     /* Cards / Grid */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
     .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
-    .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
+    .thumb{width:100%;height:auto;object-fit:cover;background:#f0f0f0;cursor:pointer;aspect-ratio:16/9}
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
     .meta-author-date{font-size:.9em;display:flex;gap:8px;align-items:center;margin-bottom:4px}
     .meta-author-date .author{color:var(--secondary);font-weight:700}
-    .meta-author-date .date{color:#000;font-weight:400} /* date black & regular */
+    .meta-author-date .date{color:#000;font-weight:400}
     .excerpt{font-size:.9em;color:#333}
 
     /* Buttons */
@@ -46,7 +51,7 @@
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
 
-    /* Error banner (dismissible) */
+    /* Error banner */
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
@@ -55,17 +60,13 @@
     .skeleton .skeleton-line,
     .skeleton .skeleton-pill,
     .skeleton .skeleton-thumb {
-      position: relative;
-      overflow: hidden;
-      background: #eee;
+      position: relative; overflow: hidden; background: #eee;
     }
     .skeleton .skeleton-thumb { width:100%; height:160px; }
     .skeleton .skeleton-line::after,
     .skeleton .skeleton-pill::after,
     .skeleton .skeleton-thumb::after {
-      content:"";
-      position:absolute; inset:0;
-      transform: translateX(-100%);
+      content:""; position:absolute; inset:0; transform: translateX(-100%);
       background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
       animation: shimmer 1.3s infinite;
     }
@@ -96,7 +97,6 @@
     </div>
   </footer>
 
-  <!-- Single JS entry (version matches your current app.js) -->
-  <script src="app.js?v=1.42.0" defer></script>
+  <script src="app.js?v=1.44.0" defer></script>
 </body>
 </html>
