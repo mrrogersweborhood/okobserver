@@ -1,21 +1,24 @@
-// app.js — OkObserver (v1.44.1 — fix featured images)
-const APP_VERSION = "v1.44.1";
+// app.js — OkObserver (v1.44.2 — fix featured images, robust category filter)
+const APP_VERSION = "v1.44.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
 (() => {
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
-  const EXCLUDE_CAT = "cartoon";
+  const EXCLUDE_CAT = "cartoon"; // case-insensitive; we check slug & name in categories only
   const app = document.getElementById("app");
 
-  // Manual scroll restoration
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
-  // Cache (persist across refresh)
+  // Home cache (persists via sessionStorage)
   window.__okCache = window.__okCache || {
-    posts: [], page: 1, totalPages: 1, scrollY: 0,
-    scrollAnchorPostId: null, searchKey: ""
+    posts: [],
+    page: 1,
+    totalPages: 1,
+    scrollY: 0,
+    scrollAnchorPostId: null,
+    searchKey: ""
   };
   function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{} }
   (function loadHomeCache(){
@@ -41,7 +44,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const msg = (message && message.message) ? message.message : String(message || "Something went wrong.");
     const div = document.createElement("div");
     div.className = "error-banner";
-    div.innerHTML = `<button class="close">×</button>${msg}`;
+    div.innerHTML = `<button class="close" aria-label="Dismiss">×</button>${msg}`;
     app.prepend(div);
   }
   document.addEventListener("click", (e) => {
@@ -54,8 +57,14 @@ console.info("OkObserver app loaded", APP_VERSION);
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
   const getAuthor = (p) => p?._embedded?.author?.[0]?.name || "";
-  const hasExcluded = (p) => (p?._embedded?.["wp:term"]?.[0] || [])
-    .some(c => (c?.name || "").toLowerCase() === EXCLUDE_CAT);
+
+  // ✅ Only check real categories; match by slug or name, case-insensitive
+  function hasExcluded(p) {
+    const groups = p?._embedded?.["wp:term"] || [];
+    const cats = groups.flat().filter(t => (t?.taxonomy || "").toLowerCase() === "category");
+    const norm = (x) => (x || "").trim().toLowerCase();
+    return cats.some(c => norm(c.slug) === EXCLUDE_CAT || norm(c.name) === EXCLUDE_CAT);
+  }
 
   function ordinalDate(iso) {
     const d = new Date(iso);
@@ -78,7 +87,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return img.getAttribute("data-src") || img.getAttribute("src") || "";
   }
 
-  // ✅ safer featured image function
+  // Featured image (choose best available size; fallback to source_url)
   function featuredImage(p) {
     const m = p?._embedded?.["wp:featuredmedia"]?.[0];
     if (!m) return "";
@@ -110,22 +119,10 @@ console.info("OkObserver app loaded", APP_VERSION);
     const s = q ? `${base}?q=${encodeURIComponent(q.trim())}` : base;
     if (location.hash !== s) location.hash = s;
   }
-  // ===== Fetch posts with nested featured image fields =====
+  // ===== Fetch posts (rollback: full embed for reliability; images guaranteed) =====
   async function fetchPosts({ page = 1, search = "" } = {}) {
-    const fields = [
-      "id",
-      "date",
-      "title.rendered",
-      "excerpt.rendered",
-      "_embedded.wp:featuredmedia.id",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes",
-      "_embedded.author.name",
-      "_embedded.wp:term.name",
-      "_embedded.wp:term.taxonomy"
-    ].join(",");
-
-    const url = `${BASE}/posts?_embed=1&_fields=${encodeURIComponent(fields)}&per_page=${PER_PAGE}&page=${page}${
+    // Full _embed (no _fields) to ensure featured media + terms are present
+    const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
       search ? `&search=${encodeURIComponent(search)}` : ""
     }`;
 
@@ -136,7 +133,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return { posts: items.filter((p) => !hasExcluded(p)), totalPages };
   }
 
-  // Fetch single post
+  // Fetch single post (full embed)
   async function fetchPost(id) {
     const url = `${BASE}/posts/${id}?_embed=1`;
     const res = await fetch(url, { credentials:"omit" });
@@ -155,7 +152,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     el.dataset.postId = p.id;
     el.innerHTML = `
       ${ media
-          ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt=""></a>`
+          ? `<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="" loading="lazy" decoding="async" sizes="(max-width:600px) 100vw, 33vw"></a>`
           : `<a href="#/post/${p.id}"><div class="thumb"></div></a>` }
       <div class="card-body">
         <h2 class="title"><a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">${p.title.rendered}</a></h2>
@@ -166,10 +163,13 @@ console.info("OkObserver app loaded", APP_VERSION);
         <div class="excerpt">${p.excerpt.rendered}</div>
         <a class="btn" href="#/post/${p.id}">Read more</a>
       </div>`;
+    const t = el.querySelector("img.thumb");
+    if (t) t.addEventListener("error", () => { const a = t.closest("a"); if (a) a.innerHTML = `<div class="thumb"></div>`; }, { once:true });
     hardenLinks(el.querySelector(".excerpt"));
     return el;
   }
-  // Restore scroll
+
+  // Scroll restore
   function restoreHomeScroll() {
     const cache = window.__okCache || {};
     const targetId = cache.scrollAnchorPostId;
@@ -185,7 +185,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       window.scrollTo(0,targetY);
     });
   }
-
   // Render home
   async function renderHome({ search = "" } = {}) {
     const qFromHash = parseQueryFromHash();
@@ -197,14 +196,32 @@ console.info("OkObserver app loaded", APP_VERSION);
       saveHomeCache();
     }
 
-    app.innerHTML = `<h1>Latest Posts</h1><div id="grid" class="grid"></div><p class="center"><button id="loadMore" class="btn">Load more</button></p>`;
+    app.innerHTML = `
+      <h1 style="margin-bottom:10px;">Latest Posts</h1>
+      <div style="margin:8px 0 16px 0;">
+        <input id="searchBox" type="search" placeholder="Search posts…" value="${esc(effectiveSearch)}"
+          style="width:100%;max-width:420px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:1em" />
+      </div>
+      <div id="grid" class="grid"></div>
+      <div class="center" style="margin:12px 0;"><button id="loadMore" class="btn">Load more</button></div>
+    `;
+
     const grid = document.getElementById("grid");
     const loadMore = document.getElementById("loadMore");
+    const searchBox = document.getElementById("searchBox");
 
     let page = window.__okCache.page || 1;
     let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
     const seen = new Set();
+
+    // Debounced search → update hash
+    let tId=null;
+    searchBox.addEventListener("input", () => {
+      const val = searchBox.value.trim();
+      if (tId) clearTimeout(tId);
+      tId = setTimeout(() => setQueryInHash(val), 250);
+    });
 
     // Replay cache
     if (window.__okCache.posts.length) {
@@ -213,8 +230,8 @@ console.info("OkObserver app loaded", APP_VERSION);
         if (!hasExcluded(p) && !seen.has(p.id)) { seen.add(p.id); frag.appendChild(buildCardElement(p)); }
       });
       grid.appendChild(frag);
-      restoreHomeScroll();
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
+      restoreHomeScroll();
     }
 
     async function load() {
@@ -252,32 +269,45 @@ console.info("OkObserver app loaded", APP_VERSION);
     try {
       const p = await fetchPost(id);
       if (!p) return;
-      if (hasExcluded(p)) { app.innerHTML = `<div class="error-banner">This post is not available.</div>`; return; }
+
+      // Only block Cartoon category posts
+      if (hasExcluded(p)) {
+        app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
+        return;
+      }
 
       const author = esc(getAuthor(p));
       const date = ordinalDate(p.date);
+      const hero = featuredImage(p) || firstImgFromHTML(p.content?.rendered) || "";
 
       app.innerHTML = `
         <article class="post">
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
           <div class="meta-author-date">
             ${author ? `<span class="author"><strong>${author}</strong></span>` : ""}
             <span class="date">${date}</span>
           </div>
-          ${featuredImage(p) ? `<img class="hero" src="${featuredImage(p)}" alt="">` : ""}
+          ${hero ? `<img class="hero" src="${hero}" alt="" loading="lazy" decoding="async">` : ""}
           <div class="content">${p.content?.rendered || ""}</div>
-          <p><a href="#/" class="btn">← Back to posts</a></p>
+          <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
       hardenLinks(document.querySelector(".post"));
-    } catch(e){ showError(`Error loading post: ${e.message}`); }
+    } catch(e){
+      app.innerHTML = `<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
+    }
   }
 
   // Router
   function router(){
-    const hash = location.hash || "#/";
-    if (hash.startsWith("#/post/")) { const id = hash.split("/")[2]; renderPost(id); return; }
-    renderHome({ search: parseQueryFromHash() });
+    try{
+      const hash = location.hash || "#/";
+      if (hash.startsWith("#/post/")) {
+        const id = hash.split("/")[2]?.split("?")[0];
+        renderPost(id); return;
+      }
+      renderHome({ search: parseQueryFromHash() });
+    } catch(e){ showError(`Router crash: ${e?.message || e}`); }
   }
 
   window.addEventListener("hashchange", router);
