@@ -55,22 +55,6 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
-
-    /* Skeleton loader */
-    .skeleton .skeleton-line,
-    .skeleton .skeleton-pill,
-    .skeleton .skeleton-thumb {
-      position: relative; overflow: hidden; background: #eee;
-    }
-    .skeleton .skeleton-thumb { width:100%; height:160px; }
-    .skeleton .skeleton-line::after,
-    .skeleton .skeleton-pill::after,
-    .skeleton .skeleton-thumb::after {
-      content:""; position:absolute; inset:0; transform: translateX(-100%);
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
-      animation: shimmer 1.3s infinite;
-    }
-    @keyframes shimmer { 100% { transform: translateX(100%); } }
   </style>
 </head>
 <body>
@@ -97,6 +81,7 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.44.2" defer></script>
+  <!-- Bump this any time you update app.js -->
+  <script src="app.js?v=1.45.0" defer></script>
 </body>
 </html>
