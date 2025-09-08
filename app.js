@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.45.0 — restore images, infinite scroll, clickable video hero)
-const APP_VERSION = "v1.45.0";
+// app.js — OkObserver (v1.45.1 — restore images, infinite scroll, clickable video hero, stable back)
+const APP_VERSION = "v1.45.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -330,6 +330,19 @@ console.info("OkObserver app loaded", APP_VERSION);
     let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
 
+    // ✅ NEW: Remember which card was clicked & current scroll (for solid Back)
+    grid.addEventListener("click", (e) => {
+      const a = e.target.closest('a[href^="#/post/"]');
+      if (!a) return;
+      const id = a.getAttribute("href").split("/")[2]?.split("?")[0];
+      if (!id) return;
+      try {
+        window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id;
+        window.__okCache.scrollY = window.scrollY || 0;
+        saveHomeCache();
+      } catch {}
+    });
+
     // Debounced search → update hash
     let tId=null;
     searchBox.addEventListener("input", () => {
@@ -401,6 +414,9 @@ console.info("OkObserver app loaded", APP_VERSION);
   async function renderPost(id) {
     // capture scroll so return restores
     try { window.__okCache.scrollY = window.scrollY || 0; saveHomeCache(); } catch {}
+    // ✅ NEW: also capture anchor id (covers direct-link to detail)
+    try { window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id; saveHomeCache(); } catch {}
+
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
       const p = await fetchPost(id);
