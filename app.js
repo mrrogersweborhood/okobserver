@@ -220,7 +220,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function extractVimeoId(url) {
     try {
       const u = new URL(url); const host = u.hostname.replace(/^www\./,'');
-      if (!/vimeo\.com$/i.test(host) && !/player\.\vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
+      if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
       let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
       m = u.pathname.match(/\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
     } catch {}
@@ -232,7 +232,6 @@ console.info("OkObserver app loaded", APP_VERSION);
   function findPrimaryVideoUrl(html) {
     const div = document.createElement("div");
     div.innerHTML = html || "";
-    // Prefer explicit anchors/iframes; fallback to text
     const aFb = div.querySelector('a[href*="facebook.com"], a[href*="fb.watch"]');
     const aVm = div.querySelector('a[href*="vimeo.com"]');
     const iFb = div.querySelector('iframe[src*="facebook.com"]');
@@ -324,7 +323,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
       saveHomeCache();
     } else {
-      // keep whatever we have, just update the key to stay consistent
       window.__okCache.searchKey = key;
       saveHomeCache();
     }
@@ -360,10 +358,9 @@ console.info("OkObserver app loaded", APP_VERSION);
         window.__okCache.scrollY = window.scrollY || 0;
         window.__okCache.returningFromDetail = true;
         saveHomeCache();
-        sessionStorage.setItem("__okReturning", "1"); // strong signal
+        sessionStorage.setItem("__okReturning", "1");
       } catch {}
     });
-
     // Debounced search → update hash
     let tId=null;
     searchBox.addEventListener("input", () => {
@@ -378,7 +375,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       window.__okCache.posts.forEach(p => frag.appendChild(buildCardElement(p)));
       grid.appendChild(frag);
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
-      // First restore attempt (safe even if we do a second one in returning path)
       restoreHomeScroll();
     }
 
@@ -387,7 +383,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       loading = true;
       loadMore.disabled = true; loadMore.textContent = "Loading…";
       try {
-        // Try to fill roughly PER_PAGE visible cards each time
         const targetAdd = PER_PAGE;
         let added = 0;
 
@@ -397,7 +392,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
           const frag = document.createDocumentFragment();
           for (const p of posts) {
-            // posts already filtered by hasExcluded() in fetchPosts
             frag.appendChild(buildCardElement(p));
             window.__okCache.posts.push(p);
             added++;
@@ -421,11 +415,10 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     loadMore?.addEventListener("click", load);
 
-    // ✅ IntersectionObserver wired AFTER restore when returning, otherwise immediately
     if (returning) {
       sessionStorage.removeItem("__okReturning");
       requestAnimationFrame(() => {
-        restoreHomeScroll(); // ensure layout settled, then restore, then observe
+        restoreHomeScroll();
         if ("IntersectionObserver" in window && sentinel) {
           const obs = new IntersectionObserver((entries) => {
             for (const entry of entries) if (entry.isIntersecting) {
@@ -447,11 +440,10 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (!window.__okCache.posts.length) load();
     }
   }
-  // ===== Post detail (hero image clickable to video when available) =====
+
+  // ===== Post detail =====
   async function renderPost(id) {
-    // capture scroll so return restores
     try { window.__okCache.scrollY = window.scrollY || 0; saveHomeCache(); } catch {}
-    // also capture anchor id + returning flag (covers direct-link to detail)
     try {
       window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id;
       window.__okCache.returningFromDetail = true;
@@ -464,7 +456,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       const p = await fetchPost(id);
       if (!p) return;
 
-      // Only block Cartoon category posts
       if (hasExcluded(p)) {
         app.innerHTML = `<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
         return;
@@ -473,15 +464,11 @@ console.info("OkObserver app loaded", APP_VERSION);
       const author = esc(getAuthor(p));
       const date = ordinalDate(p.date);
 
-      // Normalize content (adds fallbacks for non-embeddable videos)
       const rawHtml = p.content?.rendered || "";
       const normalizedHtml = normalizeContent(rawHtml);
 
-      // Prefer featured image; if none, try to derive from content
       let hero = featuredImage(p) || firstImgFromHTML(normalizedHtml) || "";
-
-      // If there’s a primary FB/Vimeo URL, wrap hero in a link so the picture is clickable
-      const primaryVid = findPrimaryVideoUrl(normalizedHtml); // {kind,url} or null
+      const primaryVid = findPrimaryVideoUrl(normalizedHtml);
       const heroBlock = hero
         ? (primaryVid
             ? `<a href="${primaryVid.url}" target="_blank" rel="noopener"><img class="hero" src="${hero}" alt="" loading="lazy" decoding="async"></a>`
@@ -501,7 +488,6 @@ console.info("OkObserver app loaded", APP_VERSION);
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
 
-      // 🔒 Ensure internal SPA links stay internal (don’t open new tab)
       document.querySelectorAll('.post a[href^="#/"]').forEach(a=>{
         a.removeAttribute("target");
         a.removeAttribute("rel");
@@ -509,7 +495,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       hardenLinks(document.querySelector(".post"));
 
-      // If hero image fails, remove it to avoid ugly broken box
       const heroImg = document.querySelector(".post img.hero");
       if (heroImg) heroImg.addEventListener("error", () => heroImg.closest("a")?.remove() || heroImg.remove(), { once: true });
 
@@ -526,12 +511,10 @@ console.info("OkObserver app loaded", APP_VERSION);
         const id = hash.split("/")[2]?.split("?")[0];
         renderPost(id); return;
       }
-      // default: home (supports #/?q=)
       renderHome({ search: parseQueryFromHash() });
     } catch(e){ showError(`Router crash: ${e?.message || e}`); }
   }
 
-  // Wire up
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
 })();
