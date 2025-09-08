@@ -4,63 +4,58 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OkObserver — Posts</title>
-
-  <!-- Speed: warm up connections to WP + media -->
-  <link rel="preconnect" href="https://okobserver.org" crossorigin>
-  <link rel="dns-prefetch" href="//okobserver.org">
-
   <style>
     :root{--primary:#ffffff;--secondary:#1E90FF}
     body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
-
-    /* Header / Nav */
-    header {background:var(--secondary);color:#fff;position:sticky;top:0;z-index:10}
+    header {background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
     .container{max-width:1100px;margin:0 auto;padding:18px}
     .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
     .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
+    .brand .logo {display:block;max-height:52px;width:auto;height:auto}
+    @media (max-width:520px){ .brand .logo { max-height:44px } }
     .brand .motto {font-size:0.9em;margin-top:4px;font-style:normal}
     nav {margin-left:auto;display:flex;gap:10px}
-    nav a {display:flex;align-items:center;height:40px;color:#fff;text-decoration:none;padding:6px 10px;font-weight:500;border-radius:6px}
-    nav a:hover {background:rgba(255,255,255,0.2)}
-
+    nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
+    nav a:hover {background:rgba(255,255,255,0.2);border-radius:6px}
     main {padding:20px}
     footer {background:#f3f3f3;font-size:.85em}
-
     .center {text-align:center}
-
-    /* Cards / Grid */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
     .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
-    .thumb{width:100%;height:auto;object-fit:cover;background:#f0f0f0;cursor:pointer;aspect-ratio:16/9}
+    .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
-    .meta-author-date{font-size:.9em;display:flex;gap:8px;align-items:center;margin-bottom:4px}
-    .meta-author-date .author{color:var(--secondary);font-weight:700}
-    .meta-author-date .date{color:#000;font-weight:400}
+    .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
     .excerpt{font-size:.9em;color:#333}
-
-    /* Buttons */
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
     .btn:hover:not([disabled]){background:#0066cc}
-
-    /* Post detail */
     .post h1{margin-top:0;color:var(--secondary)}
-    .post .meta-author-date{font-size:.95em;margin-bottom:8px}
+    .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
     .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
-
-    /* Error banner */
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
   </style>
+  <!-- Preload logo for faster first paint -->
+  <link rel="preload" as="image" href="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png">
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
+        <img
+          class="logo"
+          src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
+          alt="The Oklahoma Observer"
+          width="600"
+          height="141"
+          loading="eager"
+          decoding="async"
+          onerror="this.style.display='none';"
+        />
         <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
@@ -81,7 +76,71 @@
     </div>
   </footer>
 
-  <!-- Bump this any time you update app.js -->
+  <!-- About page (inline, kept small) -->
+  <script>
+    function renderAbout(){
+      const app=document.getElementById('app');
+      app.innerHTML=`
+        <article class="post">
+          <h1>Contact Us</h1>
+          <p>Please email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we will get back to you during normal business hours. Thank you.</p>
+          <h1>About</h1>
+          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades, providing news, analysis and commentary unavailable in Oklahoma’s uniformly conservative mainstream media.</p>
+          <div style="margin-top:2em;text-align:center;">
+            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
+          </div>
+        </article>`;
+    }
+    function routeHook(){
+      const hash=location.hash||"#/";
+      if(hash==="#/about"){ renderAbout(); }
+    }
+    window.addEventListener('hashchange', routeHook);
+    window.addEventListener('DOMContentLoaded', routeHook);
+
+    // Error banner helper
+    function showError(message) {
+      const host=document.getElementById("app");
+      if(!host) return;
+      const banner=document.createElement("div");
+      banner.className="error-banner";
+      const msg=(message && message.message)?message.message:String(message||"Something went wrong.");
+      banner.innerHTML=`<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${msg}`;
+      host.prepend(banner);
+    }
+
+    // Global error handlers
+    window.addEventListener("error", (e)=>{
+      showError(`Runtime error: ${e.message||"Unknown error"}`);
+    });
+    window.addEventListener("unhandledrejection", (e)=>{
+      const msg=e && e.reason && e.reason.message?e.reason.message:String(e && e.reason||"Unknown promise rejection");
+      showError(`Unhandled promise rejection: ${msg}`);
+    });
+
+    // Dismiss error banners
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.error-banner .close');
+      if (btn) {
+        const banner = btn.closest('.error-banner');
+        if (banner) banner.remove();
+      }
+    });
+  </script>
+
+  <!-- Footer injection & version display -->
+  <script>
+    window.addEventListener('DOMContentLoaded', function(){
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+      if (window.APP_VERSION) {
+        const v = document.getElementById('appVersion');
+        if (v) v.textContent = window.APP_VERSION;
+      }
+    });
+  </script>
+
+  <!-- External app code -->
   <script src="app.js?v=1.45.3" defer></script>
 </body>
 </html>
