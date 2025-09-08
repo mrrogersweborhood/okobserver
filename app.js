@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.45.2 — stable Back to posts, images, infinite scroll, clickable video hero)
-const APP_VERSION = "v1.45.2";
+// app.js — OkObserver (v1.45.3 — fix Back link opening new tab; stable back + perf)
+const APP_VERSION = "v1.45.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -101,9 +101,22 @@ console.info("OkObserver app loaded", APP_VERSION);
     );
   }
 
+  // 🔧 FIX: only external links open in new tab; internal `#/…` stay in the SPA
   function hardenLinks(root) {
     if (!root) return;
-    root.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
+    root.querySelectorAll("a[href]").forEach(a => {
+      const href = a.getAttribute("href") || "";
+      const isInternal = href.startsWith("#/");
+      if (isInternal) {
+        a.removeAttribute("target");
+        a.removeAttribute("rel");
+        return;
+      }
+      if (/^https?:\/\//i.test(href)) {
+        a.target = "_blank";
+        a.rel = "noopener";
+      }
+    });
   }
 
   // Query helpers
@@ -207,7 +220,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function extractVimeoId(url) {
     try {
       const u = new URL(url); const host = u.hostname.replace(/^www\./,'');
-      if (!/vimeo\.com$/i.test(host) && !/player\.vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
+      if (!/vimeo\.com$/i.test(host) && !/player\.\vimeo\.com$/i.test(host) && !host.includes("vimeo.com")) return null;
       let m = u.pathname.match(/\/video\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
       m = u.pathname.match(/\/(\d+)(?:\/|$)/); if (m && m[1]) return m[1];
     } catch {}
@@ -438,7 +451,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   async function renderPost(id) {
     // capture scroll so return restores
     try { window.__okCache.scrollY = window.scrollY || 0; saveHomeCache(); } catch {}
-    // ✅ also capture anchor id + returning flag (covers direct-link to detail)
+    // also capture anchor id + returning flag (covers direct-link to detail)
     try {
       window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id;
       window.__okCache.returningFromDetail = true;
@@ -487,6 +500,13 @@ console.info("OkObserver app loaded", APP_VERSION);
           <div class="content">${normalizedHtml}</div>
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
+
+      // 🔒 Ensure internal SPA links stay internal (don’t open new tab)
+      document.querySelectorAll('.post a[href^="#/"]').forEach(a=>{
+        a.removeAttribute("target");
+        a.removeAttribute("rel");
+      });
+
       hardenLinks(document.querySelector(".post"));
 
       // If hero image fails, remove it to avoid ugly broken box
