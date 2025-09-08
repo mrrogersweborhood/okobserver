@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.45.1 — restore images, infinite scroll, clickable video hero, stable back)
-const APP_VERSION = "v1.45.1";
+// app.js — OkObserver (v1.45.2 — stable Back to posts, images, infinite scroll, clickable video hero)
+const APP_VERSION = "v1.45.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -305,8 +305,14 @@ console.info("OkObserver app loaded", APP_VERSION);
     const effectiveSearch = (search || qFromHash || "").trim();
     const key = effectiveSearch.toLowerCase();
 
-    if (window.__okCache.searchKey !== key) {
+    // ✅ do NOT wipe cache when we're returning from detail
+    const returning = sessionStorage.getItem("__okReturning") === "1";
+    if (window.__okCache.searchKey !== key && !returning) {
       window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
+      saveHomeCache();
+    } else {
+      // keep whatever we have, just update the key to stay consistent
+      window.__okCache.searchKey = key;
       saveHomeCache();
     }
 
@@ -330,7 +336,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
 
-    // ✅ NEW: Remember which card was clicked & current scroll (for solid Back)
+    // ✅ Remember which card was clicked & current scroll (for solid Back)
     grid.addEventListener("click", (e) => {
       const a = e.target.closest('a[href^="#/post/"]');
       if (!a) return;
@@ -339,7 +345,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       try {
         window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id;
         window.__okCache.scrollY = window.scrollY || 0;
+        window.__okCache.returningFromDetail = true;
         saveHomeCache();
+        sessionStorage.setItem("__okReturning", "1"); // strong signal
       } catch {}
     });
 
@@ -357,6 +365,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       window.__okCache.posts.forEach(p => frag.appendChild(buildCardElement(p)));
       grid.appendChild(frag);
       if (page > totalPages) { loadMore.textContent = "No more posts."; loadMore.disabled = true; }
+      // First restore attempt (safe even if we do a second one in returning path)
       restoreHomeScroll();
     }
 
@@ -399,23 +408,43 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     loadMore?.addEventListener("click", load);
 
-    if ("IntersectionObserver" in window && sentinel) {
-      const obs = new IntersectionObserver((entries) => {
-        for (const entry of entries) if (entry.isIntersecting) {
-          if (!loading && page <= totalPages) load();
+    // ✅ IntersectionObserver wired AFTER restore when returning, otherwise immediately
+    if (returning) {
+      sessionStorage.removeItem("__okReturning");
+      requestAnimationFrame(() => {
+        restoreHomeScroll(); // ensure layout settled, then restore, then observe
+        if ("IntersectionObserver" in window && sentinel) {
+          const obs = new IntersectionObserver((entries) => {
+            for (const entry of entries) if (entry.isIntersecting) {
+              if (!loading && page <= totalPages) load();
+            }
+          }, { rootMargin: "600px 0px 600px 0px" });
+          obs.observe(sentinel);
         }
-      }, { rootMargin: "600px 0px 600px 0px" });
-      obs.observe(sentinel);
+      });
+    } else {
+      if ("IntersectionObserver" in window && sentinel) {
+        const obs = new IntersectionObserver((entries) => {
+          for (const entry of entries) if (entry.isIntersecting) {
+            if (!loading && page <= totalPages) load();
+          }
+        }, { rootMargin: "600px 0px 600px 0px" });
+        obs.observe(sentinel);
+      }
+      if (!window.__okCache.posts.length) load();
     }
-
-    if (!window.__okCache.posts.length) load();
   }
   // ===== Post detail (hero image clickable to video when available) =====
   async function renderPost(id) {
     // capture scroll so return restores
     try { window.__okCache.scrollY = window.scrollY || 0; saveHomeCache(); } catch {}
-    // ✅ NEW: also capture anchor id (covers direct-link to detail)
-    try { window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id; saveHomeCache(); } catch {}
+    // ✅ also capture anchor id + returning flag (covers direct-link to detail)
+    try {
+      window.__okCache.scrollAnchorPostId = isNaN(+id) ? id : +id;
+      window.__okCache.returningFromDetail = true;
+      saveHomeCache();
+      sessionStorage.setItem("__okReturning", "1");
+    } catch {}
 
     app.innerHTML = `<p class="center">Loading post…</p>`;
     try {
