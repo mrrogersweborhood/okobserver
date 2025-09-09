@@ -7,7 +7,6 @@
   <style>
     :root{--primary:#ffffff;--secondary:#1E90FF;--header-h:64px}
     body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
-    /* Make header truly sticky using fixed + spacer */
     header {position:fixed;top:0;left:0;right:0;z-index:1000;background:var(--secondary);color:white}
     #header-spacer{height:var(--header-h)}
 
@@ -15,7 +14,7 @@
     .container.nav {display:flex;align-items:center;gap:14px;padding:10px 18px}
     .brand {display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
     .brand .row {display:flex;align-items:center;gap:12px;min-width:0}
-    .brand img {height:40px; width:auto; display:block}
+    .brand img {height:40px;width:auto;display:block}
     .brand .motto {font-size:0.9em;line-height:1.2}
 
     nav {margin-left:auto;display:flex;gap:10px}
@@ -45,38 +44,24 @@
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
 
-    /* About page + content alignment */
-    .about-content img {
-      display:block;max-width:100%;height:auto;margin:14px auto;border-radius:8px;float:none !important;
-    }
+    .about-content img {display:block;max-width:100%;height:auto;margin:14px auto;border-radius:8px;float:none!important;}
     .about-content figure {margin:16px 0;padding:0 8px;}
-    .about-content,.about-content p,.about-content div,.about-content li,.about-content h1,.about-content h2,.about-content h3,.about-content h4{
-      overflow-wrap:anywhere;word-break:normal;hyphens:auto;text-align:left !important;
-    }
+    .about-content,.about-content p,.about-content div,.about-content li,.about-content h1,.about-content h2,.about-content h3,.about-content h4{overflow-wrap:anywhere;word-break:normal;hyphens:auto;text-align:left!important;}
 
-    /* Force post content left-align (fix centered first paragraph) */
-    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{
-      text-align:left !important;
-    }
-    .post .content img{display:block !important;margin:16px auto !important;float:none !important;clear:both !important;}
+    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{text-align:left!important;}
+    .post .content img{display:block!important;margin:16px auto!important;float:none!important;clear:both!important;}
 
-    /* Mobile overflow fixes */
-    html, body {max-width:100%;overflow-x:hidden;}
-    .post, .about-content, .container,
-    .post *, .about-content * {max-width:100% !important;box-sizing:border-box;}
-    .post img, .about-content img,
-    .post iframe, .about-content iframe,
-    .post video, .about-content video,
-    .post embed, .about-content embed {display:block;max-width:100% !important;width:100%;height:auto;}
-    .post table, .about-content table {max-width:100%;width:100%;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    .post pre, .about-content pre {white-space:pre-wrap;word-wrap:break-word;max-width:100%;}
+    html,body {max-width:100%;overflow-x:hidden;}
+    .post,.about-content,.container,.post *,.about-content *{max-width:100%!important;box-sizing:border-box;}
+    .post img,.about-content img,.post iframe,.about-content iframe,.post video,.about-content video,.post embed,.about-content embed{display:block;max-width:100%!important;width:100%;height:auto;}
+    .post table,.about-content table{max-width:100%;width:100%;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .post pre,.about-content pre{white-space:pre-wrap;word-wrap:break-word;max-width:100%}
 
-    @media (max-width:520px){
+    @media(max-width:520px){
       .container.nav{padding:8px 12px}
       .brand img{height:34px}
     }
-
-    *, *::before, *::after { box-sizing:border-box; }
+    *,*::before,*::after{box-sizing:border-box;}
   </style>
 </head>
 <body>
@@ -94,7 +79,6 @@
       </nav>
     </div>
   </header>
-  <!-- Spacer prevents content jump under fixed header -->
   <div id="header-spacer" aria-hidden="true"></div>
 
   <main>
@@ -108,26 +92,22 @@
     </div>
   </footer>
 
-  <!-- Measure header and set spacer height -->
   <script>
     (function(){
       function sizeHeader(){
-        var h = document.getElementById('site-header');
-        var s = document.getElementById('header-spacer');
-        if (!h || !s) return;
-        var hh = Math.ceil(h.getBoundingClientRect().height);
-        document.documentElement.style.setProperty('--header-h', hh + 'px');
-        s.style.height = 'var(--header-h)';
+        var h=document.getElementById('site-header');
+        var s=document.getElementById('header-spacer');
+        if(!h||!s)return;
+        var hh=Math.ceil(h.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--header-h',hh+'px');
+        s.style.height='var(--header-h)';
       }
-      window.addEventListener('load', sizeHeader, {once:true});
-      window.addEventListener('resize', sizeHeader);
-      // In case fonts/images change height shortly after load
-      setTimeout(sizeHeader, 100);
-      setTimeout(sizeHeader, 400);
+      window.addEventListener('load',sizeHeader,{once:true});
+      window.addEventListener('resize',sizeHeader);
+      setTimeout(sizeHeader,100);setTimeout(sizeHeader,400);
     })();
   </script>
 
-  <!-- External app code -->
   <script src="app.js?v=1.45.7" defer></script>
 </body>
 </html>
