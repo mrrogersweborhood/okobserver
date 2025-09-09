@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.46.0, scrub alignment fixes)
-const APP_VERSION = "v1.46.0";
+// app.js — OkObserver (v1.46.1 — paging fix)
+const APP_VERSION = "v1.46.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -176,7 +176,15 @@ console.info("OkObserver app loaded", APP_VERSION);
     const key=effectiveSearch.toLowerCase();
     const returning=sessionStorage.getItem("__okReturning")==="1";
     const hasCache=Array.isArray(window.__okCache.posts)&&window.__okCache.posts.length>0;
-    if(window.__okCache.searchKey!==key&&!returning){window.__okCache={posts:[],page:1,totalPages:1,scrollY:0,scrollAnchorPostId:null,searchKey:key};saveHomeCache();}else{window.__okCache.searchKey=key;saveHomeCache();}
+
+    if(window.__okCache.searchKey!==key&&!returning){
+      window.__okCache={posts:[],page:1,totalPages:1,scrollY:0,scrollAnchorPostId:null,searchKey:key};
+      saveHomeCache();
+    }else{
+      window.__okCache.searchKey=key;
+      saveHomeCache();
+    }
+
     app.innerHTML=`
       <h1 style="margin-bottom:10px;">Latest Posts</h1>
       <div style="margin:8px 0 16px 0;">
@@ -185,29 +193,111 @@ console.info("OkObserver app loaded", APP_VERSION);
       <div id="grid" class="grid"></div>
       <div class="center" style="margin:12px 0;"><button id="loadMore" class="btn">Load more</button></div>
       <div id="sentinel" style="height:1px;"></div>`;
-    const grid=document.getElementById("grid");const loadMore=document.getElementById("loadMore");const sentinel=document.getElementById("sentinel");const searchBox=document.getElementById("searchBox");
-    let page=Number(window.__okCache.page||1);let totalPages=Number(window.__okCache.totalPages||1);let loading=false;
-    let tId=null;searchBox.addEventListener("input",()=>{const val=searchBox.value.trim();if(tId)clearTimeout(tId);tId=setTimeout(()=>setQueryInHash(val),250);});
-    grid.addEventListener("click",(e)=>{const a=e.target.closest('a[href^="#/post/"]');if(!a)return;const id=a.getAttribute("href").split("/")[2]?.split("?")[0];if(!id)return;try{window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;window.__okCache.scrollY=window.scrollY||0;window.__okCache.returningFromDetail=true;saveHomeCache();sessionStorage.setItem("__okReturning","1");}catch{}});
-    async function load(){if(loading)return;loading=true;loadMore.disabled=true;loadMore.textContent="Loading…";try{const {posts,tp}=await fetchPosts({page,search:effectiveSearch});totalPages=tp||1;const frag=document.createDocumentFragment();posts.forEach(p=>{frag.appendChild(buildCardElement(p));window.__okCache.posts.push(p);});if(frag.childNodes.length)grid.appendChild(frag);page++;window.__okCache.page=page;window.__okCache.totalPages=totalPages;saveHomeCache();if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}else{loadMore.textContent="Load more";loadMore.disabled=false;}}catch(e){showError(`Failed to load posts: ${e.message}`);loadMore.textContent="Retry";loadMore.disabled=false;}finally{loading=false;}}
-    function setupInfinite(){if(!("IntersectionObserver"in window)||!sentinel)return;const obs=new IntersectionObserver((entries)=>{for(const entry of entries){if(entry.isIntersecting&&!loading&&page<=totalPages)load();}},{rootMargin:"600px 0px 600px 0px"});obs.observe(sentinel);}
+
+    const grid=document.getElementById("grid");
+    const loadMore=document.getElementById("loadMore");
+    const sentinel=document.getElementById("sentinel");
+    const searchBox=document.getElementById("searchBox");
+
+    let page=Number(window.__okCache.page||1);
+    let totalPages=Number(window.__okCache.totalPages||1);
+    let loading=false;
+
+    let tId=null;
+    searchBox.addEventListener("input",()=>{
+      const val=searchBox.value.trim();
+      if(tId)clearTimeout(tId);
+      tId=setTimeout(()=>setQueryInHash(val),250);
+    });
+
+    grid.addEventListener("click",(e)=>{
+      const a=e.target.closest('a[href^="#/post/"]');
+      if(!a)return;
+      const id=a.getAttribute("href").split("/")[2]?.split("?")[0];
+      if(!id)return;
+      try{
+        window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;
+        window.__okCache.scrollY=window.scrollY||0;
+        window.__okCache.returningFromDetail=true;
+        saveHomeCache();
+        sessionStorage.setItem("__okReturning","1");
+      }catch{}
+    });
+
+    async function load(){
+      if(loading) return;
+      loading=true;
+      loadMore.disabled=true; loadMore.textContent="Loading…";
+      try{
+        // ✅ FIX: destructure totalPages correctly from fetchPosts
+        const { posts, totalPages: tp } = await fetchPosts({ page, search: effectiveSearch });
+        totalPages = Number(tp) || totalPages || 1;
+
+        const frag=document.createDocumentFragment();
+        posts.forEach(p=>{frag.appendChild(buildCardElement(p));window.__okCache.posts.push(p);});
+        if(frag.childNodes.length)grid.appendChild(frag);
+
+        page++;
+        window.__okCache.page=page;
+        window.__okCache.totalPages=totalPages;
+        saveHomeCache();
+
+        if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}
+        else{loadMore.textContent="Load more";loadMore.disabled=false;}
+      }catch(e){
+        showError(`Failed to load posts: ${e.message}`);
+        loadMore.textContent="Retry";loadMore.disabled=false;
+      }finally{
+        loading=false;
+      }
+    }
+
+    function setupInfinite(){
+      if(!("IntersectionObserver"in window)||!sentinel)return;
+      const obs=new IntersectionObserver((entries)=>{
+        for(const entry of entries){
+          if(entry.isIntersecting && !loading && page<=totalPages) load();
+        }
+      },{rootMargin:"600px 0px 600px 0px"});
+      obs.observe(sentinel);
+    }
     setupInfinite();
-    if(hasCache){const frag=document.createDocumentFragment();window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));grid.appendChild(frag);if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}requestAnimationFrame(restoreHomeScroll);}else{if(returning)sessionStorage.removeItem("__okReturning");load();}
+
+    if(hasCache){
+      const frag=document.createDocumentFragment();
+      window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));
+      grid.appendChild(frag);
+      if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}
+      requestAnimationFrame(restoreHomeScroll);
+    }else{
+      if(returning)sessionStorage.removeItem("__okReturning");
+      load();
+    }
+
     loadMore?.addEventListener("click",load);
   }
   // ===== Post detail =====
   async function renderPost(id){
     try{window.__okCache.scrollY=window.scrollY||0;saveHomeCache();}catch{}
-    try{window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;window.__okCache.returningFromDetail=true;saveHomeCache();sessionStorage.setItem("__okReturning","1");}catch{}
+    try{
+      window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;
+      window.__okCache.returningFromDetail=true;
+      saveHomeCache();
+      sessionStorage.setItem("__okReturning","1");
+    }catch{}
     app.innerHTML=`<p class="center">Loading post…</p>`;
     try{
       const p=await fetchPost(id);if(!p)return;
       if(hasExcluded(p)){app.innerHTML=`<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;return;}
-      const author=esc(getAuthor(p));const date=ordinalDate(p.date);
-      const raw=p.content?.rendered||"";const normalized=normalizeContent(raw);
-      const contentWrapper=document.createElement("div");contentWrapper.innerHTML=normalized;
+      const author=esc(getAuthor(p));
+      const date=ordinalDate(p.date);
 
-      // Scrub alignment issues
+      const raw=p.content?.rendered||"";
+      const normalized=normalizeContent(raw);
+      const contentWrapper=document.createElement("div");
+      contentWrapper.innerHTML=normalized;
+
+      // Scrub alignment issues (inline, classes, legacy align attrs)
       contentWrapper.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article").forEach(el=>{
         const style=(el.getAttribute("style")||"").toLowerCase();
         if(style.includes("text-align:center")||style.includes("text-align:right"))el.style.textAlign="left";
@@ -219,11 +309,15 @@ console.info("OkObserver app loaded", APP_VERSION);
         const a=(el.getAttribute("align")||"").toLowerCase();
         if(a==="center"||a==="right"){el.style.textAlign="left";el.removeAttribute("align");}
       });
+
       contentWrapper.querySelectorAll("img").forEach(img=>{
-        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";img.loading="lazy";img.decoding="async";
+        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
+        img.loading="lazy";img.decoding="async";
       });
 
-      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
+      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";
+      const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
+
       app.innerHTML=`
         <article class="post">
           <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
@@ -236,9 +330,14 @@ console.info("OkObserver app loaded", APP_VERSION);
           <div class="content">${contentWrapper.innerHTML}</div>
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
-      const heroImg=document.querySelector(".post img.hero");if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}
+
+      const heroImg=document.querySelector(".post img.hero");
+      if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}
+
       hardenLinks(document.querySelector(".post"));
-    }catch(e){app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;}
+    }catch(e){
+      app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
+    }
   }
 
   // ===== Router =====
@@ -246,7 +345,10 @@ console.info("OkObserver app loaded", APP_VERSION);
     try{
       const hash=location.hash||"#/";
       if(hash==="#/about"){renderAbout();return;}
-      if(hash.startsWith("#/post/")){const id=hash.split("/")[2]?.split("?")[0];renderPost(id);return;}
+      if(hash.startsWith("#/post/")){
+        const id=hash.split("/")[2]?.split("?")[0];
+        renderPost(id);return;
+      }
       renderHome({search:parseQueryFromHash()});
     }catch(e){showError(`Router crash: ${e?.message||e}`);}
   }
