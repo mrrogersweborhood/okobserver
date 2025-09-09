@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.45.7 + featured image restore)
-const APP_VERSION = "v1.45.7";
+// app.js — OkObserver (v1.46.0, scrub alignment fixes)
+const APP_VERSION = "v1.46.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -205,10 +205,25 @@ console.info("OkObserver app loaded", APP_VERSION);
       if(hasExcluded(p)){app.innerHTML=`<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;return;}
       const author=esc(getAuthor(p));const date=ordinalDate(p.date);
       const raw=p.content?.rendered||"";const normalized=normalizeContent(raw);
-      const wrapper=document.createElement("div");wrapper.innerHTML=normalized;
-      wrapper.querySelectorAll("p,div,li,h1,h2,h3,h4").forEach(el=>{const style=(el.getAttribute("style")||"").toLowerCase();if(style.includes("text-align:center")||style.includes("text-align:right"))el.style.textAlign="left";});
-      wrapper.querySelectorAll("img").forEach(img=>{img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";img.loading="lazy";img.decoding="async";});
-      const heroUrl=featuredImage(p)||firstImgFromHTML(wrapper.innerHTML)||"";const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
+      const contentWrapper=document.createElement("div");contentWrapper.innerHTML=normalized;
+
+      // Scrub alignment issues
+      contentWrapper.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article").forEach(el=>{
+        const style=(el.getAttribute("style")||"").toLowerCase();
+        if(style.includes("text-align:center")||style.includes("text-align:right"))el.style.textAlign="left";
+      });
+      contentWrapper.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
+        el.style.textAlign="left";
+      });
+      contentWrapper.querySelectorAll("[align]").forEach(el=>{
+        const a=(el.getAttribute("align")||"").toLowerCase();
+        if(a==="center"||a==="right"){el.style.textAlign="left";el.removeAttribute("align");}
+      });
+      contentWrapper.querySelectorAll("img").forEach(img=>{
+        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";img.loading="lazy";img.decoding="async";
+      });
+
+      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
       app.innerHTML=`
         <article class="post">
           <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
@@ -218,7 +233,7 @@ console.info("OkObserver app loaded", APP_VERSION);
             <span class="date">${date}</span>
           </div>
           ${heroBlock}
-          <div class="content">${wrapper.innerHTML}</div>
+          <div class="content">${contentWrapper.innerHTML}</div>
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
       const heroImg=document.querySelector(".post img.hero");if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}

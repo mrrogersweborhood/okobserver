@@ -37,15 +37,18 @@
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
     .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
-    .post .hero{
-  display:block;
-  width:100%;
-  height:auto;              /* grow by natural height */
-  max-height:none;          /* no forced cap */
-  object-fit:contain;       /* show full image without cropping */
-  margin:16px 0;
-  border-radius:10px;
-}
+    .post .hero{display:block;width:100%;height:auto;object-fit:contain;margin:16px 0;border-radius:10px}
+
+    /* Fix centered text from WP */
+    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{text-align:left!important;}
+    .post .content img{display:block!important;margin:16px auto!important;float:none!important;clear:both!important;}
+    .post .content .has-text-align-center,
+    .post .content .has-text-align-right,
+    .post .content .aligncenter,
+    .post .content .alignright,
+    .post .content [align="center"],
+    .post .content [align="right"]{text-align:left!important;}
+    .post .content .has-text-align-center *,.post .content .has-text-align-right *,.post .content .aligncenter *,.post .content .alignright *{text-align:left!important;}
 
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
@@ -53,23 +56,7 @@
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
 
-    .about-content img {display:block;max-width:100%;height:auto;margin:14px auto;border-radius:8px;float:none!important;}
-    .about-content figure {margin:16px 0;padding:0 8px;}
-    .about-content,.about-content p,.about-content div,.about-content li,.about-content h1,.about-content h2,.about-content h3,.about-content h4{overflow-wrap:anywhere;word-break:normal;hyphens:auto;text-align:left!important;}
-
-    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{text-align:left!important;}
-    .post .content img{display:block!important;margin:16px auto!important;float:none!important;clear:both!important;}
-
     html,body {max-width:100%;overflow-x:hidden;}
-    .post,.about-content,.container,.post *,.about-content *{max-width:100%!important;box-sizing:border-box;}
-    .post img,.about-content img,.post iframe,.about-content iframe,.post video,.about-content video,.post embed,.about-content embed{display:block;max-width:100%!important;width:100%;height:auto;}
-    .post table,.about-content table{max-width:100%;width:100%;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
-    .post pre,.about-content pre{white-space:pre-wrap;word-wrap:break-word;max-width:100%}
-
-    @media(max-width:520px){
-      .container.nav{padding:8px 12px}
-      .brand img{height:34px}
-    }
     *,*::before,*::after{box-sizing:border-box;}
   </style>
 </head>
@@ -117,6 +104,6 @@
     })();
   </script>
 
-  <script src="app.js?v=1.45.7" defer></script>
+  <script src="app.js?v=1.46.0" defer></script>
 </body>
 </html>
