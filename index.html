@@ -11,9 +11,6 @@
     .container{max-width:1100px;margin:0 auto;padding:18px}
     .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
     .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
-    .brand .logo {display:block;max-height:52px;width:auto;height:auto}
-    @media (max-width:520px){ .brand .logo { max-height:44px } }
-    .brand .motto {font-size:0.9em;margin-top:4px;font-style:normal}
     nav {margin-left:auto;display:flex;gap:10px}
     nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
     nav a:hover {background:rgba(255,255,255,0.2);border-radius:6px}
@@ -38,25 +35,43 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
+
+    /* --- About page improvements --- */
+    .about-content img {
+      display:block;
+      max-width:100%;
+      height:auto;
+      margin:14px auto;
+      border-radius:8px;
+    }
+    .about-content figure {
+      margin:16px 0;
+      padding:0 8px;
+    }
+    .about-content,
+    .about-content p,
+    .about-content div,
+    .about-content li,
+    .about-content h1,
+    .about-content h2,
+    .about-content h3,
+    .about-content h4 {
+      overflow-wrap:anywhere;
+      word-break:normal;
+      hyphens:auto;
+    }
+    @media (max-width: 520px) {
+      .container { padding: 12px; }
+      .post .content.about-content { padding: 0 4px; }
+    }
+    *, *::before, *::after { box-sizing:border-box; }
   </style>
-  <!-- Preload logo for faster first paint -->
-  <link rel="preload" as="image" href="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png">
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
-        <img
-          class="logo"
-          src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-          alt="The Oklahoma Observer"
-          width="600"
-          height="141"
-          loading="eager"
-          decoding="async"
-          onerror="this.style.display='none';"
-        />
-        <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div style="font-size:0.9em;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
         <a href="#/" id="nav-home">Home</a>
@@ -76,71 +91,7 @@
     </div>
   </footer>
 
-  <!-- About page (inline, kept small) -->
-  <script>
-    function renderAbout(){
-      const app=document.getElementById('app');
-      app.innerHTML=`
-        <article class="post">
-          <h1>Contact Us</h1>
-          <p>Please email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we will get back to you during normal business hours. Thank you.</p>
-          <h1>About</h1>
-          <p><strong>The Oklahoma Observer</strong> has served as the state’s only journal of free voices for over five decades, providing news, analysis and commentary unavailable in Oklahoma’s uniformly conservative mainstream media.</p>
-          <div style="margin-top:2em;text-align:center;">
-            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">Donate / Subscribe</a>
-          </div>
-        </article>`;
-    }
-    function routeHook(){
-      const hash=location.hash||"#/";
-      if(hash==="#/about"){ renderAbout(); }
-    }
-    window.addEventListener('hashchange', routeHook);
-    window.addEventListener('DOMContentLoaded', routeHook);
-
-    // Error banner helper
-    function showError(message) {
-      const host=document.getElementById("app");
-      if(!host) return;
-      const banner=document.createElement("div");
-      banner.className="error-banner";
-      const msg=(message && message.message)?message.message:String(message||"Something went wrong.");
-      banner.innerHTML=`<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${msg}`;
-      host.prepend(banner);
-    }
-
-    // Global error handlers
-    window.addEventListener("error", (e)=>{
-      showError(`Runtime error: ${e.message||"Unknown error"}`);
-    });
-    window.addEventListener("unhandledrejection", (e)=>{
-      const msg=e && e.reason && e.reason.message?e.reason.message:String(e && e.reason||"Unknown promise rejection");
-      showError(`Unhandled promise rejection: ${msg}`);
-    });
-
-    // Dismiss error banners
-    document.addEventListener('click', function(e){
-      const btn = e.target.closest('.error-banner .close');
-      if (btn) {
-        const banner = btn.closest('.error-banner');
-        if (banner) banner.remove();
-      }
-    });
-  </script>
-
-  <!-- Footer injection & version display -->
-  <script>
-    window.addEventListener('DOMContentLoaded', function(){
-      const y = document.getElementById('year');
-      if (y) y.textContent = new Date().getFullYear();
-      if (window.APP_VERSION) {
-        const v = document.getElementById('appVersion');
-        if (v) v.textContent = window.APP_VERSION;
-      }
-    });
-  </script>
-
-  <!-- External app code -->
+  <!-- IMPORTANT: external app code kept separate to avoid truncation -->
   <script src="app.js?v=1.45.3" defer></script>
 </body>
 </html>
