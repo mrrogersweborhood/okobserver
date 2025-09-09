@@ -5,18 +5,27 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>OkObserver — Posts</title>
   <style>
-    :root{--primary:#ffffff;--secondary:#1E90FF}
+    :root{--primary:#ffffff;--secondary:#1E90FF;--header-h:64px}
     body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
-    header {background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
+    /* Make header truly sticky using fixed + spacer */
+    header {position:fixed;top:0;left:0;right:0;z-index:1000;background:var(--secondary);color:white}
+    #header-spacer{height:var(--header-h)}
+
     .container{max-width:1100px;margin:0 auto;padding:18px}
-    .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
-    .brand {display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
+    .container.nav {display:flex;align-items:center;gap:14px;padding:10px 18px}
+    .brand {display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+    .brand .row {display:flex;align-items:center;gap:12px;min-width:0}
+    .brand img {height:40px; width:auto; display:block}
+    .brand .motto {font-size:0.9em;line-height:1.2}
+
     nav {margin-left:auto;display:flex;gap:10px}
-    nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
-    nav a:hover {background:rgba(255,255,255,0.2);border-radius:6px}
+    nav a {display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500;border-radius:6px}
+    nav a:hover {background:rgba(255,255,255,0.2)}
+
     main {padding:20px}
     footer {background:#f3f3f3;font-size:.85em}
     .center {text-align:center}
+
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
     .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
     .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
@@ -36,78 +45,48 @@
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
 
-    /* --- About page improvements --- */
+    /* About page + content alignment */
     .about-content img {
-      display:block;
-      max-width:100%;
-      height:auto;
-      margin:14px auto;
-      border-radius:8px;
-      float:none !important;
+      display:block;max-width:100%;height:auto;margin:14px auto;border-radius:8px;float:none !important;
     }
-    .about-content figure {
-      margin:16px 0;
-      padding:0 8px;
+    .about-content figure {margin:16px 0;padding:0 8px;}
+    .about-content,.about-content p,.about-content div,.about-content li,.about-content h1,.about-content h2,.about-content h3,.about-content h4{
+      overflow-wrap:anywhere;word-break:normal;hyphens:auto;text-align:left !important;
     }
-    .about-content,
-    .about-content p,
-    .about-content div,
-    .about-content li,
-    .about-content h1,
-    .about-content h2,
-    .about-content h3,
-    .about-content h4 {
-      overflow-wrap:anywhere;
-      word-break:normal;
-      hyphens:auto;
+
+    /* Force post content left-align (fix centered first paragraph) */
+    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{
       text-align:left !important;
     }
+    .post .content img{display:block !important;margin:16px auto !important;float:none !important;clear:both !important;}
 
-    /* --- Force post content left-align (fix centered first paragraph) --- */
-    .post .content,
-    .post .content p,
-    .post .content div,
-    .post .content li,
-    .post .content h1,
-    .post .content h2,
-    .post .content h3,
-    .post .content h4 {
-      text-align: left !important;
-    }
-    .post .content img {
-      display:block !important;
-      margin:16px auto !important;
-      float:none !important;
-      clear:both !important;
-    }
-
-    /* --- Mobile overflow fixes --- */
-    html, body { max-width: 100%; overflow-x: hidden; }
+    /* Mobile overflow fixes */
+    html, body {max-width:100%;overflow-x:hidden;}
     .post, .about-content, .container,
-    .post *, .about-content * { max-width: 100% !important; box-sizing: border-box; }
+    .post *, .about-content * {max-width:100% !important;box-sizing:border-box;}
     .post img, .about-content img,
     .post iframe, .about-content iframe,
     .post video, .about-content video,
-    .post embed, .about-content embed {
-      display:block; max-width:100% !important; width:100%; height:auto;
-    }
-    .post table, .about-content table {
-      max-width:100%; width:100%; display:block; overflow-x:auto; -webkit-overflow-scrolling:touch;
-    }
-    .post pre, .about-content pre { white-space:pre-wrap; word-wrap:break-word; max-width:100%; }
-    @media (max-width: 520px) {
-      .container { padding: 12px; }
-      .post .content.about-content { padding: 0 4px; }
+    .post embed, .about-content embed {display:block;max-width:100% !important;width:100%;height:auto;}
+    .post table, .about-content table {max-width:100%;width:100%;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .post pre, .about-content pre {white-space:pre-wrap;word-wrap:break-word;max-width:100%;}
+
+    @media (max-width:520px){
+      .container.nav{padding:8px 12px}
+      .brand img{height:34px}
     }
 
     *, *::before, *::after { box-sizing:border-box; }
   </style>
 </head>
 <body>
-  <header>
+  <header id="site-header">
     <div class="container nav">
       <div class="brand">
-        <div style="font-size:0.9em;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div class="row">
+          <img src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer logo" />
+        </div>
+        <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
         <a href="#/" id="nav-home">Home</a>
@@ -115,6 +94,8 @@
       </nav>
     </div>
   </header>
+  <!-- Spacer prevents content jump under fixed header -->
+  <div id="header-spacer" aria-hidden="true"></div>
 
   <main>
     <div class="container" id="app"><p class="center">Loading…</p></div>
@@ -127,6 +108,26 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.45.6" defer></script>
+  <!-- Measure header and set spacer height -->
+  <script>
+    (function(){
+      function sizeHeader(){
+        var h = document.getElementById('site-header');
+        var s = document.getElementById('header-spacer');
+        if (!h || !s) return;
+        var hh = Math.ceil(h.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--header-h', hh + 'px');
+        s.style.height = 'var(--header-h)';
+      }
+      window.addEventListener('load', sizeHeader, {once:true});
+      window.addEventListener('resize', sizeHeader);
+      // In case fonts/images change height shortly after load
+      setTimeout(sizeHeader, 100);
+      setTimeout(sizeHeader, 400);
+    })();
+  </script>
+
+  <!-- External app code -->
+  <script src="app.js?v=1.45.7" defer></script>
 </body>
 </html>
