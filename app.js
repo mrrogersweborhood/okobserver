@@ -1,4 +1,4 @@
-// app.js — OkObserver (v1.45.3 — fix Back link opening new tab; stable back + perf)
+// app.js — OkObserver (v1.45.3 + About page fetch/cleanup)
 const APP_VERSION = "v1.45.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
@@ -101,7 +101,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     );
   }
 
-  // 🔧 FIX: only external links open in new tab; internal `#/…` stay in the SPA
+  // 🔧 Only external links open in new tab; internal `#/…` stay in the SPA
   function hardenLinks(root) {
     if (!root) return;
     root.querySelectorAll("a[href]").forEach(a => {
@@ -247,6 +247,62 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (mVm) return { kind: "vimeo", url: mVm[0] };
     return null;
   }
+
+  // ===== About page fetch & cleanup =====
+  async function fetchAboutPage() {
+    const url = `https://okobserver.org/wp-json/wp/v2/pages?slug=contact-about-donate&_embed=1`;
+    const res = await fetch(url, { credentials: "omit" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const arr = await res.json();
+    if (!Array.isArray(arr) || !arr.length) throw new Error("About page not found");
+    return arr[0];
+  }
+
+  function stripBlankNodes(root) {
+    if (!root) return;
+    const isBlank = (el) => {
+      const txt = (el.textContent || "").replace(/\u00A0/g, " ").trim();
+      if (txt) return false;
+      if (!el.children.length) return true;
+      if ([...el.children].every(c => c.tagName === "BR")) return true;
+      return false;
+    };
+    const all = root.querySelectorAll("p, div, section, figure");
+    [...all].reverse().forEach(el => { if (isBlank(el)) el.remove(); });
+  }
+
+  async function renderAbout() {
+    const mount = document.getElementById("app");
+    mount.innerHTML = `<p class="center">Loading About…</p>`;
+    try {
+      const page = await fetchAboutPage();
+      const title = page.title?.rendered || "About";
+      const cleanedHTML = normalizeContent(page.content?.rendered || "");
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = cleanedHTML;
+      stripBlankNodes(wrapper);
+      hardenLinks(wrapper);
+      mount.innerHTML = `
+        <article class="post">
+          <h1>${title}</h1>
+          <div class="content about-content">${wrapper.innerHTML}</div>
+          <div style="margin-top:20px" class="center">
+            <a class="btn" href="https://okobserver.org/contact-about-donate/" target="_blank" rel="noopener">View on okobserver.org</a>
+          </div>
+        </article>
+      `;
+    } catch (e) {
+      mount.innerHTML = `
+        <div class="error-banner">
+          <button class="close">×</button>
+          Couldn't load the About page: ${e.message}
+          <div style="margin-top:10px">
+            <a class="btn" target="_blank" rel="noopener" href="https://okobserver.org/contact-about-donate/">Open on okobserver.org</a>
+          </div>
+        </div>
+      `;
+    }
+  }
   // ===== API (full embed for reliability) =====
   async function fetchPosts({ page = 1, search = "" } = {}) {
     const url = `${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${
@@ -317,7 +373,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const effectiveSearch = (search || qFromHash || "").trim();
     const key = effectiveSearch.toLowerCase();
 
-    // ✅ do NOT wipe cache when we're returning from detail
+    // do NOT wipe cache when we're returning from detail
     const returning = sessionStorage.getItem("__okReturning") === "1";
     if (window.__okCache.searchKey !== key && !returning) {
       window.__okCache = { posts: [], page: 1, totalPages: 1, scrollY: 0, scrollAnchorPostId: null, searchKey: key };
@@ -347,7 +403,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     let totalPages = window.__okCache.totalPages || 1;
     let loading = false;
 
-    // ✅ Remember which card was clicked & current scroll (for solid Back)
+    // Remember which card was clicked & current scroll (for solid Back)
     grid.addEventListener("click", (e) => {
       const a = e.target.closest('a[href^="#/post/"]');
       if (!a) return;
@@ -507,6 +563,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function router(){
     try{
       const hash = location.hash || "#/";
+      if (hash === "#/about") { renderAbout(); return; }  // ← About route
       if (hash.startsWith("#/post/")) {
         const id = hash.split("/")[2]?.split("?")[0];
         renderPost(id); return;
