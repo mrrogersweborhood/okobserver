@@ -37,7 +37,16 @@
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
     .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
-    .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
+    .post .hero{
+  display:block;
+  width:100%;
+  height:auto;              /* grow by natural height */
+  max-height:none;          /* no forced cap */
+  object-fit:contain;       /* show full image without cropping */
+  margin:16px 0;
+  border-radius:10px;
+}
+
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
