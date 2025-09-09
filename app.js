@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.45.3 + About page fetch/cleanup)
-const APP_VERSION = "v1.45.3";
+// app.js — OkObserver (v1.45.5 — mobile overflow fixes + About cleanup)
+const APP_VERSION = "v1.45.5";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -101,7 +101,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     );
   }
 
-  // 🔧 Only external links open in new tab; internal `#/…` stay in the SPA
+  // Only external links open in new tab; internal `#/…` stay in the SPA
   function hardenLinks(root) {
     if (!root) return;
     root.querySelectorAll("a[href]").forEach(a => {
@@ -280,8 +280,29 @@ console.info("OkObserver app loaded", APP_VERSION);
       const cleanedHTML = normalizeContent(page.content?.rendered || "");
       const wrapper = document.createElement("div");
       wrapper.innerHTML = cleanedHTML;
+
+      // Remove empty/placeholder blocks
       stripBlankNodes(wrapper);
+
+      // Normalize alignment and images so content reads cleanly
+      wrapper.querySelectorAll("p, div").forEach(el => {
+        const style = (el.getAttribute("style") || "").toLowerCase();
+        if (style.includes("text-align:center") || style.includes("text-align:right")) {
+          el.style.textAlign = "left";
+        }
+      });
+      wrapper.querySelectorAll("img").forEach(img => {
+        img.style.display = "block";
+        img.style.margin = "16px auto";
+        img.style.float = "none";
+        img.style.clear = "both";
+        img.loading = "lazy";
+        img.decoding = "async";
+      });
+
+      // Harden external links, keep internal SPA links as-is
       hardenLinks(wrapper);
+
       mount.innerHTML = `
         <article class="post">
           <h1>${title}</h1>
@@ -563,7 +584,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function router(){
     try{
       const hash = location.hash || "#/";
-      if (hash === "#/about") { renderAbout(); return; }  // ← About route
+      if (hash === "#/about") { renderAbout(); return; }
       if (hash.startsWith("#/post/")) {
         const id = hash.split("/")[2]?.split("?")[0];
         renderPost(id); return;
@@ -574,4 +595,17 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   window.addEventListener("hashchange", router);
   window.addEventListener("load", router);
+
+  // --- Optional: log wide elements that might still cause horizontal scroll
+  function logWideElements(){
+    const vw = document.documentElement.clientWidth;
+    document.querySelectorAll('body *').forEach(el=>{
+      const r = el.getBoundingClientRect();
+      if (r.width > vw + 1) {
+        console.warn('Wide element detected:', el, Math.round(r.width), '>', vw);
+      }
+    });
+  }
+  window.addEventListener('load', logWideElements);
+  window.addEventListener('hashchange', ()=> setTimeout(logWideElements, 300));
 })();

@@ -43,6 +43,7 @@
       height:auto;
       margin:14px auto;
       border-radius:8px;
+      float:none !important;
     }
     .about-content figure {
       margin:16px 0;
@@ -59,11 +60,57 @@
       overflow-wrap:anywhere;
       word-break:normal;
       hyphens:auto;
+      text-align:left !important;
     }
     @media (max-width: 520px) {
       .container { padding: 12px; }
       .post .content.about-content { padding: 0 4px; }
     }
+
+    /* --- Mobile overflow fixes --- */
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden; /* stop sideways panning */
+    }
+    .post, .about-content, .container,
+    .post * , .about-content * {
+      max-width: 100% !important;
+      box-sizing: border-box;
+    }
+    .post img, .about-content img,
+    .post iframe, .about-content iframe,
+    .post video, .about-content video,
+    .post embed, .about-content embed {
+      display: block;
+      max-width: 100% !important;
+      width: 100%;
+      height: auto;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .post [style*="width:"], .about-content [style*="width:"],
+    .post [width], .about-content [width] {
+      width: auto !important;
+    }
+    .post, .about-content {
+      overflow-wrap: anywhere;
+      word-break: normal;
+      hyphens: auto;
+    }
+    .post table, .about-content table {
+      max-width: 100%;
+      width: 100%;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .post pre, .about-content pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-width: 100%;
+    }
+
+    /* Global box-sizing sanity */
     *, *::before, *::after { box-sizing:border-box; }
   </style>
 </head>
@@ -92,6 +139,6 @@
   </footer>
 
   <!-- IMPORTANT: external app code kept separate to avoid truncation -->
-  <script src="app.js?v=1.45.3" defer></script>
+  <script src="app.js?v=1.45.5" defer></script>
 </body>
 </html>
