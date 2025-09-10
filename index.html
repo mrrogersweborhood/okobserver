@@ -27,7 +27,16 @@
 
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
     .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
-    .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
+    /* Show full image on cards (no crop) */
+    .thumb{
+      width:100%;
+      height:auto;
+      max-height:200px;
+      object-fit:contain;
+      background:#f0f0f0;
+      cursor:pointer;
+      display:block;
+    }
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
     .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
@@ -36,11 +45,13 @@
     .btn[disabled]{opacity:.6;cursor:not-allowed}
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
-    .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+    /* Hero should not crop */
     .post .hero{display:block;width:100%;height:auto;object-fit:contain;margin:16px 0;border-radius:10px}
 
-    /* Fix centered text from WP */
-    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{text-align:left!important;}
+    /* Fix centered text from WP (stronger) */
+    .post .content,.post .content p,.post .content div,.post .content li,.post .content h1,.post .content h2,.post .content h3,.post .content h4{
+      text-align:left!important;
+    }
     .post .content img{display:block!important;margin:16px auto!important;float:none!important;clear:both!important;}
     .post .content .has-text-align-center,
     .post .content .has-text-align-right,
@@ -49,6 +60,15 @@
     .post .content [align="center"],
     .post .content [align="right"]{text-align:left!important;}
     .post .content .has-text-align-center *,.post .content .has-text-align-right *,.post .content .aligncenter *,.post .content .alignright *{text-align:left!important;}
+    /* Inline style text-align overrides */
+    .post .content [style*="text-align:center"],
+    .post .content [style*="text-align: center"],
+    .post .content [style*="text-align:right"],
+    .post .content [style*="text-align: right"]{
+      text-align:left!important;
+    }
+    /* Ensure first paragraph is left-aligned */
+    .post .content p:first-of-type{ text-align:left!important; }
 
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
@@ -58,6 +78,11 @@
 
     html,body {max-width:100%;overflow-x:hidden;}
     *,*::before,*::after{box-sizing:border-box;}
+
+    @media(max-width:520px){
+      .container.nav{padding:8px 12px}
+      .brand img{height:34px}
+    }
   </style>
 </head>
 <body>
@@ -104,6 +129,6 @@
     })();
   </script>
 
-  <script src="app.js?v=1.46.0" defer></script>
+  <script src="app.js?v=1.46.2" defer></script>
 </body>
 </html>

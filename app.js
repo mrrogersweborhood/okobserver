@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.46.1 — paging fix)
-const APP_VERSION = "v1.46.1";
+// app.js — OkObserver (v1.46.2 — summary image contain + stronger align scrub)
+const APP_VERSION = "v1.46.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -23,7 +23,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   function showError(message){const msg=(message&&message.message)?message.message:String(message||"Something went wrong.");const div=document.createElement("div");div.className="error-banner";div.innerHTML=`<button class="close" aria-label="Dismiss">×</button>${msg}`;app.prepend(div);}
   document.addEventListener("click",(e)=>{const btn=e.target.closest(".error-banner .close");if(btn)btn.closest(".error-banner")?.remove();});
 
-  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"," >":"&gt;",'"':"&quot;","'":"&#39;"}[c]||c));
   const getAuthor=(p)=>p?._embedded?.author?.[0]?.name||"";
 
   function hasExcluded(p){const groups=p?._embedded?.["wp:term"]||[];const cats=groups.flat().filter(t=>(t?.taxonomy||"").toLowerCase()==="category");const norm=(x)=>(x||"").trim().toLowerCase();return cats.some(c=>norm(c.slug)===EXCLUDE_CAT||norm(c.name)===EXCLUDE_CAT);}
@@ -229,7 +229,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       loading=true;
       loadMore.disabled=true; loadMore.textContent="Loading…";
       try{
-        // ✅ FIX: destructure totalPages correctly from fetchPosts
+        // Correct paging destructure
         const { posts, totalPages: tp } = await fetchPosts({ page, search: effectiveSearch });
         totalPages = Number(tp) || totalPages || 1;
 
@@ -297,13 +297,18 @@ console.info("OkObserver app loaded", APP_VERSION);
       const contentWrapper=document.createElement("div");
       contentWrapper.innerHTML=normalized;
 
-      // Scrub alignment issues (inline, classes, legacy align attrs)
-      contentWrapper.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article").forEach(el=>{
+      // Scrub alignment issues (inline, classes, legacy align attrs) — stronger pass
+      contentWrapper.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em").forEach(el=>{
         const style=(el.getAttribute("style")||"").toLowerCase();
-        if(style.includes("text-align:center")||style.includes("text-align:right"))el.style.textAlign="left";
+        if(style.includes("text-align:center")||style.includes("text-align: center")||
+           style.includes("text-align:right") ||style.includes("text-align: right")){
+          el.style.textAlign="left";
+          el.setAttribute("style",(el.getAttribute("style")||"").replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
+        }
       });
       contentWrapper.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
         el.style.textAlign="left";
+        el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
       });
       contentWrapper.querySelectorAll("[align]").forEach(el=>{
         const a=(el.getAttribute("align")||"").toLowerCase();
