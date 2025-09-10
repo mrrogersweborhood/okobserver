@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.47.0 — stronger alignment scrub with !important handling)
-const APP_VERSION = "v1.47.0";
+// app.js — OkObserver (v1.48.0 — non-embeddable video fallback + alignment hardening)
+const APP_VERSION = "v1.48.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -20,7 +20,12 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   window.addEventListener("DOMContentLoaded",()=>{const y=document.getElementById("year");if(y)y.textContent=new Date().getFullYear();const v=document.getElementById("appVersion");if(v)v.textContent=APP_VERSION;});
 
-  function showError(message){const msg=(message&&message.message)?message.message:String(message||"Something went wrong.");const div=document.createElement("div");div.className="error-banner";div.innerHTML=`<button class="close" aria-label="Dismiss">×</button>${msg}`;app.prepend(div);}
+  function showError(message){
+    const msg=(message&&message.message)?message.message:String(message||"Something went wrong.");
+    const div=document.createElement("div");div.className="error-banner";
+    div.innerHTML=`<button class="close" aria-label="Dismiss">×</button>${msg}`;
+    app.prepend(div);
+  }
   document.addEventListener("click",(e)=>{const btn=e.target.closest(".error-banner .close");if(btn)btn.closest(".error-banner")?.remove();});
 
   const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -94,7 +99,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const s=q?`${base}?q=${encodeURIComponent(q.trim())}`:base;
     if(location.hash!==s)location.hash=s;
   }
-  // ===== Content normalization =====
+  // ===== Content normalization & embed transforms =====
   function deLazyImages(root){
     if(!root)return;
     root.querySelectorAll("img").forEach(img=>{
@@ -109,16 +114,73 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
+  // Convert non-embeddable FB/Vimeo/YT blocks into "Watch on …" buttons and remove empty shells
+  function transformEmbeds(root){
+    if(!root) return;
+
+    const hasPlayable = (node) => !!node.querySelector("iframe, video");
+
+    // Facebook blocks
+    root.querySelectorAll(".wp-block-embed-facebook, blockquote.fb-xfbml-parse-ignore, blockquote.facebook-video, div.fb-video, .wp-block-embed__wrapper").forEach(box=>{
+      if(hasPlayable(box)) return;
+      const a = box.querySelector('a[href*="facebook.com/"]');
+      const href = a?.getAttribute("href") || "";
+      if(href){
+        const fallback = document.createElement("div");
+        fallback.className = "video-fallback";
+        fallback.innerHTML = `
+          <div>Video can’t be embedded here.</div>
+          <a class="btn" href="${href}" target="_blank" rel="noopener">Watch on Facebook</a>
+        `;
+        box.replaceWith(fallback);
+        return;
+      }
+      if(!box.textContent.trim()) box.remove();
+    });
+
+    // Vimeo / YouTube wrappers
+    root.querySelectorAll(".wp-block-embed-vimeo, .wp-block-embed-youtube, .wp-block-embed").forEach(box=>{
+      if(hasPlayable(box)) return;
+      const a = box.querySelector('a[href*="vimeo.com/"], a[href*="youtube.com/"], a[href*="youtu.be/"]');
+      const href = a?.getAttribute("href") || "";
+      if(href){
+        const provider = href.includes("vimeo.com") ? "Vimeo" : "YouTube";
+        const fallback = document.createElement("div");
+        fallback.className = "video-fallback";
+        fallback.innerHTML = `
+          <div>Video can’t be embedded here.</div>
+          <a class="btn" href="${href}" target="_blank" rel="noopener">Watch on ${provider}</a>
+        `;
+        box.replaceWith(fallback);
+      }else if(!box.textContent.trim()){
+        box.remove();
+      }
+    });
+
+    // Generic empty shells
+    root.querySelectorAll("figure.wp-block-embed, .wp-block-embed__wrapper").forEach(box=>{
+      const playable = hasPlayable(box);
+      const hasImg = !!box.querySelector("img");
+      const text = (box.textContent || "").replace(/\u00A0/g," ").trim();
+      if(!playable && !hasImg && !text) box.remove();
+    });
+  }
+
   function normalizeContent(html){
     const root=document.createElement("div");
     root.innerHTML=html||"";
-    const containers=root.querySelectorAll([
-      "figure.wp-block-embed","div.wp-block-embed",".wp-block-embed-facebook",".wp-block-embed-vimeo",".wp-block-embed__wrapper"
-    ].join(","));
-    containers.forEach(c=>{
-      if(!c.querySelector("iframe,a,img,video")&&!c.textContent.trim())c.remove();
+
+    // Quick prune: remove fully-empty wrappers
+    root.querySelectorAll(["figure.wp-block-embed","div.wp-block-embed",".wp-block-embed__wrapper"].join(",")).forEach(c=>{
+      if(!c.querySelector("iframe,a,img,video") && !c.textContent.trim()) c.remove();
     });
+
+    // Fix lazy images first
     deLazyImages(root);
+
+    // Transform non-embeddable video/social blocks into a clean fallback
+    transformEmbeds(root);
+
     return root.innerHTML;
   }
 
@@ -253,14 +315,15 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     const grid=document.getElementById("grid");
     const loadBtn=document.getElementById("loadMoreBtn");
+
     let page=1;let totalPages=1;let loading=false;
 
     async function load(){
       if(loading)return;loading=true;
       loadBtn.disabled=true;loadBtn.textContent="Loading…";
       try{
-        const {posts,tp}=await fetchPosts({page,search:effectiveSearch});
-        totalPages=tp;
+        const {posts,totalPages:tp}=await fetchPosts({page,search:effectiveSearch});
+        totalPages=tp||totalPages;
         posts.forEach(p=>grid.appendChild(buildCardElement(p)));
         window.__okCache.posts.push(...posts);
         window.__okCache.page=page;
@@ -283,44 +346,108 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     if(hasCache&&returning){sessionStorage.removeItem("__okReturning");restoreHomeScroll();}
   }
-
   // ===== Detail =====
   async function renderPost(id){
+    try{window.__okCache.scrollY=window.scrollY||0;saveHomeCache();}catch{}
+    try{
+      window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;
+      window.__okCache.returningFromDetail=true;
+      saveHomeCache();
+      sessionStorage.setItem("__okReturning","1");
+    }catch{}
+
     app.innerHTML=`<p class="center">Loading post…</p>`;
     try{
       const p=await fetchPost(id);
-      const media=featuredImage(p)||firstImgFromHTML(p.content?.rendered)||"";
+      if(hasExcluded(p)){ app.innerHTML=`<div class="error-banner"><button class="close">×</button>This post is not available.</div>`; return; }
+
       const author=esc(getAuthor(p));
       const date=ordinalDate(p.date);
-      const normalized=normalizeContent(p.content?.rendered||"");
-      const contentWrapper=document.createElement("div");contentWrapper.innerHTML=normalized;
 
-      // Strong scrub alignment
+      const raw=p.content?.rendered||"";
+      const normalized=normalizeContent(raw);
+      const contentWrapper=document.createElement("div");
+      contentWrapper.innerHTML=normalized;
+
+      // --- Stronger alignment scrub (with !important) ---
+      function scrubAlignTree(root){
+        if(!root) return;
+
+        // Replace deprecated <center> with <div>
+        root.querySelectorAll("center").forEach(c=>{
+          const div=document.createElement("div");div.innerHTML=c.innerHTML;c.replaceWith(div);
+        });
+
+        const SELECTORS="p, div, li, h1, h2, h3, h4, section, article, span, strong, em, figure, figcaption, table, thead, tbody, tfoot, tr, td, th, blockquote";
+        root.querySelectorAll(SELECTORS).forEach(el=>{
+          const style=(el.getAttribute("style")||"");
+          if(/text-align\s*:\s*(center|right)/i.test(style)){
+            el.setAttribute("style", style.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig, "").trim());
+            el.style.setProperty("text-align","left","important");
+          }
+        });
+        root.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
+          el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
+          el.style.setProperty("text-align","left","important");
+        });
+        root.querySelectorAll("[align]").forEach(el=>{
+          const a=(el.getAttribute("align")||"").toLowerCase();
+          if(a==="center"||a==="right"){ el.removeAttribute("align"); el.style.setProperty("text-align","left","important"); }
+        });
+
+        const firstTextBlock = Array.from(root.querySelectorAll("p, div, section, article, blockquote, table"))
+          .find(el => (el.textContent || "").replace(/\u00A0/g," ").trim().length > 0);
+        if(firstTextBlock){
+          let node=firstTextBlock;
+          while(node && node!==root){
+            node.style.setProperty("text-align","left","important");
+            const st=(node.getAttribute("style")||"");
+            if(/text-align/i.test(st)) node.setAttribute("style", st.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,""));
+            node=node.parentElement;
+          }
+        }
+      }
       scrubAlignTree(contentWrapper);
 
-      hardenLinks(contentWrapper);
+      // Tame images
+      contentWrapper.querySelectorAll("img").forEach(img=>{
+        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
+        img.loading="lazy";img.decoding="async";
+      });
+
+      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";
+      const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
 
       app.innerHTML=`
         <article class="post">
+          <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
-          <div class="meta-author-date">${author?`<span class="author"><strong>${author}</strong></span>`:""}<span class="date">${date}</span></div>
-          ${media?`<img class="hero" src="${media}" alt="">`:""}
+          <div class="meta-author-date">
+            ${author?`<span class="author"><strong>${author}</strong></span>`:""}
+            <span class="date">${date}</span>
+          </div>
+          ${heroBlock}
           <div class="content">${contentWrapper.innerHTML}</div>
-          <div style="margin-top:20px" class="center"><button id="backBtn" class="btn">Back to posts</button></div>
+          <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
 
-      document.getElementById("backBtn").addEventListener("click",()=>{sessionStorage.setItem("__okReturning","1");history.back();});
-
+      // Final safeguard after mounting
       (function enforceComputedLeft(){
         const root=document.querySelector(".post .content");
-        if(!root)return;
-        root.querySelectorAll("p,div,li,h1,h2,h3,h4,section,article,span,strong,em,figure,figcaption,table,thead,tbody,tfoot,tr,td,th,blockquote").forEach(el=>{
+        if(!root) return;
+        const nodes=root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em, figure, figcaption, table, thead, tbody, tfoot, tr, td, th, blockquote");
+        nodes.forEach(el=>{
           const ta=(getComputedStyle(el).textAlign||"").toLowerCase();
-          if(ta==="center"||ta==="right")el.style.setProperty("text-align","left","important");
+          if(ta==="center"||ta==="right"){ el.style.setProperty("text-align","left","important"); }
         });
       })();
+
+      const heroImg=document.querySelector(".post img.hero");
+      if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}
+
+      hardenLinks(document.querySelector(".post"));
     }catch(e){
-      showError("Error loading post: "+e.message);
+      app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
     }
   }
 
@@ -328,9 +455,13 @@ console.info("OkObserver app loaded", APP_VERSION);
   async function routeHook(){
     const h=location.hash||"#/";
     if(h.startsWith("#/post/")){
-      const id=parseInt(h.split("/")[2],10);if(id)await renderPost(id);
-    }else if(h==="#/about"){await renderAbout();}
-    else{await renderHome();}
+      const id=h.split("/")[2]?.split("?")[0];
+      if(id) await renderPost(id);
+    }else if(h==="#/about"){
+      await renderAbout();
+    }else{
+      await renderHome();
+    }
   }
   window.addEventListener("hashchange",routeHook);
   window.addEventListener("DOMContentLoaded",routeHook);

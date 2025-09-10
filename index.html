@@ -35,9 +35,29 @@
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
+
     /* Force first block left-aligned */
     .post .content > :first-child,
     .post .content > :first-child * { text-align:left !important; }
+
+    /* Collapse ghost WP embed wrappers that end up empty */
+    .wp-block-embed:empty,
+    .wp-block-embed iframe:empty,
+    .wp-block-embed__wrapper:empty {
+      display: none !important;
+    }
+
+    /* Fallback card for non-embeddable videos */
+    .video-fallback {
+      display:block;
+      background:#f5f7fb;
+      border:1px solid #e3e7ef;
+      border-radius:10px;
+      padding:14px;
+      text-align:center;
+      margin:12px 0;
+    }
+    .video-fallback .btn { margin-top:6px; }
   </style>
 </head>
 <body>
@@ -64,6 +84,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.47.0" defer></script>
+  <script src="app.js?v=1.48.0" defer></script>
 </body>
 </html>
