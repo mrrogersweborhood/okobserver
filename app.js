@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.46.3 — stronger align scrub w/ computed fallback)
-const APP_VERSION = "v1.46.3";
+// app.js — OkObserver (v1.47.0 — stronger alignment scrub with !important handling)
+const APP_VERSION = "v1.47.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -247,202 +247,91 @@ console.info("OkObserver app loaded", APP_VERSION);
         <input id="searchBox" type="search" placeholder="Search posts…" value="${esc(effectiveSearch)}" style="width:100%;max-width:420px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:1em" />
       </div>
       <div id="grid" class="grid"></div>
-      <div class="center" style="margin:12px 0;"><button id="loadMore" class="btn">Load more</button></div>
-      <div id="sentinel" style="height:1px;"></div>`;
+      <div class="center" style="margin:12px 0">
+        <button id="loadMoreBtn" class="btn">Load more</button>
+      </div>`;
 
     const grid=document.getElementById("grid");
-    const loadMore=document.getElementById("loadMore");
-    const sentinel=document.getElementById("sentinel");
-    const searchBox=document.getElementById("searchBox");
-
-    let page=Number(window.__okCache.page||1);
-    let totalPages=Number(window.__okCache.totalPages||1);
-    let loading=false;
-
-    let tId=null;
-    searchBox.addEventListener("input",()=>{
-      const val=searchBox.value.trim();
-      if(tId)clearTimeout(tId);
-      tId=setTimeout(()=>setQueryInHash(val),250);
-    });
-
-    grid.addEventListener("click",(e)=>{
-      const a=e.target.closest('a[href^="#/post/"]');
-      if(!a)return;
-      const id=a.getAttribute("href").split("/")[2]?.split("?")[0];
-      if(!id)return;
-      try{
-        window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;
-        window.__okCache.scrollY=window.scrollY||0;
-        window.__okCache.returningFromDetail=true;
-        saveHomeCache();
-        sessionStorage.setItem("__okReturning","1");
-      }catch{}
-    });
+    const loadBtn=document.getElementById("loadMoreBtn");
+    let page=1;let totalPages=1;let loading=false;
 
     async function load(){
-      if(loading) return;
-      loading=true;
-      loadMore.disabled=true; loadMore.textContent="Loading…";
+      if(loading)return;loading=true;
+      loadBtn.disabled=true;loadBtn.textContent="Loading…";
       try{
-        const { posts, totalPages: tp } = await fetchPosts({ page, search: effectiveSearch });
-        totalPages = Number(tp) || totalPages || 1;
-
-        const frag=document.createDocumentFragment();
-        posts.forEach(p=>{frag.appendChild(buildCardElement(p));window.__okCache.posts.push(p);});
-        if(frag.childNodes.length)grid.appendChild(frag);
-
-        page++;
+        const {posts,tp}=await fetchPosts({page,search:effectiveSearch});
+        totalPages=tp;
+        posts.forEach(p=>grid.appendChild(buildCardElement(p)));
+        window.__okCache.posts.push(...posts);
         window.__okCache.page=page;
         window.__okCache.totalPages=totalPages;
         saveHomeCache();
-
-        if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}
-        else{loadMore.textContent="Load more";loadMore.disabled=false;}
-      }catch(e){
-        showError(`Failed to load posts: ${e.message}`);
-        loadMore.textContent="Retry";loadMore.disabled=false;
-      }finally{
-        loading=false;
-      }
-    }
-
-    function setupInfinite(){
-      if(!("IntersectionObserver"in window)||!sentinel)return;
-      const obs=new IntersectionObserver((entries)=>{
-        for(const entry of entries){
-          if(entry.isIntersecting && !loading && page<=totalPages) load();
+        if(page>=totalPages){
+          loadBtn.disabled=true;loadBtn.textContent="No more posts.";
+        }else{
+          loadBtn.disabled=false;loadBtn.textContent="Load more";
         }
-      },{rootMargin:"600px 0px 600px 0px"});
-      obs.observe(sentinel);
-    }
-    setupInfinite();
-
-    if(hasCache){
-      const frag=document.createDocumentFragment();
-      window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));
-      grid.appendChild(frag);
-      if(page>totalPages){loadMore.textContent="No more posts.";loadMore.disabled=true;}
-      requestAnimationFrame(restoreHomeScroll);
-    }else{
-      if(returning)sessionStorage.removeItem("__okReturning");
-      load();
+        page++;
+      }catch(e){
+        showError("Failed to load posts: "+e.message);
+      }finally{loading=false;}
     }
 
-    loadMore?.addEventListener("click",load);
+    loadBtn.addEventListener("click",load);
+    document.getElementById("searchBox").addEventListener("change",e=>{setQueryInHash(e.target.value);});
+    await load();
+
+    if(hasCache&&returning){sessionStorage.removeItem("__okReturning");restoreHomeScroll();}
   }
-  // ===== Post detail =====
+
+  // ===== Detail =====
   async function renderPost(id){
-    try{window.__okCache.scrollY=window.scrollY||0;saveHomeCache();}catch{}
-    try{
-      window.__okCache.scrollAnchorPostId=isNaN(+id)?id:+id;
-      window.__okCache.returningFromDetail=true;
-      saveHomeCache();
-      sessionStorage.setItem("__okReturning","1");
-    }catch{}
     app.innerHTML=`<p class="center">Loading post…</p>`;
     try{
-      const p=await fetchPost(id);if(!p)return;
-      if(hasExcluded(p)){app.innerHTML=`<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;return;}
+      const p=await fetchPost(id);
+      const media=featuredImage(p)||firstImgFromHTML(p.content?.rendered)||"";
       const author=esc(getAuthor(p));
       const date=ordinalDate(p.date);
+      const normalized=normalizeContent(p.content?.rendered||"");
+      const contentWrapper=document.createElement("div");contentWrapper.innerHTML=normalized;
 
-      const raw=p.content?.rendered||"";
-      const normalized=normalizeContent(raw);
-      const contentWrapper=document.createElement("div");
-      contentWrapper.innerHTML=normalized;
-
-      // --- Stronger alignment scrub: styles, classes, align attrs, and ancestors ---
-      function scrubAlignTree(root){
-        if(!root)return;
-        // 1) Inline styles on common elements
-        root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em").forEach(el=>{
-          const style=(el.getAttribute("style")||"");
-          if(/text-align\s*:\s*(center|right)/i.test(style)){
-            el.style.textAlign="left";
-            el.setAttribute("style",style.replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
-          }
-        });
-        // 2) Gutenberg & legacy classes
-        root.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
-          el.style.textAlign="left";
-          el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
-        });
-        // 3) Legacy align="" attributes
-        root.querySelectorAll("[align]").forEach(el=>{
-          const a=(el.getAttribute("align")||"").toLowerCase();
-          if(a==="center"||a==="right"){el.style.textAlign="left";el.removeAttribute("align");}
-        });
-        // 4) First text paragraph + its ancestors → force left
-        const firstTextPara = Array.from(root.querySelectorAll("p, div, section, article"))
-          .find(el => (el.textContent || "").replace(/\u00A0/g," ").trim().length > 0);
-        if(firstTextPara){
-          let node=firstTextPara;
-          while(node && node!==root){
-            node.style.textAlign="left";
-            const st=(node.getAttribute("style")||"");
-            if(/text-align/i.test(st)) node.setAttribute("style",st.replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
-            node=node.parentElement;
-          }
-        }
-      }
+      // Strong scrub alignment
       scrubAlignTree(contentWrapper);
 
-      // tame images
-      contentWrapper.querySelectorAll("img").forEach(img=>{
-        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
-        img.loading="lazy";img.decoding="async";
-      });
-
-      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";
-      const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
+      hardenLinks(contentWrapper);
 
       app.innerHTML=`
         <article class="post">
-          <p><a href="#/" class="btn" style="margin-bottom:12px">← Back to posts</a></p>
           <h1>${p.title.rendered}</h1>
-          <div class="meta-author-date">
-            ${author?`<span class="author"><strong>${author}</strong></span>`:""}
-            <span class="date">${date}</span>
-          </div>
-          ${heroBlock}
+          <div class="meta-author-date">${author?`<span class="author"><strong>${author}</strong></span>`:""}<span class="date">${date}</span></div>
+          ${media?`<img class="hero" src="${media}" alt="">`:""}
           <div class="content">${contentWrapper.innerHTML}</div>
-          <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
+          <div style="margin-top:20px" class="center"><button id="backBtn" class="btn">Back to posts</button></div>
         </article>`;
 
-      // Final safeguard after mounting: normalize any node that still computes as centered/right
+      document.getElementById("backBtn").addEventListener("click",()=>{sessionStorage.setItem("__okReturning","1");history.back();});
+
       (function enforceComputedLeft(){
         const root=document.querySelector(".post .content");
-        if(!root) return;
-        const nodes=root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em");
-        nodes.forEach(el=>{
+        if(!root)return;
+        root.querySelectorAll("p,div,li,h1,h2,h3,h4,section,article,span,strong,em,figure,figcaption,table,thead,tbody,tfoot,tr,td,th,blockquote").forEach(el=>{
           const ta=(getComputedStyle(el).textAlign||"").toLowerCase();
-          if(ta==="center"||ta==="right"){ el.style.textAlign="left"; }
+          if(ta==="center"||ta==="right")el.style.setProperty("text-align","left","important");
         });
       })();
-
-      const heroImg=document.querySelector(".post img.hero");
-      if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}
-
-      hardenLinks(document.querySelector(".post"));
     }catch(e){
-      app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
+      showError("Error loading post: "+e.message);
     }
   }
 
   // ===== Router =====
-  function router(){
-    try{
-      const hash=location.hash||"#/";
-      if(hash==="#/about"){renderAbout();return;}
-      if(hash.startsWith("#/post/")){
-        const id=hash.split("/")[2]?.split("?")[0];
-        renderPost(id);return;
-      }
-      renderHome({search:parseQueryFromHash()});
-    }catch(e){showError(`Router crash: ${e?.message||e}`);}
+  async function routeHook(){
+    const h=location.hash||"#/";
+    if(h.startsWith("#/post/")){
+      const id=parseInt(h.split("/")[2],10);if(id)await renderPost(id);
+    }else if(h==="#/about"){await renderAbout();}
+    else{await renderHome();}
   }
-
-  window.addEventListener("hashchange",router);
-  window.addEventListener("load",router);
+  window.addEventListener("hashchange",routeHook);
+  window.addEventListener("DOMContentLoaded",routeHook);
 })();
