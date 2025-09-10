@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.46.2 — summary image contain + stronger align scrub)
-const APP_VERSION = "v1.46.2";
+// app.js — OkObserver (v1.46.3 — stronger align scrub w/ computed fallback)
+const APP_VERSION = "v1.46.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -23,21 +23,77 @@ console.info("OkObserver app loaded", APP_VERSION);
   function showError(message){const msg=(message&&message.message)?message.message:String(message||"Something went wrong.");const div=document.createElement("div");div.className="error-banner";div.innerHTML=`<button class="close" aria-label="Dismiss">×</button>${msg}`;app.prepend(div);}
   document.addEventListener("click",(e)=>{const btn=e.target.closest(".error-banner .close");if(btn)btn.closest(".error-banner")?.remove();});
 
-  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"," >":"&gt;",'"':"&quot;","'":"&#39;"}[c]||c));
+  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const getAuthor=(p)=>p?._embedded?.author?.[0]?.name||"";
 
-  function hasExcluded(p){const groups=p?._embedded?.["wp:term"]||[];const cats=groups.flat().filter(t=>(t?.taxonomy||"").toLowerCase()==="category");const norm=(x)=>(x||"").trim().toLowerCase();return cats.some(c=>norm(c.slug)===EXCLUDE_CAT||norm(c.name)===EXCLUDE_CAT);}
+  function hasExcluded(p){
+    const groups=p?._embedded?.["wp:term"]||[];
+    const cats=groups.flat().filter(t=>(t?.taxonomy||"").toLowerCase()==="category");
+    const norm=(x)=>(x||"").trim().toLowerCase();
+    return cats.some(c=>norm(c.slug)===EXCLUDE_CAT||norm(c.name)===EXCLUDE_CAT);
+  }
 
-  function ordinalDate(iso){const d=new Date(iso);const day=d.getDate();const suf=(n)=>(n>3&&n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;}
+  function ordinalDate(iso){
+    const d=new Date(iso);
+    const day=d.getDate();
+    const suf=(n)=>(n>3&&n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");
+    return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
+  }
 
-  function firstImgFromHTML(html){const div=document.createElement("div");div.innerHTML=html||"";const img=div.querySelector("img");if(!img)return"";const ss=img.getAttribute("srcset");if(ss){const last=ss.split(",").map(s=>s.trim()).pop();const url=last?.split(" ")?.[0];if(url)return url;}return img.getAttribute("data-src")||img.getAttribute("src")||"";}
+  function firstImgFromHTML(html){
+    const div=document.createElement("div");
+    div.innerHTML=html||"";
+    const img=div.querySelector("img");
+    if(!img)return"";
+    const ss=img.getAttribute("srcset");
+    if(ss){
+      const last=ss.split(",").map(s=>s.trim()).pop();
+      const url=last?.split(" ")?.[0];
+      if(url)return url;
+    }
+    return img.getAttribute("data-src")||img.getAttribute("src")||"";
+  }
 
-  function featuredImage(p){const m=p?._embedded?.["wp:featuredmedia"]?.[0];if(!m)return"";const sizes=m.media_details?.sizes||{};return(sizes?.["2048x2048"]?.source_url||sizes?.["1536x1536"]?.source_url||sizes?.large?.source_url||sizes?.medium_large?.source_url||sizes?.medium?.source_url||m.source_url||"");}
+  function featuredImage(p){
+    const m=p?._embedded?.["wp:featuredmedia"]?.[0];
+    if(!m)return"";
+    const sizes=m.media_details?.sizes||{};
+    return (sizes?.["2048x2048"]?.source_url
+      || sizes?.["1536x1536"]?.source_url
+      || sizes?.large?.source_url
+      || sizes?.medium_large?.source_url
+      || sizes?.medium?.source_url
+      || m.source_url
+      || "");
+  }
 
-  function hardenLinks(root){if(!root)return;root.querySelectorAll("a[href]").forEach(a=>{const href=a.getAttribute("href")||"";const isInternal=href.startsWith("#/");if(isInternal){a.removeAttribute("target");a.removeAttribute("rel");return;}if(/^https?:\/\//i.test(href)){a.target="_blank";a.rel="noopener";}});}
+  function hardenLinks(root){
+    if(!root)return;
+    root.querySelectorAll("a[href]").forEach(a=>{
+      const href=a.getAttribute("href")||"";
+      const isInternal=href.startsWith("#/");
+      if(isInternal){
+        a.removeAttribute("target");
+        a.removeAttribute("rel");
+        return;
+      }
+      if(/^https?:\/\//i.test(href)){
+        a.target="_blank";
+        a.rel="noopener";
+      }
+    });
+  }
 
-  function parseQueryFromHash(){const h=location.hash||"#/";const qMatch=h.match(/[?&]q=([^&]+)/i);return qMatch?decodeURIComponent(qMatch[1].replace(/\+/g," ")):"";}
-  function setQueryInHash(q){const base="#/";const s=q?`${base}?q=${encodeURIComponent(q.trim())}`:base;if(location.hash!==s)location.hash=s;}
+  function parseQueryFromHash(){
+    const h=location.hash||"#/";
+    const qMatch=h.match(/[?&]q=([^&]+)/i);
+    return qMatch?decodeURIComponent(qMatch[1].replace(/\+/g," ")):"";
+  }
+  function setQueryInHash(q){
+    const base="#/";
+    const s=q?`${base}?q=${encodeURIComponent(q.trim())}`:base;
+    if(location.hash!==s)location.hash=s;
+  }
   // ===== Content normalization =====
   function deLazyImages(root){
     if(!root)return;
@@ -229,7 +285,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       loading=true;
       loadMore.disabled=true; loadMore.textContent="Loading…";
       try{
-        // Correct paging destructure
         const { posts, totalPages: tp } = await fetchPosts({ page, search: effectiveSearch });
         totalPages = Number(tp) || totalPages || 1;
 
@@ -297,24 +352,43 @@ console.info("OkObserver app loaded", APP_VERSION);
       const contentWrapper=document.createElement("div");
       contentWrapper.innerHTML=normalized;
 
-      // Scrub alignment issues (inline, classes, legacy align attrs) — stronger pass
-      contentWrapper.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em").forEach(el=>{
-        const style=(el.getAttribute("style")||"").toLowerCase();
-        if(style.includes("text-align:center")||style.includes("text-align: center")||
-           style.includes("text-align:right") ||style.includes("text-align: right")){
+      // --- Stronger alignment scrub: styles, classes, align attrs, and ancestors ---
+      function scrubAlignTree(root){
+        if(!root)return;
+        // 1) Inline styles on common elements
+        root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em").forEach(el=>{
+          const style=(el.getAttribute("style")||"");
+          if(/text-align\s*:\s*(center|right)/i.test(style)){
+            el.style.textAlign="left";
+            el.setAttribute("style",style.replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
+          }
+        });
+        // 2) Gutenberg & legacy classes
+        root.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
           el.style.textAlign="left";
-          el.setAttribute("style",(el.getAttribute("style")||"").replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
+          el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
+        });
+        // 3) Legacy align="" attributes
+        root.querySelectorAll("[align]").forEach(el=>{
+          const a=(el.getAttribute("align")||"").toLowerCase();
+          if(a==="center"||a==="right"){el.style.textAlign="left";el.removeAttribute("align");}
+        });
+        // 4) First text paragraph + its ancestors → force left
+        const firstTextPara = Array.from(root.querySelectorAll("p, div, section, article"))
+          .find(el => (el.textContent || "").replace(/\u00A0/g," ").trim().length > 0);
+        if(firstTextPara){
+          let node=firstTextPara;
+          while(node && node!==root){
+            node.style.textAlign="left";
+            const st=(node.getAttribute("style")||"");
+            if(/text-align/i.test(st)) node.setAttribute("style",st.replace(/text-align\s*:\s*(center|right)\s*;?/ig,""));
+            node=node.parentElement;
+          }
         }
-      });
-      contentWrapper.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
-        el.style.textAlign="left";
-        el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
-      });
-      contentWrapper.querySelectorAll("[align]").forEach(el=>{
-        const a=(el.getAttribute("align")||"").toLowerCase();
-        if(a==="center"||a==="right"){el.style.textAlign="left";el.removeAttribute("align");}
-      });
+      }
+      scrubAlignTree(contentWrapper);
 
+      // tame images
       contentWrapper.querySelectorAll("img").forEach(img=>{
         img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
         img.loading="lazy";img.decoding="async";
@@ -335,6 +409,17 @@ console.info("OkObserver app loaded", APP_VERSION);
           <div class="content">${contentWrapper.innerHTML}</div>
           <p><a href="#/" class="btn" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
+
+      // Final safeguard after mounting: normalize any node that still computes as centered/right
+      (function enforceComputedLeft(){
+        const root=document.querySelector(".post .content");
+        if(!root) return;
+        const nodes=root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em");
+        nodes.forEach(el=>{
+          const ta=(getComputedStyle(el).textAlign||"").toLowerCase();
+          if(ta==="center"||ta==="right"){ el.style.textAlign="left"; }
+        });
+      })();
 
       const heroImg=document.querySelector(".post img.hero");
       if(heroImg){heroImg.addEventListener("error",()=>heroImg.remove(),{once:true});}
