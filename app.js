@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.48.1 — back-cache restore + non-embeddable video fallback + alignment hardening)
-const APP_VERSION = "v1.48.1";
+// app.js — OkObserver (v1.49.0 — removed search UI/logic; kept back-cache & video fallbacks)
+const APP_VERSION = "v1.49.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -9,7 +9,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
 
-  // Prefer manual scroll restoration so we can control it via cache
+  // Manual scroll restoration so we control it from cache
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
   // Home-page cache persisted between navigations
@@ -18,8 +18,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     page: 1,            // last page number fetched
     totalPages: 1,      // total pages from WP header
     scrollY: 0,         // last window.scrollY on leaving home
-    scrollAnchorPostId: null, // id of the card clicked going into detail
-    searchKey: ""       // normalized search string
+    scrollAnchorPostId: null // id of the card clicked going into detail
   };
   function saveHomeCache(){
     try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{}
@@ -115,18 +114,6 @@ console.info("OkObserver app loaded", APP_VERSION);
         a.rel="noopener";
       }
     });
-  }
-
-  // Search helpers (hash query param)
-  function parseQueryFromHash(){
-    const h=location.hash||"#/";
-    const qMatch=h.match(/[?&]q=([^&]+)/i);
-    return qMatch?decodeURIComponent(qMatch[1].replace(/\+/g," ")):"";
-  }
-  function setQueryInHash(q){
-    const base="#/";
-    const s=q?`${base}?q=${encodeURIComponent(q.trim())}`:base;
-    if(location.hash!==s) location.hash=s;
   }
   // ===== Content normalization & embed transforms =====
   function deLazyImages(root){
@@ -267,8 +254,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
   // ===== API =====
-  async function fetchPosts({page=1,search=""}={}){
-    const url=`${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}${search?`&search=${encodeURIComponent(search)}`:""}`;
+  async function fetchPosts({page=1}={}){
+    const url=`${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}`;
     const res=await fetch(url,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const totalPages=Number(res.headers.get("X-WP-TotalPages")||"1");
@@ -323,31 +310,13 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // ===== Home (with back-cache restore) =====
-  async function renderHome({search=""}={}){
-    const q=parseQueryFromHash();
-    const effectiveSearch=(search||q||"").trim();
-    const key=effectiveSearch.toLowerCase();
-
+  // ===== Home (no search; back-cache restore) =====
+  async function renderHome(){
     const returning = sessionStorage.getItem("__okReturning")==="1";
-    const cache = window.__okCache || {};
-    const hasCache = Array.isArray(cache.posts) && cache.posts.length>0;
-
-    // Reset cache only if search changed and we're not returning
-    if(cache.searchKey!==key && !returning){
-      window.__okCache={posts:[],page:1,totalPages:1,scrollY:0,scrollAnchorPostId:null,searchKey:key};
-      saveHomeCache();
-    }else{
-      window.__okCache.searchKey=key;
-      saveHomeCache();
-    }
+    const hasCache = Array.isArray(window.__okCache.posts) && window.__okCache.posts.length>0;
 
     app.innerHTML=`
       <h1 style="margin-bottom:10px;">Latest Posts</h1>
-      <div style="margin:8px 0 16px 0;">
-        <input id="searchBox" type="search" placeholder="Search posts…" value="${esc(effectiveSearch)}"
-          style="width:100%;max-width:420px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:1em" />
-      </div>
       <div id="grid" class="grid"></div>
       <div class="center" style="margin:12px 0">
         <button id="loadMoreBtn" class="btn">Load more</button>
@@ -358,21 +327,12 @@ console.info("OkObserver app loaded", APP_VERSION);
     const grid=document.getElementById("grid");
     const loadBtn=document.getElementById("loadMoreBtn");
     const sentinel=document.getElementById("sentinel");
-    const searchBox=document.getElementById("searchBox");
 
     // Local paging state seeded from cache
     let page   = Number(window.__okCache.page||1);
     let totalPages = Number(window.__okCache.totalPages||1);
     let loading=false;
     let nextPage = hasCache ? page+1 : 1;
-
-    // Debounced search → set hash
-    let tId=null;
-    searchBox.addEventListener("input",()=>{
-      const val=searchBox.value.trim();
-      if(tId) clearTimeout(tId);
-      tId=setTimeout(()=>setQueryInHash(val),250);
-    });
 
     async function load(){
       if(loading) return;
@@ -383,7 +343,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       loading=true;
       loadBtn.disabled=true; loadBtn.textContent="Loading…";
       try{
-        const {posts, totalPages:tp}=await fetchPosts({page:nextPage, search:effectiveSearch});
+        const {posts, totalPages:tp}=await fetchPosts({page:nextPage});
         totalPages = Number(tp)||totalPages||1;
 
         const frag=document.createDocumentFragment();
@@ -425,8 +385,8 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     loadBtn.addEventListener("click",load);
 
-    // If returning with cache, render cache and restore scroll; do NOT fetch initially
-    if(hasCache && returning){
+    // If cache exists, render it immediately; only restore scroll if returning
+    if(hasCache){
       const frag=document.createDocumentFragment();
       window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));
       grid.appendChild(frag);
@@ -441,25 +401,27 @@ console.info("OkObserver app loaded", APP_VERSION);
       totalPages = Number(window.__okCache.totalPages||1);
       nextPage = page+1;
 
-      requestAnimationFrame(()=>{
-        sessionStorage.removeItem("__okReturning");
-        const anchorId = window.__okCache.scrollAnchorPostId;
-        if(anchorId){
-          const card=document.querySelector(`.card[data-post-id="${CSS.escape(String(anchorId))}"]`);
-          if(card){
-            const y=Math.max(0, card.getBoundingClientRect().top + window.scrollY - 8);
-            window.scrollTo(0,y);
-            return;
+      if(returning){
+        requestAnimationFrame(()=>{
+          sessionStorage.removeItem("__okReturning");
+          const anchorId = window.__okCache.scrollAnchorPostId;
+          if(anchorId){
+            const card=document.querySelector(`.card[data-post-id="${CSS.escape(String(anchorId))}"]`);
+            if(card){
+              const y=Math.max(0, card.getBoundingClientRect().top + window.scrollY - 8);
+              window.scrollTo(0,y);
+              return;
+            }
           }
-        }
-        window.scrollTo(0, window.__okCache.scrollY||0);
-      });
+          window.scrollTo(0, window.__okCache.scrollY||0);
+        });
+      }
 
       setupInfinite();
-      return; // ← important: skip initial fetch
+      return; // skip initial fetch when we have cache
     }
 
-    // Fresh visit / different search → normal first load
+    // Fresh visit: normal first load
     setupInfinite();
     await load();
   }
