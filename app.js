@@ -316,7 +316,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const hasCache = Array.isArray(window.__okCache.posts) && window.__okCache.posts.length>0;
 
     app.innerHTML=`
-      <h1 style="margin-bottom:10px;">Latest Posts</h1>
+      <h1 style="margin-bottom:10px;">Latest News</h1>
       <div id="grid" class="grid"></div>
       <div class="center" style="margin:12px 0">
         <button id="loadMoreBtn" class="btn">Load more</button>
