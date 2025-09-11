@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.48.0 — non-embeddable video fallback + alignment hardening)
-const APP_VERSION = "v1.48.0";
+// app.js — OkObserver (v1.49.0 — logo, infinite scroll restored, strong first-paragraph fix)
+const APP_VERSION = "v1.49.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -117,10 +117,9 @@ console.info("OkObserver app loaded", APP_VERSION);
   // Convert non-embeddable FB/Vimeo/YT blocks into "Watch on …" buttons and remove empty shells
   function transformEmbeds(root){
     if(!root) return;
-
     const hasPlayable = (node) => !!node.querySelector("iframe, video");
 
-    // Facebook blocks
+    // Facebook-like wrappers
     root.querySelectorAll(".wp-block-embed-facebook, blockquote.fb-xfbml-parse-ignore, blockquote.facebook-video, div.fb-video, .wp-block-embed__wrapper").forEach(box=>{
       if(hasPlayable(box)) return;
       const a = box.querySelector('a[href*="facebook.com/"]');
@@ -169,18 +168,11 @@ console.info("OkObserver app loaded", APP_VERSION);
   function normalizeContent(html){
     const root=document.createElement("div");
     root.innerHTML=html||"";
-
-    // Quick prune: remove fully-empty wrappers
     root.querySelectorAll(["figure.wp-block-embed","div.wp-block-embed",".wp-block-embed__wrapper"].join(",")).forEach(c=>{
       if(!c.querySelector("iframe,a,img,video") && !c.textContent.trim()) c.remove();
     });
-
-    // Fix lazy images first
     deLazyImages(root);
-
-    // Transform non-embeddable video/social blocks into a clean fallback
     transformEmbeds(root);
-
     return root.innerHTML;
   }
 
@@ -251,7 +243,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     return res.json();
   }
 
-  // Post card
   function buildCardElement(p){
     let media=featuredImage(p)||firstImgFromHTML(p.excerpt?.rendered)||"";
     const author=esc(getAuthor(p));
@@ -311,10 +302,13 @@ console.info("OkObserver app loaded", APP_VERSION);
       <div id="grid" class="grid"></div>
       <div class="center" style="margin:12px 0">
         <button id="loadMoreBtn" class="btn">Load more</button>
-      </div>`;
+      </div>
+      <div id="sentinel" style="height:1px;"></div>
+    `;
 
     const grid=document.getElementById("grid");
     const loadBtn=document.getElementById("loadMoreBtn");
+    const sentinel=document.getElementById("sentinel");
 
     let page=1;let totalPages=1;let loading=false;
 
@@ -340,9 +334,22 @@ console.info("OkObserver app loaded", APP_VERSION);
       }finally{loading=false;}
     }
 
+    function setupInfinite(){
+      if(!("IntersectionObserver" in window) || !sentinel) return;
+      const obs=new IntersectionObserver((entries)=>{
+        for(const entry of entries){
+          if(entry.isIntersecting && !loading && page<=totalPages){
+            load();
+          }
+        }
+      }, { rootMargin:"600px 0px 600px 0px" });
+      obs.observe(sentinel);
+    }
+
     loadBtn.addEventListener("click",load);
     document.getElementById("searchBox").addEventListener("change",e=>{setQueryInHash(e.target.value);});
     await load();
+    setupInfinite();
 
     if(hasCache&&returning){sessionStorage.removeItem("__okReturning");restoreHomeScroll();}
   }
@@ -373,7 +380,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       function scrubAlignTree(root){
         if(!root) return;
 
-        // Replace deprecated <center> with <div>
         root.querySelectorAll("center").forEach(c=>{
           const div=document.createElement("div");div.innerHTML=c.innerHTML;c.replaceWith(div);
         });
@@ -409,7 +415,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       }
       scrubAlignTree(contentWrapper);
 
-      // Tame images
       contentWrapper.querySelectorAll("img").forEach(img=>{
         img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
         img.loading="lazy";img.decoding="async";

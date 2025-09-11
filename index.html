@@ -58,13 +58,25 @@
       margin:12px 0;
     }
     .video-fallback .btn { margin-top:6px; }
+
+    header img { max-width: 100%; height: 54px; object-fit: contain; }
+    @media (max-width:520px){
+      header img { height: 44px; }
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
-        <div style="font-size:0.9em;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <img
+          alt="The Oklahoma Observer"
+          src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
+          style="height:54px;width:auto;display:block"
+          loading="lazy" decoding="async"
+          onerror="this.style.display='none'"
+        />
+        <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
         <a href="#/" id="nav-home">Home</a>
@@ -84,6 +96,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.48.0" defer></script>
+  <script src="app.js?v=1.49.0" defer></script>
 </body>
 </html>
