@@ -1,30 +1,29 @@
-// app.js — OkObserver (v1.49.1 — "Latest News" title; search removed; back-cache & video fallbacks kept)
-const APP_VERSION = "v1.49.1";
+// app.js — OkObserver (v1.50.0 — perf tuned: preconnect, content-visibility, responsive images, trimmed REST, deferred transforms)
+const APP_VERSION = "v1.50.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
 (() => {
   const BASE = "https://okobserver.org/wp-json/wp/v2";
-  const PER_PAGE = 12;
+  const PER_PAGE = 12; // lower to 10 on very slow phones if desired
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
 
   // Manual scroll restoration so we control it from cache
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
-  // Home-page cache persisted between navigations
+  // Home cache
   window.__okCache = window.__okCache || {
-    posts: [],          // fetched posts (in order)
-    page: 1,            // last page number fetched
-    totalPages: 1,      // total pages from WP header
-    scrollY: 0,         // last window.scrollY on leaving home
-    scrollAnchorPostId: null // id of the card clicked going into detail
+    posts: [],
+    page: 1,
+    totalPages: 1,
+    scrollY: 0,
+    scrollAnchorPostId: null
   };
   function saveHomeCache(){
     try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{}
   }
-  // Rehydrate on load
-  (function(){
+  (function rehydrate(){
     try{
       const raw=sessionStorage.getItem("__okCache");
       if(raw){
@@ -34,13 +33,13 @@ console.info("OkObserver app loaded", APP_VERSION);
     }catch{}
   })();
 
-  // Footer year/version hydrate (if index.html shows them)
+  // Footer hydrate
   window.addEventListener("DOMContentLoaded",()=>{
     const y=document.getElementById("year"); if(y) y.textContent=new Date().getFullYear();
     const v=document.getElementById("appVersion"); if(v) v.textContent=APP_VERSION;
   });
 
-  // Error banner helper
+  // Error banner
   function showError(message){
     const msg=(message&&message.message)?message.message:String(message||"Something went wrong.");
     const div=document.createElement("div");
@@ -48,7 +47,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     div.innerHTML=`<button class="close" aria-label="Dismiss">×</button>${msg}`;
     app.prepend(div);
   }
-  // Dismiss error banners
   document.addEventListener("click",(e)=>{
     const btn=e.target.closest(".error-banner .close");
     if(btn) btn.closest(".error-banner")?.remove();
@@ -86,17 +84,23 @@ console.info("OkObserver app loaded", APP_VERSION);
     return img.getAttribute("data-src")||img.getAttribute("src")||"";
   }
 
-  function featuredImage(p){
+  function featuredSrcsetAndSize(p){
     const m=p?._embedded?.["wp:featuredmedia"]?.[0];
-    if(!m) return "";
+    if(!m) return { src:"", srcset:"", width:null, height:null };
     const sizes=m.media_details?.sizes||{};
-    return (sizes?.["2048x2048"]?.source_url
-      || sizes?.["1536x1536"]?.source_url
-      || sizes?.large?.source_url
-      || sizes?.medium_large?.source_url
-      || sizes?.medium?.source_url
-      || m.source_url
-      || "");
+    const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    const list=[];
+    for(const k of order){
+      const s=sizes[k];
+      if(s?.source_url && s?.width) list.push(`${s.source_url} ${s.width}w`);
+    }
+    const best = sizes["2048x2048"] || sizes["1536x1536"] || sizes.large || sizes.medium_large || sizes.medium || null;
+    return {
+      src: (best?.source_url || m.source_url || ""),
+      srcset: list.join(", "),
+      width: (best?.width || m.media_details?.width || null),
+      height:(best?.height|| m.media_details?.height|| null)
+    };
   }
 
   function hardenLinks(root){
@@ -200,7 +204,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return root.innerHTML;
   }
 
-  // ===== About page =====
+  // ===== About page (fetched live, then tidied) =====
   async function fetchAboutPage(){
     const url=`${BASE}/pages?slug=contact-about-donate&_embed=1`;
     const res=await fetch(url,{credentials:"omit"});
@@ -253,9 +257,13 @@ console.info("OkObserver app loaded", APP_VERSION);
       mount.innerHTML=`<div class="error-banner"><button class="close">×</button>Couldn't load About page: ${e.message}</div>`;
     }
   }
-  // ===== API =====
+  // ===== API (trimmed fields for smaller payloads) =====
   async function fetchPosts({page=1}={}){
-    const url=`${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}`;
+    const fields = [
+      "id","date","title","excerpt",
+      "_embedded.wp:featuredmedia","_embedded.author"
+    ].join(",");
+    const url=`${BASE}/posts?_embed=1&_fields=${encodeURIComponent(fields)}&per_page=${PER_PAGE}&page=${page}`;
     const res=await fetch(url,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const totalPages=Number(res.headers.get("X-WP-TotalPages")||"1");
@@ -264,21 +272,34 @@ console.info("OkObserver app loaded", APP_VERSION);
   }
 
   async function fetchPost(id){
-    const res=await fetch(`${BASE}/posts/${id}?_embed=1`,{credentials:"omit"});
+    const fields = [
+      "id","date","title","content",
+      "_embedded.wp:featuredmedia","_embedded.author"
+    ].join(",");
+    const res=await fetch(`${BASE}/posts/${id}?_embed=1&_fields=${encodeURIComponent(fields)}`,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
   // Post card
   function buildCardElement(p){
-    let media=featuredImage(p)||firstImgFromHTML(p.excerpt?.rendered)||"";
+    const art=featuredSrcsetAndSize(p);
     const author=esc(getAuthor(p));
     const date=ordinalDate(p.date);
     const el=document.createElement("div");
     el.className="card";
     el.dataset.postId=p.id;
+    const thumbHtml = art.src ? `
+      <a href="#/post/${p.id}">
+        <img class="thumb"
+             src="${art.src}"
+             ${art.srcset ? `srcset="${art.srcset}" sizes="(min-width: 1100px) 360px, (min-width: 700px) 45vw, 90vw"` : ""}
+             ${art.width ? `width="${art.width}"` : ""}
+             ${art.height ? `height="${art.height}"` : ""}
+             loading="lazy" decoding="async" alt="">
+      </a>` : `<a href="#/post/${p.id}"><div class="thumb"></div></a>`;
     el.innerHTML=`
-      ${media?`<a href="#/post/${p.id}"><img class="thumb" src="${media}" alt="" loading="lazy" decoding="async"></a>`:`<a href="#/post/${p.id}"><div class="thumb"></div></a>`}
+      ${thumbHtml}
       <div class="card-body">
         <h2 class="title"><a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">${p.title.rendered}</a></h2>
         <div class="meta-author-date">
@@ -294,19 +315,10 @@ console.info("OkObserver app loaded", APP_VERSION);
     return el;
   }
 
-  function restoreHomeScroll(){
-    const cache=window.__okCache||{};
-    const targetId=cache.scrollAnchorPostId; const targetY=cache.scrollY||0;
-    requestAnimationFrame(()=>{
-      if(targetId){
-        const card=document.querySelector(`.card[data-post-id="${CSS.escape(String(targetId))}"]`);
-        if(card){
-          const y=Math.max(0, card.getBoundingClientRect().top + window.scrollY - 8);
-          window.scrollTo(0,y);
-          return;
-        }
-      }
-      window.scrollTo(0,targetY);
+  function prioritizeFirstThumbs(){
+    [...document.querySelectorAll('.grid .card img.thumb')].slice(0,3).forEach(img=>{
+      img.setAttribute('fetchpriority','high');
+      img.loading='eager';
     });
   }
 
@@ -328,7 +340,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     const loadBtn=document.getElementById("loadMoreBtn");
     const sentinel=document.getElementById("sentinel");
 
-    // Local paging state seeded from cache
     let page   = Number(window.__okCache.page||1);
     let totalPages = Number(window.__okCache.totalPages||1);
     let loading=false;
@@ -365,6 +376,10 @@ console.info("OkObserver app loaded", APP_VERSION);
         }else{
           loadBtn.textContent="Load more"; loadBtn.disabled=false;
         }
+
+        // Prioritize first few images after initial paint
+        if(page===1) prioritizeFirstThumbs();
+
       }catch(e){
         showError("Failed to load posts: "+e.message);
         loadBtn.textContent="Retry"; loadBtn.disabled=false;
@@ -385,7 +400,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     loadBtn.addEventListener("click",load);
 
-    // If cache exists, render it immediately; only restore scroll if returning
     if(hasCache){
       const frag=document.createDocumentFragment();
       window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));
@@ -418,10 +432,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       }
 
       setupInfinite();
-      return; // skip initial fetch when we have cache
+      // Prioritize first thumbs from cache render
+      prioritizeFirstThumbs();
+      return;
     }
 
-    // Fresh visit: normal first load
+    // Fresh visit
     setupInfinite();
     await load();
   }
@@ -448,55 +464,17 @@ console.info("OkObserver app loaded", APP_VERSION);
       const author=esc(getAuthor(p));
       const date=ordinalDate(p.date);
 
-      const raw=p.content?.rendered||"";
-      const normalized=normalizeContent(raw);
-      const contentWrapper=document.createElement("div");
-      contentWrapper.innerHTML=normalized;
+      // Hero (responsive) computed before first paint
+      const art=featuredSrcsetAndSize(p);
+      const heroBlock = art.src ? `
+        <img class="hero"
+             src="${art.src}"
+             ${art.srcset ? `srcset="${art.srcset}" sizes="100vw"` : ""}
+             ${art.width ? `width="${art.width}"` : ""}
+             ${art.height ? `height="${art.height}"` : ""}
+             loading="lazy" decoding="async" alt="">` : "";
 
-      // Alignment scrub (handles !important, classes, align attrs, ancestors)
-      function scrubAlignTree(root){
-        if(!root) return;
-        // Replace <center>
-        root.querySelectorAll("center").forEach(c=>{const d=document.createElement("div"); d.innerHTML=c.innerHTML; c.replaceWith(d);});
-        const SELECTORS="p, div, li, h1, h2, h3, h4, section, article, span, strong, em, figure, figcaption, table, thead, tbody, tfoot, tr, td, th, blockquote";
-        root.querySelectorAll(SELECTORS).forEach(el=>{
-          const style=(el.getAttribute("style")||"");
-          if(/text-align\s*:\s*(center|right)/i.test(style)){
-            el.setAttribute("style", style.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,"").trim());
-            el.style.setProperty("text-align","left","important");
-          }
-        });
-        root.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
-          el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
-          el.style.setProperty("text-align","left","important");
-        });
-        root.querySelectorAll("[align]").forEach(el=>{
-          const a=(el.getAttribute("align")||"").toLowerCase();
-          if(a==="center"||a==="right"){ el.removeAttribute("align"); el.style.setProperty("text-align","left","important"); }
-        });
-        const firstTextBlock = Array.from(root.querySelectorAll("p, div, section, article, blockquote, table"))
-          .find(el => (el.textContent || "").replace(/\u00A0/g," ").trim().length > 0);
-        if(firstTextBlock){
-          let node=firstTextBlock;
-          while(node && node!==root){
-            node.style.setProperty("text-align","left","important");
-            const st=(node.getAttribute("style")||"");
-            if(/text-align/i.test(st)) node.setAttribute("style", st.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,""));
-            node=node.parentElement;
-          }
-        }
-      }
-      scrubAlignTree(contentWrapper);
-
-      // Images behave
-      contentWrapper.querySelectorAll("img").forEach(img=>{
-        img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
-        img.loading="lazy";img.decoding="async";
-      });
-
-      const heroUrl=featuredImage(p)||firstImgFromHTML(contentWrapper.innerHTML)||"";
-      const heroBlock=heroUrl?`<img class="hero" src="${heroUrl}" alt="" loading="lazy" decoding="async">`:"";
-
+      // Render fast shell first
       app.innerHTML=`
         <article class="post">
           <p><a href="#/" class="btn back-link" style="margin-bottom:12px">← Back to posts</a></p>
@@ -506,7 +484,7 @@ console.info("OkObserver app loaded", APP_VERSION);
             <span class="date">${date}</span>
           </div>
           ${heroBlock}
-          <div class="content">${contentWrapper.innerHTML}</div>
+          <div class="content"><p>Loading content…</p></div>
           <p><a href="#/" class="btn back-link" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
 
@@ -520,21 +498,67 @@ console.info("OkObserver app loaded", APP_VERSION);
         });
       });
 
-      // Final computed-style enforcement
-      (function enforceComputedLeft(){
-        const root=document.querySelector(".post .content");
-        if(!root) return;
-        root.querySelectorAll("p, div, li, h1, h2, h3, h4, section, article, span, strong, em, figure, figcaption, table, thead, tbody, tfoot, tr, td, th, blockquote")
-          .forEach(el=>{
-            const ta=(getComputedStyle(el).textAlign||"").toLowerCase();
-            if(ta==="center"||ta==="right") el.style.setProperty("text-align","left","important");
+      const runHeavy = () => {
+        const raw=p.content?.rendered||"";
+        const normalized=normalizeContent(raw);
+        const wrapper=document.createElement("div");
+        wrapper.innerHTML=normalized;
+
+        // Alignment scrub
+        (function scrubAlignTree(root){
+          if(!root) return;
+          root.querySelectorAll("center").forEach(c=>{const d=document.createElement("div"); d.innerHTML=c.innerHTML; c.replaceWith(d);});
+          const SELECTORS="p, div, li, h1, h2, h3, h4, section, article, span, strong, em, figure, figcaption, table, thead, tbody, tfoot, tr, td, th, blockquote";
+          root.querySelectorAll(SELECTORS).forEach(el=>{
+            const style=(el.getAttribute("style")||"");
+            if(/text-align\s*:\s*(center|right)/i.test(style)){
+              el.setAttribute("style", style.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,"").trim());
+              el.style.setProperty("text-align","left","important");
+            }
           });
-      })();
+          root.querySelectorAll(".has-text-align-center, .has-text-align-right, .aligncenter, .alignright").forEach(el=>{
+            el.classList.remove("has-text-align-center","has-text-align-right","aligncenter","alignright");
+            el.style.setProperty("text-align","left","important");
+          });
+          root.querySelectorAll("[align]").forEach(el=>{
+            const a=(el.getAttribute("align")||"").toLowerCase();
+            if(a==="center"||a==="right"){ el.removeAttribute("align"); el.style.setProperty("text-align","left","important"); }
+          });
+          const firstTextBlock = Array.from(root.querySelectorAll("p, div, section, article, blockquote, table"))
+            .find(el => (el.textContent || "").replace(/\u00A0/g," ").trim().length > 0);
+          if(firstTextBlock){
+            let node=firstTextBlock;
+            while(node && node!==root){
+              node.style.setProperty("text-align","left","important");
+              const st=(node.getAttribute("style")||"");
+              if(/text-align/i.test(st)) node.setAttribute("style", st.replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,""));
+              node=node.parentElement;
+            }
+          }
+        })(wrapper);
 
-      const heroImg=document.querySelector(".post img.hero");
-      if(heroImg){ heroImg.addEventListener("error",()=>heroImg.remove(),{once:true}); }
+        // Images behave
+        wrapper.querySelectorAll("img").forEach(img=>{
+          img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
+          img.loading="lazy";img.decoding="async";
+        });
 
-      hardenLinks(document.querySelector(".post"));
+        const mount=document.querySelector(".post .content");
+        if(mount) mount.innerHTML = wrapper.innerHTML;
+
+        hardenLinks(document.querySelector(".post"));
+
+        // Remove broken hero if it fails
+        const heroImg=document.querySelector(".post img.hero");
+        if(heroImg){ heroImg.addEventListener("error",()=>heroImg.remove(),{once:true}); }
+      };
+
+      if("requestIdleCallback" in window){
+        requestIdleCallback(runHeavy,{timeout:1200});
+      }else{
+        setTimeout(runHeavy,0);
+      }
+
     }catch(e){
       app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
     }

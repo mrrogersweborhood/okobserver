@@ -3,10 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>OkObserver — Posts</title>
+  <title>OkObserver — News</title>
+
+  <!-- Performance: warm up connections to WP -->
+  <link rel="preconnect" href="https://okobserver.org" crossorigin>
+  <link rel="dns-prefetch" href="https://okobserver.org">
+
   <style>
     :root{--primary:#ffffff;--secondary:#1E90FF}
-    body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111;overflow-x:hidden}
+    body {margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
     header {background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
     .container{max-width:1100px;margin:0 auto;padding:18px}
     .container.nav {display:flex;align-items:center;gap:14px;padding:12px 18px}
@@ -18,65 +23,38 @@
     footer {background:#f3f3f3;font-size:.85em}
     .center {text-align:center}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-    .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
-    .thumb{width:100%;height:auto;max-height:180px;object-fit:contain;background:#f0f0f0;cursor:pointer;display:block}
+    .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;
+      /* Performance: avoid rendering off-screen content until needed */
+      content-visibility:auto;contain-intrinsic-size:300px 420px;}
+    .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
     .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
     .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
     .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+    .meta-author-date .date{color:#000;font-weight:normal}
     .excerpt{font-size:.9em;color:#333}
     .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
     .btn:hover:not([disabled]){background:#0066cc}
     .post h1{margin-top:0;color:var(--secondary)}
     .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
-    .post .hero{display:block;width:100%;height:auto;max-height:80vh;object-fit:contain;margin:16px 0;border-radius:10px}
+    .post .meta-author-date .date{color:#000;font-weight:normal}
+    .post .hero{width:100%;max-height:420px;object-fit:contain;margin:16px 0;border-radius:10px}
+    .post .content{content-visibility:auto;contain-intrinsic-size:800px;}
     .tags{margin-top:12px;font-size:.85em}
     .tag-chip{display:inline-block;background:var(--secondary);color:#fff;padding:3px 8px;margin:0 6px 6px 0;border-radius:12px;font-size:.8em;text-decoration:none}
     .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
     .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
     .error-banner .close:hover{opacity:.8}
-
-    /* Force first block left-aligned */
-    .post .content > :first-child,
-    .post .content > :first-child * { text-align:left !important; }
-
-    /* Collapse ghost WP embed wrappers that end up empty */
-    .wp-block-embed:empty,
-    .wp-block-embed iframe:empty,
-    .wp-block-embed__wrapper:empty {
-      display: none !important;
-    }
-
-    /* Fallback card for non-embeddable videos */
-    .video-fallback {
-      display:block;
-      background:#f5f7fb;
-      border:1px solid #e3e7ef;
-      border-radius:10px;
-      padding:14px;
-      text-align:center;
-      margin:12px 0;
-    }
-    .video-fallback .btn { margin-top:6px; }
-
-    header img { max-width: 100%; height: 54px; object-fit: contain; }
-    @media (max-width:520px){
-      header img { height: 44px; }
-    }
+    /* Prevent sideways scroll on mobile */
+    html,body{max-width:100%;overflow-x:hidden}
+    img,video{max-width:100%;height:auto}
   </style>
 </head>
 <body>
   <header>
     <div class="container nav">
       <div class="brand">
-        <img
-          alt="The Oklahoma Observer"
-          src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-          style="height:54px;width:auto;display:block"
-          loading="lazy" decoding="async"
-          onerror="this.style.display='none'"
-        />
-        <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div style="font-size:0.9em;margin-top:4px;">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
       <nav>
         <a href="#/" id="nav-home">Home</a>
@@ -96,6 +74,53 @@
     </div>
   </footer>
 
-  <script src="app.js?v=1.49.0" defer></script>
+  <!-- Minimal inline About renderer and error handling kept small -->
+  <script>
+    function renderAbout(){
+      const app=document.getElementById('app');
+      app.innerHTML=`
+        <article class="post">
+          <h1>About</h1>
+          <p class="center">Loading…</p>
+        </article>`;
+    }
+    function routeHook(){
+      const hash=location.hash||"#/";
+      if(hash==="#/about"){ renderAbout(); }
+    }
+    window.addEventListener('hashchange', routeHook);
+    window.addEventListener('DOMContentLoaded', routeHook);
+
+    // Error banner helper
+    function showError(message) {
+      const host=document.getElementById("app");
+      if(!host) return;
+      const banner=document.createElement("div");
+      banner.className="error-banner";
+      const msg=(message && message.message)?message.message:String(message||"Something went wrong.");
+      banner.innerHTML=`<button class="close" aria-label="Dismiss error" title="Dismiss">×</button>${msg}`;
+      host.prepend(banner);
+    }
+    window.addEventListener("error", (e)=>{ showError(`Runtime error: ${e.message||"Unknown error"}`); });
+    window.addEventListener("unhandledrejection", (e)=>{
+      const msg=e && e.reason && e.reason.message?e.reason.message:String(e && e.reason||"Unknown promise rejection");
+      showError(`Unhandled promise rejection: ${msg}`);
+    });
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.error-banner .close');
+      if (btn) btn.closest('.error-banner')?.remove();
+    });
+
+    // Footer year/version
+    window.addEventListener('DOMContentLoaded', function(){
+      const y = document.getElementById('year'); if (y) y.textContent = new Date().getFullYear();
+      if (window.APP_VERSION) {
+        const v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;
+      }
+    });
+  </script>
+
+  <!-- External app code -->
+  <script src="app.js?v=1.50.0" defer></script>
 </body>
 </html>
