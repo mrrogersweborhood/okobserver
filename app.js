@@ -1,5 +1,5 @@
-// app.js — OkObserver (v1.49.0 — removed search UI/logic; kept back-cache & video fallbacks)
-const APP_VERSION = "v1.49.0";
+// app.js — OkObserver (v1.49.1 — "Latest News" title; search removed; back-cache & video fallbacks kept)
+const APP_VERSION = "v1.49.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
