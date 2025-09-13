@@ -1,7 +1,7 @@
-// app.js — OkObserver (v1.51.0)
-// Perf upgrades: passive listeners, read-through API cache (lists & posts),
-// SWR refresh for detail, keep stable features (thumb fallbacks, back-cache, etc.)
-const APP_VERSION = "v1.51.0";
+// app.js — OkObserver (v1.52.0)
+// Perf & UX: passive listeners, read-through API cache, prefetch on intent/visibility,
+// optimistic detail shell, SWR refresh; keeps all existing features.
+const APP_VERSION = "v1.52.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -26,7 +26,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     page: 1,
     totalPages: 1,
     scrollY: 0,
-    scrollAnchorPostId: null
+    scrollAnchorPostId: null,
+    returningFromDetail: false
   };
   function saveHomeCache(){
     try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{}
@@ -62,7 +63,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // ===== Tiny API cache layer (read-through) =====
   const apiCache = new Map(); // memory cache for this tab
-
   function cacheKey(url){ return `__api:${url}`; }
   function cacheKeyMeta(url){ return `__api:${url}:meta`; }
 
@@ -91,6 +91,21 @@ console.info("OkObserver app loaded", APP_VERSION);
       if(raw) return JSON.parse(raw);
     }catch{}
     return null;
+  }
+
+  // Lightweight summary index so detail can render instantly from list data
+  window.__okSummary = window.__okSummary || new Map(); // id -> {title, author, date, heroHtml}
+
+  // Best-effort prefetch for a post (no UI changes)
+  async function prefetchPost(id){
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    if (getCachedJSON(url)) return; // already cached
+    try {
+      const res = await fetch(url, {credentials: "omit", priority: "high"});
+      if (!res.ok) return;
+      const data = await res.json();
+      setCachedJSON(url, data);
+    } catch {}
   }
 
   // Utils
@@ -323,7 +338,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   async function fetchPost(id){
     const url = `${BASE}/posts/${id}?_embed=1`;
-    // Always fetch from network (ensures freshest detail) and then cache
     const res=await fetch(url,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const item=await res.json();
@@ -338,24 +352,19 @@ console.info("OkObserver app loaded", APP_VERSION);
     const cached = getCachedJSON(url);
     if (cached) {
       try { apply(cached); } catch {}
-      // Fire and forget refresh
       (async()=>{
         try{
           const fresh = await fetchPost(id);
           setCachedJSON(url, fresh);
-          // No auto-apply to avoid UI reflow; we already rendered cached.
         }catch{}
       })();
       return;
     }
-    // No cache? Fetch and apply once
     try{
       const fresh = await fetchPost(id);
       setCachedJSON(url, fresh);
       apply(fresh);
-    }catch(e){
-      throw e;
-    }
+    }catch(e){ throw e; }
   }
 
   // ===== Thumbnail HTML with robust fallbacks =====
@@ -394,8 +403,31 @@ console.info("OkObserver app loaded", APP_VERSION);
     el.className="card";
     el.dataset.postId=p.id;
 
+    // Build thumb once
+    const thumb = thumbHTML(p);
+
+    // Cache a minimal summary for instant detail shell
+    let heroHtml = "";
+    {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = thumb;
+      const img = tmp.querySelector("img.thumb");
+      if (img) {
+        img.classList.remove("thumb");
+        img.classList.add("hero");
+        img.setAttribute("sizes","100vw");
+        heroHtml = tmp.innerHTML;
+      }
+    }
+    window.__okSummary.set(p.id, {
+      title: p.title?.rendered || "",
+      author,
+      date,
+      heroHtml
+    });
+
     el.innerHTML=`
-      ${thumbHTML(p)}
+      ${thumb}
       <div class="card-body">
         <h2 class="title"><a href="#/post/${p.id}" style="color:inherit;text-decoration:none;">${p.title.rendered}</a></h2>
         <div class="meta-author-date">
@@ -405,6 +437,14 @@ console.info("OkObserver app loaded", APP_VERSION);
         <div class="excerpt">${p.excerpt.rendered}</div>
         <a class="btn" href="#/post/${p.id}">Read more</a>
       </div>`;
+
+    // Prefetch on intent (hover/touch) to hide latency
+    el.querySelectorAll('a[href^="#/post/"]').forEach(a=>{
+      const once = { once: true, passive: true };
+      const id = p.id;
+      a.addEventListener("pointerenter", ()=>prefetchPost(id), once);
+      a.addEventListener("touchstart",  ()=>prefetchPost(id), once);
+    });
 
     const t=el.querySelector("img.thumb");
     if(t) t.addEventListener("error",()=>{const a=t.closest("a"); if(a) a.innerHTML=`<div class="thumb"></div>`;},{once:true});
@@ -417,6 +457,22 @@ console.info("OkObserver app loaded", APP_VERSION);
       img.setAttribute('fetchpriority','high');
       img.loading='eager';
     });
+  }
+
+  // Observe cards for visibility-based prefetch
+  function observeCardPrefetch(container){
+    try{
+      const io = new IntersectionObserver((entries, obs)=>{
+        for(const e of entries){
+          if(e.isIntersecting){
+            const id = e.target?.dataset?.postId;
+            if (id) prefetchPost(id);
+            obs.unobserve(e.target);
+          }
+        }
+      }, { rootMargin: "400px 0px" });
+      container.querySelectorAll(".card").forEach(card=>io.observe(card));
+    }catch{}
   }
 
   // ===== Home (no search; back-cache restore) =====
@@ -461,6 +517,9 @@ console.info("OkObserver app loaded", APP_VERSION);
         });
         if(frag.childNodes.length) grid.appendChild(frag);
 
+        // Visibility prefetch for the newly added cards
+        observeCardPrefetch(grid);
+
         page = nextPage;
         nextPage = page+1;
 
@@ -501,6 +560,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       window.__okCache.posts.forEach(p=>frag.appendChild(buildCardElement(p)));
       grid.appendChild(frag);
 
+      // Prefetch for visible cached cards
+      observeCardPrefetch(grid);
+
       if((window.__okCache.page+1) > (window.__okCache.totalPages||1)){
         loadBtn.textContent="No more posts."; loadBtn.disabled=true;
       }else{
@@ -536,7 +598,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     setupInfinite();
     await load();
   }
-  // ===== Detail (uses SWR: render cached immediately when possible) =====
+  // ===== Detail (optimistic shell + SWR: cached-first, silent refresh) =====
   async function renderPost(id){
     // Save current scroll before leaving list
     try{ window.__okCache.scrollY = window.scrollY||0; saveHomeCache(); }catch{}
@@ -547,9 +609,33 @@ console.info("OkObserver app loaded", APP_VERSION);
       sessionStorage.setItem("__okReturning","1");
     }catch{}
 
-    app.innerHTML=`<p class="center">Loading post…</p>`;
+    // Optimistic shell from summary (if available)
+    const sum = window.__okSummary.get(+id) || window.__okSummary.get(id);
+    if (sum) {
+      app.innerHTML = `
+        <article class="post">
+          <p><a href="#/" class="btn back-link" style="margin-bottom:12px">← Back to posts</a></p>
+          <h1>${sum.title}</h1>
+          <div class="meta-author-date">
+            ${sum.author?`<span class="author"><strong>${esc(sum.author)}</strong></span>`:""}
+            <span class="date">${sum.date}</span>
+          </div>
+          ${sum.heroHtml || ""}
+          <div class="content"><p class="center">Loading…</p></div>
+          <p><a href="#/" class="btn back-link" style="margin-top:16px">← Back to posts</a></p>
+        </article>`;
+      document.querySelectorAll('.post a.back-link').forEach(a=>{
+        a.addEventListener('click',(ev)=>{
+          ev.preventDefault();
+          try { sessionStorage.setItem("__okReturning","1"); } catch {}
+          if (history.length > 1) history.back();
+          else location.hash = "#/";
+        });
+      });
+    } else {
+      app.innerHTML = `<p class="center">Loading post…</p>`;
+    }
 
-    // We render via apply() so we can use SWR (cached first, then refresh silently)
     const apply = (p)=>{
       if(!p){ app.innerHTML=`<div class="error-banner"><button class="close">×</button>Post not found.</div>`; return; }
       if(hasExcluded(p)){
@@ -570,7 +656,6 @@ console.info("OkObserver app loaded", APP_VERSION);
              ${art.height ? `height="${art.height}"` : ""}
              loading="lazy" decoding="async" alt="">` : "";
 
-      // Normalize content NOW (sync) so fallbacks/alignments are guaranteed
       const raw=p.content?.rendered||"";
       const normalized=normalizeContent(raw);
       const wrapper=document.createElement("div");
@@ -609,13 +694,27 @@ console.info("OkObserver app loaded", APP_VERSION);
         }
       })(wrapper);
 
-      // Images behave
       wrapper.querySelectorAll("img").forEach(img=>{
         img.style.display="block";img.style.margin="16px auto";img.style.float="none";img.style.clear="both";
         img.loading="lazy";img.decoding="async";
       });
 
-      // Render final page
+      // If we already drew an optimistic shell, only swap the content area + hero (prevents reflow)
+      const contentHost = document.querySelector(".post .content");
+      const heroHost = document.querySelector(".post img.hero");
+      if (contentHost) {
+        contentHost.innerHTML = wrapper.innerHTML;
+        if (!heroHost && heroBlock) {
+          const meta = document.querySelector(".post .meta-author-date");
+          if (meta) meta.insertAdjacentHTML("afterend", heroBlock);
+        }
+        hardenLinks(document.querySelector(".post"));
+        const hi = document.querySelector(".post img.hero");
+        if(hi){ hi.addEventListener("error",()=>hi.remove(),{once:true}); }
+        return;
+      }
+
+      // Fallback: render whole page (first load without optimistic shell)
       app.innerHTML=`
         <article class="post">
           <p><a href="#/" class="btn back-link" style="margin-bottom:12px">← Back to posts</a></p>
@@ -628,8 +727,6 @@ console.info("OkObserver app loaded", APP_VERSION);
           <div class="content">${wrapper.innerHTML}</div>
           <p><a href="#/" class="btn back-link" style="margin-top:16px">← Back to posts</a></p>
         </article>`;
-
-      // Prefer history.back() to preserve cache/scroll; fallback to hash if no history
       document.querySelectorAll('.post a.back-link').forEach(a=>{
         a.addEventListener('click', (ev)=>{
           ev.preventDefault();
@@ -638,15 +735,12 @@ console.info("OkObserver app loaded", APP_VERSION);
           else location.hash = "#/";
         });
       });
-
-      const heroImg=document.querySelector(".post img.hero");
-      if(heroImg){ heroImg.addEventListener("error",()=>heroImg.remove(),{once:true}); }
-
       hardenLinks(document.querySelector(".post"));
     };
 
     try{
-      await swrPost(id, apply); // cached-first, then silent refresh
+      // Cached-first render + silent refresh
+      await swrPost(id, apply);
     }catch(e){
       app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
     }
