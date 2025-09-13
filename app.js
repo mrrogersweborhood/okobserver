@@ -1,18 +1,26 @@
-// app.js — OkObserver (v1.50.2 — summary thumbnails fallback chain restored; stability fixes kept)
-const APP_VERSION = "v1.50.2";
+// app.js — OkObserver (v1.51.0)
+// Perf upgrades: passive listeners, read-through API cache (lists & posts),
+// SWR refresh for detail, keep stable features (thumb fallbacks, back-cache, etc.)
+const APP_VERSION = "v1.51.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
 (() => {
   const BASE = "https://okobserver.org/wp-json/wp/v2";
-  const PER_PAGE = 12; // feel free to lower to 10 on very slow phones
+  const PER_PAGE = 12; // lower to 10 on very slow phones if desired
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
+
+  // Passive listeners = cheaper scrolling on mobile; no behavior change
+  try {
+    window.addEventListener("touchstart", () => {}, { passive: true });
+    window.addEventListener("wheel", () => {}, { passive: true });
+  } catch {}
 
   // Manual scroll restoration so we control it from cache
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
-  // Home cache
+  // Home cache (UI state)
   window.__okCache = window.__okCache || {
     posts: [],
     page: 1,
@@ -51,6 +59,39 @@ console.info("OkObserver app loaded", APP_VERSION);
     const btn=e.target.closest(".error-banner .close");
     if(btn) btn.closest(".error-banner")?.remove();
   });
+
+  // ===== Tiny API cache layer (read-through) =====
+  const apiCache = new Map(); // memory cache for this tab
+
+  function cacheKey(url){ return `__api:${url}`; }
+  function cacheKeyMeta(url){ return `__api:${url}:meta`; }
+
+  function getCachedJSON(url){
+    if(apiCache.has(url)) return apiCache.get(url);
+    try{
+      const raw = sessionStorage.getItem(cacheKey(url));
+      if(raw){
+        const val = JSON.parse(raw);
+        apiCache.set(url, val);
+        return val;
+      }
+    }catch{}
+    return null;
+  }
+  function setCachedJSON(url, data, meta){
+    apiCache.set(url, data);
+    try{ sessionStorage.setItem(cacheKey(url), JSON.stringify(data)); }catch{}
+    if(meta){
+      try{ sessionStorage.setItem(cacheKeyMeta(url), JSON.stringify(meta)); }catch{}
+    }
+  }
+  function getCachedMeta(url){
+    try{
+      const raw = sessionStorage.getItem(cacheKeyMeta(url));
+      if(raw) return JSON.parse(raw);
+    }catch{}
+    return null;
+  }
 
   // Utils
   const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -257,20 +298,64 @@ console.info("OkObserver app loaded", APP_VERSION);
       mount.innerHTML=`<div class="error-banner"><button class="close">×</button>Couldn't load About page: ${e.message}</div>`;
     }
   }
-  // ===== API (REST: full payloads for stability) =====
+  // ===== API (lists cached with headers; post detail cached; SWR for detail) =====
   async function fetchPosts({page=1}={}){
     const url=`${BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}`;
+
+    // Try cached first (data + cached totalPages meta)
+    const cached = getCachedJSON(url);
+    const meta   = getCachedMeta(url);
+    if (cached && meta && typeof meta.totalPages === "number") {
+      return { posts: cached.filter(p=>!hasExcluded(p)), totalPages: meta.totalPages };
+    }
+
+    // Network fetch (need headers for total pages)
     const res=await fetch(url,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const totalPages=Number(res.headers.get("X-WP-TotalPages")||"1");
     const items=await res.json();
-    return {posts:items.filter(p=>!hasExcluded(p)), totalPages};
+
+    // Write-through cache
+    setCachedJSON(url, items, { totalPages });
+
+    return { posts: items.filter(p=>!hasExcluded(p)), totalPages };
   }
 
   async function fetchPost(id){
-    const res=await fetch(`${BASE}/posts/${id}?_embed=1`,{credentials:"omit"});
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    // Always fetch from network (ensures freshest detail) and then cache
+    const res=await fetch(url,{credentials:"omit"});
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    const item=await res.json();
+    setCachedJSON(url, item);
+    return item;
+  }
+
+  // Stale-while-revalidate helper for detail:
+  // apply(cached) immediately if present, then refresh in background
+  async function swrPost(id, apply){
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    const cached = getCachedJSON(url);
+    if (cached) {
+      try { apply(cached); } catch {}
+      // Fire and forget refresh
+      (async()=>{
+        try{
+          const fresh = await fetchPost(id);
+          setCachedJSON(url, fresh);
+          // No auto-apply to avoid UI reflow; we already rendered cached.
+        }catch{}
+      })();
+      return;
+    }
+    // No cache? Fetch and apply once
+    try{
+      const fresh = await fetchPost(id);
+      setCachedJSON(url, fresh);
+      apply(fresh);
+    }catch(e){
+      throw e;
+    }
   }
 
   // ===== Thumbnail HTML with robust fallbacks =====
@@ -451,7 +536,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     setupInfinite();
     await load();
   }
-  // ===== Detail =====
+  // ===== Detail (uses SWR: render cached immediately when possible) =====
   async function renderPost(id){
     // Save current scroll before leaving list
     try{ window.__okCache.scrollY = window.scrollY||0; saveHomeCache(); }catch{}
@@ -463,8 +548,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     }catch{}
 
     app.innerHTML=`<p class="center">Loading post…</p>`;
-    try{
-      const p=await fetchPost(id);
+
+    // We render via apply() so we can use SWR (cached first, then refresh silently)
+    const apply = (p)=>{
       if(!p){ app.innerHTML=`<div class="error-banner"><button class="close">×</button>Post not found.</div>`; return; }
       if(hasExcluded(p)){
         app.innerHTML=`<div class="error-banner"><button class="close">×</button>This post is not available.</div>`;
@@ -557,6 +643,10 @@ console.info("OkObserver app loaded", APP_VERSION);
       if(heroImg){ heroImg.addEventListener("error",()=>heroImg.remove(),{once:true}); }
 
       hardenLinks(document.querySelector(".post"));
+    };
+
+    try{
+      await swrPost(id, apply); // cached-first, then silent refresh
     }catch(e){
       app.innerHTML=`<div class="error-banner"><button class="close">×</button>Error loading post: ${e.message}</div>`;
     }
