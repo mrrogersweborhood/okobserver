@@ -6,7 +6,7 @@
 <title>OkObserver — Latest News</title>
 <style>
   :root{--primary:#ffffff;--secondary:#1E90FF}
-  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111;overflow-x:hidden}
   header{background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
   .container{max-width:1100px;margin:0 auto;padding:18px}
   .container.nav{display:flex;align-items:center;gap:14px;padding:12px 18px}
@@ -32,7 +32,7 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
-  .post .content p { text-align:left !important; margin-left:0 !important; }
+  .post .content p { text-align:left !important; margin-left:0 !important; text-indent:0 !important; }
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
   .error-banner .close:hover{opacity:.8}
@@ -59,6 +59,6 @@
     <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
   </div>
 </footer>
-<script src="app.js?v=1.53" defer></script>
+<script src="app.js?v=1.54" defer></script>
 </body>
 </html>
