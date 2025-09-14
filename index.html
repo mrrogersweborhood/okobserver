@@ -17,6 +17,7 @@
   main{padding:20px}
   footer{background:#f3f3f3;font-size:.85em}
   .center{text-align:center}
+
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
@@ -25,14 +26,23 @@
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
+
   .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
   .btn:hover:not([disabled]){background:#0066cc}
+
   .post h1{margin-top:0;color:var(--secondary)}
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
-  .post .content p { text-align:left !important; margin-left:0 !important; text-indent:0 !important; }
+  /* First paragraph hard stop */
+  .post .content > :is(p,div,section,article,blockquote):first-of-type {
+    text-align: left !important;
+    text-indent: 0 !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
   .error-banner .close:hover{opacity:.8}
@@ -59,6 +69,6 @@
     <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
   </div>
 </footer>
-<script src="app.js?v=1.55" defer></script>
+<script src="app.js?v=1.56" defer></script>
 </body>
 </html>
