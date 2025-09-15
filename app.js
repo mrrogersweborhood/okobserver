@@ -135,7 +135,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // De-lazy images and fix embeds
   function deLazyImages(root){
     if(!root) return;
     root.querySelectorAll("img").forEach(img=>{
@@ -262,9 +261,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
 
-  // (rest of app: buildCardElement, renderHome, renderPost, routeHook...)
-  // [Unchanged from previous v1.56 release]
+  // … remainder of app code (renderHome, renderPost, routing) unchanged …
   // The remaining functions (buildCardElement, renderHome, renderPost, routeHook)
-  // remain unchanged from the previous v1.56 you already pasted.
-  // Copy them from your existing file if needed—they work with the updated normalizeFirstParagraph.
+  // are the same as your previous working v1.56.
+  // Ensure the file ends with:
 })();
