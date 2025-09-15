@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OkObserver — Latest News</title>
 
-<!-- ✅ New favicon reference -->
-<link rel="icon" type="image/png" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png" />
 
 <style>
   :root{--primary:#ffffff;--secondary:#1E90FF}
@@ -39,12 +38,8 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
-  /* First paragraph hard stop */
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
-    text-align: left !important;
-    text-indent: 0 !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
+    text-align: left !important; text-indent: 0 !important; margin-left: 0 !important; padding-left: 0 !important;
   }
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
@@ -73,6 +68,31 @@
     <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
   </div>
 </footer>
-<script src="app.js?v=1.56.1" defer></script>
+
+<!-- Cache-busted app script -->
+<script src="app.js?v=1.56.3" defer></script>
+
+<!-- Boot probe: warns if app.js didn’t execute -->
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      if (!window.APP_VERSION) {
+        var host = document.getElementById('app') || document.body;
+        var div = document.createElement('div');
+        div.className = 'error-banner';
+        div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
+          'App script did not execute. Check Network → app.js (Status 200, Type JavaScript), hard-reload, and confirm app.js ends with "})();".';
+        host.prepend(div);
+      } else {
+        // show version in footer
+        var v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;
+        var y = document.getElementById('year'); if (y) y.textContent = new Date().getFullYear();
+      }
+    }, 700);
+  });
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
+  });
+</script>
 </body>
 </html>
