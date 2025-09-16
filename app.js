@@ -5,7 +5,7 @@ window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
 (() => {
-  const BASE = "https://okobserver.org/wp-json/wp/v2";
+  const BASE = "https://techcrunch.com/wp-json/wp/v2";
   const PER_PAGE = 12;
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
