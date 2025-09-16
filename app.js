@@ -263,5 +263,114 @@ console.info("OkObserver app loaded", APP_VERSION);
   // … remainder of app code (renderHome, renderPost, routing) unchanged …
   // The remaining functions (buildCardElement, renderHome, renderPost, routeHook)
   // are the same as your previous working v1.56.3 build.
+// --- START: ADD THIS MISSING CODE ---
 
+  /**
+   * Creates an HTML element for a single post card.
+   */
+  function buildCardElement(post) {
+    const card = document.createElement("a");
+    card.className = "card";
+    card.href = `#/post/${post.id}`;
+    card.dataset.id = post.id;
+    card.onclick = () => { window.__okCache.scrollAnchorPostId = post.id; };
+
+    const { src } = featuredSrcsetAndSize(post);
+    const author = getAuthor(post);
+    const date = ordinalDate(post.date);
+    const excerpt = post.excerpt?.rendered.replace(/<[^>]+>/g, '') || '';
+
+    card.innerHTML = `
+      <img src="${esc(src)}" alt="${esc(post.title.rendered)}" class="thumb" loading="lazy" decoding="async" />
+      <div class="card-body">
+        <h3 class="title">${post.title.rendered}</h3>
+        <div class="meta-author-date">
+          <strong class="author">${esc(author)}</strong>
+          <span class="date">${date}</span>
+        </div>
+        <p class="excerpt">${excerpt}</p>
+      </div>
+    `;
+    return card;
+  }
+
+  /**
+   * Fetches posts and renders the home page grid.
+   */
+  async function renderHome() {
+    app.innerHTML = `<p class="center">Loading…</p>`;
+    try {
+      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
+      const res = await fetch(url, { credentials: "omit" });
+      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+      const posts = await res.json();
+
+      app.innerHTML = ""; // Clear loading message
+      const grid = document.createElement("div");
+      grid.className = "grid";
+
+      posts.forEach(post => {
+        if (hasExcluded(post)) return;
+        const card = buildCardElement(post);
+        grid.appendChild(card);
+      });
+      app.appendChild(grid);
+
+    } catch (err) {
+      showError(err);
+      app.innerHTML = ""; // Clear loading message on error too
+    }
+  }
+  
+  /**
+   * Renders a single post page. (Placeholder)
+   */
+  async function renderPost(id) {
+    app.innerHTML = `<p class="center">Loading post...</p>`;
+    // This is a placeholder. You would fetch a single post here.
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Post not found');
+        const post = await res.json();
+        const { src, width, height } = featuredSrcsetAndSize(post);
+        const author = getAuthor(post);
+        const date = ordinalDate(post.date);
+        
+        app.innerHTML = `
+            <div class="post">
+                <h1>${post.title.rendered}</h1>
+                <div class="meta-author-date">
+                    <strong class="author">${esc(author)}</strong>
+                    <span class="date">${date}</span>
+                </div>
+                ${src ? `<img src="${esc(src)}" width="${width}" height="${height}" class="hero" />` : ''}
+                <div class="content">${normalizeContent(post.content.rendered)}</div>
+                <p><a href="#/">&laquo; Back to Home</a></p>
+            </div>
+        `;
+        hardenLinks(app);
+    } catch(err) {
+        showError(err);
+    }
+  }
+
+  /**
+   * Main router to decide which page to show.
+   */
+  function router() {
+    const hash = window.location.hash || "#/";
+    if (hash.startsWith("#/post/")) {
+      const id = hash.split("/")[2];
+      renderPost(id);
+    } else {
+      renderHome();
+    }
+  }
+
+  // Add event listeners and kick off the router on initial load
+  window.addEventListener("hashchange", router);
+  window.addEventListener("DOMContentLoaded", router);
+
+  // --- END: ADD THIS MISSING CODE ---
 })();
