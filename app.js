@@ -185,44 +185,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     transformEmbeds(root);
     return root.innerHTML;
   }
-  function normalizeFirstParagraph(root){
-    if(!root) return;
-    const blocks = root.querySelectorAll("p, div, section, article, blockquote");
-    let firstBlock = null;
-    for (const el of blocks) {
-      const txt = (el.textContent || "").replace(/\u00A0/g, " ").trim();
-      if (txt.length > 0) { firstBlock = el; break; }
-    }
-    if (!firstBlock) return;
-    (function stripLeading(node){
-      while (node.firstChild) {
-        const n = node.firstChild;
-        if (n.nodeType === 1) {
-          const tag = n.tagName.toLowerCase();
-          if (tag === "br") { n.remove(); continue; }
-          const txt = (n.textContent || "").replace(/\u00A0/g," ").trim();
-          if (txt.length === 0 && ["span","strong","em","b","i","u","font"].includes(tag)) { n.remove(); continue; }
-          break;
-        } else if (n.nodeType === 3) {
-          const t = (n.nodeValue || "").replace(/\u00A0/g," ");
-          const trimmed = t.replace(/^\s+/, "");
-          if (trimmed.length !== t.length) { n.nodeValue = trimmed; break; }
-          if (trimmed.length === 0) { n.remove(); continue; }
-          break;
-        } else { n.remove(); }
-      }
-      const html = node.innerHTML || "";
-      node.innerHTML = html
-        .replace(/^(\s|&nbsp;|&#160;)+/i, "")
-        .replace(/^<span[^>]*>(\s|&nbsp;|&#160;)+<\/span>/i, "");
-    })(firstBlock);
-
-    const scrubStyle = (s="") => s
-      .replace(/text-align\s*:\s*(center|right)\s*!?\s*;?/ig,"")
-      .replace(/text-indent\s*:\s*[^;]+;?/ig,"")
-      .replace(/margin-left\s*:\s*[^;]+;?/ig,"")
-      .replace(/padding-left\s*:\s*[^;]+;?/ig,"")
-      .replace(/\bmargin\s*:\s*[^;]+;?/ig,"")
       .replace(/display\s*:\s*inline-block\s*;?/ig,"")
       .replace(/margin\s*:\s*0\s*auto\s*;?/ig,"")
       .trim();
@@ -261,7 +223,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   }
 
   // … remainder of app code (renderHome, renderPost, routing) unchanged …
-  // Remaining functions: buildCardElement, renderHome, renderPost, routeHook,
-  // plus event listeners for hashchange/DOMContentLoaded.
-  // Make sure this file ends cleanly:
+  // The remaining functions (buildCardElement, renderHome, renderPost, routeHook)
+  // are the same as your previous working v1.56.3 build.
+
 })();
