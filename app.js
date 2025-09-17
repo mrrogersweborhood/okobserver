@@ -269,31 +269,33 @@ console.info("OkObserver app loaded", APP_VERSION);
    * Creates an HTML element for a single post card.
    */
   function buildCardElement(post) {
-    const card = document.createElement("a");
-    card.className = "card";
-    card.href = `#/post/${post.id}`;
-    card.dataset.id = post.id;
-    card.onclick = () => { window.__okCache.scrollAnchorPostId = post.id; };
+  const card = document.createElement("a");
+  card.className = "card";
+  card.href = `#/post/${post.id}`;
+  card.dataset.id = post.id;
+  card.onclick = () => { window.__okCache.scrollAnchorPostId = post.id; };
 
-    const { src } = featuredSrcsetAndSize(post);
-    const author = getAuthor(post);
-    const date = ordinalDate(post.date);
-    const excerpt = post.excerpt?.rendered.replace(/<[^>]+>/g, '') || '';
+  // Featured image or first image inside post content
+  const fm = featuredSrcsetAndSize(post);
+  const fallback = firstImgFromHTML(post.content?.rendered || "");
+  const imgSrc = fm.src || fallback || "";
+  const author = getAuthor(post);
+  const date = ordinalDate(post.date);
+  const excerpt = post.excerpt?.rendered.replace(/<[^>]+>/g, '') || '';
 
-    card.innerHTML = `
-      <img src="${esc(src)}" alt="${esc(post.title.rendered)}" class="thumb" loading="lazy" decoding="async" />
-      <div class="card-body">
-        <h3 class="title">${post.title.rendered}</h3>
-        <div class="meta-author-date">
-          <strong class="author">${esc(author)}</strong>
-          <span class="date">${date}</span>
-        </div>
-        <p class="excerpt">${excerpt}</p>
+  card.innerHTML = `
+    ${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(post.title.rendered)}" class="thumb" loading="lazy" decoding="async" />` : `<div class="thumb" aria-hidden="true"></div>`}
+    <div class="card-body">
+      <h3 class="title">${post.title.rendered}</h3>
+      <div class="meta-author-date">
+        <strong class="author">${esc(author)}</strong>
+        <span class="date">${date}</span>
       </div>
-    `;
-    return card;
-  }
-
+      <p class="excerpt">${excerpt}</p>
+    </div>
+  `;
+  return card;
+}
   /**
    * Fetches posts and renders the home page grid.
    */
@@ -321,7 +323,45 @@ console.info("OkObserver app loaded", APP_VERSION);
       app.innerHTML = ""; // Clear loading message on error too
     }
   }
-  
+  function renderPostShell(){
+  const host = document.getElementById("app");
+  host.innerHTML = `
+    <article class="post" id="postView">
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <a class="btn" id="backTop" href="#/">Back to posts</a>
+      </div>
+
+      <h1 id="pTitle"></h1>
+      <div class="meta-author-date">
+        <span class="author" id="pAuthor" style="font-weight:bold"></span>
+        <span style="margin:0 6px">·</span>
+        <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
+      </div>
+
+      <!-- hero image (hidden by default; shown when we have a src) -->
+      <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
+
+      <!-- full post HTML goes here -->
+      <div class="content" id="pContent"></div>
+
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+        <a class="btn" id="backBottom" href="#/">Back to posts</a>
+      </div>
+    </article>
+  `;
+
+  // back buttons restore the cached list & scroll
+  const goHomeFromDetail = () => {
+    const st = window.__okCache || (window.__okCache = {});
+    st.returningFromDetail = true;
+    st.scrollY = st.scrollY || 0;
+    try { sessionStorage.setItem("__okCache", JSON.stringify(st)); } catch {}
+    location.hash = "#/";
+  };
+  document.getElementById("backTop").addEventListener("click",(e)=>{ e.preventDefault(); goHomeFromDetail(); });
+  document.getElementById("backBottom").addEventListener("click",(e)=>{ e.preventDefault(); goHomeFromDetail(); });
+}
+
   /**
    * Renders a single post page. (Placeholder)
    */
