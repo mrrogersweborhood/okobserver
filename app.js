@@ -438,5 +438,21 @@ console.info("OkObserver app loaded", APP_VERSION);
   window.addEventListener("hashchange", router);
   window.addEventListener("DOMContentLoaded", router);
 
+  
+// Robust delegation for post detail links (works even if other handlers exist)
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a.thumb-link, a.title-link');
+  if (!link) return;
+  const href = link.getAttribute('href') || '';
+  if (href.startsWith('#/post/')) {
+    e.preventDefault();
+    // remember scroll anchor
+    const id = Number(link.dataset.id || '') || null;
+    if (id !== null) { window.__okCache.scrollAnchorPostId = id; }
+    // navigate
+    location.hash = href;
+  }
+});
+
   // --- END: ADD THIS MISSING CODE ---
 })();
