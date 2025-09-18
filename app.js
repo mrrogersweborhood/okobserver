@@ -1,9 +1,9 @@
-// app.js — OkObserver v1.58.2 (stable)
+// app.js — OkObserver v1.58.3 (stable)
 // - HTML entity decoding for excerpts
-// - Bottom-only "Back to posts"
+// - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait
 // - Infinite scroll + multi-page cache
-const APP_VERSION = "v1.58.2";
+const APP_VERSION = "v1.58.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -387,7 +387,8 @@ console.info("OkObserver app loaded", APP_VERSION);
         <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
         <div class="content" id="pContent"></div>
         <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-          <a class="btn" id="backBottom" href="#/">Back to posts</a>
+          <!-- Hidden until content is populated -->
+          <a class="btn" id="backBottom" href="#/" style="display:none">Back to posts</a>
         </div>
       </article>
     `;
@@ -398,12 +399,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
       location.hash = "#/";
     };
-    // Only bottom button remains
+    // Listener can be attached immediately; button is hidden until content is ready
     document.getElementById("backBottom")?.addEventListener("click", goHome);
   }
 
   async function renderPost(id) {
-    // Build shell first so "Back to posts" is present immediately
+    // Build shell first so layout exists (button hidden initially)
     renderPostShell();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
@@ -440,8 +441,16 @@ console.info("OkObserver app loaded", APP_VERSION);
         // (no paywall highlight styling)
         hardenLinks(pContent);
       }
+
+      // Reveal the Back button only after content is ready
+      const backBtn = document.getElementById('backBottom');
+      if (backBtn) backBtn.style.display = '';
+
     } catch (err) {
       showError(err);
+      // If load fails, still allow returning to posts
+      const backBtn = document.getElementById('backBottom');
+      if (backBtn) backBtn.style.display = '';
     }
   }
 
