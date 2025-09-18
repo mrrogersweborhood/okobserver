@@ -329,7 +329,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
   function renderPostShell(){
+  // Remove loader if present (from home infinite scroll)
   try{ const ld=document.getElementById('infiniteLoader'); if(ld) ld.remove(); }catch{}
+
   if (!app) return;
   app.innerHTML = `
     <article class="post" id="postView">
@@ -349,10 +351,13 @@ console.info("OkObserver app loaded", APP_VERSION);
       </div>
     </article>
   `;
+
+  // Simple hash navigation (cache is handled by the click delegate from the grid)
   const goHome = (e)=>{ e?.preventDefault?.(); location.hash = "#/"; };
   document.getElementById("backTop")?.addEventListener("click", goHome);
   document.getElementById("backBottom")?.addEventListener("click", goHome);
 }
+
 
 
   /**
