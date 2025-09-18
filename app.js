@@ -1,4 +1,4 @@
-// app.js — OkObserver v1.58.1 (stable harden)
+// app.js — OkObserver v1.58.1 (no blue-highlight logic)
 const APP_VERSION = "v1.58.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
@@ -132,7 +132,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const blocks = root.querySelectorAll("p, div, section, article, blockquote");
     let firstBlock = null;
     for (const el of blocks) {
-      const txt = (el.textContent || "").replace(/ /g, " ").trim();
+      const txt = (el.textContent || "").replace(/\u00A0/g, " ").trim();
       if (txt.length > 0) { firstBlock = el; break; }
     }
     if (!firstBlock) return;
@@ -148,18 +148,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       const isInternal=href.startsWith("#/");
       if(isInternal){ a.removeAttribute("target"); a.removeAttribute("rel"); return; }
       if(/^https?:\/\//i.test(href)){ a.target="_blank"; a.rel="noopener"; }
-    });
-  }
-  // Paywall/login text highlight (color only)
-  function highlightAccessNotice(root){
-    if(!root) return;
-    const needle = "to access this content, you must log in or purchase";
-    root.querySelectorAll("p, div, section, article, blockquote").forEach(el=>{
-      const txt = (el.textContent||"").replace(/\s+/g," ").trim().toLowerCase();
-      if (txt.includes(needle)) {
-        el.style.color = "#1E90FF";
-        el.style.fontWeight = "normal";
-      }
     });
   }
 
@@ -205,7 +193,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // ---- Home grid & infinite scroll ----
   const LOAD_THRESHOLD = 800; // px from bottom to trigger
-
   function getGrid(){
     if (!isHomeRoute()) return null;
     let grid = document.getElementById("grid");
@@ -339,42 +326,40 @@ console.info("OkObserver app loaded", APP_VERSION);
       app.innerHTML = "";
     }
   }
-
   function renderPostShell(){
-  // Remove loader if present (from home infinite scroll)
-  try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
-  if (!app) return;
-  app.innerHTML = `
-    <article class="post" id="postView">
-      <!-- Top back button intentionally removed -->
-      <h1 id="pTitle"></h1>
-      <div class="meta-author-date">
-        <span class="author" id="pAuthor" style="font-weight:bold"></span>
-        <span style="margin:0 6px">·</span>
-        <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
-      </div>
-      <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
-      <div class="content" id="pContent"></div>
-      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-        <a class="btn" id="backBottom" href="#/">Back to posts</a>
-      </div>
-    </article>
-  `;
-  const goHome = (e)=>{
-    e?.preventDefault?.();
-    // Mark that we're returning so renderHome restores cached scroll position
-    const st = window.__okCache || (window.__okCache = {});
-    st.returningFromDetail = true;
-    try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
-    location.hash = "#/";
-  };
-  // Only bottom button remains
-  document.getElementById("backBottom")?.addEventListener("click", goHome);
-}
-
+    // Remove loader if present (from home infinite scroll)
+    try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
+    if (!app) return;
+    app.innerHTML = `
+      <article class="post" id="postView">
+        <!-- Top back button intentionally removed -->
+        <h1 id="pTitle"></h1>
+        <div class="meta-author-date">
+          <span class="author" id="pAuthor" style="font-weight:bold"></span>
+          <span style="margin:0 6px">·</span>
+          <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
+        </div>
+        <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
+        <div class="content" id="pContent"></div>
+        <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+          <a class="btn" id="backBottom" href="#/">Back to posts</a>
+        </div>
+      </article>
+    `;
+    const goHome = (e)=>{
+      e?.preventDefault?.();
+      // Mark that we're returning so renderHome restores cached scroll position
+      const st = window.__okCache || (window.__okCache = {});
+      st.returningFromDetail = true;
+      try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
+      location.hash = "#/";
+    };
+    // Only bottom button remains
+    document.getElementById("backBottom")?.addEventListener("click", goHome);
+  }
 
   async function renderPost(id) {
-    // build shell first so Back buttons are always present
+    // Build shell first so "Back to posts" is present immediately
     renderPostShell();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
@@ -408,7 +393,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (pContent) {
         pContent.innerHTML = normalizeContent(post.content.rendered);
         normalizeFirstParagraph(pContent);
-        highlightAccessNotice(pContent);
+        // (blue highlight logic removed)
         hardenLinks(pContent);
       }
     } catch (err) {
@@ -440,14 +425,14 @@ console.info("OkObserver app loaded", APP_VERSION);
       const id = Number(link.dataset.id || '') || null;
       if (id !== null) st.scrollAnchorPostId = id;
       st.returningFromDetail = true;
-      saveHomeCache();
+      try{ sessionStorage.setItem('__okCache', JSON.stringify(st)); }catch{}
       const old = location.hash;
       location.hash = href;
       if (old === href) router();
     }
   });
 
-  // keep scrollY updated generally
+  // Keep scrollY updated generally on home
   window.addEventListener('scroll', function () {
     const st = window.__okCache || (window.__okCache = {});
     st.scrollY = window.scrollY || window.pageYOffset || 0;
