@@ -1,9 +1,9 @@
-// app.js — OkObserver v1.58.3 (stable)
+// app.js — OkObserver v1.58.4 (stable)
+// - Robust infinite scroll (no X-WP-TotalPages dependency)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait
-// - Infinite scroll + multi-page cache
-const APP_VERSION = "v1.58.3";
+const APP_VERSION = "v1.58.4";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -18,7 +18,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   window.__okCache = window.__okCache || {
     posts: [],
     page: 1,
-    totalPages: 1,
+    totalPages: null,          // unknown until learned
     scrollY: 0,
     scrollAnchorPostId: null,
     returningFromDetail: false,
@@ -266,7 +266,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (!isHomeRoute()) return;
     const st = window.__okCache || (window.__okCache = {});
     if (st.isLoading) return;
-    if (st.page >= st.totalPages) return;
+    if (Number.isFinite(st.totalPages) && st.page >= st.totalPages) return;
     st.isLoading = true; saveHomeCache();
     showLoader();
     try {
@@ -284,7 +284,17 @@ console.info("OkObserver app loaded", APP_VERSION);
       }
       st.posts = (st.posts || []).concat(add);
       st.page = next;
-      st.totalPages = Number(res.headers.get("X-WP-TotalPages") || st.totalPages || 1);
+
+      // Learn totalPages robustly
+      {
+        const tp = Number(res.headers.get("X-WP-TotalPages"));
+        if (Number.isFinite(tp) && tp > 0) {
+          st.totalPages = tp;                  // use header when available
+        } else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) {
+          st.totalPages = st.page;             // last page inferred
+        }
+      }
+
       saveHomeCache();
       renderGridFromPosts(add, true);
     } catch (err) {
@@ -361,11 +371,16 @@ console.info("OkObserver app loaded", APP_VERSION);
       // Cache base state
       st.posts = posts.filter(p => p && !hasExcluded(p));
       st.page = 1;
-      st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+      // Learn totalPages robustly on first load
+      {
+        const tp = Number(res.headers.get("X-WP-TotalPages"));
+        st.totalPages = Number.isFinite(tp) && tp > 0 ? tp : null;
+      }
       st.scrollY = 0;
       st.scrollAnchorPostId = null;
       st.isLoading = false;
       saveHomeCache();
+      console.info("[OkObserver] pages:", { page: st.page, totalPages: st.totalPages });
     } catch (err) {
       showError(err);
       app.innerHTML = "";
