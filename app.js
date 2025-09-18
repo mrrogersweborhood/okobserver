@@ -365,7 +365,6 @@ async function renderHome() {
       app.innerHTML = "";
     }
   }
-  }
 
   function renderPostShell(){
     if (!app) return;
