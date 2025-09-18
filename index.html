@@ -17,6 +17,9 @@
   main{padding:20px}
   footer{background:#f3f3f3;font-size:.85em}
   .center{text-align:center}
+  .infinite-loader{display:none;align-items:center;gap:8px;justify-content:center;padding:12px;color:#666}
+  .spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:rgba(0,0,0,.5);border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
@@ -86,7 +89,7 @@
   </div>
 </footer>
 
-<script src="app.js?v=1.56.8" defer></script>
+<script src="app.js?v=1.57.0" defer></script>
 
 <!-- Boot probe -->
 <script>
