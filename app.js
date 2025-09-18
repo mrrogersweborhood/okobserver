@@ -375,13 +375,57 @@ console.info("OkObserver app loaded", APP_VERSION);
   /**
    * Renders a single post page. (Placeholder)
    */
-  async function renderPost(id) {
-    app.innerHTML = `
-            <div class="post">
-                <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
-                  <a class="btn" href="#/">Back to posts</a>
-                </div>
-                <h1>${post.title.rendered}</h1>
+  
+async function renderPost(id) {
+  // Build shell with Back to posts buttons and placeholders
+  renderPostShell();
+
+  const url = `${BASE}/posts/${id}?_embed=1`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Post not found');
+    const post = await res.json();
+    const { src, width, height } = featuredSrcsetAndSize(post);
+    const author = getAuthor(post);
+    const date = ordinalDate(post.date);
+
+    // Populate shell
+    const view = document.getElementById('postView');
+    const pTitle = document.getElementById('pTitle');
+    const pAuthor = document.getElementById('pAuthor');
+    const pDate = document.getElementById('pDate');
+    const pHero = document.getElementById('pHero');
+    const pContent = document.getElementById('pContent');
+
+    if (pTitle) pTitle.innerHTML = post.title.rendered;
+    if (pAuthor) pAuthor.textContent = author || '';
+    if (pDate) pDate.textContent = date || '';
+
+    if (pHero && src) {
+      pHero.src = src;
+      if (width) pHero.width = width;
+      if (height) pHero.height = height;
+      pHero.style.display = '';
+      pHero.alt = pTitle?.textContent || '';
+      pHero.loading = 'lazy';
+      pHero.decoding = 'async';
+    }
+
+    if (pContent) {
+      pContent.innerHTML = normalizeContent(post.content.rendered);
+      normalizeFirstParagraph(pContent);
+    }
+
+    hardenLinks(view);
+    // Save scroll position baseline on detail view
+    const st = window.__okCache || (window.__okCache = {});
+    st.returningFromDetail = true;
+
+  } catch (err) {
+    showError(err);
+  }
+}
+</h1>
                 <div class="meta-author-date">
                     <strong class="author">${esc(author)}</strong>
                     <span class="date">${date}</span>
