@@ -29,6 +29,13 @@
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
+  /* Card link behavior: only title/image are links; no underlines in meta/excerpt */
+  .card a{color:inherit;text-decoration:none}
+  .title-link{color:var(--secondary);text-decoration:none}
+  .title-link:hover{text-decoration:underline}
+  .thumb-link{display:block}
+  .thumb{cursor:default}
+
 
   .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
@@ -151,7 +158,7 @@
 </footer>
 
 <!-- App script (cache-busted) -->
-<script src="app.js?v=1.57.4" defer></script>
+<script src="app.js?v=1.56.4" defer></script>
 
 <!-- Hamburger toggle (no dependency on app.js) -->
 <script>
