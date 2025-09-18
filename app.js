@@ -1,5 +1,5 @@
 // app.js — OkObserver v1.56.6 (stable minimal build)
-const APP_VERSION = "v1.57.2";
+const APP_VERSION = "v1.57.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -334,38 +334,6 @@ async function renderHome() {
   }
 }
 
-        }, 0);
-      });
-
-      st.returningFromDetail = false;
-      saveHomeCache();
-      return;
-    }
-
-    // Fresh load
-    app.innerHTML = `<p class="center">Loading…</p>`;
-    try {
-      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
-      const res = await fetch(url, { credentials: "omit" });
-      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-      const posts = await res.json();
-
-      // Cache the home list
-      st.posts = posts;
-      st.page = 1;
-      st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
-      saveHomeCache();
-
-      app.innerHTML = "";
-      const grid = document.createElement("div");
-      grid.className = "grid";
-      posts.forEach(post => { if (!hasExcluded(post)) grid.appendChild(buildCardElement(post)); });
-      app.appendChild(grid);
-    } catch (err) {
-      showError(err);
-      app.innerHTML = "";
-    }
-  }
 
   function renderPostShell(){
     if (!app) return;
