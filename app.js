@@ -1,5 +1,5 @@
-// app.js — OkObserver v1.58.1 (HTML entities decoded in excerpts)
-const APP_VERSION = "v1.58.1";
+// app.js — OkObserver v1.58.2 (HTML entities decoded in excerpts)
+const APP_VERSION = "v1.58.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -59,6 +59,28 @@ console.info("OkObserver app loaded", APP_VERSION);
     const suf=(n)=>(n>3&&n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");
     return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
   }
+// Wait until images under `root` are loaded (or a short timeout) before restoring scroll
+function whenImagesSettled(root, timeout = 2000) {
+  return new Promise((resolve) => {
+    const imgs = Array.from((root || document).querySelectorAll('img'));
+    if (!imgs.length) return resolve();
+    let settled = false, seen = 0;
+    const check = () => {
+      if (settled) return;
+      seen += 1;
+      if (seen >= imgs.length) { settled = true; resolve(); }
+    };
+    imgs.forEach((img) => {
+      if (img.complete) check();
+      else {
+        img.addEventListener('load', check, { once: true });
+        img.addEventListener('error', check, { once: true });
+      }
+    });
+    setTimeout(() => { if (!settled) resolve(); }, timeout);
+  });
+}
+
 
   // --- decode HTML entities so &hellip; -> … and &#8211; -> – ---
   function decodeEntities(str) {
@@ -287,6 +309,65 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // ---- Views ----
   async function renderHome() {
+  if (!app) return;
+  const st = window.__okCache || (window.__okCache = {});
+
+  // Returning from detail: fast render from cache + scroll restore
+  if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
+    app.innerHTML = "";
+    renderGridFromPosts(st.posts, false);
+    getLoader();
+    ensureInfiniteScroll();
+
+    // Wait for the grid’s images to settle, then restore position
+    const grid = document.getElementById("grid");
+    (async () => {
+      await whenImagesSettled(grid, 2000);
+
+      if (typeof st.scrollY === "number" && st.scrollY > 0) {
+        // Primary: exact pixel restore
+        window.scrollTo({ top: st.scrollY });
+      } else if (st.scrollAnchorPostId) {
+        // Fallback: find the specific card and scroll it into view
+        const el = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
+        (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
+      }
+
+      // Clear the flag after we restore once
+      st.returningFromDetail = false;
+      saveHomeCache();
+    })();
+
+    return;
+  }
+
+  // Fresh load
+  app.innerHTML = `<p class="center">Loading…</p>`;
+  try {
+    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
+    const res = await fetch(url, { credentials: "omit" });
+    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+    const posts = await res.json();
+
+    app.innerHTML = "";
+    renderGridFromPosts(posts, false);
+    getLoader();
+    ensureInfiniteScroll();
+
+    // Cache base state
+    st.posts = posts.filter(p => p && !hasExcluded(p));
+    st.page = 1;
+    st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+    st.scrollY = 0;
+    st.scrollAnchorPostId = null;
+    st.isLoading = false;
+    saveHomeCache();
+  } catch (err) {
+    showError(err);
+    app.innerHTML = "";
+  }
+}
+
     if (!app) return;
     const st = window.__okCache || (window.__okCache = {});
 
@@ -359,13 +440,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       </article>
     `;
     const goHome = (e)=>{
-      e?.preventDefault?.();
-      // Mark that we're returning so renderHome restores cached scroll position
-      const st = window.__okCache || (window.__okCache = {});
-      st.returningFromDetail = true;
-      try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
-      location.hash = "#/";
-    };
+  e?.preventDefault?.();
+  const st = window.__okCache || (window.__okCache = {});
+  st.returningFromDetail = true;
+  try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
+  location.hash = "#/";
+};
     // Only bottom button remains
     document.getElementById("backBottom")?.addEventListener("click", goHome);
   }
@@ -427,22 +507,22 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // ---- Click delegation for card links ----
   document.addEventListener('click', (e)=>{
-    const link = e.target.closest('a.thumb-link, a.title-link');
-    if (!link) return;
-    const href = link.getAttribute('href') || '';
-    if (href.startsWith('#/post/')) {
-      e.preventDefault();
-      const st = window.__okCache || (window.__okCache = {});
-      st.scrollY = window.scrollY || window.pageYOffset || 0;
-      const id = Number(link.dataset.id || '') || null;
-      if (id !== null) st.scrollAnchorPostId = id;
-      st.returningFromDetail = true;
-      try{ sessionStorage.setItem('__okCache', JSON.stringify(st)); }catch{}
-      const old = location.hash;
-      location.hash = href;
-      if (old === href) router();
-    }
-  });
+  const link = e.target.closest('a.thumb-link, a.title-link');
+  if (!link) return;
+  const href = link.getAttribute('href') || '';
+  if (href.startsWith('#/post/')) {
+    e.preventDefault();
+    const st = window.__okCache || (window.__okCache = {});
+    st.scrollY = window.scrollY || window.pageYOffset || 0;
+    const id = Number(link.dataset.id || '') || null;
+    if (id !== null) st.scrollAnchorPostId = id;
+    st.returningFromDetail = true;
+    try{ sessionStorage.setItem('__okCache', JSON.stringify(st)); }catch{}
+    const old = location.hash;
+    location.hash = href;
+    if (old === href) router();
+  }
+});
 
   // Keep scrollY updated generally on home
   window.addEventListener('scroll', function () {
