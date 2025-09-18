@@ -1,6 +1,6 @@
 // app.js — OkObserver v1.56.3
 // Hardened normalizeFirstParagraph + scroll restore + embed fallbacks
-const APP_VERSION = "v1.56.4";
+const APP_VERSION = "v1.56.5";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -302,9 +302,19 @@ console.info("OkObserver app loaded", APP_VERSION);
 }
 // Delegate setting the scroll anchor when clicking image/title links
   document.addEventListener('click', (e)=>{
-    const a = e.target.closest('a[data-id]');
-    if(a){ window.__okCache.scrollAnchorPostId = Number(a.dataset.id)||null; }
-  });
+  const a = e.target.closest('a[data-id]');
+  if(a){
+    const id = Number(a.dataset.id)||null;
+    if(id!==null){ window.__okCache.scrollAnchorPostId = id; }
+    const targetHash = a.getAttribute('href') || '';
+    if (targetHash) {
+      e.preventDefault();
+      const old = location.hash;
+      location.hash = targetHash;
+      if (old === targetHash) router(); // Force route if hash didn't change
+    }
+  }
+});
 
   /**
    * Fetches posts and renders the home page grid.
@@ -468,21 +478,26 @@ async function renderPost(id) {
   /**
    * Main router to decide which page to show.
    */
-  function router() {
-    const hash = window.location.hash || "#/";
-    if (hash.startsWith("#/post/")) {
-      const id = hash.split("/")[2];
-      renderPost(id);
-    } else {
+  
+function router() {
+  const hash = window.location.hash || "#/";
+  // Normalize and parse: #/post/{id}
+  const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
+  if (m && m[1]) {
+    renderPost(m[1]);
+  } else {
+    renderHome();
+  }
+}
+else {
       renderHome();
     }
   }
 
   // Add event listeners and kick off the router on initial load
   window.addEventListener("hashchange", router);
-  window.addEventListener("DOMContentLoaded", router);
-
-  
+window.addEventListener("DOMContentLoaded", router);
+if (document.readyState === "interactive" || document.readyState === "complete") { router(); }
 // Robust delegation for post detail links (works even if other handlers exist)
 document.addEventListener('click', (e) => {
   const link = e.target.closest('a.thumb-link, a.title-link');
