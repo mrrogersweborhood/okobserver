@@ -1,4 +1,4 @@
-// app.js — OkObserver v1.58.1 (no blue-highlight logic)
+// app.js — OkObserver v1.58.1 (HTML entities decoded in excerpts)
 const APP_VERSION = "v1.58.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
@@ -59,6 +59,14 @@ console.info("OkObserver app loaded", APP_VERSION);
     const suf=(n)=>(n>3&&n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");
     return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
   }
+
+  // --- decode HTML entities so &hellip; -> … and &#8211; -> – ---
+  function decodeEntities(str) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = str;
+    return txt.value;
+  }
+
   function firstImgFromHTML(html){
     const div=document.createElement("div"); div.innerHTML=html||"";
     const img=div.querySelector("img");
@@ -167,7 +175,11 @@ console.info("OkObserver app loaded", APP_VERSION);
     const imgSrc = fm.src || fallback || "";
     const author = getAuthor(post);
     const date = ordinalDate(post.date);
-    const excerpt = (post.excerpt?.rendered || '').replace(/<[^>]+>/g, '').trim(); // strip all links/tags
+    const excerpt = decodeEntities(
+      (post.excerpt?.rendered || '')
+        .replace(/<[^>]+>/g, '')  // strip all HTML tags
+        .trim()
+    ); // now shows … and – correctly
     const postHref = `#/post/${post.id}`;
     const titleHTML = post.title.rendered;
 
