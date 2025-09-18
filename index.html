@@ -100,6 +100,11 @@
     .nav-links[data-state="closed"] { max-height: 0; opacity: 0; pointer-events: none; }
     .nav-links[data-state="open"]   { max-height: 240px; opacity: 1; pointer-events: auto; }
   }
+
+  .infinite-loader{display:none;align-items:center;gap:8px;justify-content:center;padding:12px;color:#666}
+  .spinner{width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:rgba(0,0,0,.5);border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
 </style>
 </head>
 <body>
@@ -151,7 +156,7 @@
 </footer>
 
 <!-- App script (cache-busted) -->
-<script src="app.js?v=1.57.7" defer></script>
+<script src="app.js?v=1.57.8" defer></script>
 
 <!-- Hamburger toggle (no dependency on app.js) -->
 <script>
