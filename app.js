@@ -346,9 +346,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (!app) return;
     app.innerHTML = `
       <article class="post" id="postView">
-        <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
-          <a class="btn" id="backTop" href="#/">Back to posts</a>
-        </div>
         <h1 id="pTitle"></h1>
         <div class="meta-author-date">
           <span class="author" id="pAuthor" style="font-weight:bold"></span>
@@ -363,7 +360,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       </article>
     `;
     const goHome = (e)=>{ e?.preventDefault?.(); location.hash = "#/"; };
-    document.getElementById("backTop")?.addEventListener("click", goHome);
     document.getElementById("backBottom")?.addEventListener("click", goHome);
   }
 
