@@ -1,6 +1,6 @@
 // app.js — OkObserver v1.56.3
 // Hardened normalizeFirstParagraph + scroll restore + embed fallbacks
-const APP_VERSION = "v1.57.8";
+const APP_VERSION = "v1.56.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -299,148 +299,31 @@ console.info("OkObserver app loaded", APP_VERSION);
   /**
    * Fetches posts and renders the home page grid.
    */
-  // ---- Home infinite scroll helpers ----
-function isHomeRoute(){
-  const h = window.location.hash || "#/";
-  return h === "#/" || h === "#";
-}
-const LOAD_THRESHOLD = 800; // px from bottom to trigger
+  async function renderHome() {
+    app.innerHTML = `<p class="center">Loading…</p>`;
+    try {
+      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
+      const res = await fetch(url, { credentials: "omit" });
+      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+      const posts = await res.json();
 
-function getGrid(){
-  if (!isHomeRoute()) return null;
-  let grid = document.getElementById("grid");
-  if(!grid){
-    grid = document.createElement("div");
-    grid.id = "grid";
-    grid.className = "grid";
-    app.appendChild(grid);
-  }
-  return grid;
-}
-function renderGridFromPosts(posts, append=false){
-  const grid = getGrid();
-  if(!grid) return;
-  if(!append) grid.innerHTML = "";
-  (posts||[]).forEach(p => { if (p && !hasExcluded(p)) grid.appendChild(buildCardElement(p)); });
-}
-function getLoader(){
-  let ld = document.getElementById("infiniteLoader");
-  if(!ld){
-    ld = document.createElement("div");
-    ld.id = "infiniteLoader";
-    ld.className = "infinite-loader";
-    ld.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading…';
-    app.appendChild(ld);
-  }
-  return ld;
-}
-function showLoader(){ const ld=getLoader(); ld.style.display="flex"; }
-function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
+      app.innerHTML = ""; // Clear loading message
+      const grid = document.createElement("div");
+      grid.className = "grid";
 
-async function loadNextPage(){
-  if (!isHomeRoute()) return;
-  const st = window.__okCache || (window.__okCache = {});
-  if (st.isLoading) return;
-  if (st.page >= st.totalPages) return;
-  st.isLoading = true; saveHomeCache();
-  showLoader();
-  try {
-    const next = (st.page||1) + 1;
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${next}&_embed=1`;
-    const res = await fetch(url, { credentials: "omit" });
-    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-    const newPosts = await res.json();
-    const existingIds = new Set((st.posts||[]).map(p=>p?.id));
-    const add = [];
-    for (const p of newPosts) {
-      if (!p || existingIds.has(p.id) || hasExcluded(p)) continue;
-      add.push(p);
-      existingIds.add(p.id);
+      posts.forEach(post => {
+        if (hasExcluded(post)) return;
+        const card = buildCardElement(post);
+        grid.appendChild(card);
+      });
+      app.appendChild(grid);
+
+    } catch (err) {
+      showError(err);
+      app.innerHTML = ""; // Clear loading message on error too
     }
-    st.posts = (st.posts || []).concat(add);
-    st.page = next;
-    st.totalPages = Number(res.headers.get("X-WP-TotalPages") || st.totalPages || 1);
-    saveHomeCache();
-    renderGridFromPosts(add, true);
-  } catch (err) {
-    showError(err);
-  } finally {
-    hideLoader();
-    const st2 = window.__okCache || {};
-    st2.isLoading = false;
-    saveHomeCache();
   }
-}
-
-function ensureInfiniteScroll(){
-  const st = window.__okCache || (window.__okCache = {});
-  if (st._infAttached) return;
-  st._infAttached = true;
-  window.addEventListener("scroll", () => {
-    // keep scrollY fresh
-    st.scrollY = window.scrollY || window.pageYOffset || 0;
-    if (!isHomeRoute()) return;
-    // near bottom?
-    const bottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - LOAD_THRESHOLD);
-    if (bottom) loadNextPage();
-  }, { passive: true });
-}
-
-async function renderHome() {
-  if (!app) return;
-  const st = window.__okCache || (window.__okCache = {});
-
-  // Returning from detail: fast render from cache + scroll restore
-  if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
-    app.innerHTML = "";
-    renderGridFromPosts(st.posts, false);
-    getLoader();
-    ensureInfiniteScroll();
-
-    requestAnimationFrame(()=>{
-      setTimeout(()=>{
-        if (typeof st.scrollY === "number" && st.scrollY > 0) {
-          window.scrollTo({ top: st.scrollY });
-        } else if (st.scrollAnchorPostId) {
-          const a = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
-          a?.scrollIntoView({ block: "start" });
-        }
-      }, 0);
-    });
-    st.returningFromDetail = false;
-    saveHomeCache();
-    return;
-  }
-
-  // Fresh load
-  app.innerHTML = `<p class="center">Loading…</p>`;
-  try {
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
-    const res = await fetch(url, { credentials: "omit" });
-    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-    const posts = await res.json();
-
-    app.innerHTML = "";
-    renderGridFromPosts(posts, false);
-    getLoader();
-    ensureInfiniteScroll();
-
-    // Cache base state
-    st.posts = posts.filter(p => p && !hasExcluded(p));
-    st.page = 1;
-    st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
-    st.scrollY = 0;
-    st.scrollAnchorPostId = null;
-    st.isLoading = false;
-    saveHomeCache();
-  } catch (err) {
-    showError(err);
-    app.innerHTML = "";
-  }
-}
-
   function renderPostShell(){
-  try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
   const host = document.getElementById("app");
   host.innerHTML = `
     <article class="post" id="postView">
@@ -483,93 +366,34 @@ async function renderHome() {
    * Renders a single post page. (Placeholder)
    */
   async function renderPost(id) {
-  // Build detail shell (includes top/bottom "Back to posts" buttons)
-  if (typeof renderPostShell === "function") renderPostShell();
-  else {
-    // fallback shell if function missing
-    if (typeof app !== "undefined" && app) {
-      app.innerHTML = `
-        <article class="post" id="postView">
-          <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
-            <a class="btn" id="backTop" href="#/">Back to posts</a>
-          </div>
-          <h1 id="pTitle"></h1>
-          <div class="meta-author-date">
-            <span class="author" id="pAuthor" style="font-weight:bold"></span>
-            <span style="margin:0 6px">·</span>
-            <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
-          </div>
-          <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
-          <div class="content" id="pContent"></div>
-          <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-            <a class="btn" id="backBottom" href="#/">Back to posts</a>
-          </div>
-        </article>
-      `;
-      const goHome = (e)=>{ e?.preventDefault?.(); location.hash = "#/"; };
-      document.getElementById("backTop")?.addEventListener("click", goHome);
-      document.getElementById("backBottom")?.addEventListener("click", goHome);
+    app.innerHTML = `<p class="center">Loading post...</p>`;
+    // This is a placeholder. You would fetch a single post here.
+    const url = `${BASE}/posts/${id}?_embed=1`;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Post not found');
+        const post = await res.json();
+        const { src, width, height } = featuredSrcsetAndSize(post);
+        const author = getAuthor(post);
+        const date = ordinalDate(post.date);
+        
+        app.innerHTML = `
+            <div class="post">
+                <h1>${post.title.rendered}</h1>
+                <div class="meta-author-date">
+                    <strong class="author">${esc(author)}</strong>
+                    <span class="date">${date}</span>
+                </div>
+                ${src ? `<img src="${esc(src)}" width="${width}" height="${height}" class="hero" />` : ''}
+                <div class="content">${normalizeContent(post.content.rendered)}</div>
+                <p><a href="#/">&laquo; Back to Home</a></p>
+            </div>
+        `;
+        hardenLinks(app);
+    } catch(err) {
+        showError(err);
     }
   }
-
-  const url = `${BASE}/posts/${id}?_embed=1`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Post not found');
-    const post = await res.json();
-    const { src, width, height } = featuredSrcsetAndSize(post);
-    const author = getAuthor(post);
-    const date = ordinalDate(post.date);
-
-    const pTitle = document.getElementById('pTitle');
-    const pAuthor = document.getElementById('pAuthor');
-    const pDate = document.getElementById('pDate');
-    const pHero = document.getElementById('pHero');
-    const pContent = document.getElementById('pContent');
-
-    if (pTitle) pTitle.innerHTML = post.title.rendered;
-    if (pAuthor) pAuthor.textContent = author || '';
-    if (pDate) pDate.textContent = date || '';
-
-    if (pHero && src) {
-      pHero.src = src;
-      if (width) pHero.width = width;
-      if (height) pHero.height = height;
-      pHero.style.display = '';
-      pHero.alt = pTitle?.textContent || '';
-      pHero.loading = 'lazy';
-      pHero.decoding = 'async';
-    }
-
-    if (pContent) {
-      pContent.innerHTML = normalizeContent(post.content.rendered);
-      if (typeof normalizeFirstParagraph === "function") normalizeFirstParagraph(pContent);
-      if (typeof highlightAccessNotice === "function") highlightAccessNotice(pContent);
-      if (typeof hardenLinks === "function") hardenLinks(pContent);
-    } else if (typeof app !== "undefined" && app) {
-      // extreme fallback: minimal detail page (keeps Back to posts top+bottom)
-      app.innerHTML = `
-        <article class="post">
-          <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
-            <a class="btn" href="#/">Back to posts</a>
-          </div>
-          <h1>${post.title.rendered}</h1>
-          <div class="meta-author-date">
-            <strong class="author">${esc(author)}</strong>
-            <span class="date">${date}</span>
-          </div>
-          ${src ? `<img src="${esc(src)}" width="${width||''}" height="${height||''}" class="hero" />` : ''}
-          <div class="content">${normalizeContent(post.content.rendered)}</div>
-          <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-            <a class="btn" href="#/">Back to posts</a>
-          </div>
-        </article>`;
-    }
-  } catch (err) {
-    showError(err);
-  }
-}
-
 
   /**
    * Main router to decide which page to show.
