@@ -1,5 +1,5 @@
 // app.js — OkObserver v1.56.6 (stable minimal build)
-const APP_VERSION = "v1.56.6";
+const APP_VERSION = "v1.56.8";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -129,6 +129,20 @@ console.info("OkObserver app loaded", APP_VERSION);
     firstBlock.style.setProperty("padding-left","0","important");
   }
 
+  // Highlight paywall/login notice in brand color
+  function highlightAccessNotice(root){
+    if(!root) return;
+    const needle = "to access this content, you must log in or purchase";
+    const els = root.querySelectorAll("p, div, section, article, blockquote");
+    els.forEach(el=>{
+      const txt = (el.textContent||"").replace(/\s+/g," ").trim().toLowerCase();
+      if (txt.includes(needle)) {
+        el.style.color = "#1E90FF";
+        el.style.fontWeight = "normal";
+      }
+    });
+  }
+
   // ---------- UI builders ----------
   function buildCardElement(post) {
     const card = document.createElement("div");
@@ -242,6 +256,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (pContent) {
         pContent.innerHTML = normalizeContent(post.content.rendered);
         normalizeFirstParagraph(pContent);
+        highlightAccessNotice(pContent);
         hardenLinks(pContent);
       }
     } catch (err) {
