@@ -300,8 +300,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   `;
   return card;
 }
-
-  // Delegate setting the scroll anchor when clicking image/title links
+// Delegate setting the scroll anchor when clicking image/title links
   document.addEventListener('click', (e)=>{
     const a = e.target.closest('a[data-id]');
     if(a){ window.__okCache.scrollAnchorPostId = Number(a.dataset.id)||null; }
@@ -377,8 +376,24 @@ console.info("OkObserver app loaded", APP_VERSION);
    * Renders a single post page. (Placeholder)
    */
   async function renderPost(id) {
-    app.innerHTML = `<p class="center">Loading post...</p>`;
-    // This is a placeholder. You would fetch a single post here.
+    app.innerHTML = `
+            <div class="post">
+                <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:10px">
+                  <a class="btn" href="#/">Back to posts</a>
+                </div>
+                <h1>${post.title.rendered}</h1>
+                <div class="meta-author-date">
+                    <strong class="author">${esc(author)}</strong>
+                    <span class="date">${date}</span>
+                </div>
+                ${src ? `<img src="${esc(src)}" width="${width}" height="${height}" class="hero" />` : ''}
+                <div class="content">${normalizeContent(post.content.rendered)}</div>
+                <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+                  <a class="btn" href="#/">Back to posts</a>
+                </div>
+            </div>
+        `;
+        // This is a placeholder. You would fetch a single post here.
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
         const res = await fetch(url);
