@@ -1,5 +1,5 @@
 // app.js — OkObserver v1.56.6 (stable minimal build)
-const APP_VERSION = "v1.57.0";
+const APP_VERSION = "v1.57.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -281,58 +281,59 @@ function ensureInfiniteScroll(){
 }
 
 async function renderHome() {
-    if (!app) return;
-    const st = window.__okCache || (window.__okCache = {});
+  if (!app) return;
+  const st = window.__okCache || (window.__okCache = {});
 
-    // Returning from detail with cache: render fast & restore scroll
-    if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
-      app.innerHTML = "";
-      renderGridFromPosts(st.posts, false);
-      getLoader(); // ensure loader node exists
-      ensureInfiniteScroll();
+  // Returning from detail with cache: render fast & restore scroll
+  if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
+    app.innerHTML = "";
+    renderGridFromPosts(st.posts, false);
+    getLoader(); // ensure loader node exists
+    ensureInfiniteScroll();
 
-      requestAnimationFrame(()=>{
-        setTimeout(()=>{
-          if (typeof st.scrollY === "number" && st.scrollY > 0) {
-            window.scrollTo({ top: st.scrollY, behavior: ("scrollBehavior" in document.documentElement.style) ? "auto" : "auto" });
-          } else if (st.scrollAnchorPostId) {
-            const a = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
-            a?.scrollIntoView({ block: "start" });
-          }
-        }, 0);
-      });
+    requestAnimationFrame(()=>{
+      setTimeout(()=>{
+        if (typeof st.scrollY === "number" && st.scrollY > 0) {
+          window.scrollTo({ top: st.scrollY });
+        } else if (st.scrollAnchorPostId) {
+          const a = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
+          a?.scrollIntoView({ block: "start" });
+        }
+      }, 0);
+    });
 
-      st.returningFromDetail = false;
-      saveHomeCache();
-      return;
-    }
-
-    // Fresh load
-    app.innerHTML = `<p class="center">Loading…</p>`;
-    try {
-      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
-      const res = await fetch(url, { credentials: "omit" });
-      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-      const posts = await res.json();
-
-      app.innerHTML = "";
-      renderGridFromPosts(posts, false);
-      getLoader();
-      ensureInfiniteScroll();
-
-      // Cache base state
-      st.posts = posts.filter(p => p && !hasExcluded(p));
-      st.page = 1;
-      st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
-      st.scrollY = 0;
-      st.scrollAnchorPostId = null;
-      st.isLoading = false;
-      saveHomeCache();
-    } catch (err) {
-      showError(err);
-      app.innerHTML = "";
-    }
+    st.returningFromDetail = false;
+    saveHomeCache();
+    return;
   }
+
+  // Fresh load
+  app.innerHTML = `<p class="center">Loading…</p>`;
+  try {
+    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
+    const res = await fetch(url, { credentials: "omit" });
+    if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+    const posts = await res.json();
+
+    app.innerHTML = "";
+    renderGridFromPosts(posts, false);
+    getLoader();
+    ensureInfiniteScroll();
+
+    // Cache base state
+    st.posts = posts.filter(p => p && !hasExcluded(p));
+    st.page = 1;
+    st.totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+    st.scrollY = 0;
+    st.scrollAnchorPostId = null;
+    st.isLoading = false;
+    saveHomeCache();
+  } catch (err) {
+    showError(err);
+    app.innerHTML = "";
+  }
+}
+
         }, 0);
       });
 
