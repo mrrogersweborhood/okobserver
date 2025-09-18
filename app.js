@@ -341,27 +341,37 @@ console.info("OkObserver app loaded", APP_VERSION);
   }
 
   function renderPostShell(){
-    // Remove loader if present (from home infinite scroll)
-    try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
-    if (!app) return;
-    app.innerHTML = `
-      <article class="post" id="postView">
-        <h1 id="pTitle"></h1>
-        <div class="meta-author-date">
-          <span class="author" id="pAuthor" style="font-weight:bold"></span>
-          <span style="margin:0 6px">·</span>
-          <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
-        </div>
-        <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
-        <div class="content" id="pContent"></div>
-        <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-          <a class="btn" id="backBottom" href="#/">Back to posts</a>
-        </div>
-      </article>
-    `;
-    const goHome = (e)=>{ e?.preventDefault?.(); location.hash = "#/"; };
-    document.getElementById("backBottom")?.addEventListener("click", goHome);
-  }
+  // Remove loader if present (from home infinite scroll)
+  try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
+  if (!app) return;
+  app.innerHTML = `
+    <article class="post" id="postView">
+      <!-- Top back button intentionally removed -->
+      <h1 id="pTitle"></h1>
+      <div class="meta-author-date">
+        <span class="author" id="pAuthor" style="font-weight:bold"></span>
+        <span style="margin:0 6px">·</span>
+        <span class="date" id="pDate" style="font-weight:normal;color:#000"></span>
+      </div>
+      <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
+      <div class="content" id="pContent"></div>
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
+        <a class="btn" id="backBottom" href="#/">Back to posts</a>
+      </div>
+    </article>
+  `;
+  const goHome = (e)=>{
+    e?.preventDefault?.();
+    // Mark that we're returning so renderHome restores cached scroll position
+    const st = window.__okCache || (window.__okCache = {});
+    st.returningFromDetail = true;
+    try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
+    location.hash = "#/";
+  };
+  // Only bottom button remains
+  document.getElementById("backBottom")?.addEventListener("click", goHome);
+}
+
 
   async function renderPost(id) {
     // build shell first so Back buttons are always present
