@@ -60,7 +60,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
   }
 // Wait until images under `root` are loaded (or a short timeout) before restoring scroll
-function whenImagesSettled(root, timeout = 2000) {
+  function whenImagesSettled(root, timeout = 2000) {
   return new Promise((resolve) => {
     const imgs = Array.from((root || document).querySelectorAll('img'));
     if (!imgs.length) return resolve();
