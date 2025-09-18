@@ -1,6 +1,6 @@
 // app.js — OkObserver v1.56.3
 // Hardened normalizeFirstParagraph + scroll restore + embed fallbacks
-const APP_VERSION = "v1.56.3";
+const APP_VERSION = "v1.56.4";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -269,24 +269,28 @@ console.info("OkObserver app loaded", APP_VERSION);
    * Creates an HTML element for a single post card.
    */
   function buildCardElement(post) {
-  const card = document.createElement("a");
+  const card = document.createElement("div");
   card.className = "card";
-  card.href = `#/post/${post.id}`;
-  card.dataset.id = post.id;
-  card.onclick = () => { window.__okCache.scrollAnchorPostId = post.id; };
 
-  // Featured image or first image inside post content
   const fm = featuredSrcsetAndSize(post);
   const fallback = firstImgFromHTML(post.content?.rendered || "");
   const imgSrc = fm.src || fallback || "";
   const author = getAuthor(post);
   const date = ordinalDate(post.date);
   const excerpt = post.excerpt?.rendered.replace(/<[^>]+>/g, '') || '';
+  const postHref = `#/post/${post.id}`;
+  const titleHTML = post.title.rendered;
 
   card.innerHTML = `
-    ${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(post.title.rendered)}" class="thumb" loading="lazy" decoding="async" />` : `<div class="thumb" aria-hidden="true"></div>`}
+    ${imgSrc
+      ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
+           <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" />
+         </a>`
+      : `<div class="thumb" aria-hidden="true"></div>`}
     <div class="card-body">
-      <h3 class="title">${post.title.rendered}</h3>
+      <h3 class="title">
+        <a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a>
+      </h3>
       <div class="meta-author-date">
         <strong class="author">${esc(author)}</strong>
         <span class="date">${date}</span>
@@ -296,6 +300,13 @@ console.info("OkObserver app loaded", APP_VERSION);
   `;
   return card;
 }
+
+  // Delegate setting the scroll anchor when clicking image/title links
+  document.addEventListener('click', (e)=>{
+    const a = e.target.closest('a[data-id]');
+    if(a){ window.__okCache.scrollAnchorPostId = Number(a.dataset.id)||null; }
+  });
+
   /**
    * Fetches posts and renders the home page grid.
    */
