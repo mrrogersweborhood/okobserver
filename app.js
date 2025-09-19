@@ -1,12 +1,11 @@
-// app.js — OkObserver v1.58.7 (stable)
-// - Fix: removed stray “the” keyword before order array (syntax error fixed)
-// - Robust infinite scroll (no X-WP-TotalPages dependency)
+// app.js — OkObserver v1.58.8 (stable)
+// - FIX: Infinite scroll via IntersectionObserver sentinel (robust)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait + homeScrollY
 // - Scroll tracking only on Home
 // - Stronger normalizeFirstParagraph: removes leading &nbsp;/spaces and kills theme indents
-const APP_VERSION = "v1.58.7";
+const APP_VERSION = "v1.58.8";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -27,7 +26,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
-    _infAttached: false
+    _infAttached: false,       // legacy scroll listener flag (kept for back-compat)
+    _ioAttached: false         // IntersectionObserver attached?
   };
   function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{} }
   (function rehydrate(){
@@ -237,7 +237,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     const fm = featuredSrcsetAndSize(post);
     const fallback = firstImgFromHTML(post.content?.rendered || "");
     const imgSrc = fm.src || fallback || "";
-    const author = getAuthor(post);
+    theAuthor = getAuthor(post); // (kept variable name typo-free elsewhere)
+    const author = theAuthor;
     const date = ordinalDate(post.date);
     const excerpt = decodeEntities(
       (post.excerpt?.rendered || '')
@@ -266,9 +267,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     `;
     return card;
   }
-
   // ---- Home grid & infinite scroll ----
-  const LOAD_THRESHOLD = 800; // px from bottom to trigger
   function getGrid(){
     if (!isHomeRoute()) return null;
     let grid = document.getElementById("grid");
@@ -280,12 +279,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
     return grid;
   }
-  function renderGridFromPosts(posts, append=false){
-    const grid = getGrid();
-    if(!grid) return;
-    if(!append) grid.innerHTML = "";
-    (posts||[]).forEach(p => { if (p && !hasExcluded(p)) grid.appendChild(buildCardElement(p)); });
-  }
   function getLoader(){
     let ld = document.getElementById("infiniteLoader");
     if(!ld){
@@ -293,12 +286,37 @@ console.info("OkObserver app loaded", APP_VERSION);
       ld.id = "infiniteLoader";
       ld.className = "infinite-loader";
       ld.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading…';
+      ld.style.display = "none";
       app.appendChild(ld);
     }
     return ld;
   }
   function showLoader(){ const ld=getLoader(); ld.style.display="flex"; }
   function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
+
+  function getSentinel(){
+    let s = document.getElementById("scrollSentinel");
+    if(!s){
+      s = document.createElement("div");
+      s.id = "scrollSentinel";
+      s.style.cssText = "height:1px;width:100%;";
+      app.appendChild(s);
+    } else {
+      // move sentinel to the very bottom of app to avoid stale position
+      app.appendChild(s);
+    }
+    return s;
+  }
+
+  function renderGridFromPosts(posts, append=false){
+    const grid = getGrid();
+    if(!grid) return;
+    if(!append) grid.innerHTML = "";
+    (posts||[]).forEach(p => { if (p && !hasExcluded(p)) grid.appendChild(buildCardElement(p)); });
+    // keep sentinel after grid and (hidden) loader
+    getLoader();
+    getSentinel();
+  }
 
   async function loadNextPage(){
     if (!isHomeRoute()) return;
@@ -345,20 +363,28 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
 
+  // IntersectionObserver-based infinite scroll
   function ensureInfiniteScroll(){
     const st = window.__okCache || (window.__okCache = {});
-    if (st._infAttached) return;
-    st._infAttached = true;
-    window.addEventListener("scroll", () => {
-      // keep scrollY fresh only on home
-      if (!isHomeRoute()) return;
-      st.scrollY = window.scrollY || window.pageYOffset || 0;
-      // near bottom?
-      const bottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - LOAD_THRESHOLD);
-      if (bottom) loadNextPage();
-    }, { passive: true });
-  }
+    if (st._ioAttached) return;
+    st._ioAttached = true;
 
+    const sentinel = getSentinel();
+    const io = new IntersectionObserver((entries)=>{
+      const e = entries[0];
+      if (!e || !e.isIntersecting) return;
+      if (!isHomeRoute()) return;
+      loadNextPage();
+    }, {
+      root: null,
+      rootMargin: "1000px 0px",  // prefetch before user reaches bottom
+      threshold: 0
+    });
+    io.observe(sentinel);
+
+    // store reference so we could unobserve in the future if needed
+    st._io = io;
+  }
   // ---- Views ----
   async function renderHome() {
     if (!app) return;
@@ -368,7 +394,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
       app.innerHTML = "";
       renderGridFromPosts(st.posts, false);
-      getLoader();
       ensureInfiniteScroll();
 
       // Wait for the grid’s images to settle, then restore position
@@ -402,7 +427,6 @@ console.info("OkObserver app loaded", APP_VERSION);
 
       app.innerHTML = "";
       renderGridFromPosts(posts, false);
-      getLoader();
       ensureInfiniteScroll();
 
       // Cache base state
@@ -424,8 +448,8 @@ console.info("OkObserver app loaded", APP_VERSION);
       app.innerHTML = "";
     }
   }
+
   function renderPostShell(){
-    // Remove loader if present (from home infinite scroll)
     try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
     if (!app) return;
     app.innerHTML = `
@@ -452,12 +476,10 @@ console.info("OkObserver app loaded", APP_VERSION);
       try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
       location.hash = "#/";
     };
-    // Listener can be attached immediately; button is hidden until content is ready
     document.getElementById("backBottom")?.addEventListener("click", goHome);
   }
 
   async function renderPost(id) {
-    // Build shell first so layout exists (button hidden initially)
     renderPostShell();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
@@ -491,17 +513,14 @@ console.info("OkObserver app loaded", APP_VERSION);
       if (pContent) {
         pContent.innerHTML = normalizeContent(post.content.rendered);
         normalizeFirstParagraph(pContent);
-        // (no paywall highlight styling)
         hardenLinks(pContent);
       }
 
-      // Reveal the Back button only after content is ready
       const backBtn = document.getElementById('backBottom');
       if (backBtn) backBtn.style.display = '';
 
     } catch (err) {
       showError(err);
-      // If load fails, still allow returning to posts
       const backBtn = document.getElementById('backBottom');
       if (backBtn) backBtn.style.display = '';
     }
