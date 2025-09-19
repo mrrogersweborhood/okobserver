@@ -1,11 +1,12 @@
-// app.js — OkObserver v1.58.6 (stable)
+// app.js — OkObserver v1.58.7 (stable)
+// - Fix: removed stray “the” keyword before order array (syntax error fixed)
 // - Robust infinite scroll (no X-WP-TotalPages dependency)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait + homeScrollY
 // - Scroll tracking only on Home
 // - Stronger normalizeFirstParagraph: removes leading &nbsp;/spaces and kills theme indents
-const APP_VERSION = "v1.58.6";
+const APP_VERSION = "v1.58.7";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -114,7 +115,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const m=p?._embedded?.["wp:featuredmedia"]?.[0];
     if(!m) return { src:"", srcset:"", width:null, height:null };
     const sizes=m.media_details?.sizes||{};
-    the order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
     const list=[];
     for(const k of order){
       const s=sizes[k];
