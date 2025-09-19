@@ -1,11 +1,11 @@
-// app.js — OkObserver v1.58.8 (stable)
-// - FIX: Infinite scroll via IntersectionObserver sentinel (robust)
+// app.js — OkObserver v1.58.9 (stable)
+// - FIX: Infinite scroll now re-observes a NEW sentinel after DOM swaps (robust IO)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait + homeScrollY
 // - Scroll tracking only on Home
 // - Stronger normalizeFirstParagraph: removes leading &nbsp;/spaces and kills theme indents
-const APP_VERSION = "v1.58.8";
+const APP_VERSION = "v1.58.9";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -26,8 +26,10 @@ console.info("OkObserver app loaded", APP_VERSION);
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
-    _infAttached: false,       // legacy scroll listener flag (kept for back-compat)
-    _ioAttached: false         // IntersectionObserver attached?
+    _infAttached: false,       // legacy (not used by IO)
+    _ioAttached: false,        // IO attached at least once?
+    _io: null,                 // IntersectionObserver instance
+    _sentinel: null            // currently observed sentinel element
   };
   function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{} }
   (function rehydrate(){
@@ -237,8 +239,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const fm = featuredSrcsetAndSize(post);
     const fallback = firstImgFromHTML(post.content?.rendered || "");
     const imgSrc = fm.src || fallback || "";
-    theAuthor = getAuthor(post); // (kept variable name typo-free elsewhere)
-    const author = theAuthor;
+    const author = getAuthor(post);
     const date = ordinalDate(post.date);
     const excerpt = decodeEntities(
       (post.excerpt?.rendered || '')
@@ -267,7 +268,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     `;
     return card;
   }
-  // ---- Home grid & infinite scroll ----
+  // ---- Home grid, loader, sentinel ----
   function getGrid(){
     if (!isHomeRoute()) return null;
     let grid = document.getElementById("grid");
@@ -302,7 +303,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       s.style.cssText = "height:1px;width:100%;";
       app.appendChild(s);
     } else {
-      // move sentinel to the very bottom of app to avoid stale position
+      // Always keep sentinel at very bottom of #app
       app.appendChild(s);
     }
     return s;
@@ -313,9 +314,17 @@ console.info("OkObserver app loaded", APP_VERSION);
     if(!grid) return;
     if(!append) grid.innerHTML = "";
     (posts||[]).forEach(p => { if (p && !hasExcluded(p)) grid.appendChild(buildCardElement(p)); });
-    // keep sentinel after grid and (hidden) loader
+    // keep loader and sentinel at the bottom
     getLoader();
-    getSentinel();
+    const s = getSentinel();
+
+    // IMPORTANT: if IO already exists, re-observe the (potentially replaced) sentinel
+    const st = window.__okCache || (window.__okCache = {});
+    if (st._io && st._sentinel !== s) {
+      try { if (st._sentinel) st._io.unobserve(st._sentinel); } catch {}
+      st._io.observe(s);
+      st._sentinel = s;
+    }
   }
 
   async function loadNextPage(){
@@ -363,13 +372,21 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   }
 
-  // IntersectionObserver-based infinite scroll
+  // IntersectionObserver-based infinite scroll (resilient across DOM swaps)
   function ensureInfiniteScroll(){
     const st = window.__okCache || (window.__okCache = {});
-    if (st._ioAttached) return;
-    st._ioAttached = true;
-
     const sentinel = getSentinel();
+
+    if (st._io) {
+      // Already have an observer — just ensure it watches the current sentinel
+      if (st._sentinel !== sentinel) {
+        try { if (st._sentinel) st._io.unobserve(st._sentinel); } catch {}
+        st._io.observe(sentinel);
+        st._sentinel = sentinel;
+      }
+      return;
+    }
+
     const io = new IntersectionObserver((entries)=>{
       const e = entries[0];
       if (!e || !e.isIntersecting) return;
@@ -380,10 +397,11 @@ console.info("OkObserver app loaded", APP_VERSION);
       rootMargin: "1000px 0px",  // prefetch before user reaches bottom
       threshold: 0
     });
-    io.observe(sentinel);
 
-    // store reference so we could unobserve in the future if needed
+    io.observe(sentinel);
     st._io = io;
+    st._sentinel = sentinel;
+    st._ioAttached = true;
   }
   // ---- Views ----
   async function renderHome() {
