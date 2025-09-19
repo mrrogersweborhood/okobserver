@@ -24,16 +24,21 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
   /* Show full image in cards without cropping */
-.thumb{
-  width:100%;
-  height:180px;
-  object-fit:contain;      /* was: cover */
-  object-position:center;  /* keep the image centered */
-  background:#f0f0f0;      /* letterbox backdrop */
-  cursor:pointer;
-}
+  .thumb{
+    width:100%;
+    height:160px;
+    object-fit:contain;      /* was: cover */
+    object-position:center;  /* center image within box */
+    background:#f0f0f0;      /* letterbox backdrop */
+    cursor:pointer;
+  }
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-  .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
+  /* Explicitly set post title color */
+  .title{
+    font-size:1.1em;
+    margin:4px 0;
+    color:#1E90FF; /* explicitly set hex value */
+  }
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
