@@ -1,9 +1,10 @@
-// app.js — OkObserver v1.58.4 (stable)
+// app.js — OkObserver v1.58.5 (stable)
 // - Robust infinite scroll (no X-WP-TotalPages dependency)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
-// - Scroll restore with image-settle wait
-const APP_VERSION = "v1.58.4";
+// - Scroll restore with image-settle wait + homeScrollY
+// - Scroll tracking only on Home
+const APP_VERSION = "v1.58.5";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -20,6 +21,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     page: 1,
     totalPages: null,          // unknown until learned
     scrollY: 0,
+    homeScrollY: 0,
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
@@ -49,7 +51,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     if(btn) btn.closest(".error-banner")?.remove();
   });
 
-  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const getAuthor=(p)=>p?._embedded?.author?.[0]?.name||"";
   function hasExcluded(p){
     const groups=p?._embedded?.["wp:term"]||[];
@@ -312,9 +314,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (st._infAttached) return;
     st._infAttached = true;
     window.addEventListener("scroll", () => {
-      // keep scrollY fresh
+      // keep scrollY fresh only on home
+      if (!isHomeRoute()) return;
       st.scrollY = window.scrollY || window.pageYOffset || 0;
-      if (!isHomeRoute()) return; // only act on home
       // near bottom?
       const bottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - LOAD_THRESHOLD);
       if (bottom) loadNextPage();
@@ -338,11 +340,10 @@ console.info("OkObserver app loaded", APP_VERSION);
       (async () => {
         await whenImagesSettled(grid, 2000);
 
-        if (typeof st.scrollY === "number" && st.scrollY > 0) {
-          // Primary: exact pixel restore
-          window.scrollTo({ top: st.scrollY });
+        const targetY = (typeof st.homeScrollY === "number" ? st.homeScrollY : st.scrollY) || 0;
+        if (targetY > 0) {
+          window.scrollTo({ top: targetY });
         } else if (st.scrollAnchorPostId) {
-          // Fallback: find the specific card and scroll it into view
           const el = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
           (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
         }
@@ -377,6 +378,7 @@ console.info("OkObserver app loaded", APP_VERSION);
         st.totalPages = Number.isFinite(tp) && tp > 0 ? tp : null;
       }
       st.scrollY = 0;
+      st.homeScrollY = 0;
       st.scrollAnchorPostId = null;
       st.isLoading = false;
       saveHomeCache();
@@ -489,7 +491,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (href.startsWith('#/post/')) {
       e.preventDefault();
       const st = window.__okCache || (window.__okCache = {});
+      // Save exact Home position before leaving
       st.scrollY = window.scrollY || window.pageYOffset || 0;
+      st.homeScrollY = st.scrollY;
       const id = Number(link.dataset.id || '') || null;
       if (id !== null) st.scrollAnchorPostId = id;
       st.returningFromDetail = true;
@@ -500,8 +504,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     }
   });
 
-  // Keep scrollY updated generally on home
+  // Keep scrollY updated only on the Home route (avoid clobbering while in details)
   window.addEventListener('scroll', function () {
+    if (!isHomeRoute()) return;
     const st = window.__okCache || (window.__okCache = {});
     st.scrollY = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
