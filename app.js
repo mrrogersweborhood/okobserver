@@ -1,10 +1,11 @@
-// app.js — OkObserver v1.58.5 (stable)
+// app.js — OkObserver v1.58.6 (stable)
 // - Robust infinite scroll (no X-WP-TotalPages dependency)
 // - HTML entity decoding for excerpts
 // - Bottom-only "Back to posts", hidden until content is ready
 // - Scroll restore with image-settle wait + homeScrollY
 // - Scroll tracking only on Home
-const APP_VERSION = "v1.58.5";
+// - Stronger normalizeFirstParagraph: removes leading &nbsp;/spaces and kills theme indents
+const APP_VERSION = "v1.58.6";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -51,7 +52,9 @@ console.info("OkObserver app loaded", APP_VERSION);
     if(btn) btn.closest(".error-banner")?.remove();
   });
 
-  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","&gt;":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const esc=(s)=>(s||"").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
   const getAuthor=(p)=>p?._embedded?.author?.[0]?.name||"";
   function hasExcluded(p){
     const groups=p?._embedded?.["wp:term"]||[];
@@ -111,7 +114,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     const m=p?._embedded?.["wp:featuredmedia"]?.[0];
     if(!m) return { src:"", srcset:"", width:null, height:null };
     const sizes=m.media_details?.sizes||{};
-    const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    the order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
     const list=[];
     for(const k of order){
       const s=sizes[k];
@@ -154,6 +157,52 @@ console.info("OkObserver app loaded", APP_VERSION);
       } else if(!box.textContent.trim()) box.remove();
     });
   }
+
+  // Strong first-paragraph normalizer
+  function normalizeFirstParagraph(root){
+    if (!root) return;
+
+    // Find first meaningful text node
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node){
+          const t = (node.nodeValue || "").replace(/\u00A0/g, " ").trim();
+          return t ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+    const firstText = walker.nextNode();
+    if (!firstText) return;
+
+    // Climb to its paragraph; fallback to first <p>
+    let el = firstText.parentElement;
+    while (el && el !== root && el.tagName !== "P") el = el.parentElement;
+    if (!el || el === root) el = root.querySelector("p");
+    if (!el) return;
+
+    // Strip leading NBSP/nbsp/spaces used to fake indents
+    el.innerHTML = el.innerHTML.replace(/^(\u00A0|&nbsp;|\s)+/i, "");
+
+    // Zero out indent/padding/margin and enforce left align
+    const zeroOut = (node) => {
+      node.style.setProperty("text-indent","0","important");
+      node.style.setProperty("margin-left","0","important");
+      node.style.setProperty("padding-left","0","important");
+      node.style.setProperty("text-align","left","important");
+    };
+    zeroOut(el);
+
+    // Also neutralize common block ancestors that might push it
+    let parent = el.parentElement;
+    while (parent && parent !== root && !parent.classList.contains("content")) {
+      const tag = (parent.tagName || "").toLowerCase();
+      if (["div","section","article","blockquote","figure"].includes(tag)) zeroOut(parent);
+      parent = parent.parentElement;
+    }
+  }
+
   function normalizeContent(html){
     const root=document.createElement("div"); root.innerHTML=html||"";
     root.querySelectorAll("figure.wp-block-embed,.wp-block-embed__wrapper").forEach(c=>{
@@ -162,20 +211,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     deLazyImages(root);
     transformEmbeds(root);
     return root.innerHTML;
-  }
-  function normalizeFirstParagraph(root){
-    if(!root) return;
-    const blocks = root.querySelectorAll("p, div, section, article, blockquote");
-    let firstBlock = null;
-    for (const el of blocks) {
-      const txt = (el.textContent || "").replace(/\u00A0/g, " ").trim();
-      if (txt.length > 0) { firstBlock = el; break; }
-    }
-    if (!firstBlock) return;
-    firstBlock.style.setProperty("text-align","left","important");
-    firstBlock.style.setProperty("text-indent","0","important");
-    firstBlock.style.setProperty("margin-left","0","important");
-    firstBlock.style.setProperty("padding-left","0","important");
   }
   function hardenLinks(root){
     if(!root) return;
