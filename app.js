@@ -1,11 +1,10 @@
-// app.js — OkObserver v1.58.9 (stable)
-// - FIX: Infinite scroll now re-observes a NEW sentinel after DOM swaps (robust IO)
-// - HTML entity decoding for excerpts
-// - Bottom-only "Back to posts", hidden until content is ready
-// - Scroll restore with image-settle wait + homeScrollY
-// - Scroll tracking only on Home
-// - Stronger normalizeFirstParagraph: removes leading &nbsp;/spaces and kills theme indents
-const APP_VERSION = "v1.58.9";
+// app.js — OkObserver v1.59.0 (stable)
+// - Robust IO infinite scroll with re-observe on DOM swaps
+// - Better error surfacing + fallback fetch when _embed is blocked
+// - Defensive card building without _embed
+// - Strong normalizeFirstParagraph (kills theme indents & fake NBSP indents)
+// - Scroll restore with image-settle wait + homeScrollY; bottom-only Back button
+const APP_VERSION = "v1.59.0";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -26,7 +25,6 @@ console.info("OkObserver app loaded", APP_VERSION);
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
-    _infAttached: false,       // legacy (not used by IO)
     _ioAttached: false,        // IO attached at least once?
     _io: null,                 // IntersectionObserver instance
     _sentinel: null            // currently observed sentinel element
@@ -97,7 +95,7 @@ console.info("OkObserver app loaded", APP_VERSION);
   // Decode HTML entities so &hellip; -> … and &#8211; -> –
   function decodeEntities(str) {
     const txt = document.createElement('textarea');
-    txt.innerHTML = str;
+    txt.innerHTML = str || "";
     return txt.value;
   }
 
@@ -236,18 +234,22 @@ console.info("OkObserver app loaded", APP_VERSION);
     const card = document.createElement("div");
     card.className = "card";
 
+    // Try featured media first, otherwise the first <img> from content
     const fm = featuredSrcsetAndSize(post);
-    const fallback = firstImgFromHTML(post.content?.rendered || "");
+    const fallback = firstImgFromHTML(post?.content?.rendered || "");
     const imgSrc = fm.src || fallback || "";
-    const author = getAuthor(post);
+
+    // Author may be missing if _embed was blocked
+    const author = getAuthor(post) || "";
+
     const date = ordinalDate(post.date);
     const excerpt = decodeEntities(
-      (post.excerpt?.rendered || '')
-        .replace(/<[^>]+>/g, '')  // strip all HTML tags
+      (post?.excerpt?.rendered || "")
+        .replace(/<[^>]+>/g, "")
         .trim()
-    ); // shows … and – correctly
+    );
     const postHref = `#/post/${post.id}`;
-    const titleHTML = post.title.rendered;
+    const titleHTML = (post?.title?.rendered || "Untitled");
 
     card.innerHTML = `
       ${imgSrc
@@ -303,7 +305,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       s.style.cssText = "height:1px;width:100%;";
       app.appendChild(s);
     } else {
-      // Always keep sentinel at very bottom of #app
+      // Always keep sentinel at the very bottom of #app
       app.appendChild(s);
     }
     return s;
@@ -318,7 +320,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     getLoader();
     const s = getSentinel();
 
-    // IMPORTANT: if IO already exists, re-observe the (potentially replaced) sentinel
+    // If IO already exists, re-observe the (potentially moved) sentinel
     const st = window.__okCache || (window.__okCache = {});
     if (st._io && st._sentinel !== s) {
       try { if (st._sentinel) st._io.unobserve(st._sentinel); } catch {}
@@ -337,8 +339,8 @@ console.info("OkObserver app loaded", APP_VERSION);
     try {
       const next = (st.page||1) + 1;
       const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${next}&_embed=1`;
-      const res = await fetch(url, { credentials: "omit" });
-      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+      const res = await fetch(url, { credentials: "omit", headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
       const newPosts = await res.json();
       const existingIds = new Set((st.posts||[]).map(p=>p?.id));
       const add = [];
@@ -435,13 +437,54 @@ console.info("OkObserver app loaded", APP_VERSION);
       return;
     }
 
-    // Fresh load
+    // Fresh load with rich error reporting + fallback
     app.innerHTML = `<p class="center">Loading…</p>`;
+
+    async function fetchPage(pageNum) {
+      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_embed=1`;
+      const res = await fetch(url, { credentials: "omit", headers: { "Accept": "application/json" } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        const err = new Error(`API Error ${res.status}${res.statusText ? `: ${res.statusText}` : ""}`);
+        err.details = text?.slice(0, 300);
+        throw err;
+      }
+      const data = await res.json();
+      return { data, res };
+    }
+
     try {
-      const url = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_embed=1`;
-      const res = await fetch(url, { credentials: "omit" });
-      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-      const posts = await res.json();
+      // First attempt (full, embedded)
+      let data, res;
+      try {
+        ({ data, res } = await fetchPage(1));
+      } catch (e1) {
+        // Fallback: minimal fields, no _embed (some hosts throttle embedded)
+        console.warn("[OkObserver] First attempt failed, retrying fallback:", e1);
+        const fallbackUrl = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_fields=id,date,title,excerpt,content,link`;
+        const res2 = await fetch(fallbackUrl, {
+          credentials: "omit",
+          headers: { "Accept": "application/json" }
+        });
+        if (!res2.ok) {
+          const text = await res2.text().catch(() => "");
+          const err = new Error(`API Error ${res2.status}${res2.statusText ? `: ${res2.statusText}` : ""}`);
+          err.details = text?.slice(0, 300);
+          throw err;
+        }
+        data = await res2.json();
+        res = res2;
+        // Note: without _embed we won’t have authors/media, but cards handle fallback.
+      }
+
+      const posts = Array.isArray(data) ? data : [];
+      if (posts.length === 0) {
+        app.innerHTML = "";
+        showError("No posts returned from the server. (Try again in a minute or check WP REST settings.)");
+        renderGridFromPosts([], false);
+        ensureInfiniteScroll();
+        return;
+      }
 
       app.innerHTML = "";
       renderGridFromPosts(posts, false);
@@ -450,11 +493,8 @@ console.info("OkObserver app loaded", APP_VERSION);
       // Cache base state
       st.posts = posts.filter(p => p && !hasExcluded(p));
       st.page = 1;
-      // Learn totalPages robustly on first load
-      {
-        const tp = Number(res.headers.get("X-WP-TotalPages"));
-        st.totalPages = Number.isFinite(tp) && tp > 0 ? tp : null;
-      }
+      const tp = Number(res.headers?.get?.("X-WP-TotalPages"));
+      st.totalPages = Number.isFinite(tp) && tp > 0 ? tp : null;
       st.scrollY = 0;
       st.homeScrollY = 0;
       st.scrollAnchorPostId = null;
@@ -462,8 +502,12 @@ console.info("OkObserver app loaded", APP_VERSION);
       saveHomeCache();
       console.info("[OkObserver] pages:", { page: st.page, totalPages: st.totalPages });
     } catch (err) {
-      showError(err);
+      console.error("[OkObserver] Home load failed:", err, err?.details || "");
+      showError((err && err.message) ? err.message : err);
+      if (err?.details) showError(err.details);
       app.innerHTML = "";
+      // Keep structure so the app isn’t “dead”
+      renderGridFromPosts([], false);
     }
   }
 
@@ -501,7 +545,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     renderPostShell();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
       if (!res.ok) throw new Error('Post not found');
       const post = await res.json();
       const { src, width, height } = featuredSrcsetAndSize(post);
@@ -514,7 +558,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const pHero = document.getElementById('pHero');
       const pContent = document.getElementById('pContent');
 
-      if (pTitle) pTitle.innerHTML = post.title.rendered;
+      if (pTitle) pTitle.innerHTML = post?.title?.rendered || "Untitled";
       if (pAuthor) pAuthor.textContent = author || '';
       if (pDate) pDate.textContent = date || '';
 
@@ -529,7 +573,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       }
 
       if (pContent) {
-        pContent.innerHTML = normalizeContent(post.content.rendered);
+        pContent.innerHTML = normalizeContent(post?.content?.rendered || "");
         normalizeFirstParagraph(pContent);
         hardenLinks(pContent);
       }
