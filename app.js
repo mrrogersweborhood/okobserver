@@ -1,10 +1,13 @@
-// app.js — OkObserver v1.59.0 (stable)
+// app.js — OkObserver v1.59.1 (stable)
 // - Robust IO infinite scroll with re-observe on DOM swaps
 // - Better error surfacing + fallback fetch when _embed is blocked
 // - Defensive card building without _embed
+// - Batch DOM inserts for grid render
+// - Abort in-flight fetches on route changes
+// - Reused HTML entity decoder
 // - Strong normalizeFirstParagraph (kills theme indents & fake NBSP indents)
 // - Scroll restore with image-settle wait + homeScrollY; bottom-only Back button
-const APP_VERSION = "v1.59.0";
+const APP_VERSION = "v1.59.1";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -13,6 +16,10 @@ console.info("OkObserver app loaded", APP_VERSION);
   const PER_PAGE = 12;
   const EXCLUDE_CAT = "cartoon";
   const app = document.getElementById("app");
+
+  // Abort controllers to cancel stale network work
+  let listAbort;    // for home list & pagination
+  let detailAbort;  // for post detail
 
   // ---- session cache (posts + paging + scroll) ----
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
@@ -93,10 +100,10 @@ console.info("OkObserver app loaded", APP_VERSION);
   }
 
   // Decode HTML entities so &hellip; -> … and &#8211; -> –
+  const __decoder = document.createElement('textarea');
   function decodeEntities(str) {
-    const txt = document.createElement('textarea');
-    txt.innerHTML = str || "";
-    return txt.value;
+    __decoder.innerHTML = str || "";
+    return __decoder.value;
   }
 
   function firstImgFromHTML(html){
@@ -129,6 +136,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       height:(best?.height|| m.media_details?.height|| null)
     };
   }
+
   function deLazyImages(root){
     if(!root) return;
     root.querySelectorAll("img").forEach(img=>{
@@ -251,10 +259,18 @@ console.info("OkObserver app loaded", APP_VERSION);
     const postHref = `#/post/${post.id}`;
     const titleHTML = (post?.title?.rendered || "Untitled");
 
+    const sizes = '(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw';
+
     card.innerHTML = `
       ${imgSrc
         ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
-             <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" />
+             <img src="${esc(imgSrc)}"
+                  alt="${esc(titleHTML)}"
+                  class="thumb"
+                  loading="lazy"
+                  decoding="async"
+                  fetchpriority="low"
+                  sizes="${esc(sizes)}" />
            </a>`
         : `<div class="thumb" aria-hidden="true"></div>`}
       <div class="card-body">
@@ -270,6 +286,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     `;
     return card;
   }
+
   // ---- Home grid, loader, sentinel ----
   function getGrid(){
     if (!isHomeRoute()) return null;
@@ -315,7 +332,12 @@ console.info("OkObserver app loaded", APP_VERSION);
     const grid = getGrid();
     if(!grid) return;
     if(!append) grid.innerHTML = "";
-    (posts||[]).forEach(p => { if (p && !hasExcluded(p)) grid.appendChild(buildCardElement(p)); });
+
+    // Batch DOM inserts
+    const frag = document.createDocumentFragment();
+    (posts||[]).forEach(p => { if (p && !hasExcluded(p)) frag.appendChild(buildCardElement(p)); });
+    grid.appendChild(frag);
+
     // keep loader and sentinel at the bottom
     getLoader();
     const s = getSentinel();
@@ -334,12 +356,21 @@ console.info("OkObserver app loaded", APP_VERSION);
     const st = window.__okCache || (window.__okCache = {});
     if (st.isLoading) return;
     if (Number.isFinite(st.totalPages) && st.page >= st.totalPages) return;
+
+    // reuse/refresh listAbort
+    if (listAbort) { try{ listAbort.abort(); }catch{} }
+    listAbort = new AbortController();
+
     st.isLoading = true; saveHomeCache();
     showLoader();
     try {
       const next = (st.page||1) + 1;
       const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${next}&_embed=1`;
-      const res = await fetch(url, { credentials: "omit", headers: { "Accept": "application/json" } });
+      const res = await fetch(url, {
+        credentials: "omit",
+        headers: { "Accept": "application/json" },
+        signal: listAbort.signal
+      });
       if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
       const newPosts = await res.json();
       const existingIds = new Set((st.posts||[]).map(p=>p?.id));
@@ -365,7 +396,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       saveHomeCache();
       renderGridFromPosts(add, true);
     } catch (err) {
-      showError(err);
+      if (err?.name !== 'AbortError') showError(err);
     } finally {
       hideLoader();
       const st2 = window.__okCache || {};
@@ -405,6 +436,7 @@ console.info("OkObserver app loaded", APP_VERSION);
     st._sentinel = sentinel;
     st._ioAttached = true;
   }
+
   // ---- Views ----
   async function renderHome() {
     if (!app) return;
@@ -440,9 +472,17 @@ console.info("OkObserver app loaded", APP_VERSION);
     // Fresh load with rich error reporting + fallback
     app.innerHTML = `<p class="center">Loading…</p>`;
 
+    // cancel any previous list fetch
+    if (listAbort) { try{ listAbort.abort(); }catch{} }
+    listAbort = new AbortController();
+
     async function fetchPage(pageNum) {
       const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_embed=1`;
-      const res = await fetch(url, { credentials: "omit", headers: { "Accept": "application/json" } });
+      const res = await fetch(url, {
+        credentials: "omit",
+        headers: { "Accept": "application/json" },
+        signal: listAbort.signal
+      });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         const err = new Error(`API Error ${res.status}${res.statusText ? `: ${res.statusText}` : ""}`);
@@ -464,7 +504,8 @@ console.info("OkObserver app loaded", APP_VERSION);
         const fallbackUrl = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_fields=id,date,title,excerpt,content,link`;
         const res2 = await fetch(fallbackUrl, {
           credentials: "omit",
-          headers: { "Accept": "application/json" }
+          headers: { "Accept": "application/json" },
+          signal: listAbort.signal
         });
         if (!res2.ok) {
           const text = await res2.text().catch(() => "");
@@ -502,9 +543,11 @@ console.info("OkObserver app loaded", APP_VERSION);
       saveHomeCache();
       console.info("[OkObserver] pages:", { page: st.page, totalPages: st.totalPages });
     } catch (err) {
-      console.error("[OkObserver] Home load failed:", err, err?.details || "");
-      showError((err && err.message) ? err.message : err);
-      if (err?.details) showError(err.details);
+      if (err?.name !== 'AbortError'){
+        console.error("[OkObserver] Home load failed:", err, err?.details || "");
+        showError((err && err.message) ? err.message : err);
+        if (err?.details) showError(err.details);
+      }
       app.innerHTML = "";
       // Keep structure so the app isn’t “dead”
       renderGridFromPosts([], false);
@@ -543,9 +586,14 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   async function renderPost(id) {
     renderPostShell();
+
+    // cancel any previous detail fetch
+    if (detailAbort) { try{ detailAbort.abort(); }catch{} }
+    detailAbort = new AbortController();
+
     const url = `${BASE}/posts/${id}?_embed=1`;
     try {
-      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      const res = await fetch(url, { headers: { "Accept": "application/json" }, signal: detailAbort.signal });
       if (!res.ok) throw new Error('Post not found');
       const post = await res.json();
       const { src, width, height } = featuredSrcsetAndSize(post);
@@ -570,19 +618,25 @@ console.info("OkObserver app loaded", APP_VERSION);
         pHero.alt = pTitle?.textContent || '';
         pHero.loading = 'lazy';
         pHero.decoding = 'async';
+        pHero.fetchPriority = 'high';
+        pHero.sizes = '100vw';
       }
 
       if (pContent) {
         pContent.innerHTML = normalizeContent(post?.content?.rendered || "");
-        normalizeFirstParagraph(pContent);
-        hardenLinks(pContent);
+
+        const idle = window.requestIdleCallback || function (cb){ return setTimeout(cb, 1); };
+        idle(() => {
+          try { normalizeFirstParagraph(pContent); } catch {}
+          try { hardenLinks(pContent); } catch {}
+        });
       }
 
       const backBtn = document.getElementById('backBottom');
       if (backBtn) backBtn.style.display = '';
 
     } catch (err) {
-      showError(err);
+      if (err?.name !== 'AbortError') showError(err);
       const backBtn = document.getElementById('backBottom');
       if (backBtn) backBtn.style.display = '';
     }
