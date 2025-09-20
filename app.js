@@ -1,8 +1,8 @@
-// app.js — OkObserver v1.59.2
-// - Fix: don't retry fallback on AbortError; fresh controller for fallback
-// - Fix: never persist _io/_sentinel; guard observe() usage
-// - All prior performance & feature improvements retained
-const APP_VERSION = "v1.59.2";
+// app.js — OkObserver v1.59.3
+// - Smooth return-from-detail scroll restore (freeze height, disable anchoring, double restore)
+// - Pause infinite scroll during restore
+// - Prior fixes: AbortError handling, IO persistence guard, perf tweaks
+const APP_VERSION = "v1.59.3";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -107,6 +107,10 @@ console.info("OkObserver app loaded", APP_VERSION);
       setTimeout(() => { if (!settled) resolve(); }, timeout);
     });
   }
+
+  // Frame helpers & restore guard
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let __isRestoring = false;
 
   // Decode HTML entities so &hellip; -> … and &#8211; -> –
   const __decoder = document.createElement('textarea');
@@ -367,6 +371,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   async function loadNextPage(){
     if (!isHomeRoute()) return;
+    if (__isRestoring) return; // don't page during restore
     const st = window.__okCache || (window.__okCache = {});
     if (st.isLoading) return;
     if (Number.isFinite(st.totalPages) && st.page >= st.totalPages) return;
@@ -433,6 +438,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const e = entries[0];
       if (!e || !e.isIntersecting) return;
       if (!isHomeRoute()) return;
+      if (__isRestoring) return; // guard during restore
       loadNextPage();
     }, {
       root: null,
@@ -451,28 +457,65 @@ console.info("OkObserver app loaded", APP_VERSION);
     if (!app) return;
     const st = window.__okCache || (window.__okCache = {});
 
-    // Returning from detail: fast render from cache + scroll restore
+    // Returning from detail: fast render from cache + smooth scroll restore
     if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
+      __isRestoring = true;
+
+      // Snapshot target
+      const targetY = (typeof st.homeScrollY === "number" ? st.homeScrollY : st.scrollY) || 0;
+      const wantAnchor = !targetY && st.scrollAnchorPostId;
+
+      // Freeze height & disable anchoring so DOM swaps don’t yank the page
+      const rootEl = document.documentElement;
+      const body = document.body;
+      const prevHeight = Math.max(body.scrollHeight, rootEl.scrollHeight);
+      const prevScrollBehavior = rootEl.style.scrollBehavior;
+      app.style.minHeight = prevHeight + "px";
+      rootEl.style.scrollBehavior = "auto";
+      rootEl.style.setProperty("overflow-anchor", "none");
+
+      // Rebuild grid from cache
       app.innerHTML = "";
       renderGridFromPosts(st.posts, false);
       ensureInfiniteScroll();
 
-      const grid = document.getElementById("grid");
-      (async () => {
-        await whenImagesSettled(grid, 2000);
+      const doRestore = async () => {
+        const grid = document.getElementById("grid");
+        // Let layout settle after re-render
+        await nextFrame();
 
-        const targetY = (typeof st.homeScrollY === "number" ? st.homeScrollY : st.scrollY) || 0;
+        // First position set immediately (before images load)
         if (targetY > 0) {
-          window.scrollTo({ top: targetY });
-        } else if (st.scrollAnchorPostId) {
+          window.scrollTo(0, targetY);
+        } else if (wantAnchor) {
           const el = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
           (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
         }
 
-        st.returningFromDetail = false;
-        saveHomeCache();
-      })();
+        // Wait for images then correct drift once more
+        await whenImagesSettled(grid, 2000);
+        await nextFrame();
 
+        if (targetY > 0) {
+          window.scrollTo(0, targetY);
+        } else if (wantAnchor) {
+          const el2 = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
+          (el2?.closest(".card") || el2)?.scrollIntoView({ block: "start" });
+        }
+
+        // Unfreeze
+        app.style.minHeight = "";
+        rootEl.style.removeProperty("overflow-anchor");
+        rootEl.style.scrollBehavior = prevScrollBehavior || "";
+
+        // Clear the flag after we restore once
+        st.returningFromDetail = false;
+        __isRestoring = false;
+        saveHomeCache();
+      };
+
+      // Fire and forget
+      doRestore();
       return;
     }
 
