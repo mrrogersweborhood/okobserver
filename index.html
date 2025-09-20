@@ -39,16 +39,27 @@
     contain-intrinsic-size: 320px 360px;
   }
 
-  /* Show full image in cards without cropping */
+  /* Show full image in cards without a visible frame */
   .thumb{
     width:100%;
     height:160px;
     object-fit:contain;
     object-position:center;
-    background:#f0f0f0;
+    background:#fff;      /* was: #f0f0f0 */
     cursor:pointer;
-    /* Optional alternative: use aspect-ratio instead of fixed height
+    /* Optional: if you use aspect-ratio instead of fixed height
        aspect-ratio: 16 / 9; height: auto; */
+  }
+
+  /* Clean image/link chrome */
+  .thumb,
+  .thumb-link img { border: 0; box-shadow: none; }
+
+  /* Keep keyboard focus visible but subtle */
+  .thumb-link:focus-visible {
+    outline: 2px solid rgba(30,144,255,0.35); /* #1E90FF with transparency */
+    outline-offset: 3px;
+    border-radius: 8px;
   }
 
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
