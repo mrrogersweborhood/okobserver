@@ -1,13 +1,8 @@
-// app.js — OkObserver v1.59.1 (stable)
-// - Robust IO infinite scroll with re-observe on DOM swaps
-// - Better error surfacing + fallback fetch when _embed is blocked
-// - Defensive card building without _embed
-// - Batch DOM inserts for grid render
-// - Abort in-flight fetches on route changes
-// - Reused HTML entity decoder
-// - Strong normalizeFirstParagraph (kills theme indents & fake NBSP indents)
-// - Scroll restore with image-settle wait + homeScrollY; bottom-only Back button
-const APP_VERSION = "v1.59.1";
+// app.js — OkObserver v1.59.2
+// - Fix: don't retry fallback on AbortError; fresh controller for fallback
+// - Fix: never persist _io/_sentinel; guard observe() usage
+// - All prior performance & feature improvements retained
+const APP_VERSION = "v1.59.2";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -26,25 +21,39 @@ console.info("OkObserver app loaded", APP_VERSION);
   window.__okCache = window.__okCache || {
     posts: [],
     page: 1,
-    totalPages: null,          // unknown until learned
+    totalPages: null,
     scrollY: 0,
     homeScrollY: 0,
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
-    _ioAttached: false,        // IO attached at least once?
-    _io: null,                 // IntersectionObserver instance
-    _sentinel: null            // currently observed sentinel element
+    _ioAttached: false,
+    _io: null,
+    _sentinel: null
   };
-  function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(window.__okCache)); }catch{} }
+
+  // omit transient fields when saving
+  function stateForSave(st){
+    const { _io, _sentinel, isLoading, ...rest } = st || {};
+    return rest;
+  }
+  function saveHomeCache(){
+    try{ sessionStorage.setItem("__okCache", JSON.stringify(stateForSave(window.__okCache))); }catch{}
+  }
   (function rehydrate(){
     try{
       const raw=sessionStorage.getItem("__okCache");
       if(raw){
         const val=JSON.parse(raw);
-        if(val && typeof val==="object") window.__okCache={...window.__okCache,...val};
+        if(val && typeof val==="object"){
+          window.__okCache={...window.__okCache,...val};
+        }
       }
     }catch{}
+    // Never trust persisted IO handles
+    window.__okCache._io = null;
+    window.__okCache._sentinel = null;
+    window.__okCache.isLoading = false;
   })();
 
   // ---- utils ----
@@ -322,8 +331,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       s.style.cssText = "height:1px;width:100%;";
       app.appendChild(s);
     } else {
-      // Always keep sentinel at the very bottom of #app
-      app.appendChild(s);
+      app.appendChild(s); // ensure bottom
     }
     return s;
   }
@@ -342,12 +350,18 @@ console.info("OkObserver app loaded", APP_VERSION);
     getLoader();
     const s = getSentinel();
 
-    // If IO already exists, re-observe the (potentially moved) sentinel
     const st = window.__okCache || (window.__okCache = {});
-    if (st._io && st._sentinel !== s) {
-      try { if (st._sentinel) st._io.unobserve(st._sentinel); } catch {}
+    // If IO exists & valid, re-observe; else (re)create
+    if (st._io && typeof st._io.observe === 'function') {
+      if (st._sentinel && st._sentinel !== s) {
+        try { st._io.unobserve(st._sentinel); } catch {}
+      }
       st._io.observe(s);
       st._sentinel = s;
+    } else {
+      st._io = null;
+      st._sentinel = null;
+      ensureInfiniteScroll(); // will create fresh IO and observe
     }
   }
 
@@ -383,15 +397,9 @@ console.info("OkObserver app loaded", APP_VERSION);
       st.posts = (st.posts || []).concat(add);
       st.page = next;
 
-      // Learn totalPages robustly
-      {
-        const tp = Number(res.headers.get("X-WP-TotalPages"));
-        if (Number.isFinite(tp) && tp > 0) {
-          st.totalPages = tp;                  // use header when available
-        } else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) {
-          st.totalPages = st.page;             // last page inferred
-        }
-      }
+      const tp = Number(res.headers.get("X-WP-TotalPages"));
+      if (Number.isFinite(tp) && tp > 0) st.totalPages = tp;
+      else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) st.totalPages = st.page;
 
       saveHomeCache();
       renderGridFromPosts(add, true);
@@ -410,16 +418,17 @@ console.info("OkObserver app loaded", APP_VERSION);
     const st = window.__okCache || (window.__okCache = {});
     const sentinel = getSentinel();
 
-    if (st._io) {
-      // Already have an observer — just ensure it watches the current sentinel
-      if (st._sentinel !== sentinel) {
-        try { if (st._sentinel) st._io.unobserve(st._sentinel); } catch {}
-        st._io.observe(sentinel);
-        st._sentinel = sentinel;
+    // If we have a valid IO, ensure it watches the current sentinel
+    if (st._io && typeof st._io.observe === 'function') {
+      if (st._sentinel && st._sentinel !== sentinel) {
+        try { st._io.unobserve(st._sentinel); } catch {}
       }
+      st._io.observe(sentinel);
+      st._sentinel = sentinel;
       return;
     }
 
+    // Create fresh observer
     const io = new IntersectionObserver((entries)=>{
       const e = entries[0];
       if (!e || !e.isIntersecting) return;
@@ -427,7 +436,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       loadNextPage();
     }, {
       root: null,
-      rootMargin: "1000px 0px",  // prefetch before user reaches bottom
+      rootMargin: "1000px 0px",
       threshold: 0
     });
 
@@ -448,7 +457,6 @@ console.info("OkObserver app loaded", APP_VERSION);
       renderGridFromPosts(st.posts, false);
       ensureInfiniteScroll();
 
-      // Wait for the grid’s images to settle, then restore position
       const grid = document.getElementById("grid");
       (async () => {
         await whenImagesSettled(grid, 2000);
@@ -461,7 +469,6 @@ console.info("OkObserver app loaded", APP_VERSION);
           (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
         }
 
-        // Clear the flag after we restore once
         st.returningFromDetail = false;
         saveHomeCache();
       })();
@@ -499,8 +506,16 @@ console.info("OkObserver app loaded", APP_VERSION);
       try {
         ({ data, res } = await fetchPage(1));
       } catch (e1) {
+        // If we were aborted (route change), don't retry
+        if (e1?.name === 'AbortError' || listAbort.signal.aborted) return;
+
         // Fallback: minimal fields, no _embed (some hosts throttle embedded)
         console.warn("[OkObserver] First attempt failed, retrying fallback:", e1);
+
+        // Use a fresh controller for fallback to avoid "aborted signal"
+        if (listAbort) { try{ listAbort.abort(); }catch{} }
+        listAbort = new AbortController();
+
         const fallbackUrl = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_fields=id,date,title,excerpt,content,link`;
         const res2 = await fetch(fallbackUrl, {
           credentials: "omit",
@@ -515,7 +530,6 @@ console.info("OkObserver app loaded", APP_VERSION);
         }
         data = await res2.json();
         res = res2;
-        // Note: without _embed we won’t have authors/media, but cards handle fallback.
       }
 
       const posts = Array.isArray(data) ? data : [];
@@ -549,7 +563,6 @@ console.info("OkObserver app loaded", APP_VERSION);
         if (err?.details) showError(err.details);
       }
       app.innerHTML = "";
-      // Keep structure so the app isn’t “dead”
       renderGridFromPosts([], false);
     }
   }
@@ -569,7 +582,6 @@ console.info("OkObserver app loaded", APP_VERSION);
         <img id="pHero" class="hero" alt="" style="object-fit:contain;max-height:420px;display:none" />
         <div class="content" id="pContent"></div>
         <div style="display:flex;justify-content:space-between;gap:10px;margin-top:16px">
-          <!-- Hidden until content is populated -->
           <a class="btn" id="backBottom" href="#/" style="display:none">Back to posts</a>
         </div>
       </article>
@@ -578,7 +590,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       e?.preventDefault?.();
       const st = window.__okCache || (window.__okCache = {});
       st.returningFromDetail = true;
-      try{ sessionStorage.setItem("__okCache", JSON.stringify(st)); }catch{}
+      try{ sessionStorage.setItem("__okCache", JSON.stringify(stateForSave(st))); }catch{}
       location.hash = "#/";
     };
     document.getElementById("backBottom")?.addEventListener("click", goHome);
@@ -668,7 +680,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const id = Number(link.dataset.id || '') || null;
       if (id !== null) st.scrollAnchorPostId = id;
       st.returningFromDetail = true;
-      try{ sessionStorage.setItem('__okCache', JSON.stringify(st)); }catch{}
+      try{ sessionStorage.setItem('__okCache', JSON.stringify(stateForSave(st))); }catch{}
       const old = location.hash;
       location.hash = href;
       if (old === href) router();
