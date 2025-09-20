@@ -1,8 +1,10 @@
-// app.js — OkObserver v1.59.3
+// app.js — OkObserver v1.59.4
 // - Smooth return-from-detail scroll restore (freeze height, disable anchoring, double restore)
-// - Pause infinite scroll during restore
-// - Prior fixes: AbortError handling, IO persistence guard, perf tweaks
-const APP_VERSION = "v1.59.3";
+// - Pause infinite scroll during restore with watchdog + router unstick
+// - IO safety: never persist observer; reattach as needed
+// - Fallback paginator on window scroll if IO is missing
+// - Prior fixes: AbortError handling, perf tweaks (batch DOM, entity decoder, image hints)
+const APP_VERSION = "v1.59.4";
 window.APP_VERSION = APP_VERSION;
 console.info("OkObserver app loaded", APP_VERSION);
 
@@ -108,9 +110,18 @@ console.info("OkObserver app loaded", APP_VERSION);
     });
   }
 
-  // Frame helpers & restore guard
+  // Frame helpers & restore guard + watchdog
   const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   let __isRestoring = false;
+  let __restoreWatch = null;
+  function setRestoring(on) {
+    __isRestoring = !!on;
+    try { if (__restoreWatch) clearTimeout(__restoreWatch); } catch {}
+    if (on) {
+      // hard fail-safe: never pause more than ~3s
+      __restoreWatch = setTimeout(() => { __isRestoring = false; }, 3000);
+    }
+  }
 
   // Decode HTML entities so &hellip; -> … and &#8211; -> –
   const __decoder = document.createElement('textarea');
@@ -438,7 +449,7 @@ console.info("OkObserver app loaded", APP_VERSION);
       const e = entries[0];
       if (!e || !e.isIntersecting) return;
       if (!isHomeRoute()) return;
-      if (__isRestoring) return; // guard during restore
+      if (__isRestoring) return;   // guard during restore
       loadNextPage();
     }, {
       root: null,
@@ -459,7 +470,7 @@ console.info("OkObserver app loaded", APP_VERSION);
 
     // Returning from detail: fast render from cache + smooth scroll restore
     if (st.returningFromDetail && Array.isArray(st.posts) && st.posts.length) {
-      __isRestoring = true;
+      setRestoring(true);
 
       // Snapshot target
       const targetY = (typeof st.homeScrollY === "number" ? st.homeScrollY : st.scrollY) || 0;
@@ -480,38 +491,40 @@ console.info("OkObserver app loaded", APP_VERSION);
       ensureInfiniteScroll();
 
       const doRestore = async () => {
-        const grid = document.getElementById("grid");
-        // Let layout settle after re-render
-        await nextFrame();
+        try {
+          const grid = document.getElementById("grid");
+          // Let layout settle after re-render
+          await nextFrame();
 
-        // First position set immediately (before images load)
-        if (targetY > 0) {
-          window.scrollTo(0, targetY);
-        } else if (wantAnchor) {
-          const el = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
-          (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
+          // First position set immediately (before images load)
+          if (targetY > 0) {
+            window.scrollTo(0, targetY);
+          } else if (wantAnchor) {
+            const el = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
+            (el?.closest(".card") || el)?.scrollIntoView({ block: "start" });
+          }
+
+          // Wait for images then correct drift once more
+          await whenImagesSettled(grid, 2000);
+          await nextFrame();
+
+          if (targetY > 0) {
+            window.scrollTo(0, targetY);
+          } else if (wantAnchor) {
+            const el2 = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
+            (el2?.closest(".card") || el2)?.scrollIntoView({ block: "start" });
+          }
+        } finally {
+          // Unfreeze no matter what
+          app.style.minHeight = "";
+          document.documentElement.style.removeProperty("overflow-anchor");
+          document.documentElement.style.scrollBehavior = prevScrollBehavior || "";
+
+          // Clear the flag after we restore once
+          st.returningFromDetail = false;
+          setRestoring(false);
+          saveHomeCache();
         }
-
-        // Wait for images then correct drift once more
-        await whenImagesSettled(grid, 2000);
-        await nextFrame();
-
-        if (targetY > 0) {
-          window.scrollTo(0, targetY);
-        } else if (wantAnchor) {
-          const el2 = document.querySelector(`[data-id="${st.scrollAnchorPostId}"]`);
-          (el2?.closest(".card") || el2)?.scrollIntoView({ block: "start" });
-        }
-
-        // Unfreeze
-        app.style.minHeight = "";
-        rootEl.style.removeProperty("overflow-anchor");
-        rootEl.style.scrollBehavior = prevScrollBehavior || "";
-
-        // Clear the flag after we restore once
-        st.returningFromDetail = false;
-        __isRestoring = false;
-        saveHomeCache();
       };
 
       // Fire and forget
@@ -699,6 +712,9 @@ console.info("OkObserver app loaded", APP_VERSION);
 
   // ---- Router ----
   function router() {
+    // If user navigates mid-restore, unstick the pause
+    if (__isRestoring) setRestoring(false);
+
     const hash = window.location.hash || "#/";
     const m = hash.match(/^#\/post\/(\d+)(?:[\/\?].*)?$/);
     if (m && m[1]) renderPost(m[1]);
@@ -736,4 +752,22 @@ console.info("OkObserver app loaded", APP_VERSION);
     const st = window.__okCache || (window.__okCache = {});
     st.scrollY = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
+
+  // Fallback paginator if IntersectionObserver is unavailable or temporarily detached
+  window.addEventListener('scroll', function () {
+    if (!isHomeRoute()) return;
+    if (__isRestoring) return;
+
+    const st = window.__okCache || (window.__okCache = {});
+    if (st.isLoading) return;
+
+    const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 800);
+    if (nearBottom) {
+      if (!st._io || typeof st._io.observe !== 'function') {
+        ensureInfiniteScroll(); // (re)attach IO
+      }
+      loadNextPage();
+    }
+  }, { passive: true });
+
 })();
