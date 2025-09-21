@@ -1,0 +1,82 @@
+/* styles.css */
+:root{--primary:#ffffff;--secondary:#1E90FF}
+body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111;overflow-x:hidden}
+header{background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
+.container{max-width:1100px;margin:0 auto;padding:18px}
+.container.nav{display:flex;align-items:center;gap:14px;padding:12px 18px}
+.brand{display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
+nav a{display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
+nav a:hover{background:rgba(255,255,255,0.2);border-radius:6px}
+main{padding:20px}
+footer{background:#f3f3f3;font-size:.85em}
+.center{text-align:center}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+
+.card{
+  border:1px solid #ddd;
+  border-radius:10px;
+  background:#fff;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  content-visibility:auto;
+  contain-intrinsic-size: 320px 360px;
+}
+
+.thumb{
+  width:100%;
+  height:160px;
+  object-fit:contain;
+  object-position:center;
+  background:#fff;
+  cursor:pointer;
+}
+.thumb,.thumb-link img{border:0;box-shadow:none}
+.thumb-link:focus-visible{outline:2px solid rgba(30,144,255,0.35);outline-offset:3px;border-radius:8px}
+
+.card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
+
+.title{font-size:1.1em;margin:4px 0}
+.title a.title-link,
+.title a.title-link:visited,
+.title a.title-link:hover,
+.title a.title-link:active,
+.title a.title-link:focus{color:#1E90FF;font-weight:700;text-decoration:none;outline:none}
+
+.meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+.meta-author-date .date{color:#000;font-weight:normal}
+.excerpt{font-size:.9em;color:#333}
+
+.btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
+.btn[disabled]{opacity:.6;cursor:not-allowed}
+.btn:hover:not([disabled]){background:#0066cc}
+
+.post h1{margin-top:0;color:var(--secondary)}
+.post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.post .meta-author-date .date{color:#000;font-weight:normal}
+.post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
+
+.error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
+.error-banner .close{position:absolute;top:6px;right:8px;background:none;border:0;font-size:16px;line-height:1;cursor:pointer;color:#900}
+.error-banner .close:hover{opacity:.8}
+
+.hamburger{display:none;appearance:none;background:transparent;border:0;padding:8px;margin-left:auto;cursor:pointer;outline:none}
+.hamburger-box{width:28px;height:20px;display:inline-block;position:relative}
+.hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block}
+.hamburger-inner{top:9px}
+.hamburger-inner::before{top:-8px}
+.hamburger-inner::after{top:8px}
+.hamburger[aria-expanded="true"] .hamburger-inner{transform:rotate(45deg)}
+.hamburger[aria-expanded="true"] .hamburger-inner::before{transform:translateY(8px) rotate(90deg)}
+.hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
+.nav-links{margin-left:auto;display:flex;gap:10px}
+@media (max-width:820px){
+  .container.nav{align-items:center}
+  .brand{flex:1 1 auto}
+  .hamburger{display:inline-flex}
+  .nav-links{position:absolute;top:100%;right:0;left:0;background:var(--secondary);display:grid;gap:0;border-bottom-left-radius:10px;border-bottom-right-radius:10px;overflow:hidden;transform-origin:top center;transition:max-height .2s ease,opacity .2s ease}
+  .nav-links a{padding:12px 18px;border-top:1px solid rgba(255,255,255,0.18)}
+  .nav-links[data-state="closed"]{max-height:0;opacity:0;pointer-events:none}
+  .nav-links[data-state="open"]{max-height:240px;opacity:1;pointer-events:auto}
+}
