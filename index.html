@@ -5,30 +5,125 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OkObserver — Latest News</title>
 
+<!-- Favicon -->
 <link rel="icon" type="image/png" href="icon.png" />
-<link rel="preconnect" href="https://okobserver.org" crossorigin>
-<link rel="dns-prefetch" href="//okobserver.org">
 
-<link rel="stylesheet" href="styles.css?v=v2.0.0-mod" />
+<style>
+  :root{--primary:#ffffff;--secondary:#1E90FF}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111;overflow-x:hidden}
+  header{background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
+  .container{max-width:1100px;margin:0 auto;padding:18px}
+  .container.nav{display:flex;align-items:center;gap:14px;padding:12px 18px}
+  .brand{display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
+  nav a{display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
+  nav a:hover{background:rgba(255,255,255,0.2);border-radius:6px}
+  main{padding:20px}
+  footer{background:#f3f3f3;font-size:.85em}
+  .center{text-align:center}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+  .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;content-visibility:auto;contain-intrinsic-size:320px 360px}
+  .thumb{width:100%;height:160px;object-fit:contain;object-position:center;background:#fff;cursor:pointer;border:0;box-shadow:none}
+  .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
+  .title{font-size:1.1em;margin:4px 0}
+  .title a.title-link,
+  .title a.title-link:visited,
+  .title a.title-link:hover,
+  .title a.title-link:active,
+  .title a.title-link:focus{color:#1E90FF;font-weight:700;text-decoration:none;outline:none}
+  .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+  .meta-author-date .date{color:#000;font-weight:normal}
+  .excerpt{font-size:.9em;color:#333}
+
+  .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
+  .btn[disabled]{opacity:.6;cursor:not-allowed}
+  .btn:hover:not([disabled]){background:#0066cc}
+
+  .post h1{margin-top:0;color:var(--secondary)}
+  .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
+  .post .meta-author-date .date{color:#000;font-weight:normal}
+  .post .hero{width:100%;max-height:420px;object-fit:contain;margin:16px 0;border-radius:10px}
+  .post .content > :is(p,div,section,article,blockquote):first-of-type {
+    text-align: left !important; text-indent: 0 !important;
+    margin-left: 0 !important; padding-left: 0 !important;
+  }
+
+  .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
+  .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
+  .error-banner .close:hover{opacity:.8}
+
+  /* --- Hamburger / responsive nav --- */
+  .hamburger{display:none;appearance:none;background:transparent;border:0;padding:8px;margin-left:auto;cursor:pointer;outline:none}
+  .hamburger-box{width:28px;height:20px;display:inline-block;position:relative}
+  .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{
+    width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block}
+  .hamburger-inner{top:9px}
+  .hamburger-inner::before{top:-8px}
+  .hamburger-inner::after{top:8px}
+  .hamburger[aria-expanded="true"] .hamburger-inner{transform:rotate(45deg)}
+  .hamburger[aria-expanded="true"] .hamburger-inner::before{transform:translateY(8px) rotate(90deg)}
+  .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
+  .nav-links{margin-left:auto;display:flex;gap:10px}
+
+  /* —— About page: prevent images overlapping text & remove empty blocks —— */
+  .page .content img{
+    max-width:100%;
+    height:auto;
+    object-fit:contain;
+    display:block;
+    margin:8px auto;
+  }
+  .page .content p:empty,
+  .page .content div:empty,
+  .page .content section:empty,
+  .page .content article:empty,
+  .page .content blockquote:empty,
+  .page .content figure:empty { display:none; }
+
+  @media (max-width: 820px) {
+    .container.nav{align-items:center}
+    .brand{flex:1 1 auto}
+    .hamburger{display:inline-flex}
+    .nav-links{
+      position:absolute;top:100%;right:0;left:0;background:var(--secondary);
+      display:grid;gap:0;border-bottom-left-radius:10px;border-bottom-right-radius:10px;overflow:hidden;
+      transform-origin:top center;transition:max-height .2s ease,opacity .2s ease}
+    .nav-links a{padding:12px 18px;border-top:1px solid rgba(255,255,255,0.18)}
+    .nav-links[data-state="closed"]{max-height:0;opacity:0;pointer-events:none}
+    .nav-links[data-state="open"]{max-height:240px;opacity:1;pointer-events:auto}
+  }
+</style>
 </head>
 <body>
 <header>
   <div class="container nav">
     <div class="brand">
-      <img id="siteLogo"
+      <img
+        id="siteLogo"
         src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-        alt="The Oklahoma Observer" width="260" height="60"
+        alt="The Oklahoma Observer"
+        width="260"
+        height="60"
         style="display:block;height:auto;max-height:60px;width:auto;max-width:260px"
         decoding="async"
-        onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';"/>
+        onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';"
+      />
       <div id="logoFallback" style="display:none;font-weight:700">The Oklahoma Observer</div>
       <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
 
-    <button id="menuToggle" class="hamburger" aria-label="Open menu" aria-controls="primaryNav" aria-expanded="false">
-      <span class="hamburger-box"><span class="hamburger-inner"></span></span>
+    <!-- Hamburger button -->
+    <button id="menuToggle"
+            class="hamburger"
+            aria-label="Open menu"
+            aria-controls="primaryNav"
+            aria-expanded="false">
+      <span class="hamburger-box">
+        <span class="hamburger-inner"></span>
+      </span>
     </button>
 
+    <!-- Primary nav -->
     <nav id="primaryNav" class="nav-links" data-state="closed">
       <a href="#/" id="nav-home">Home</a>
       <a href="#/about" id="nav-about">About</a>
@@ -47,28 +142,37 @@
   </div>
 </footer>
 
-<script type="module" src="core.js?v=v2.0.0-mod"></script>
+<!-- App script (monolithic) -->
+<script src="app.js?v=1.61.0" defer></script>
 
+<!-- Hamburger toggle (independent of app.js) -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
   const nav = document.getElementById('primaryNav');
   if (!btn || !nav) return;
+
   function setOpen(open){
     btn.setAttribute('aria-expanded', String(open));
     nav.dataset.state = open ? 'open' : 'closed';
   }
+
   btn.addEventListener('click', function(){
     const open = btn.getAttribute('aria-expanded') !== 'true';
     setOpen(open);
   });
+
+  // Close after a nav click
   nav.addEventListener('click', function(e){
     if (e.target.tagName === 'A') setOpen(false);
   });
+
+  // Close on hash route change
   window.addEventListener('hashchange', function(){ setOpen(false); });
 })();
 </script>
 
+<!-- Boot probe: shows red banner if app.js fails to run -->
 <script>
 window.addEventListener('load', function () {
   setTimeout(function () {
@@ -77,7 +181,7 @@ window.addEventListener('load', function () {
       var div = document.createElement('div');
       div.className = 'error-banner';
       div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
-        'App script did not execute. Check Network → core.js (200), hard-reload, and confirm modules are loading.';
+        'App script did not execute. Check Network → app.js (200), hard-reload, and confirm file ends with "})();".';
       host.prepend(div);
     } else {
       var v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;
