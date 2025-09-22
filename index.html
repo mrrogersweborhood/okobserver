@@ -9,11 +9,17 @@
 <link rel="icon" type="image/png" href="icon.png" />
 
 <style>
+  /* Global layout guards */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { width:100%; max-width:100%; overflow-x:hidden; }
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#fff;color:#111}
+  #app, main, .container { width:100%; max-width:100%; overflow-x:hidden; }
+
   :root{--primary:#ffffff;--secondary:#1E90FF}
-  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--primary);color:#111;overflow-x:hidden}
   header{background:var(--secondary);color:white;position:sticky;top:0;z-index:10}
   .container{max-width:1100px;margin:0 auto;padding:18px}
-  .container.nav{display:flex;align-items:center;gap:14px;padding:12px 18px}
+
+  .container.nav{display:flex;align-items:center;gap:14px;padding:12px 18px;overflow-x:hidden}
   .brand{display:flex;flex-direction:column;align-items:center;text-align:center;font-weight:600;gap:4px}
   nav a{display:flex;align-items:center;height:40px;color:white;text-decoration:none;padding:6px 10px;font-weight:500}
   nav a:hover{background:rgba(255,255,255,0.2);border-radius:6px}
@@ -65,20 +71,28 @@
   .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
   .nav-links{margin-left:auto;display:flex;gap:10px}
 
-  /* —— About page: prevent images overlapping text & remove empty blocks —— */
-  .page .content{max-width:100%; overflow-wrap:anywhere; word-break:break-word}
-  .page .content *{max-width:100%; box-sizing:border-box}
-  .page .content img{max-width:100%; height:auto; object-fit:contain; display:block; margin:8px auto}
+  /* —— About page & general content overflow protection —— */
+  .page .content,
+  .post .content {max-width:100%; overflow-x:hidden; overflow-wrap:anywhere; word-break:break-word}
+  .page .content * {max-width:100%; box-sizing:border-box}
+  .page .content img,
+  .post .content img {max-width:100%; height:auto; object-fit:contain; display:block; margin:8px auto}
   .page .content iframe,
-  .page .content video{max-width:100%; width:100%; height:auto; display:block; margin:8px auto}
-  .page .content table{width:100%; max-width:100%; display:block; overflow-x:auto}
-  .page .content pre, .page .content code{white-space:pre-wrap; word-break:break-word}
+  .page .content video,
+  .post .content iframe,
+  .post .content video {max-width:100%; width:100%; height:auto; display:block; margin:8px auto}
+  .page .content table,
+  .post .content table {width:100%; max-width:100%; display:block; overflow-x:auto; -webkit-overflow-scrolling:touch}
+  .page .content pre,
+  .post .content pre,
+  .page .content code,
+  .post .content code {white-space:pre-wrap; word-break:break-word}
   .page .content p:empty,
   .page .content div:empty,
   .page .content section:empty,
   .page .content article:empty,
   .page .content blockquote:empty,
-  .page .content figure:empty{display:none}
+  .page .content figure:empty {display:none}
 
   @media (max-width: 820px) {
     .container.nav{align-items:center}
@@ -91,8 +105,6 @@
     .nav-links a{padding:12px 18px;border-top:1px solid rgba(255,255,255,0.18)}
     .nav-links[data-state="closed"]{max-height:0;opacity:0;pointer-events:none}
     .nav-links[data-state="open"]{max-height:240px;opacity:1;pointer-events:auto}
-
-    /* Nudge main content padding a touch tighter on small screens */
     main{padding:16px}
     .container{padding:14px}
   }
