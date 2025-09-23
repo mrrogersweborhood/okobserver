@@ -1,16 +1,15 @@
-/* app.js — OkObserver (monolithic build) — v1.71.0
-   Speed-ups & fixes:
-   • Lean home fetch: posts with _fields only (no huge _embed)
-   • Batch fetch media & authors per page, memoize results
-   • Author fetch is NON-FATAL (sites may block /users)
-   • Server-side exclude for "cartoon" category (keeps lean path)
-   • Page cache in sessionStorage (per page) + cache version bump
-   • DOM insert batching; IO reuse; scroll restore intact
+/* app.js — OkObserver (monolithic build) — v1.71.1
+   Changes:
+   • Order fixed: all functions defined before use (prevents ReferenceError)
+   • Server-side category exclude (cartoon) with cached resolver
+   • Author fetch NON-FATAL; CORS block suppresses further user fetches
+   • Lean list fetch + media/author batching + per-page cache
+   • Scroll restore + infinite scroll retained
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.0";
+  const APP_VERSION = "v1.71.1";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -68,9 +67,8 @@
   });
 
   const esc = (s="") => s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
   const __decoderEl = document.createElement("textarea");
-  function decodeEntities(str){ __decoderEl.innerHTML = str || ''; return __decoderEl.value; }
+  const decodeEntities = (str) => { __decoderEl.innerHTML = str || ''; return __decoderEl.value; };
 
   function ordinalDate(iso){
     const d = new Date(iso); const day = d.getDate();
@@ -155,12 +153,10 @@
   function normalizeContent(html){
     const root = document.createElement('div'); root.innerHTML = html || '';
 
-    // Remove empty blocks & stray whitespace-only nodes
     root.querySelectorAll('p,div,section,article,blockquote,figure').forEach(el=>{
       if (!el.textContent.trim() && !el.querySelector('img,iframe,video')) el.remove();
     });
     root.querySelectorAll('br+br+br').forEach(br=>{ br.remove(); });
-
     root.querySelectorAll('figure.wp-block-embed,.wp-block-embed__wrapper').forEach((c)=>{
       if (!c.querySelector('iframe,a,img,video') && !c.textContent.trim()) c.remove();
     });
@@ -181,7 +177,10 @@
   }
 
   const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  function isHomeRoute(){ const h = window.location.hash || "#/"; return h === "#/" || h === "#"; }
+  const isHomeRoute = () => {
+    const h = window.location.hash || "#/";
+    return h === "#/" || h === "#";
+  };
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
 
@@ -205,6 +204,226 @@
     } catch { CARTOON_CAT_ID = null; }
     return CARTOON_CAT_ID;
   }
+  // ===== Lean data layer for HOME (all helpers defined BEFORE use) =====
+
+  // Page cache (sessionStorage): posts + mediaMap + authorMap
+  const HOME_CACHE_PREFIX = "__home_page_"; // + page number
+
+  function putHomePageCache(page, payload){
+    try { sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(payload)); } catch {}
+  }
+  function getHomePageCache(page){
+    try {
+      const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  // Memoized lookups for media/users
+  const mediaMap = new Map();   // id -> { src, width, height }
+  const authorMap = new Map();  // id -> name
+
+  function mediaInfoFromSizes(m){
+    if (!m) return { src:"", width:null, height:null };
+    const sizes = m.media_details?.sizes || {};
+    const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+    return {
+      src: best?.source_url || m.source_url || "",
+      width: best?.width || null,
+      height: best?.height || null
+    };
+  }
+
+  async function batchFetchMedia(ids, signal){
+    const need = ids.filter(id => id && !mediaMap.has(id));
+    if (!need.length) return;
+    const url = `${BASE}/media?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
+    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+    if (!res.ok) throw new Error(`Media fetch ${res.status}`);
+    const items = await res.json();
+    for (const m of items){
+      mediaMap.set(m.id, mediaInfoFromSizes(m));
+    }
+  }
+
+  // SAFE + quiet: stop retrying authors once CORS blocks us
+  let AUTHORS_DISABLED = false;
+  async function batchFetchAuthors(ids, signal){
+    if (AUTHORS_DISABLED) return;
+    const need = ids.filter(id => id && !authorMap.has(id));
+    if (!need.length) return;
+    try {
+      const url = `${BASE}/users?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
+      const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+      if (!res.ok) throw new Error(`Users fetch ${res.status}`);
+      const items = await res.json();
+      for (const u of items){
+        authorMap.set(u.id, u.name || "");
+      }
+    } catch (err) {
+      need.forEach(id => { if (!authorMap.has(id)) authorMap.set(id, ""); });
+      AUTHORS_DISABLED = true;
+      console.warn("[OkObserver] Users endpoint blocked by CORS; suppressing future author fetches.");
+    }
+  }
+
+  // Fetch a lean page of posts and hydrate with media & author names
+  async function fetchLeanPostsPage(pageNum, signal){
+    // Cache hit?
+    const cached = getHomePageCache(pageNum);
+    if (cached){
+      if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
+      if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
+      return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
+    }
+
+    // Step 1: lean posts (no _embed) + server-side cartoon exclude if available
+    const fields = [
+      "id","date","title","excerpt","content","link",
+      "featured_media","author"
+    ].join(",");
+
+    let catExcludeParam = "";
+    try {
+      const cid = await resolveCartoonId(signal);
+      if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
+    } catch {} // ignore
+
+    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_fields=${fields}${catExcludeParam}`;
+    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+    if (!res.ok){
+      const text = await res.text().catch(()=> "");
+      const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
+      err.details = text?.slice(0,300);
+      throw err;
+    }
+    const posts = await res.json();
+    const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+
+    // Collect IDs for batch requests
+    const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
+    const authorIds = Array.from(new Set(posts.map(p=>p.author).filter(Boolean)));
+
+    // Step 2: batch fetch media + authors (authors may be blocked; that's OK)
+    await Promise.allSettled([
+      batchFetchMedia(mediaIds, signal),
+      batchFetchAuthors(authorIds, signal)
+    ]);
+
+    // Cache compact maps for this page
+    const mediaObj = {};
+    mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
+    const authorObj = {};
+    authorIds.forEach(id => { const v = authorMap.get(id); if (v != null) authorObj[id] = v; });
+
+    putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
+
+    return { posts, totalPages, fromCache: false };
+  }
+
+  // ===== Rendering helpers for HOME =====
+  function getAuthorName(post){
+    return authorMap.get(post.author) ||
+           post?._embedded?.author?.[0]?.name ||
+           "";
+  }
+
+  function resolveFeatured(post){
+    const mId = post.featured_media;
+    if (mId && mediaMap.has(mId)) return mediaMap.get(mId);
+    const m = post?._embedded?.["wp:featuredmedia"]?.[0];
+    return m ? mediaInfoFromSizes(m) : { src:"", width:null, height:null };
+  }
+
+  // Server is excluding cartoons; no client-side exclude needed
+  function hasExcluded(post){ return false; }
+
+  function buildCardElement(post){
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const media = resolveFeatured(post);
+    const imgSrc = media?.src || "";
+    const author = getAuthorName(post) || "";
+    const date = ordinalDate(post.date);
+    const excerpt = decodeEntities((post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim());
+    const postHref = `#/post/${post.id}`;
+    const titleHTML = post?.title?.rendered || "Untitled";
+
+    card.innerHTML = `
+      ${imgSrc
+        ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
+             <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw" />
+           </a>`
+        : `<div class="thumb" aria-hidden="true"></div>`}
+      <div class="card-body">
+        <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
+        <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
+        <p class="excerpt">${esc(excerpt)}</p>
+      </div>`;
+    return card;
+  }
+
+  function getGrid(){
+    if (!isHomeRoute()) return null;
+    let grid = document.getElementById("grid");
+    if(!grid){
+      grid = document.createElement("div");
+      grid.id="grid"; grid.className="grid";
+      app().appendChild(grid);
+    }
+    return grid;
+  }
+  function getLoader(){
+    let ld = document.getElementById("infiniteLoader");
+    if(!ld){
+      ld = document.createElement("div");
+      ld.id="infiniteLoader"; ld.className="infinite-loader";
+      ld.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading…';
+      ld.style.display="none"; app().appendChild(ld);
+    }
+    return ld;
+  }
+  function showLoader(){ getLoader().style.display="flex"; }
+  function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
+  function getSentinel(){
+    let s = document.getElementById("scrollSentinel");
+    if(!s){ s=document.createElement("div"); s.id="scrollSentinel"; s.style.cssText="height:1px;width:100%;"; app().appendChild(s); }
+    else { app().appendChild(s); }
+    return s;
+  }
+
+  const BATCH_SIZE = 12;
+  function appendCardsInBatches(container, posts){
+    let i = 0;
+    function step(){
+      const frag = document.createDocumentFragment();
+      for (let n=0; n<BATCH_SIZE && i<posts.length; n++, i++){
+        const p = posts[i];
+        if (!p) continue;
+        if (!hasExcluded(p)) frag.appendChild(buildCardElement(p));
+      }
+      container.appendChild(frag);
+      if (i < posts.length) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function renderGridFromPosts(posts, append=false){
+    const grid = getGrid(); if(!grid) return;
+    if(!append) grid.innerHTML="";
+    appendCardsInBatches(grid, posts || []);
+    getLoader();
+    const s = getSentinel();
+    if (state._io && typeof state._io.observe === 'function'){
+      if (state._sentinel && state._sentinel !== s){ try{ state._io.unobserve(state._sentinel);}catch{} }
+      state._io.observe(s); state._sentinel = s;
+    } else {
+      state._io=null; state._sentinel=null; ensureInfiniteScroll();
+    }
+  }
+  // ===== Infinite scroll + HOME renderer =====
   async function loadNextPage(){
     if (!isHomeRoute()) return;
     if (state.isLoading) return;
@@ -321,7 +540,6 @@
       }
     }, { passive: true });
   }
-
   // ===== Detail view =====
   function featuredSrcFromPost(p){
     const m=p?._embedded?.["wp:featuredmedia"]?.[0];
@@ -414,6 +632,7 @@
       if (backBtn) backBtn.style.display = '';
     }
   }
+
   // ===== About (cached) =====
   const ABOUT_CACHE_KEY = "__about_html";
   const ABOUT_CACHE_TS_KEY = "__about_ts";
@@ -502,7 +721,7 @@
     }
   }
 
-  // ===== Router & wiring =====
+  // ===== Router & wiring (uses functions defined above) =====
   async function router(){
     const hash = window.location.hash || "#/";
     const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
