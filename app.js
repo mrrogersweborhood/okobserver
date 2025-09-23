@@ -1,15 +1,16 @@
-/* app.js — OkObserver (monolithic build) — v1.71.1
+/* app.js — OkObserver (monolithic build) — v1.71.2
    Changes:
-   • Order fixed: all functions defined before use (prevents ReferenceError)
-   • Server-side category exclude (cartoon) with cached resolver
-   • Author fetch NON-FATAL; CORS block suppresses further user fetches
+   • Order fixed: helpers defined before use
+   • Server-side exclude for "cartoon" (cached resolver)
+   • Author fetch NON-FATAL; suppress further user fetches on CORS
    • Lean list fetch + media/author batching + per-page cache
    • Scroll restore + infinite scroll retained
+   • NEW: Normalize media URLs to HTTPS + graceful thumb fallback
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.1";
+  const APP_VERSION = "v1.71.2";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -123,6 +124,28 @@
     });
   }
 
+  // Normalize media URLs: upgrade http->https for known hosts; handle protocol-relative
+  function normalizeMediaUrl(u){
+    if (!u) return u;
+    try {
+      u = String(u).trim();
+      if (u.startsWith("//")) return "https:" + u;
+      const mapping = [
+        "okobserver.org",
+        "www.okobserver.org",
+        "okobserver.files.wordpress.com",
+        "files.wordpress.com"
+      ];
+      for (const host of mapping){
+        const http = "http://" + host + "/";
+        const https = "https://" + host + "/";
+        if (u.startsWith(http)) return u.replace(http, https);
+      }
+      if (u.startsWith("http://")) return "https://" + u.slice("http://".length);
+      return u;
+    } catch { return u; }
+  }
+
   function normalizeFirstParagraph(root){
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(node){
@@ -204,7 +227,7 @@
     } catch { CARTOON_CAT_ID = null; }
     return CARTOON_CAT_ID;
   }
-  // ===== Lean data layer for HOME (all helpers defined BEFORE use) =====
+  // ===== Lean data layer for HOME (helpers defined BEFORE use) =====
 
   // Page cache (sessionStorage): posts + mediaMap + authorMap
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
@@ -229,7 +252,7 @@
     const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
     const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
     return {
-      src: best?.source_url || m.source_url || "",
+      src: normalizeMediaUrl(best?.source_url || m.source_url || ""),
       width: best?.width || null,
       height: best?.height || null
     };
@@ -354,7 +377,16 @@
     card.innerHTML = `
       ${imgSrc
         ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
-             <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw" />
+             <img
+               src="${esc(imgSrc)}"
+               alt="${esc(titleHTML)}"
+               class="thumb"
+               loading="lazy"
+               decoding="async"
+               fetchpriority="low"
+               sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw"
+               onerror="this.onerror=null; try{ this.closest('.thumb-link').replaceWith(Object.assign(document.createElement('div'),{className:'thumb'})); }catch{}"
+             />
            </a>`
         : `<div class="thumb" aria-hidden="true"></div>`}
       <div class="card-body">
@@ -586,7 +618,9 @@
       const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.detailAbort.signal });
       if(!res.ok) throw new Error('Post not found');
       const post = await res.json();
-      const { src, width, height } = featuredSrcFromPost(post);
+      let { src, width, height } = featuredSrcFromPost(post);
+      src = normalizeMediaUrl(src); // normalize hero URL too
+
       const author =
         post?._embedded?.author?.[0]?.name ||
         authorMap.get(post.author) || "";
@@ -612,6 +646,7 @@
         pHero.decoding = 'async';
         pHero.fetchPriority = 'high';
         pHero.sizes = '100vw';
+        pHero.onerror = function(){ this.style.display='none'; };
       }
 
       if (pContent) {
@@ -721,7 +756,7 @@
     }
   }
 
-  // ===== Router & wiring (uses functions defined above) =====
+  // ===== Router & wiring =====
   async function router(){
     const hash = window.location.hash || "#/";
     const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
