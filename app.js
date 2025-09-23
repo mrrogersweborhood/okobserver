@@ -214,17 +214,27 @@
     }
   }
 
-  async function batchFetchAuthors(ids, signal){
-    const need = ids.filter(id => id && !authorMap.has(id));
-    if (!need.length) return;
+// SAFE + quiet: stop retrying authors once CORS blocks us
+let AUTHORS_DISABLED = false;
+
+async function batchFetchAuthors(ids, signal){
+  if (AUTHORS_DISABLED) return; // we've already learned it's blocked
+  const need = ids.filter(id => id && !authorMap.has(id));
+  if (!need.length) return;
+  try {
     const url = `${BASE}/users?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
     if (!res.ok) throw new Error(`Users fetch ${res.status}`);
     const items = await res.json();
-    for (const u of items){
-      authorMap.set(u.id, u.name || "");
-    }
+    for (const u of items) authorMap.set(u.id, u.name || "");
+  } catch (err) {
+    // Mark requested IDs so we don't retry constantly, and remember CORS block.
+    need.forEach(id => { if (!authorMap.has(id)) authorMap.set(id, ""); });
+    AUTHORS_DISABLED = true; // <-- prevents future requests (and console noise)
+    console.warn("[OkObserver] Users endpoint blocked by CORS; suppressing future author fetches.");
   }
+}
+
 
   // Fetch a lean page of posts and hydrate with media & author names
   async function fetchLeanPostsPage(pageNum, signal){
