@@ -8,6 +8,10 @@
 <!-- Favicon -->
 <link rel="icon" type="image/png" href="icon.png" />
 
+<!-- Networking hints -->
+<link rel="preconnect" href="https://okobserver.org" crossorigin>
+<link rel="dns-prefetch" href="//okobserver.org">
+
 <style>
   /* Global layout guards */
   *, *::before, *::after { box-sizing: border-box; }
@@ -71,7 +75,7 @@
   .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
   .nav-links{margin-left:auto;display:flex;gap:10px}
 
-  /* —— About page & general content overflow protection —— */
+  /* —— About & post content overflow protection —— */
   .page .content,
   .post .content {max-width:100%; overflow-x:hidden; overflow-wrap:anywhere; word-break:break-word}
   .page .content * {max-width:100%; box-sizing:border-box}
@@ -159,7 +163,7 @@
 </footer>
 
 <!-- App script (monolithic) -->
-<script src="app.js?v=1.61.0" defer></script>
+<script src="app.js?v=1.62.0" defer></script>
 
 <!-- Hamburger toggle (independent of app.js) -->
 <script>
@@ -178,17 +182,15 @@
     setOpen(open);
   });
 
-  // Close after a nav click
   nav.addEventListener('click', function(e){
     if (e.target.tagName === 'A') setOpen(false);
   });
 
-  // Close on hash route change
   window.addEventListener('hashchange', function(){ setOpen(false); });
 })();
 </script>
 
-<!-- Boot probe: shows red banner if app.js fails to run -->
+<!-- Boot probe -->
 <script>
 window.addEventListener('load', function () {
   setTimeout(function () {

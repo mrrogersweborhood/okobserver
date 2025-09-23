@@ -1,11 +1,10 @@
-/* app.js — OkObserver (monolithic build) — v1.61.0
-   Adds: #/about page (fetches okobserver.org/contact-about-donate),
-   image containment, empty-line cleanup; keeps infinite scroll, scroll restore.
+/* app.js — OkObserver (monolithic build) — v1.62.0
+   Perf: batch DOM insert, stable IO reuse, cached About (1h TTL), preconnect added.
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.61.0";
+  const APP_VERSION = "v1.62.0";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -74,11 +73,8 @@
       if (realSrcset) img.setAttribute("srcset", realSrcset);
       img.classList.remove("lazyload","lazy","jetpack-lazy-image");
       img.loading = "lazy"; img.decoding = "async";
-      img.style.maxWidth = "100%";
-      img.style.height = "auto";
-      img.style.objectFit = "contain";
-      img.style.display = "block";
-      img.style.margin = "0 auto";
+      img.style.maxWidth = "100%"; img.style.height = "auto";
+      img.style.objectFit = "contain"; img.style.display = "block";
     });
   }
 
@@ -135,7 +131,6 @@
     root.querySelectorAll('p,div,section,article,blockquote,figure').forEach(el=>{
       if (!el.textContent.trim() && !el.querySelector('img,iframe,video')) el.remove();
     });
-    // Collapse multiple <br> stacks
     root.querySelectorAll('br+br+br').forEach(br=>{ br.remove(); });
 
     root.querySelectorAll('figure.wp-block-embed,.wp-block-embed__wrapper').forEach((c)=>{
@@ -161,7 +156,7 @@
   function isHomeRoute(){ const h = window.location.hash || "#/"; return h === "#/" || h === "#"; }
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
-  // ---------- HOME (grid + infinite scroll)
+  // ---------- HOME (grid + infinite scroll, batched DOM insert)
   function getAuthor(p){ return p?._embedded?.author?.[0]?.name || ""; }
   function hasExcluded(p){
     const groups=p?._embedded?.["wp:term"]||[];
@@ -235,12 +230,27 @@
     return s;
   }
 
+  // NEW: batch appender to keep main thread responsive on big loads
+  const BATCH_SIZE = 12;
+  function appendCardsInBatches(container, posts){
+    let i = 0;
+    function step(){
+      const frag = document.createDocumentFragment();
+      for (let n=0; n<BATCH_SIZE && i<posts.length; n++, i++){
+        const p = posts[i];
+        if (p && !hasExcluded(p)) frag.appendChild(buildCardElement(p));
+      }
+      container.appendChild(frag);
+      if (i < posts.length) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
   function renderGridFromPosts(posts, append=false){
     const grid = getGrid(); if(!grid) return;
     if(!append) grid.innerHTML="";
-    const frag=document.createDocumentFragment();
-    (posts||[]).forEach(p=>{ if(p && !hasExcluded(p)) frag.appendChild(buildCardElement(p)); });
-    grid.appendChild(frag);
+    // use batch insertion
+    appendCardsInBatches(grid, posts || []);
     getLoader();
     const s = getSentinel();
     if (state._io && typeof state._io.observe === 'function'){
@@ -285,14 +295,16 @@
       if (state._sentinel && state._sentinel !== sentinel){ try{ state._io.unobserve(state._sentinel);}catch{} }
       state._io.observe(sentinel); state._sentinel = sentinel; return;
     }
-    const io=new IntersectionObserver((entries)=>{
-      const e=entries[0];
-      if(!e||!e.isIntersecting) return;
-      if (!isHomeRoute()) return;
-      loadNextPage();
-    }, { root:null, rootMargin:"1000px 0px", threshold:0 });
-    io.observe(sentinel);
-    state._io = io; state._sentinel = sentinel; state._ioAttached = true;
+    if (!state._io){
+      state._io=new IntersectionObserver((entries)=>{
+        const e=entries[0];
+        if(!e||!e.isIntersecting) return;
+        if (!isHomeRoute()) return;
+        loadNextPage();
+      }, { root:null, rootMargin:"1000px 0px", threshold:0 });
+    }
+    state._io.observe(sentinel);
+    state._sentinel = sentinel; state._ioAttached = true;
   }
   async function renderHome(){
     if (!app()) return;
@@ -389,6 +401,7 @@
   }
 
   function attachScrollFallback(){
+    // Passive, minimal work; IO does most of the heavy lifting
     window.addEventListener('scroll', function () {
       if (!isHomeRoute()) return;
       if (state.isLoading) return;
@@ -490,7 +503,11 @@
       if (backBtn) backBtn.style.display = '';
     }
   }
-  // ---------- ABOUT (new page)
+  // ---------- ABOUT (cached for 1 hour)
+  const ABOUT_CACHE_KEY = "__about_html";
+  const ABOUT_CACHE_TS_KEY = "__about_ts";
+  const ABOUT_TTL_MS = 60 * 60 * 1000; // 1 hour
+
   function renderAboutShell(){
     if (!app()) return;
     app().innerHTML = `
@@ -500,12 +517,37 @@
       </article>`;
   }
 
+  function putAboutCache(html){
+    try {
+      sessionStorage.setItem(ABOUT_CACHE_KEY, html || "");
+      sessionStorage.setItem(ABOUT_CACHE_TS_KEY, String(Date.now()));
+    } catch {}
+  }
+  function getAboutCache(){
+    try {
+      const ts = Number(sessionStorage.getItem(ABOUT_CACHE_TS_KEY) || 0);
+      if (!ts) return null;
+      if (Date.now() - ts > ABOUT_TTL_MS) return null;
+      return sessionStorage.getItem(ABOUT_CACHE_KEY) || null;
+    } catch { return null; }
+  }
+
   async function renderAbout(){
     renderAboutShell();
+    const host = document.getElementById("aboutContent");
+    if (!host) return;
+
+    // serve from cache if fresh
+    const cached = getAboutCache();
+    if (cached){
+      host.innerHTML = cached;
+      try { normalizeFirstParagraph(host); } catch {}
+      try { hardenLinks(host); } catch {}
+    }
+
     if (controllers.aboutAbort){ try{ controllers.aboutAbort.abort(); }catch{} }
     controllers.aboutAbort = new AbortController();
 
-    // Use WP REST API by slug (safer than scraping raw HTML)
     const url = `${BASE}/pages?slug=contact-about-donate&_embed=1`;
     try{
       const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.aboutAbort.signal });
@@ -513,27 +555,20 @@
       const pages = await res.json();
       const page = Array.isArray(pages) ? pages[0] : null;
 
-      const host = document.getElementById("aboutContent");
-      if (!host){ return; }
-
       if (!page){
-        host.innerHTML = `<p>Could not load About page content.</p>`;
+        if (!cached) host.innerHTML = `<p>Could not load About page content.</p>`;
         return;
       }
 
-      // Clean & normalize HTML
       const html = normalizeContent(page?.content?.rendered || "");
       const tmp = document.createElement("div");
       tmp.innerHTML = html;
 
-      // Remove extra blank blocks & whitespace-only nodes
       tmp.querySelectorAll('p,div,section,article,blockquote,figure').forEach(el=>{
         const hasMedia = !!el.querySelector('img,iframe,video');
         if (!el.textContent.trim() && !hasMedia) el.remove();
       });
       tmp.querySelectorAll('br+br+br').forEach(br=>br.remove());
-
-      // Images shouldn’t cover text
       tmp.querySelectorAll('img').forEach(img=>{
         img.style.maxWidth = "100%";
         img.style.height = "auto";
@@ -542,16 +577,18 @@
         if (!img.style.margin) img.style.margin = "8px auto";
       });
 
-      host.innerHTML = tmp.innerHTML;
+      const cleaned = tmp.innerHTML;
+      putAboutCache(cleaned);
+      host.innerHTML = cleaned;
 
-      // Final polish
       try { normalizeFirstParagraph(host); } catch {}
       try { hardenLinks(host); } catch {}
 
     } catch(err){
-      if (err?.name !== 'AbortError') showError(err);
-      const host = document.getElementById("aboutContent");
-      if (host) host.innerHTML = `<p>Unable to load About page at this time.</p>`;
+      if (!cached){
+        if (err?.name !== 'AbortError') showError(err);
+        host.innerHTML = `<p>Unable to load About page at this time.</p>`;
+      }
     }
   }
 
@@ -591,12 +628,12 @@
     }
   });
 
-  // Track home scroll to improve restoration
+  // Track home scroll
   window.addEventListener('scroll', function () {
     if (!isHomeRoute()) return;
     state.scrollY = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
 
-  // Fallback infinite scroll (in addition to IntersectionObserver)
+  // Fallback infinite scroll
   attachScrollFallback();
 })();
