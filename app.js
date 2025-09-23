@@ -1,20 +1,24 @@
-/* app.js — OkObserver (monolithic build) — v1.70.0
-   Speed-ups:
+/* app.js — OkObserver (monolithic build) — v1.71.0
+   Speed-ups & fixes:
    • Lean home fetch: posts with _fields only (no huge _embed)
    • Batch fetch media & authors per page, memoize results
-   • Page cache in sessionStorage (per page) to avoid re-downloads
-   • DOM insert batching remains; IO reuse; scroll restore intact
+   • Author fetch is NON-FATAL (sites may block /users)
+   • Server-side exclude for "cartoon" category (keeps lean path)
+   • Page cache in sessionStorage (per page) + cache version bump
+   • DOM insert batching; IO reuse; scroll restore intact
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.70.0";
+  const APP_VERSION = "v1.71.0";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
-  const EXCLUDE_CAT = "cartoon";
+
+  // ---- Cache version bump (flushes old cached pages once)
+  const CACHE_VERSION = "home-v2";
 
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
@@ -38,6 +42,15 @@
     try{ const raw=sessionStorage.getItem("__okCache"); if(raw) Object.assign(state, JSON.parse(raw)||{}); }catch{}
     state._io=null; state._sentinel=null; state.isLoading=false;
   })();
+
+  // One-time cache invalidation for older page caches
+  try {
+    const cv = sessionStorage.getItem("__home_cache_version");
+    if (cv !== CACHE_VERSION) {
+      Object.keys(sessionStorage).forEach(k => { if (k && k.startsWith("__home_page_")) sessionStorage.removeItem(k); });
+      sessionStorage.setItem("__home_cache_version", CACHE_VERSION);
+    }
+  } catch {}
 
   const app = () => document.getElementById("app");
 
@@ -171,228 +184,26 @@
   function isHomeRoute(){ const h = window.location.hash || "#/"; return h === "#/" || h === "#"; }
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
-  // ===== Lean data layer for HOME =====
 
-  // Page cache (sessionStorage): posts + mediaMap + authorMap
-  const HOME_CACHE_PREFIX = "__home_page_"; // + page number
-
-  function putHomePageCache(page, payload){
-    try { sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(payload)); } catch {}
-  }
-  function getHomePageCache(page){
+  // -- Category resolver (cache in sessionStorage) for server-side exclude
+  const CARTOON_SLUG = "cartoon";
+  let CARTOON_CAT_ID = null;
+  function getCachedCartoonId(){ try { const v = sessionStorage.getItem("__cat_cartoon_id"); return v ? Number(v) : null; } catch { return null; } }
+  function putCachedCartoonId(id){ try { sessionStorage.setItem("__cat_cartoon_id", String(id)); } catch {} }
+  async function resolveCartoonId(signal){
+    if (CARTOON_CAT_ID != null) return CARTOON_CAT_ID;
+    const cached = getCachedCartoonId();
+    if (Number.isFinite(cached)) { CARTOON_CAT_ID = cached; return CARTOON_CAT_ID; }
     try {
-      const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  }
-
-  // Memoized lookups for media/users
-  const mediaMap = new Map();   // id -> { src, width, height }
-  const authorMap = new Map();  // id -> name
-
-  function mediaInfoFromSizes(m){
-    if (!m) return { src:"", width:null, height:null };
-    const sizes = m.media_details?.sizes || {};
-    const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
-    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
-    return {
-      src: best?.source_url || m.source_url || "",
-      width: best?.width || null,
-      height: best?.height || null
-    };
-  }
-
-  async function batchFetchMedia(ids, signal){
-    const need = ids.filter(id => id && !mediaMap.has(id));
-    if (!need.length) return;
-    const url = `${BASE}/media?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
-    if (!res.ok) throw new Error(`Media fetch ${res.status}`);
-    const items = await res.json();
-    for (const m of items){
-      mediaMap.set(m.id, mediaInfoFromSizes(m));
-    }
-  }
-
-// SAFE + quiet: stop retrying authors once CORS blocks us
-let AUTHORS_DISABLED = false;
-
-async function batchFetchAuthors(ids, signal){
-  if (AUTHORS_DISABLED) return; // we've already learned it's blocked
-  const need = ids.filter(id => id && !authorMap.has(id));
-  if (!need.length) return;
-  try {
-    const url = `${BASE}/users?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
-    if (!res.ok) throw new Error(`Users fetch ${res.status}`);
-    const items = await res.json();
-    for (const u of items) authorMap.set(u.id, u.name || "");
-  } catch (err) {
-    // Mark requested IDs so we don't retry constantly, and remember CORS block.
-    need.forEach(id => { if (!authorMap.has(id)) authorMap.set(id, ""); });
-    AUTHORS_DISABLED = true; // <-- prevents future requests (and console noise)
-    console.warn("[OkObserver] Users endpoint blocked by CORS; suppressing future author fetches.");
-  }
-}
-
-
-  // Fetch a lean page of posts and hydrate with media & author names
-  async function fetchLeanPostsPage(pageNum, signal){
-    // Cache hit?
-    const cached = getHomePageCache(pageNum);
-    if (cached){
-      // Warm the maps so buildCardElement works immediately
-      if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
-      if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
-      return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
-    }
-
-    // Step 1: lean posts (no _embed)
-    const fields = [
-      "id","date","title","excerpt","content","link",
-      "featured_media","author"
-    ].join(",");
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_fields=${fields}`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
-    if (!res.ok){
-      const text = await res.text().catch(()=> "");
-      const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
-      err.details = text?.slice(0,300);
-      throw err;
-    }
-    const posts = await res.json();
-    const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
-
-    // Collect IDs for batch requests
-    const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
-    const authorIds = Array.from(new Set(posts.map(p=>p.author).filter(Boolean)));
-
-    // Step 2: batch fetch media + authors
-    await Promise.all([
-      batchFetchMedia(mediaIds, signal),
-      batchFetchAuthors(authorIds, signal)
-    ]);
-
-    // Cache compact maps for this page
-    const mediaObj = {};
-    mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
-    const authorObj = {};
-    authorIds.forEach(id => { const v = authorMap.get(id); if (v != null) authorObj[id] = v; });
-
-    putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
-
-    return { posts, totalPages, fromCache: false };
-  }
-
-  // ===== HOME rendering (with batching) =====
-  function getAuthorName(post){
-    // prefer map (lean mode), fallback to embedded
-    return authorMap.get(post.author) || post?._embedded?.author?.[0]?.name || "";
-  }
-
-  function resolveFeatured(post){
-    // lean path: use mediaMap -> info -> src
-    const mId = post.featured_media;
-    if (mId && mediaMap.has(mId)) return mediaMap.get(mId);
-
-    // fallback for older cached state with _embed contents
-    const m = post?._embedded?.["wp:featuredmedia"]?.[0];
-    return m ? mediaInfoFromSizes(m) : { src:"", width:null, height:null };
-  }
-
-  function buildCardElement(post){
-    const card = document.createElement("div");
-    card.className = "card";
-
-    const media = resolveFeatured(post);
-    const imgSrc = media?.src || "";
-    const author = getAuthorName(post) || "";
-    const date = ordinalDate(post.date);
-    const excerpt = decodeEntities((post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim());
-    const postHref = `#/post/${post.id}`;
-    const titleHTML = post?.title?.rendered || "Untitled";
-
-    card.innerHTML = `
-      ${imgSrc
-        ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
-             <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw" />
-           </a>`
-        : `<div class="thumb" aria-hidden="true"></div>`}
-      <div class="card-body">
-        <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
-        <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
-        <p class="excerpt">${esc(excerpt)}</p>
-      </div>`;
-    return card;
-  }
-
-  function hasExcluded(post){
-    // lean posts do not include terms; we cannot filter by category cheaply
-    // Keep previous behavior for embedded posts; otherwise show all (fast path).
-    const groups = post?._embedded?.["wp:term"] || [];
-    if (!groups.length) return false;
-    const cats = groups.flat().filter((t)=>(t?.taxonomy||"").toLowerCase()==="category");
-    const norm = (x)=>(x||"").trim().toLowerCase();
-    return cats.some((c)=> norm(c.slug)===EXCLUDE_CAT || norm(c.name)===EXCLUDE_CAT);
-  }
-
-  function getGrid(){
-    if (!isHomeRoute()) return null;
-    let grid = document.getElementById("grid");
-    if(!grid){
-      grid = document.createElement("div");
-      grid.id="grid"; grid.className="grid";
-      app().appendChild(grid);
-    }
-    return grid;
-  }
-  function getLoader(){
-    let ld = document.getElementById("infiniteLoader");
-    if(!ld){
-      ld = document.createElement("div");
-      ld.id="infiniteLoader"; ld.className="infinite-loader";
-      ld.innerHTML = '<span class="spinner" aria-hidden="true"></span> Loading…';
-      ld.style.display="none"; app().appendChild(ld);
-    }
-    return ld;
-  }
-  function showLoader(){ getLoader().style.display="flex"; }
-  function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
-  function getSentinel(){
-    let s = document.getElementById("scrollSentinel");
-    if(!s){ s=document.createElement("div"); s.id="scrollSentinel"; s.style.cssText="height:1px;width:100%;"; app().appendChild(s); }
-    else { app().appendChild(s); }
-    return s;
-  }
-
-  const BATCH_SIZE = 12;
-  function appendCardsInBatches(container, posts){
-    let i = 0;
-    function step(){
-      const frag = document.createDocumentFragment();
-      for (let n=0; n<BATCH_SIZE && i<posts.length; n++, i++){
-        const p = posts[i];
-        if (!p) continue;
-        if (!hasExcluded(p)) frag.appendChild(buildCardElement(p));
-      }
-      container.appendChild(frag);
-      if (i < posts.length) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
-  function renderGridFromPosts(posts, append=false){
-    const grid = getGrid(); if(!grid) return;
-    if(!append) grid.innerHTML="";
-    appendCardsInBatches(grid, posts || []);
-    getLoader();
-    const s = getSentinel();
-    if (state._io && typeof state._io.observe === 'function'){
-      if (state._sentinel && state._sentinel !== s){ try{ state._io.unobserve(state._sentinel);}catch{} }
-      state._io.observe(s); state._sentinel = s;
-    } else {
-      state._io=null; state._sentinel=null; ensureInfiniteScroll();
-    }
+      const url = `${BASE}/categories?slug=${encodeURIComponent(CARTOON_SLUG)}&_fields=id,slug`;
+      const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+      if (!res.ok) throw new Error("cat lookup " + res.status);
+      const arr = await res.json();
+      const id = Array.isArray(arr) && arr[0]?.id ? Number(arr[0].id) : null;
+      CARTOON_CAT_ID = Number.isFinite(id) ? id : null;
+      if (CARTOON_CAT_ID != null) putCachedCartoonId(CARTOON_CAT_ID);
+    } catch { CARTOON_CAT_ID = null; }
+    return CARTOON_CAT_ID;
   }
   async function loadNextPage(){
     if (!isHomeRoute()) return;
@@ -476,7 +287,7 @@ async function batchFetchAuthors(ids, signal){
     controllers.listAbort = new AbortController();
 
     try{
-      // Lean first page
+      // Lean first page (with server-side cartoon exclude)
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
       if (!Array.isArray(posts) || !posts.length){
         app().innerHTML=""; showError("No posts returned from the server.");
@@ -511,7 +322,7 @@ async function batchFetchAuthors(ids, signal){
     }, { passive: true });
   }
 
-  // ===== Detail view (unchanged behavior) =====
+  // ===== Detail view =====
   function featuredSrcFromPost(p){
     const m=p?._embedded?.["wp:featuredmedia"]?.[0];
     if(!m) return { src:"", width:null, height:null };
@@ -603,7 +414,7 @@ async function batchFetchAuthors(ids, signal){
       if (backBtn) backBtn.style.display = '';
     }
   }
-  // ===== About (cached, unchanged from your last working version) =====
+  // ===== About (cached) =====
   const ABOUT_CACHE_KEY = "__about_html";
   const ABOUT_CACHE_TS_KEY = "__about_ts";
   const ABOUT_TTL_MS = 60 * 60 * 1000; // 1 hour
