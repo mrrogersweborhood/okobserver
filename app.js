@@ -1,13 +1,15 @@
-/* app.js — OkObserver (monolithic build) — v1.71.3
+/* app.js — OkObserver (monolithic build) — v1.71.4
    Changes:
-   • Home feed: orderby=date&order=desc&sticky=false (no sticky override; newest first)
-   • Cache version bump to home-v3 (flushes stale page caches)
-   • Keeps: cartoon exclude, HTTPS media normalization, author CORS-safe, scroll restore, infinite scroll
+   • Home feed: newest first + non-sticky + embed author (avoids CORS)
+   • Perf: content-visibility, batch size 18, observer rootMargin 800px,
+            image width/height hints, cap DOM nodes, faster settle,
+            strict load fuse to prevent double loads
+   • Keeps: cartoon exclude, HTTPS media normalization, scroll restore, infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.3";
+  const APP_VERSION = "v1.71.4";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -28,16 +30,17 @@
     scrollAnchorPostId: null,
     returningFromDetail: false,
     isLoading: false,
+    _loadingTicket: false,
     _ioAttached: false,
     _io: null,
     _sentinel: null,
   });
 
-  function stateForSave(st){ const { _io, _sentinel, isLoading, ...rest } = st || {}; return rest; }
+  function stateForSave(st){ const { _io, _sentinel, isLoading, _loadingTicket, ...rest } = st || {}; return rest; }
   function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(stateForSave(state))); }catch{} }
   (function rehydrate(){
     try{ const raw=sessionStorage.getItem("__okCache"); if(raw) Object.assign(state, JSON.parse(raw)||{}); }catch{}
-    state._io=null; state._sentinel=null; state.isLoading=false;
+    state._io=null; state._sentinel=null; state.isLoading=false; state._loadingTicket=false;
   })();
 
   // One-time cache invalidation for older page caches (prefix caches)
@@ -224,22 +227,16 @@
     } catch { CARTOON_CAT_ID = null; }
     return CARTOON_CAT_ID;
   }
-  // ===== Lean data layer for HOME (helpers defined BEFORE use) =====
 
-  // Page cache (sessionStorage): posts + mediaMap + authorMap
+  // ===== Lean data layer for HOME =====
+
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
-
-  function putHomePageCache(page, payload){
-    try { sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(payload)); } catch {}
-  }
+  function putHomePageCache(page, payload){ try { sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(payload)); } catch {} }
   function getHomePageCache(page){
-    try {
-      const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
+    try { const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page); return raw ? JSON.parse(raw) : null; }
+    catch { return null; }
   }
 
-  // Memoized lookups for media/users
   const mediaMap = new Map();   // id -> { src, width, height }
   const authorMap = new Map();  // id -> name
 
@@ -267,8 +264,8 @@
     }
   }
 
-  // SAFE + quiet: stop retrying authors once CORS blocks us
-  let AUTHORS_DISABLED = false;
+  // We now embed authors in the posts response; keep this off as a fallback.
+  let AUTHORS_DISABLED = true;
   async function batchFetchAuthors(ids, signal){
     if (AUTHORS_DISABLED) return;
     const need = ids.filter(id => id && !authorMap.has(id));
@@ -278,13 +275,10 @@
       const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
       if (!res.ok) throw new Error(`Users fetch ${res.status}`);
       const items = await res.json();
-      for (const u of items){
-        authorMap.set(u.id, u.name || "");
-      }
-    } catch (err) {
+      for (const u of items){ authorMap.set(u.id, u.name || ""); }
+    } catch {
       need.forEach(id => { if (!authorMap.has(id)) authorMap.set(id, ""); });
       AUTHORS_DISABLED = true;
-      console.warn("[OkObserver] Users endpoint blocked by CORS; suppressing future author fetches.");
     }
   }
 
@@ -298,7 +292,6 @@
       return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
     }
 
-    // Step 1: lean posts (no _embed) + server-side cartoon exclude if available
     const fields = [
       "id","date","title","excerpt","content","link",
       "featured_media","author"
@@ -308,15 +301,16 @@
     try {
       const cid = await resolveCartoonId(signal);
       if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
-    } catch {} // ignore
+    } catch {}
 
-    // Force newest first, ignore sticky posts globally
-    const url = `${BASE}/posts` +
-      `?per_page=${PER_PAGE}` +
-      `&page=${pageNum}` +
-      `&_fields=${fields}` +
-      `&orderby=date&order=desc&sticky=false` +
-      `${catExcludeParam}`;
+    // Newest first, non-sticky, and embed author to avoid CORS on /users
+    const url = `${BASE}/posts`
+      + `?per_page=${PER_PAGE}`
+      + `&page=${pageNum}`
+      + `&_embed=1`
+      + `&_fields=${fields},_embedded.author`
+      + `&orderby=date&order=desc&sticky=false`
+      + `${catExcludeParam}`;
 
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
     if (!res.ok){
@@ -328,21 +322,21 @@
     const posts = await res.json();
     const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
 
-    // Collect IDs for batch requests
+    // Collect IDs for batch requests (media only; authors are embedded)
     const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
-    const authorIds = Array.from(new Set(posts.map(p=>p.author).filter(Boolean)));
+    await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
 
-    // Step 2: batch fetch media + authors (authors may be blocked; that's OK)
-    await Promise.allSettled([
-      batchFetchMedia(mediaIds, signal),
-      batchFetchAuthors(authorIds, signal)
-    ]);
+    // Prime authorMap from embedded authors
+    for (const p of posts){
+      const name = p?._embedded?.author?.[0]?.name;
+      if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
+    }
 
     // Cache compact maps for this page
     const mediaObj = {};
     mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
     const authorObj = {};
-    authorIds.forEach(id => { const v = authorMap.get(id); if (v != null) authorObj[id] = v; });
+    posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
 
     putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
 
@@ -363,8 +357,7 @@
     return m ? mediaInfoFromSizes(m) : { src:"", width:null, height:null };
   }
 
-  // Server is excluding cartoons; no client-side exclude needed
-  function hasExcluded(post){ return false; }
+  function hasExcluded(_post){ return false; }
 
   function buildCardElement(post){
     const card = document.createElement("div");
@@ -372,6 +365,9 @@
 
     const media = resolveFeatured(post);
     const imgSrc = media?.src || "";
+    const imgW = media?.width || 600;
+    const imgH = media?.height || 360;
+
     const author = getAuthorName(post) || "";
     const date = ordinalDate(post.date);
     const excerpt = decodeEntities((post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim());
@@ -388,6 +384,7 @@
                loading="lazy"
                decoding="async"
                fetchpriority="low"
+               width="${imgW}" height="${imgH}"
                sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw"
                onerror="this.onerror=null; try{ this.closest('.thumb-link').replaceWith(Object.assign(document.createElement('div'),{className:'thumb'})); }catch{}"
              />
@@ -430,7 +427,7 @@
     return s;
   }
 
-  const BATCH_SIZE = 12;
+  const BATCH_SIZE = 18;
   function appendCardsInBatches(container, posts){
     let i = 0;
     function step(){
@@ -441,6 +438,16 @@
         if (!hasExcluded(p)) frag.appendChild(buildCardElement(p));
       }
       container.appendChild(frag);
+
+      /* PERF: cap DOM nodes to prevent runaway memory/paint on huge sessions */
+      const MAX_DOM_CARDS = 220;  // ~18 pages with PER_PAGE=12
+      if (container.children.length > MAX_DOM_CARDS) {
+        const toRemove = container.children.length - MAX_DOM_CARDS;
+        for (let k = 0; k < toRemove; k++) {
+          container.removeChild(container.firstElementChild);
+        }
+      }
+
       if (i < posts.length) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
@@ -459,16 +466,18 @@
       state._io=null; state._sentinel=null; ensureInfiniteScroll();
     }
   }
+
   // ===== Infinite scroll + HOME renderer =====
   async function loadNextPage(){
     if (!isHomeRoute()) return;
     if (state.isLoading) return;
+    if (state._loadingTicket) return;
     if (Number.isFinite(state.totalPages) && state.page >= state.totalPages) return;
 
     if (controllers.listAbort){ try{ controllers.listAbort.abort(); }catch{} }
     controllers.listAbort = new AbortController();
 
-    state.isLoading=true; saveHomeCache(); showLoader();
+    state.isLoading=true; state._loadingTicket=true; saveHomeCache(); showLoader();
     try{
       const next=(state.page||1)+1;
       const { posts:newPosts, totalPages } = await fetchLeanPostsPage(next, controllers.listAbort.signal);
@@ -478,7 +487,7 @@
       else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) state.totalPages = state.page;
       saveHomeCache(); renderGridFromPosts(newPosts, true);
     }catch(err){ if(err?.name!=='AbortError') showError(err); }
-    finally{ hideLoader(); state.isLoading=false; saveHomeCache(); }
+    finally{ hideLoader(); state.isLoading=false; state._loadingTicket=false; saveHomeCache(); }
   }
 
   function ensureInfiniteScroll(){
@@ -493,7 +502,7 @@
         if(!e||!e.isIntersecting) return;
         if (!isHomeRoute()) return;
         loadNextPage();
-      }, { root:null, rootMargin:"1000px 0px", threshold:0 });
+      }, { root:null, rootMargin:"800px 0px", threshold:0 });
     }
     state._io.observe(sentinel);
     state._sentinel = sentinel; state._ioAttached = true;
@@ -523,7 +532,7 @@
           await nextFrame();
           if (targetY > 0) window.scrollTo(0, targetY);
           else if (wantAnchor){ const el=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el?.closest(".card")||el)?.scrollIntoView({block:"start"}); }
-          await whenImagesSettled(grid,2000);
+          await whenImagesSettled(grid,900); // faster settle
           await nextFrame();
           if (targetY > 0) window.scrollTo(0, targetY);
           else if (wantAnchor){ const el2=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el2?.closest(".card")||el2)?.scrollIntoView({block:"start"}); }
@@ -542,7 +551,6 @@
     controllers.listAbort = new AbortController();
 
     try{
-      // Lean first page (with newest, non-sticky, and server-side cartoon exclude)
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
       if (!Array.isArray(posts) || !posts.length){
         app().innerHTML=""; showError("No posts returned from the server.");
@@ -563,27 +571,6 @@
       }
       app().innerHTML=""; renderGridFromPosts([], false);
     }
-  }
-
-  function attachScrollFallback(){
-    window.addEventListener('scroll', function () {
-      if (!isHomeRoute()) return;
-      if (state.isLoading) return;
-      const nearBottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - 800);
-      if (nearBottom) {
-        if (!state._io || typeof state._io.observe !== 'function') ensureInfiniteScroll();
-        loadNextPage();
-      }
-    }, { passive: true });
-  }
-  // ===== Detail view =====
-  function featuredSrcFromPost(p){
-    const m=p?._embedded?.["wp:featuredmedia"]?.[0];
-    if(!m) return { src:"", width:null, height:null };
-    const sizes=m.media_details?.sizes||{};
-    const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
-    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
-    return { src:(best?.source_url || m.source_url || ""), width:(best?.width||null), height:(best?.height||null) };
   }
 
   function renderPostShell(){
@@ -613,6 +600,15 @@
     document.getElementById("backBottom")?.addEventListener("click", goHome);
   }
 
+  function featuredSrcFromPost(p){
+    const m=p?._embedded?.["wp:featuredmedia"]?.[0];
+    if(!m) return { src:"", width:null, height:null };
+    const sizes=m.media_details?.sizes||{};
+    const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+    return { src:(best?.source_url || m.source_url || ""), width:(best?.width||null), height:(best?.height||null) };
+  }
+
   async function renderPost(id){
     renderPostShell();
     if (controllers.detailAbort){ try{ controllers.detailAbort.abort(); }catch{} }
@@ -623,7 +619,7 @@
       if(!res.ok) throw new Error('Post not found');
       const post = await res.json();
       let { src, width, height } = featuredSrcFromPost(post);
-      src = normalizeMediaUrl(src); // normalize hero URL too
+      src = normalizeMediaUrl(src);
 
       const author =
         post?._embedded?.author?.[0]?.name ||
@@ -687,10 +683,8 @@
   }
 
   function putAboutCache(html){
-    try {
-      sessionStorage.setItem(ABOUT_CACHE_KEY, html || "");
-      sessionStorage.setItem(ABOUT_CACHE_TS_KEY, String(Date.now()));
-    } catch {}
+    try { sessionStorage.setItem(ABOUT_CACHE_KEY, html || ""); sessionStorage.setItem(ABOUT_CACHE_TS_KEY, String(Date.now())); }
+    catch {}
   }
   function getAboutCache(){
     try {
