@@ -1,14 +1,17 @@
-/* app.js — OkObserver (monolithic build) — v1.71.5
-   Changes:
-   • Home feed: newest-first + exclude sticky posts + embed author
-   • Cache version bump to home-v4 (flush stale ordering)
-   • Title color is in CSS (index.html)
-   • Keeps perf wins (content-visibility, batch size 18, etc.)
+/* app.js — OkObserver (monolithic build) — v1.71.6
+   Fresh-start fixes:
+   • First-tab boot purge of stale caches
+   • Page-1 cache TTL (10 min)
+   • Page-1 fetch: cache-busted + no-store
+   • Client-side date-desc sort as final guard
+   Keeps:
+   • Newest-first + exclude sticky + embed author
+   • Perf tweaks (content-visibility, batch size 18, etc.)
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.5";
+  const APP_VERSION = "v1.71.6";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -17,6 +20,18 @@
 
   // ---- Cache version bump (flushes old cached pages once)
   const CACHE_VERSION = "home-v4";
+
+  // ----- One-time boot purge to guarantee a fresh first page on first visit in this tab
+  (function bootFreshness(){
+    try {
+      if (!sessionStorage.getItem("__boot_seen")) {
+        Object.keys(sessionStorage).forEach(k => {
+          if (k && (k.startsWith("__home_page_") || k === "__okCache")) sessionStorage.removeItem(k);
+        });
+        sessionStorage.setItem("__boot_seen", "1");
+      }
+    } catch {}
+  })();
 
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
@@ -255,10 +270,27 @@
   // ===== Lean data layer for HOME =====
 
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
-  function putHomePageCache(page, payload){ try { sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(payload)); } catch {} }
+  const HOME_PAGE_TTL_MS = 10 * 60 * 1000; // 10 minutes for page 1 only
+
+  function putHomePageCache(page, payload){
+    try {
+      const withTs = { ts: Date.now(), ...payload };
+      sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(withTs));
+    } catch {}
+  }
   function getHomePageCache(page){
-    try { const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page); return raw ? JSON.parse(raw) : null; }
-    catch { return null; }
+    try {
+      const raw = sessionStorage.getItem(HOME_CACHE_PREFIX + page);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj) return null;
+      if (page === 1) {
+        const ts = Number(obj.ts || 0);
+        if (!ts || (Date.now() - ts > HOME_PAGE_TTL_MS)) return null;
+      }
+      const { ts, ...rest } = obj;
+      return rest;
+    } catch { return null; }
   }
 
   const mediaMap = new Map();   // id -> { src, width, height }
@@ -319,6 +351,9 @@
       ? `&exclude=${stickyIds.join(",")}`
       : "";
 
+    // Add cache-buster + no-store for page 1 to avoid any proxy/browser stale
+    const bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
+
     const url = `${BASE}/posts`
       + `?per_page=${PER_PAGE}`
       + `&page=${pageNum}`
@@ -326,17 +361,24 @@
       + `&_fields=${fields},_embedded.author`
       + `&orderby=date&order=desc`
       + excludeParam
-      + `${catExcludeParam}`;
+      + `${catExcludeParam}`
+      + bust;
 
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+    const fetchOpts = { headers:{Accept:"application/json"}, signal };
+    if (pageNum === 1) fetchOpts.cache = "no-store";
+
+    const res = await fetch(url, fetchOpts);
     if (!res.ok){
       const text = await res.text().catch(()=> "");
       const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
       err.details = text?.slice(0,300);
       throw err;
     }
-    const posts = await res.json();
+    let posts = await res.json();
     const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+
+    // Client-side guard: ensure strict newest-first by date
+    posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
 
     // Collect IDs for batch requests (media only; authors are embedded)
     const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
