@@ -1,15 +1,14 @@
-/* app.js — OkObserver (monolithic build) — v1.71.4
+/* app.js — OkObserver (monolithic build) — v1.71.5
    Changes:
-   • Home feed: newest first + non-sticky + embed author (avoids CORS)
-   • Perf: content-visibility, batch size 18, observer rootMargin 800px,
-            image width/height hints, cap DOM nodes, faster settle,
-            strict load fuse to prevent double loads
-   • Keeps: cartoon exclude, HTTPS media normalization, scroll restore, infinite scroll
+   • Home feed: newest-first + exclude sticky posts + embed author
+   • Cache version bump to home-v4 (flush stale ordering)
+   • Title color is in CSS (index.html)
+   • Keeps perf wins (content-visibility, batch size 18, etc.)
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.4";
+  const APP_VERSION = "v1.71.5";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -17,7 +16,7 @@
   const PER_PAGE = 12;
 
   // ---- Cache version bump (flushes old cached pages once)
-  const CACHE_VERSION = "home-v3";
+  const CACHE_VERSION = "home-v4";
 
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
@@ -228,6 +227,31 @@
     return CARTOON_CAT_ID;
   }
 
+  // --- Sticky posts handling (exclude them so newest-by-date appears first)
+  const STICKY_IDS_KEY = "__sticky_ids";
+  let STICKY_IDS = null;
+  function getCachedStickyIds(){
+    try { const raw = sessionStorage.getItem(STICKY_IDS_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  }
+  function putCachedStickyIds(ids){
+    try { sessionStorage.setItem(STICKY_IDS_KEY, JSON.stringify(ids || [])); } catch {}
+  }
+  async function ensureStickyIds(signal){
+    if (Array.isArray(STICKY_IDS)) return STICKY_IDS;
+    const cached = getCachedStickyIds();
+    if (Array.isArray(cached)) { STICKY_IDS = cached; return STICKY_IDS; }
+    try {
+      const res = await fetch(`${BASE}/posts?sticky=true&_fields=id&per_page=100`, { headers:{Accept:"application/json"}, signal });
+      if (!res.ok) throw new Error("sticky fetch " + res.status);
+      const arr = await res.json();
+      STICKY_IDS = Array.isArray(arr) ? arr.map(x=>x?.id).filter(Boolean) : [];
+      putCachedStickyIds(STICKY_IDS);
+    } catch {
+      STICKY_IDS = []; // fail open
+    }
+    return STICKY_IDS;
+  }
+
   // ===== Lean data layer for HOME =====
 
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
@@ -264,23 +288,9 @@
     }
   }
 
-  // We now embed authors in the posts response; keep this off as a fallback.
+  // Authors are embedded with posts; keep this disabled.
   let AUTHORS_DISABLED = true;
-  async function batchFetchAuthors(ids, signal){
-    if (AUTHORS_DISABLED) return;
-    const need = ids.filter(id => id && !authorMap.has(id));
-    if (!need.length) return;
-    try {
-      const url = `${BASE}/users?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
-      const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
-      if (!res.ok) throw new Error(`Users fetch ${res.status}`);
-      const items = await res.json();
-      for (const u of items){ authorMap.set(u.id, u.name || ""); }
-    } catch {
-      need.forEach(id => { if (!authorMap.has(id)) authorMap.set(id, ""); });
-      AUTHORS_DISABLED = true;
-    }
-  }
+  async function batchFetchAuthors(){ return; }
 
   // Fetch a lean page of posts and hydrate with media & author names
   async function fetchLeanPostsPage(pageNum, signal){
@@ -303,13 +313,19 @@
       if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
     } catch {}
 
-    // Newest first, non-sticky, and embed author to avoid CORS on /users
+    // Newest first, exclude sticky (by ID), and embed author to avoid CORS on /users
+    const stickyIds = await ensureStickyIds(signal);
+    const excludeParam = (Array.isArray(stickyIds) && stickyIds.length)
+      ? `&exclude=${stickyIds.join(",")}`
+      : "";
+
     const url = `${BASE}/posts`
       + `?per_page=${PER_PAGE}`
       + `&page=${pageNum}`
       + `&_embed=1`
       + `&_fields=${fields},_embedded.author`
-      + `&orderby=date&order=desc&sticky=false`
+      + `&orderby=date&order=desc`
+      + excludeParam
       + `${catExcludeParam}`;
 
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
