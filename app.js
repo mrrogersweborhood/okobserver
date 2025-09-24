@@ -1,16 +1,13 @@
-/* app.js — OkObserver (monolithic build) — v1.71.2
+/* app.js — OkObserver (monolithic build) — v1.71.3
    Changes:
-   • Order fixed: helpers defined before use
-   • Server-side exclude for "cartoon" (cached resolver)
-   • Author fetch NON-FATAL; suppress further user fetches on CORS
-   • Lean list fetch + media/author batching + per-page cache
-   • Scroll restore + infinite scroll retained
-   • NEW: Normalize media URLs to HTTPS + graceful thumb fallback
+   • Home feed: orderby=date&order=desc&sticky=false (no sticky override; newest first)
+   • Cache version bump to home-v3 (flushes stale page caches)
+   • Keeps: cartoon exclude, HTTPS media normalization, author CORS-safe, scroll restore, infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.2";
+  const APP_VERSION = "v1.71.3";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -18,7 +15,7 @@
   const PER_PAGE = 12;
 
   // ---- Cache version bump (flushes old cached pages once)
-  const CACHE_VERSION = "home-v2";
+  const CACHE_VERSION = "home-v3";
 
   try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch {}
 
@@ -43,7 +40,7 @@
     state._io=null; state._sentinel=null; state.isLoading=false;
   })();
 
-  // One-time cache invalidation for older page caches
+  // One-time cache invalidation for older page caches (prefix caches)
   try {
     const cv = sessionStorage.getItem("__home_cache_version");
     if (cv !== CACHE_VERSION) {
@@ -313,7 +310,14 @@
       if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
     } catch {} // ignore
 
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_fields=${fields}${catExcludeParam}`;
+    // Force newest first, ignore sticky posts globally
+    const url = `${BASE}/posts` +
+      `?per_page=${PER_PAGE}` +
+      `&page=${pageNum}` +
+      `&_fields=${fields}` +
+      `&orderby=date&order=desc&sticky=false` +
+      `${catExcludeParam}`;
+
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
     if (!res.ok){
       const text = await res.text().catch(()=> "");
@@ -538,7 +542,7 @@
     controllers.listAbort = new AbortController();
 
     try{
-      // Lean first page (with server-side cartoon exclude)
+      // Lean first page (with newest, non-sticky, and server-side cartoon exclude)
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
       if (!Array.isArray(posts) || !posts.length){
         app().innerHTML=""; showError("No posts returned from the server.");
