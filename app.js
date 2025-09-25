@@ -1,25 +1,25 @@
-/* app.js — OkObserver (monolithic build) — v1.71.8
+/* app.js — OkObserver (monolithic build) — v1.71.9
    Fix for “skipped posts”:
-   • Only exclude the “cartoon” category (no sticky filtering)
+   • Only filter “cartoon” client-side (no server-side exclude)
    • Enforce status=publish
-   • Freshness watchdog for page 1 (refetch if newest >72h old)
+   • Page-1: clear cache before fetch + cache:"reload" + cache-buster
+   • Console log newest date for sanity
    Freshness/perf kept:
-   • First-tab boot purge, page-1 TTL (10m), page-1 no-store + cache-buster
-   • Authors embedded with posts
+   • First-tab boot purge, page-1 TTL (10m)
    • content-visibility, batch size 18, DOM cap, scroll restore, infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.8";
+  const APP_VERSION = "v1.71.9";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
 
-  // ---- Cache version bump (flush old cached pages once)
-  const CACHE_VERSION = "home-v5"; // same bump as last change
+  // ---- Cache version (kept)
+  const CACHE_VERSION = "home-v5";
 
   // ----- One-time boot purge to guarantee a fresh first page on first visit in this tab
   (function bootFreshness(){
@@ -138,7 +138,7 @@
     });
   }
 
-  // Normalize media URLs: upgrade http->https for known hosts; handle protocol-relative
+  // Normalize media URLs
   function normalizeMediaUrl(u){
     if (!u) return u;
     try {
@@ -220,7 +220,7 @@
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
 
-  // -- Category resolver (cache in sessionStorage) for server-side exclude
+  // -- Category resolver for “cartoon” (ID cached in sessionStorage)
   const CARTOON_SLUG = "cartoon";
   let CARTOON_CAT_ID = null;
   function getCachedCartoonId(){ try { const v = sessionStorage.getItem("__cat_cartoon_id"); return v ? Number(v) : null; } catch { return null; } }
@@ -300,6 +300,11 @@
 
   // Fetch a lean page of posts and hydrate with media & author names
   async function fetchLeanPostsPage(pageNum, signal){
+    // For page 1: clear any stale cached page before fetching
+    if (pageNum === 1) {
+      try { sessionStorage.removeItem("__home_page_1"); } catch {}
+    }
+
     // Cache hit?
     const cached = getHomePageCache(pageNum);
     if (cached){
@@ -310,19 +315,19 @@
 
     const fields = [
       "id","date","title","excerpt","content","link",
-      "featured_media","author"
+      "featured_media","author","categories"
     ].join(",");
 
-    // Only exclude cartoon category if we found a valid positive ID
-    let catExcludeParam = "";
+    // Resolve cartoon category (client-side filter only)
+    let cartoonId = null;
     try {
       const cid = await resolveCartoonId(signal);
-      if (Number.isFinite(cid) && cid > 0) catExcludeParam = `&categories_exclude=${cid}`;
+      if (Number.isFinite(cid) && cid > 0) cartoonId = cid;
     } catch {}
 
-    // Build the base URL (page 1 gets a cache-buster + no-store)
-    const page1Bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
-    const baseUrl =
+    // Build URL — NO server-side exclude
+    const bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
+    const url =
       `${BASE}/posts`
       + `?status=publish`
       + `&per_page=${PER_PAGE}`
@@ -330,73 +335,52 @@
       + `&_embed=1`
       + `&_fields=${fields},_embedded.author`
       + `&orderby=date&order=desc`
-      + `${catExcludeParam}`
-      + page1Bust;
+      + bust;
 
-    const baseOpts = { headers:{Accept:"application/json"}, signal };
-    if (pageNum === 1) baseOpts.cache = "no-store";
+    const opts = {
+      headers:{Accept:"application/json"},
+      signal,
+      cache: (pageNum === 1 ? "reload" : "default")
+    };
 
-    // Helper to fetch + normalize a page
-    async function fetchAndNormalize(url, opts){
-      const res = await fetch(url, opts);
-      if (!res.ok){
-        const text = await res.text().catch(()=> "");
-        const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
-        err.details = text?.slice(0,300);
-        throw err;
-      }
-      let posts = await res.json();
-      const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+    // Fetch + normalize
+    const res = await fetch(url, opts);
+    if (!res.ok){
+      const text = await res.text().catch(()=> "");
+      const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
+      err.details = text?.slice(0,300);
+      throw err;
+    }
+    let posts = await res.json();
+    const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
 
-      // Guard: sort by newest (server should already do this, but be strict)
-      posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
+    // Client guard: sort newest-first
+    posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
+    if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-      // Media hydration
-      const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
-      await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
-
-      // Authors from _embedded
-      for (const p of posts){
-        const name = p?._embedded?.author?.[0]?.name;
-        if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
-      }
-
-      // Cache compact maps for this page
-      const mediaObj = {};
-      mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
-      const authorObj = {};
-      posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
-
-      putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
-      return { posts, totalPages };
+    // Client-side cartoon filter only
+    if (Number.isFinite(cartoonId)) {
+      posts = posts.filter(p => !Array.isArray(p?.categories) || !p.categories.includes(cartoonId));
     }
 
-    // 1) First attempt (normal)
-    let first = await fetchAndNormalize(baseUrl, baseOpts);
+    // Media hydration
+    const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
+    await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
 
-    // 2) Freshness watchdog: if the newest post we got is older than 72h,
-    //    force a hard refresh that bypasses any intermediaries.
-    try {
-      if (Array.isArray(first.posts) && first.posts.length) {
-        const newest = new Date(first.posts[0].date).getTime();
-        const now = Date.now();
-        const FRESH_MS = 72 * 60 * 60 * 1000; // 72 hours
-        const looksStale = Number.isFinite(newest) && (now - newest > FRESH_MS);
-
-        if (pageNum === 1 && looksStale) {
-          // Force hardest bypass: different cache mode + distinct bust param
-          const hardUrl = baseUrl + `&_fresh=${performance.now()}`;
-          const hardOpts = { ...baseOpts, cache: "reload" };
-          // Do NOT write cache if the hard fetch fails; otherwise replace cache
-          first = await fetchAndNormalize(hardUrl, hardOpts);
-        }
-      }
-    } catch (e) {
-      // If the hard refresh failed, keep the first result (better than nothing)
-      console.warn("[OkObserver] Freshness watchdog hard-refresh failed:", e);
+    // Authors from _embedded
+    for (const p of posts){
+      const name = p?._embedded?.author?.[0]?.name;
+      if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
     }
 
-    return { posts: first.posts, totalPages: first.totalPages, fromCache: false };
+    // Cache compact maps for this page
+    const mediaObj = {};
+    mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
+    const authorObj = {};
+    posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
+
+    putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
+    return { posts, totalPages, fromCache: false };
   }
   // ===== Rendering helpers for HOME =====
   function getAuthorName(post){
@@ -420,7 +404,6 @@
 
     const media = resolveFeatured(post);
     const imgSrc = media?.src || "";
-       // fallback intrinsic sizes if unknown
     const imgW = media?.width || 600;
     const imgH = media?.height || 360;
 
