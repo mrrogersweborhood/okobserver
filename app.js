@@ -1,25 +1,23 @@
-/* app.js — OkObserver (monolithic build) — v1.71.6
-   Fresh-start fixes:
-   • First-tab boot purge of stale caches
-   • Page-1 cache TTL (10 min)
-   • Page-1 fetch: cache-busted + no-store
-   • Client-side date-desc sort as final guard
-   Keeps:
-   • Newest-first + exclude sticky + embed author
-   • Perf tweaks (content-visibility, batch size 18, etc.)
+/* app.js — OkObserver (monolithic build) — v1.71.7
+   Fix:
+   • Removed sticky-post exclusion so NOTHING is filtered except “cartoon” category.
+   Freshness & perf (kept from earlier):
+   • First-tab boot purge, page-1 TTL (10m), page-1 no-store + cache-buster
+   • Authors embedded with posts
+   • content-visibility, batch size 18, DOM cap, scroll restore, infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.6";
+  const APP_VERSION = "v1.71.7";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
 
-  // ---- Cache version bump (flushes old cached pages once)
-  const CACHE_VERSION = "home-v4";
+  // ---- Cache version bump (flush old cached pages once)
+  const CACHE_VERSION = "home-v5"; // <— bumped since sticky filter was removed
 
   // ----- One-time boot purge to guarantee a fresh first page on first visit in this tab
   (function bootFreshness(){
@@ -159,7 +157,6 @@
       return u;
     } catch { return u; }
   }
-
   function normalizeFirstParagraph(root){
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(node){
@@ -242,31 +239,6 @@
     return CARTOON_CAT_ID;
   }
 
-  // --- Sticky posts handling (exclude them so newest-by-date appears first)
-  const STICKY_IDS_KEY = "__sticky_ids";
-  let STICKY_IDS = null;
-  function getCachedStickyIds(){
-    try { const raw = sessionStorage.getItem(STICKY_IDS_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
-  }
-  function putCachedStickyIds(ids){
-    try { sessionStorage.setItem(STICKY_IDS_KEY, JSON.stringify(ids || [])); } catch {}
-  }
-  async function ensureStickyIds(signal){
-    if (Array.isArray(STICKY_IDS)) return STICKY_IDS;
-    const cached = getCachedStickyIds();
-    if (Array.isArray(cached)) { STICKY_IDS = cached; return STICKY_IDS; }
-    try {
-      const res = await fetch(`${BASE}/posts?sticky=true&_fields=id&per_page=100`, { headers:{Accept:"application/json"}, signal });
-      if (!res.ok) throw new Error("sticky fetch " + res.status);
-      const arr = await res.json();
-      STICKY_IDS = Array.isArray(arr) ? arr.map(x=>x?.id).filter(Boolean) : [];
-      putCachedStickyIds(STICKY_IDS);
-    } catch {
-      STICKY_IDS = []; // fail open
-    }
-    return STICKY_IDS;
-  }
-
   // ===== Lean data layer for HOME =====
 
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
@@ -345,13 +317,8 @@
       if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
     } catch {}
 
-    // Newest first, exclude sticky (by ID), and embed author to avoid CORS on /users
-    const stickyIds = await ensureStickyIds(signal);
-    const excludeParam = (Array.isArray(stickyIds) && stickyIds.length)
-      ? `&exclude=${stickyIds.join(",")}`
-      : "";
-
-    // Add cache-buster + no-store for page 1 to avoid any proxy/browser stale
+    // Newest first, authors embedded; NO sticky exclusion anymore
+    // Add cache-buster + no-store for page 1 to avoid stale results
     const bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
 
     const url = `${BASE}/posts`
@@ -360,7 +327,6 @@
       + `&_embed=1`
       + `&_fields=${fields},_embedded.author`
       + `&orderby=date&order=desc`
-      + excludeParam
       + `${catExcludeParam}`
       + bust;
 
@@ -400,7 +366,6 @@
 
     return { posts, totalPages, fromCache: false };
   }
-
   // ===== Rendering helpers for HOME =====
   function getAuthorName(post){
     return authorMap.get(post.author) ||
@@ -565,7 +530,6 @@
     state._io.observe(sentinel);
     state._sentinel = sentinel; state._ioAttached = true;
   }
-
   async function renderHome(){
     if (!app()) return;
 
