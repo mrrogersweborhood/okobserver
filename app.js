@@ -1,13 +1,14 @@
-/* app.js — OkObserver — v1.72.0
-   Fix: posts “missing” due to category-ID mismatch / proxy cache.
+/* app.js — OkObserver — v1.72.1
+   Fix: posts “missing” due to proxy caching / category-ID mismatch.
    • Client-side filter by embedded category slug === "cartoon" (no ID math)
-   • Page 1: clear cache, add hard cache-bypass, cache:"reload"
+   • Page 1: flush cache, add reload + cache-buster, and run a freshness probe (per_page=1)
+   • If probe is newer, re-fetch page 1 with cache:"no-store"
    • Keep newest-first + perf + scroll restore + infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.72.0";
+  const APP_VERSION = "v1.72.1";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -220,7 +221,6 @@
     for (const group of groups){
       if (!Array.isArray(group)) continue;
       for (const term of group){
-        // Some WP builds omit taxonomy; match by slug alone is fine here
         if (term && term.slug === CARTOON_SLUG) return true;
       }
     }
@@ -275,7 +275,7 @@
     for (const m of items){ mediaMap.set(m.id, mediaInfoFromSizes(m)); }
   }
 
-  // Fetch a lean page of posts and hydrate with media & author names
+  // ===== Freshness-probed page fetch (with client cartoon filter) =====
   async function fetchLeanPostsPage(pageNum, signal){
     // hard-flush page-1 cache before fetching
     if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
@@ -288,8 +288,6 @@
       return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
     }
 
-    // We need embedded terms to filter by slug, so do not restrict _fields.
-    // (We still ask for embed to get authors/terms; media is batched separately.)
     const bust = (pageNum === 1) ? `&_=${Date.now()}.${Math.random().toString(36).slice(2)}` : "";
     const url =
       `${BASE}/posts`
@@ -302,35 +300,64 @@
 
     const opts = { headers:{Accept:"application/json"}, signal, cache: (pageNum === 1 ? "reload" : "default") };
 
-    const res = await fetch(url, opts);
-    if (!res.ok){
-      const text = await res.text().catch(()=> "");
-      const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
-      err.details = text?.slice(0,300);
-      throw err;
+    async function fetchPage(href, options){
+      const res = await fetch(href, options);
+      if (!res.ok){
+        const text = await res.text().catch(()=> "");
+        const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
+        err.details = text?.slice(0,300);
+        throw err;
+      }
+      const items = await res.json();
+      const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+      return { items, totalPages };
     }
 
-    let posts = await res.json();
-    const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+    // First attempt for requested page
+    let { items: posts, totalPages } = await fetchPage(url, opts);
 
-    // strict newest-first
+    // Sort newest-first
     posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
     if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-    // client cartoon filter (by slug)
+    // === Page-1 freshness probe ===
+    if (pageNum === 1) {
+      try {
+        const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
+        const probeRes = await fetch(probeUrl, { headers:{Accept:"application/json"}, signal, cache:"reload" });
+        if (probeRes.ok) {
+          const probe = await probeRes.json();
+          const probeDate = probe?.[0]?.date ? new Date(probe[0].date).getTime() : 0;
+          const page1Date = posts?.[0]?.date ? new Date(posts[0].date).getTime() : 0;
+          if (probeDate && page1Date && probeDate > page1Date) {
+            const hardUrl = url + `&__fresh=${performance.now()}`;
+            const hardOpts = { ...opts, cache: "no-store" };
+            const fresh = await fetchPage(hardUrl, hardOpts);
+            fresh.items.sort((a,b)=> new Date(b.date) - new Date(a.date));
+            posts = fresh.items;
+            totalPages = fresh.totalPages;
+            console.info("[OkObserver] Page 1 refreshed via probe; newest:", posts[0]?.date);
+          }
+        }
+      } catch (e) {
+        console.warn("[OkObserver] Probe failed; using first result.", e);
+      }
+    }
+
+    // Cartoon filter (by embedded slug)
     posts = posts.filter(p => !isCartoonByEmbedded(p));
 
-    // hydrate media
+    // Hydrate media
     const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
     await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
 
-    // author names from _embedded
+    // Author names from _embedded
     for (const p of posts){
       const name = p?._embedded?.author?.[0]?.name;
       if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
     }
 
-    // compact cache maps
+    // Compact cache maps
     const mediaObj = {}; mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
     const authorObj = {}; posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
 
@@ -781,11 +808,13 @@
     }
   });
 
+  // Track home scroll
   window.addEventListener('scroll', function () {
     if (!isHomeRoute()) return;
     state.scrollY = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
 
+  // Fallback infinite scroll
   function attachScrollFallback(){
     window.addEventListener('scroll', function () {
       if (!isHomeRoute()) return;
