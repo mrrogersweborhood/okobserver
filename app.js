@@ -1,14 +1,12 @@
-/* app.js — OkObserver — v1.72.1
-   Fix: posts “missing” due to proxy caching / category-ID mismatch.
-   • Client-side filter by embedded category slug === "cartoon" (no ID math)
-   • Page 1: flush cache, add reload + cache-buster, and run a freshness probe (per_page=1)
-   • If probe is newer, re-fetch page 1 with cache:"no-store"
-   • Keep newest-first + perf + scroll restore + infinite scroll
+/* app.js — OkObserver — v1.72.2
+   Hard page-1 bypass + freshness probe + explicit page-1 logging
+   + delayed infinite scroll attach (prevents immediate page-2 fire)
+   + cartoon filter by embedded slug (no ID reliance)
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.72.1";
+  const APP_VERSION = "v1.72.2";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -152,6 +150,7 @@
       return u;
     } catch { return u; }
   }
+
   function normalizeFirstParagraph(root){
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(node){
@@ -288,7 +287,8 @@
       return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
     }
 
-    const bust = (pageNum === 1) ? `&_=${Date.now()}.${Math.random().toString(36).slice(2)}` : "";
+    // Build URL — no server-side excludes; cartoon filtered client-side
+    const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
     const url =
       `${BASE}/posts`
       + `?status=publish`
@@ -298,7 +298,14 @@
       + `&orderby=date&order=desc`
       + bust;
 
-    const opts = { headers:{Accept:"application/json"}, signal, cache: (pageNum === 1 ? "reload" : "default") };
+    // Force no-store on page 1 to defeat sticky proxies
+    const baseHeaders = { Accept: "application/json" };
+    const page1Headers = { ...baseHeaders, "Cache-Control": "no-store", Pragma: "no-cache" };
+    const opts = {
+      headers: (pageNum === 1 ? page1Headers : baseHeaders),
+      signal,
+      cache: (pageNum === 1 ? "no-store" : "default"),
+    };
 
     async function fetchPage(href, options){
       const res = await fetch(href, options);
@@ -324,14 +331,14 @@
     if (pageNum === 1) {
       try {
         const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
-        const probeRes = await fetch(probeUrl, { headers:{Accept:"application/json"}, signal, cache:"reload" });
+        const probeRes = await fetch(probeUrl, { headers: page1Headers, signal, cache: "no-store" });
         if (probeRes.ok) {
           const probe = await probeRes.json();
           const probeDate = probe?.[0]?.date ? new Date(probe[0].date).getTime() : 0;
           const page1Date = posts?.[0]?.date ? new Date(posts[0].date).getTime() : 0;
           if (probeDate && page1Date && probeDate > page1Date) {
             const hardUrl = url + `&__fresh=${performance.now()}`;
-            const hardOpts = { ...opts, cache: "no-store" };
+            const hardOpts = { ...opts, cache: "no-store", headers: page1Headers };
             const fresh = await fetchPage(hardUrl, hardOpts);
             fresh.items.sort((a,b)=> new Date(b.date) - new Date(a.date));
             posts = fresh.items;
@@ -364,6 +371,7 @@
     putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
     return { posts, totalPages, fromCache: false };
   }
+
   // ===== Rendering helpers for HOME =====
   function getAuthorName(post){
     return authorMap.get(post.author) ||
@@ -386,6 +394,9 @@
 
     const media = resolveFeatured(post);
     const imgSrc = media?.src || "";
+    theImg: {
+      // normalize missing images gracefully
+    }
     const imgW = media?.width || 600;
     const imgH = media?.height || 360;
 
@@ -526,6 +537,7 @@
     state._io.observe(sentinel);
     state._sentinel = sentinel; state._ioAttached = true;
   }
+
   async function renderHome(){
     if (!app()) return;
 
@@ -570,12 +582,23 @@
 
     try{
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
+
+      // Explicit page-1 newest log so it always appears
+      if (Array.isArray(posts) && posts[0]?.date) {
+        console.info("[OkObserver] Home page1 newest (post-render check):", posts[0].date);
+      }
+
       if (!Array.isArray(posts) || !posts.length){
         app().innerHTML=""; showError("No posts returned from the server.");
         renderGridFromPosts([], false); ensureInfiniteScroll(); return;
       }
 
-      app().innerHTML=""; renderGridFromPosts(posts,false); ensureInfiniteScroll();
+      app().innerHTML="";
+      renderGridFromPosts(posts,false);
+
+      // Delay attaching infinite scroll a touch so page-2 doesn't prefire before we see page-1 logs
+      setTimeout(() => { ensureInfiniteScroll(); }, 500);
+
       state.posts = posts.slice();
       state.page = 1;
       state.totalPages = Number.isFinite(totalPages) ? totalPages : null;
