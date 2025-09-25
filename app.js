@@ -1,7 +1,9 @@
-/* app.js — OkObserver (monolithic build) — v1.71.7
-   Fix:
-   • Removed sticky-post exclusion so NOTHING is filtered except “cartoon” category.
-   Freshness & perf (kept from earlier):
+/* app.js — OkObserver (monolithic build) — v1.71.8
+   Fix for “skipped posts”:
+   • Only exclude the “cartoon” category (no sticky filtering)
+   • Enforce status=publish
+   • Freshness watchdog for page 1 (refetch if newest >72h old)
+   Freshness/perf kept:
    • First-tab boot purge, page-1 TTL (10m), page-1 no-store + cache-buster
    • Authors embedded with posts
    • content-visibility, batch size 18, DOM cap, scroll restore, infinite scroll
@@ -9,7 +11,7 @@
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.7";
+  const APP_VERSION = "v1.71.8";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -17,7 +19,7 @@
   const PER_PAGE = 12;
 
   // ---- Cache version bump (flush old cached pages once)
-  const CACHE_VERSION = "home-v5"; // <— bumped since sticky filter was removed
+  const CACHE_VERSION = "home-v5"; // same bump as last change
 
   // ----- One-time boot purge to guarantee a fresh first page on first visit in this tab
   (function bootFreshness(){
@@ -311,60 +313,90 @@
       "featured_media","author"
     ].join(",");
 
+    // Only exclude cartoon category if we found a valid positive ID
     let catExcludeParam = "";
     try {
       const cid = await resolveCartoonId(signal);
-      if (Number.isFinite(cid)) catExcludeParam = `&categories_exclude=${cid}`;
+      if (Number.isFinite(cid) && cid > 0) catExcludeParam = `&categories_exclude=${cid}`;
     } catch {}
 
-    // Newest first, authors embedded; NO sticky exclusion anymore
-    // Add cache-buster + no-store for page 1 to avoid stale results
-    const bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
-
-    const url = `${BASE}/posts`
-      + `?per_page=${PER_PAGE}`
+    // Build the base URL (page 1 gets a cache-buster + no-store)
+    const page1Bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
+    const baseUrl =
+      `${BASE}/posts`
+      + `?status=publish`
+      + `&per_page=${PER_PAGE}`
       + `&page=${pageNum}`
       + `&_embed=1`
       + `&_fields=${fields},_embedded.author`
       + `&orderby=date&order=desc`
       + `${catExcludeParam}`
-      + bust;
+      + page1Bust;
 
-    const fetchOpts = { headers:{Accept:"application/json"}, signal };
-    if (pageNum === 1) fetchOpts.cache = "no-store";
+    const baseOpts = { headers:{Accept:"application/json"}, signal };
+    if (pageNum === 1) baseOpts.cache = "no-store";
 
-    const res = await fetch(url, fetchOpts);
-    if (!res.ok){
-      const text = await res.text().catch(()=> "");
-      const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
-      err.details = text?.slice(0,300);
-      throw err;
+    // Helper to fetch + normalize a page
+    async function fetchAndNormalize(url, opts){
+      const res = await fetch(url, opts);
+      if (!res.ok){
+        const text = await res.text().catch(()=> "");
+        const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
+        err.details = text?.slice(0,300);
+        throw err;
+      }
+      let posts = await res.json();
+      const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
+
+      // Guard: sort by newest (server should already do this, but be strict)
+      posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+      // Media hydration
+      const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
+      await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
+
+      // Authors from _embedded
+      for (const p of posts){
+        const name = p?._embedded?.author?.[0]?.name;
+        if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
+      }
+
+      // Cache compact maps for this page
+      const mediaObj = {};
+      mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
+      const authorObj = {};
+      posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
+
+      putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
+      return { posts, totalPages };
     }
-    let posts = await res.json();
-    const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
 
-    // Client-side guard: ensure strict newest-first by date
-    posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
+    // 1) First attempt (normal)
+    let first = await fetchAndNormalize(baseUrl, baseOpts);
 
-    // Collect IDs for batch requests (media only; authors are embedded)
-    const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
-    await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
+    // 2) Freshness watchdog: if the newest post we got is older than 72h,
+    //    force a hard refresh that bypasses any intermediaries.
+    try {
+      if (Array.isArray(first.posts) && first.posts.length) {
+        const newest = new Date(first.posts[0].date).getTime();
+        const now = Date.now();
+        const FRESH_MS = 72 * 60 * 60 * 1000; // 72 hours
+        const looksStale = Number.isFinite(newest) && (now - newest > FRESH_MS);
 
-    // Prime authorMap from embedded authors
-    for (const p of posts){
-      const name = p?._embedded?.author?.[0]?.name;
-      if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
+        if (pageNum === 1 && looksStale) {
+          // Force hardest bypass: different cache mode + distinct bust param
+          const hardUrl = baseUrl + `&_fresh=${performance.now()}`;
+          const hardOpts = { ...baseOpts, cache: "reload" };
+          // Do NOT write cache if the hard fetch fails; otherwise replace cache
+          first = await fetchAndNormalize(hardUrl, hardOpts);
+        }
+      }
+    } catch (e) {
+      // If the hard refresh failed, keep the first result (better than nothing)
+      console.warn("[OkObserver] Freshness watchdog hard-refresh failed:", e);
     }
 
-    // Cache compact maps for this page
-    const mediaObj = {};
-    mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
-    const authorObj = {};
-    posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
-
-    putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
-
-    return { posts, totalPages, fromCache: false };
+    return { posts: first.posts, totalPages: first.totalPages, fromCache: false };
   }
   // ===== Rendering helpers for HOME =====
   function getAuthorName(post){
@@ -388,6 +420,7 @@
 
     const media = resolveFeatured(post);
     const imgSrc = media?.src || "";
+       // fallback intrinsic sizes if unknown
     const imgW = media?.width || 600;
     const imgH = media?.height || 360;
 
@@ -554,7 +587,7 @@
           await nextFrame();
           if (targetY > 0) window.scrollTo(0, targetY);
           else if (wantAnchor){ const el=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el?.closest(".card")||el)?.scrollIntoView({block:"start"}); }
-          await whenImagesSettled(grid,900); // faster settle
+          await whenImagesSettled(grid,900);
           await nextFrame();
           if (targetY > 0) window.scrollTo(0, targetY);
           else if (wantAnchor){ const el2=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el2?.closest(".card")||el2)?.scrollIntoView({block:"start"}); }
