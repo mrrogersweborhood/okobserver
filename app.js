@@ -1,27 +1,21 @@
-/* app.js — OkObserver (monolithic build) — v1.71.9
-   Fix for “skipped posts”:
-   • Only filter “cartoon” client-side (no server-side exclude)
-   • Enforce status=publish
-   • Page-1: clear cache before fetch + cache:"reload" + cache-buster
-   • Console log newest date for sanity
-   Freshness/perf kept:
-   • First-tab boot purge, page-1 TTL (10m)
-   • content-visibility, batch size 18, DOM cap, scroll restore, infinite scroll
+/* app.js — OkObserver — v1.72.0
+   Fix: posts “missing” due to category-ID mismatch / proxy cache.
+   • Client-side filter by embedded category slug === "cartoon" (no ID math)
+   • Page 1: clear cache, add hard cache-bypass, cache:"reload"
+   • Keep newest-first + perf + scroll restore + infinite scroll
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.71.9";
+  const APP_VERSION = "v1.72.0";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
 
-  // ---- Cache version (kept)
-  const CACHE_VERSION = "home-v5";
+  const CACHE_VERSION = "home-v6"; // bump to flush stale page caches once
 
-  // ----- One-time boot purge to guarantee a fresh first page on first visit in this tab
   (function bootFreshness(){
     try {
       if (!sessionStorage.getItem("__boot_seen")) {
@@ -57,7 +51,6 @@
     state._io=null; state._sentinel=null; state.isLoading=false; state._loadingTicket=false;
   })();
 
-  // One-time cache invalidation for older page caches (prefix caches)
   try {
     const cv = sessionStorage.getItem("__home_cache_version");
     if (cv !== CACHE_VERSION) {
@@ -138,7 +131,6 @@
     });
   }
 
-  // Normalize media URLs
   function normalizeMediaUrl(u){
     if (!u) return u;
     try {
@@ -220,37 +212,28 @@
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
 
-  // -- Category resolver for “cartoon” (ID cached in sessionStorage)
+  // ========= CARTOON FILTER (by slug via embedded terms) =========
   const CARTOON_SLUG = "cartoon";
-  let CARTOON_CAT_ID = null;
-  function getCachedCartoonId(){ try { const v = sessionStorage.getItem("__cat_cartoon_id"); return v ? Number(v) : null; } catch { return null; } }
-  function putCachedCartoonId(id){ try { sessionStorage.setItem("__cat_cartoon_id", String(id)); } catch {} }
-  async function resolveCartoonId(signal){
-    if (CARTOON_CAT_ID != null) return CARTOON_CAT_ID;
-    const cached = getCachedCartoonId();
-    if (Number.isFinite(cached)) { CARTOON_CAT_ID = cached; return CARTOON_CAT_ID; }
-    try {
-      const url = `${BASE}/categories?slug=${encodeURIComponent(CARTOON_SLUG)}&_fields=id,slug`;
-      const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
-      if (!res.ok) throw new Error("cat lookup " + res.status);
-      const arr = await res.json();
-      const id = Array.isArray(arr) && arr[0]?.id ? Number(arr[0].id) : null;
-      CARTOON_CAT_ID = Number.isFinite(id) ? id : null;
-      if (CARTOON_CAT_ID != null) putCachedCartoonId(CARTOON_CAT_ID);
-    } catch { CARTOON_CAT_ID = null; }
-    return CARTOON_CAT_ID;
+  function isCartoonByEmbedded(p){
+    const groups = p?._embedded?.["wp:term"];
+    if (!Array.isArray(groups)) return false;
+    for (const group of groups){
+      if (!Array.isArray(group)) continue;
+      for (const term of group){
+        // Some WP builds omit taxonomy; match by slug alone is fine here
+        if (term && term.slug === CARTOON_SLUG) return true;
+      }
+    }
+    return false;
   }
 
   // ===== Lean data layer for HOME =====
-
   const HOME_CACHE_PREFIX = "__home_page_"; // + page number
   const HOME_PAGE_TTL_MS = 10 * 60 * 1000; // 10 minutes for page 1 only
 
   function putHomePageCache(page, payload){
-    try {
-      const withTs = { ts: Date.now(), ...payload };
-      sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(withTs));
-    } catch {}
+    try { const withTs = { ts: Date.now(), ...payload };
+      sessionStorage.setItem(HOME_CACHE_PREFIX + page, JSON.stringify(withTs)); } catch {}
   }
   function getHomePageCache(page){
     try {
@@ -289,23 +272,15 @@
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
     if (!res.ok) throw new Error(`Media fetch ${res.status}`);
     const items = await res.json();
-    for (const m of items){
-      mediaMap.set(m.id, mediaInfoFromSizes(m));
-    }
+    for (const m of items){ mediaMap.set(m.id, mediaInfoFromSizes(m)); }
   }
-
-  // Authors are embedded with posts; keep this disabled.
-  let AUTHORS_DISABLED = true;
-  async function batchFetchAuthors(){ return; }
 
   // Fetch a lean page of posts and hydrate with media & author names
   async function fetchLeanPostsPage(pageNum, signal){
-    // For page 1: clear any stale cached page before fetching
-    if (pageNum === 1) {
-      try { sessionStorage.removeItem("__home_page_1"); } catch {}
-    }
+    // hard-flush page-1 cache before fetching
+    if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-    // Cache hit?
+    // cache hit?
     const cached = getHomePageCache(pageNum);
     if (cached){
       if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
@@ -313,37 +288,20 @@
       return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
     }
 
-    const fields = [
-      "id","date","title","excerpt","content","link",
-      "featured_media","author","categories"
-    ].join(",");
-
-    // Resolve cartoon category (client-side filter only)
-    let cartoonId = null;
-    try {
-      const cid = await resolveCartoonId(signal);
-      if (Number.isFinite(cid) && cid > 0) cartoonId = cid;
-    } catch {}
-
-    // Build URL — NO server-side exclude
-    const bust = (pageNum === 1) ? `&_=${Date.now()}` : "";
+    // We need embedded terms to filter by slug, so do not restrict _fields.
+    // (We still ask for embed to get authors/terms; media is batched separately.)
+    const bust = (pageNum === 1) ? `&_=${Date.now()}.${Math.random().toString(36).slice(2)}` : "";
     const url =
       `${BASE}/posts`
       + `?status=publish`
       + `&per_page=${PER_PAGE}`
       + `&page=${pageNum}`
       + `&_embed=1`
-      + `&_fields=${fields},_embedded.author`
       + `&orderby=date&order=desc`
       + bust;
 
-    const opts = {
-      headers:{Accept:"application/json"},
-      signal,
-      cache: (pageNum === 1 ? "reload" : "default")
-    };
+    const opts = { headers:{Accept:"application/json"}, signal, cache: (pageNum === 1 ? "reload" : "default") };
 
-    // Fetch + normalize
     const res = await fetch(url, opts);
     if (!res.ok){
       const text = await res.text().catch(()=> "");
@@ -351,33 +309,30 @@
       err.details = text?.slice(0,300);
       throw err;
     }
+
     let posts = await res.json();
     const totalPages = Number(res.headers.get("X-WP-TotalPages")) || null;
 
-    // Client guard: sort newest-first
+    // strict newest-first
     posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
     if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-    // Client-side cartoon filter only
-    if (Number.isFinite(cartoonId)) {
-      posts = posts.filter(p => !Array.isArray(p?.categories) || !p.categories.includes(cartoonId));
-    }
+    // client cartoon filter (by slug)
+    posts = posts.filter(p => !isCartoonByEmbedded(p));
 
-    // Media hydration
+    // hydrate media
     const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
     await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
 
-    // Authors from _embedded
+    // author names from _embedded
     for (const p of posts){
       const name = p?._embedded?.author?.[0]?.name;
       if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
     }
 
-    // Cache compact maps for this page
-    const mediaObj = {};
-    mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
-    const authorObj = {};
-    posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
+    // compact cache maps
+    const mediaObj = {}; mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
+    const authorObj = {}; posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
 
     putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
     return { posts, totalPages, fromCache: false };
@@ -478,8 +433,7 @@
       }
       container.appendChild(frag);
 
-      /* PERF: cap DOM nodes to prevent runaway memory/paint on huge sessions */
-      const MAX_DOM_CARDS = 220;  // ~18 pages with PER_PAGE=12
+      const MAX_DOM_CARDS = 220;
       if (container.children.length > MAX_DOM_CARDS) {
         const toRemove = container.children.length - MAX_DOM_CARDS;
         for (let k = 0; k < toRemove; k++) {
@@ -506,7 +460,6 @@
     }
   }
 
-  // ===== Infinite scroll + HOME renderer =====
   async function loadNextPage(){
     if (!isHomeRoute()) return;
     if (state.isLoading) return;
@@ -709,7 +662,7 @@
   // ===== About (cached) =====
   const ABOUT_CACHE_KEY = "__about_html";
   const ABOUT_CACHE_TS_KEY = "__about_ts";
-  const ABOUT_TTL_MS = 60 * 60 * 1000; // 1 hour
+  const ABOUT_TTL_MS = 60 * 60 * 1000;
 
   function renderAboutShell(){
     if (!app()) return;
@@ -828,13 +781,11 @@
     }
   });
 
-  // Track home scroll
   window.addEventListener('scroll', function () {
     if (!isHomeRoute()) return;
     state.scrollY = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
 
-  // Fallback infinite scroll
   function attachScrollFallback(){
     window.addEventListener('scroll', function () {
       if (!isHomeRoute()) return;

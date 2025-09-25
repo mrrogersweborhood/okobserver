@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OkObserver — Latest News</title>
 
-<!-- Perf: warm up connections to WP API and media -->
 <link rel="preconnect" href="https://okobserver.org" crossorigin>
 <link rel="dns-prefetch" href="//okobserver.org">
 
-<!-- Favicon -->
 <link rel="icon" type="image/png" href="icon.png" />
 
 <style>
@@ -29,20 +27,9 @@
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-
-  /* Title link color: bold DodgerBlue, no underline unless hover */
   .title{font-size:1.1em;margin:4px 0;font-weight:700}
-  .title a,
-  .title a:visited,
-  .title .title-link,
-  .title .title-link:visited{
-    color:#1E90FF !important;
-    text-decoration:none !important;
-    font-weight:700 !important;
-  }
-  .title a:hover,
-  .title .title-link:hover{ text-decoration:underline !important; }
-
+  .title a,.title a:visited,.title .title-link,.title .title-link:visited{color:#1E90FF !important;text-decoration:none !important;font-weight:700 !important}
+  .title a:hover,.title .title-link:hover{text-decoration:underline !important}
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
@@ -55,26 +42,16 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:contain;margin:16px 0;border-radius:10px}
-  .post .content > :is(p,div,section,article,blockquote):first-of-type {
-    text-align: left !important;
-    text-indent: 0 !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-  }
+  .post .content > :is(p,div,section,article,blockquote):first-of-type {text-align:left!important;text-indent:0!important;margin-left:0!important;padding-left:0!important}
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
   .error-banner .close:hover{opacity:.8}
 
-  /* --- Hamburger / responsive nav --- */
   .hamburger{display:none;appearance:none;background:transparent;border:0;padding:8px;margin-left:auto;cursor:pointer;outline:none}
   .hamburger-box{width:28px;height:20px;display:inline-block;position:relative}
-  .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{
-    width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block
-  }
-  .hamburger-inner{top:9px}
-  .hamburger-inner::before{top:-8px}
-  .hamburger-inner::after{top:8px}
+  .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block}
+  .hamburger-inner{top:9px}.hamburger-inner::before{top:-8px}.hamburger-inner::after{top:8px}
   .hamburger[aria-expanded="true"] .hamburger-inner{transform:rotate(45deg)}
   .hamburger[aria-expanded="true"] .hamburger-inner::before{transform:translateY(8px) rotate(90deg)}
   .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
@@ -90,7 +67,6 @@
     .nav-links[data-state="open"]{max-height:240px;opacity:1;pointer-events:auto}
   }
 
-  /* ===== Perf helpers (safe) ===== */
   #grid { contain: content; }
   .card { content-visibility: auto; contain-intrinsic-size: 320px 380px; }
   .thumb { contain: paint; }
@@ -101,26 +77,15 @@
 <header>
   <div class="container nav">
     <div class="brand">
-      <img
-        id="siteLogo"
-        src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-        alt="The Oklahoma Observer"
-        width="260"
-        height="60"
-        style="display:block;height:auto;max-height:60px;width:auto;max-width:260px"
-        decoding="async"
-        onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';"
-      />
+      <img id="siteLogo" src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer" width="260" height="60" style="display:block;height:auto;max-height:60px;width:auto;max-width:260px" decoding="async" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';" />
       <div id="logoFallback" style="display:none;font-weight:700">The Oklahoma Observer</div>
       <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
 
-    <!-- Hamburger button -->
     <button id="menuToggle" class="hamburger" aria-label="Open menu" aria-controls="primaryNav" aria-expanded="false">
       <span class="hamburger-box"><span class="hamburger-inner"></span></span>
     </button>
 
-    <!-- Primary nav -->
     <nav id="primaryNav" class="nav-links" data-state="closed">
       <a href="#/" id="nav-home">Home</a>
       <a href="#/about" id="nav-about">About</a>
@@ -139,10 +104,8 @@
   </div>
 </footer>
 
-<!-- App script (cache-busted) -->
-<script src="app.js?v=1.71.9" defer></script>
+<script src="app.js?v=1.72.0" defer></script>
 
-<!-- Hamburger toggle (no dependency on app.js) -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
@@ -155,7 +118,6 @@
 })();
 </script>
 
-<!-- Boot probe -->
 <script>
 window.addEventListener('load', function () {
   setTimeout(function () {
