@@ -1,3 +1,4 @@
+// api.js — lean payload + faster page-1 + soft timeout
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
@@ -71,8 +72,32 @@ export async function fetchLeanPostsPage(pageNum, signal){
     return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
+  // Smaller page-1 for faster first paint
+  const perPage = (pageNum === 1 ? 9 : PER_PAGE);
+
+  // Keep _embed=1 (author names), but whitelist fields we actually use (drops payload size)
+  const fields = [
+    "id",
+    "date",
+    "title.rendered",
+    "excerpt.rendered",
+    "author",
+    "featured_media",
+    // Embedded media (only sizes/urls/dimensions we need)
+    "_embedded.wp:featuredmedia",
+    "_embedded.wp:featuredmedia.0.media_details.sizes",
+    "_embedded.wp:featuredmedia.0.source_url",
+    // Embedded author (name only)
+    "_embedded.author",
+    "_embedded.author.0.name",
+    // Terms (to filter cartoon category)
+    "_embedded.wp:term",
+    "_embedded.wp:term.*.taxonomy",
+    "_embedded.wp:term.*.slug"
+  ].join(",");
+
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
-  const url = `${BASE}/posts?status=publish&per_page=${PER_PAGE}&page=${pageNum}&_embed=1&orderby=date&order=desc${bust}`;
+  const url = `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}${bust}`;
 
   const headers = { Accept: "application/json" };
   const opts = {
@@ -81,11 +106,19 @@ export async function fetchLeanPostsPage(pageNum, signal){
     mode: "cors",
     credentials: "omit",
     redirect: "follow",
-    cache: (pageNum === 1 ? "reload" : "default"),
+    cache: (pageNum === 1 ? "reload" : "default"), // CORS-safe freshness for page-1
   };
 
+  // Soft timeout so we don’t hang forever on a slow origin
+  function withTimeout(promise, ms){
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("Request timed out")), ms);
+      promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+    });
+  }
+
   async function fetchPage(href, options){
-    const res = await fetch(href, options);
+    const res = await withTimeout(fetch(href, options), (pageNum === 1 ? 4000 : 7000));
     if (!res.ok){
       const text = await res.text().catch(()=> "");
       const err = new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`);
@@ -102,6 +135,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
+  // Probe most-recent to ensure page-1 is fresh
   if (pageNum === 1) {
     try {
       const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
@@ -124,18 +158,43 @@ export async function fetchLeanPostsPage(pageNum, signal){
     }
   }
 
-  posts = posts.filter(p => !isCartoonByEmbedded(p));
+  // Filter out cartoons
+  posts = posts.filter(p => {
+    const groups = p?._embedded?.["wp:term"];
+    if (!Array.isArray(groups)) return true;
+    for (const group of groups){
+      if (!Array.isArray(group)) continue;
+      for (const term of group){
+        if (term && term.taxonomy === 'category' && term.slug === 'cartoon') return false;
+      }
+    }
+    return true;
+  });
 
-  const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
-  await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
+  // Use embedded media (avoid extra /media?include=… fetch in most cases)
+  for (const p of posts){
+    const m = p?._embedded?.["wp:featuredmedia"]?.[0];
+    if (!m) continue;
+    const sizes = m?.media_details?.sizes || {};
+    const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+    const src = (best?.source_url || m.source_url || "");
+    if (p.featured_media && src) {
+      mediaMap.set(p.featured_media, { src, width: best?.width || null, height: best?.height || null });
+    }
+  }
 
+  // Author names from embedded
   for (const p of posts){
     const name = p?._embedded?.author?.[0]?.name;
     if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
   }
 
-  const mediaObj = {}; mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
-  const authorObj = {}; posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
+  // Cache the lean page
+  const mediaObj = {};
+  posts.forEach(p => { const id=p.featured_media; if (id && mediaMap.has(id)) mediaObj[id] = mediaMap.get(id); });
+  const authorObj = {};
+  posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
 
   putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
   return { posts, totalPages, fromCache: false };
