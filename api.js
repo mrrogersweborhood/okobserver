@@ -1,5 +1,5 @@
-// api.js — category-only cartoon filter (no URL/tag checks)
-// also: authors/images via _embedded, soft timeout, lean page-1, cache re-filter
+// api.js — category-only cartoon filter with AbortError-safe exclusions
+// authors/images via _embedded, soft timeout, lean page-1, cache re-filter
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
@@ -10,28 +10,36 @@ let EXCLUDED_CAT_IDS = [];
 let exclusionsReady = false;
 let exclusionsPromise = null;
 
-// Resolve category IDs whose slug or name contains "cartoon"
-async function primeCategoryExclusions(signal){
+// Resolve category IDs whose slug or name contains "cartoon".
+// AbortError is treated as benign: we just proceed with client-side filtering.
+async function primeCategoryExclusions(){
   if (exclusionsReady) return;
   if (exclusionsPromise) return exclusionsPromise;
 
   exclusionsPromise = (async()=>{
     try {
       const url = `${BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
+      // decoupled from route aborts (no external signal)
       const res = await fetch(url, {
         headers:{Accept:"application/json"},
-        signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload"
+        mode:"cors", credentials:"omit", redirect:"follow", cache:"default"
       });
-      const cats = res.ok ? await res.json() : [];
+      if (!res.ok) { EXCLUDED_CAT_IDS = []; return; }
+      const cats = await res.json();
       const match = (t) => {
         const slug = (t?.slug || "").toLowerCase();
         const name = (t?.name || "").toLowerCase();
         return slug.includes("cartoon") || name.includes("cartoon");
       };
       EXCLUDED_CAT_IDS = (Array.isArray(cats) ? cats.filter(match).map(x=>x.id) : []).filter(Boolean);
-      console.info("[OkObserver] Category exclusions:", EXCLUDED_CAT_IDS);
+      if (EXCLUDED_CAT_IDS.length) {
+        console.info("[OkObserver] Category exclusions primed:", EXCLUDED_CAT_IDS);
+      }
     } catch (e) {
-      console.warn("[OkObserver] Could not fetch category exclusions; relying on client filter only.", e);
+      // AbortError or network issues — ignore and rely on client-side filter
+      if (e?.name !== "AbortError") {
+        console.warn("[OkObserver] Category exclusions fetch skipped; using client filter only.");
+      }
       EXCLUDED_CAT_IDS = [];
     } finally {
       exclusionsReady = true;
@@ -107,8 +115,8 @@ function getHomePageCache(page){
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-  // Ensure server-side category exclusions are primed (no-op if already done)
-  try { await primeCategoryExclusions(signal); } catch {}
+  // Fire-and-forget priming (doesn't block; safe if aborted elsewhere)
+  try { void primeCategoryExclusions(); } catch {}
 
   const cached = getHomePageCache(pageNum);
   if (cached){
@@ -127,8 +135,10 @@ export async function fetchLeanPostsPage(pageNum, signal){
     "_embedded"
   ].join(",");
 
-  // Build server-side exclusion param (categories only)
-  const catParam = EXCLUDED_CAT_IDS.length ? `&categories_exclude=${EXCLUDED_CAT_IDS.join(",")}` : "";
+  // If exclusions are ready, include server-side exclude; else omit (client filter will handle it)
+  const catParam = (exclusionsReady && EXCLUDED_CAT_IDS.length)
+    ? `&categories_exclude=${EXCLUDED_CAT_IDS.join(",")}`
+    : "";
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
   const url =
@@ -192,7 +202,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
         }
       }
     } catch (e) {
-      console.warn("[OkObserver] Probe failed; using first result.", e);
+      console.warn("[OkObserver] Probe failed; using first result.");
     }
   }
 
