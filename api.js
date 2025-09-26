@@ -1,4 +1,4 @@
-// api.js — restore authors & images (compat-safe _embedded + media fallback) + lean payload + faster page-1 + soft timeout
+// api.js — ensure cartoons are filtered even from cache; keep authors/images via _embedded + fallback; soft timeout; lean page-1
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
@@ -69,22 +69,17 @@ export async function fetchLeanPostsPage(pageNum, signal){
   if (cached){
     if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
     if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
-    return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
+    // RE-FILTER cached posts to ensure cartoons never show (covers old caches)
+    const posts = (cached.posts || []).filter(p => !isCartoonByEmbedded(p));
+    return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
   // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Compat-safe: include full _embedded to ensure author + featured media exist on all WP versions.
-  // Still trim top-level fields to keep payload lean.
+  // Keep _embedded whole for compatibility so authors/media are always present
   const fields = [
-    "id",
-    "date",
-    "title.rendered",
-    "excerpt.rendered",
-    "author",
-    "featured_media",
-    "_embedded" // <- include full embedded for compatibility
+    "id","date","title.rendered","excerpt.rendered","author","featured_media","_embedded"
   ].join(",");
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
@@ -99,7 +94,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     mode: "cors",
     credentials: "omit",
     redirect: "follow",
-    cache: (pageNum === 1 ? "reload" : "default"), // CORS-safe freshness for page-1
+    cache: (pageNum === 1 ? "reload" : "default"),
   };
 
   // Soft timeout so we don’t hang forever on a slow origin
@@ -125,7 +120,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
-  // Newest-first (belt-and-suspenders)
+  // Newest-first (belt and suspenders)
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
@@ -155,7 +150,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
   // Filter out cartoons
   posts = posts.filter(p => !isCartoonByEmbedded(p));
 
-  // Map featured images from embedded; fall back to /media if any missing
+  // Featured images from embedded; fallback /media if missing
   const missingMediaIds = [];
   for (const p of posts){
     const m = p?._embedded?.["wp:featuredmedia"]?.[0];

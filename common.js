@@ -1,4 +1,5 @@
-export const APP_VERSION = "v2.0.0-mod";
+// common.js — v2.0.1-mod
+export const APP_VERSION = "v2.0.1-mod";
 window.APP_VERSION = APP_VERSION;
 
 export const BASE = "https://okobserver.org/wp-json/wp/v2";
@@ -18,7 +19,6 @@ export const state = (window.__okCache = window.__okCache || {
   _ioAttached: false,
   _io: null,
   _sentinel: null,
-
   firstPageShown: false,
   allowNextPageAfterTs: 0,
   hasUserScrolled: false,
@@ -27,6 +27,13 @@ export const state = (window.__okCache = window.__okCache || {
 export const app = () => document.getElementById("app");
 
 export function esc(s=""){ return s.replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// NEW: decode HTML entities (handles &#8220; etc.)
+const __decoderEl = document.createElement("textarea");
+export function decodeEntities(str){
+  __decoderEl.innerHTML = str || "";
+  return __decoderEl.value || "";
+}
 
 export function showError(message){
   const host = app() || document.body;

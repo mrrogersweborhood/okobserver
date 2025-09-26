@@ -1,10 +1,9 @@
-// home.js — eager (home route)
-// Adds idle-time excerpt trimming after first render for faster first paint.
+// home.js — eager (home route) — includes decoded excerpts + idle trimming
 
 import {
   APP_VERSION, app, state, stateForSave, saveHomeCache,
   showError, esc, nextFrame, whenImagesSettled, ordinalDate,
-  isHomeRoute
+  isHomeRoute, decodeEntities
 } from "./common.js";
 import { fetchLeanPostsPage, mediaMap, authorMap, mediaInfoFromSizes } from "./api.js";
 
@@ -67,7 +66,12 @@ function buildCardElement(post){
 
   const author = getAuthorName(post) || "";
   const date = ordinalDate(post.date);
-  const excerpt = (post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim();
+
+  // CLEAN EXCERPT: strip tags -> decode HTML entities -> then escape for safety
+  const rawExcerpt = (post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim();
+  const decodedExcerpt = decodeEntities(rawExcerpt);
+  const safeExcerpt = esc(decodedExcerpt);
+
   const postHref = `#/post/${post.id}`;
   const titleHTML = post?.title?.rendered || "Untitled";
 
@@ -84,7 +88,7 @@ function buildCardElement(post){
     <div class="card-body">
       <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
       <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
-      <p class="excerpt">${esc(excerpt)}</p>
+      <p class="excerpt">${safeExcerpt}</p>
     </div>`;
   return card;
 }
@@ -246,7 +250,7 @@ export async function renderHome(controllers){
     app().innerHTML="";
     renderGridFromPosts(posts,false);
 
-    // >>> NEW: defer excerpt trimming to idle (keeps first paint snappy)
+    // Defer excerpt trimming to idle to keep the first paint snappy
     const idle = window.requestIdleCallback || (cb => setTimeout(cb, 1));
     idle(() => {
       try {
@@ -256,7 +260,6 @@ export async function renderHome(controllers){
         });
       } catch {}
     });
-    // <<< END NEW
 
     state.firstPageShown = true;
     state.allowNextPageAfterTs = performance.now() + 1200;
