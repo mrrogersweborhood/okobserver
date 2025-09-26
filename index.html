@@ -106,8 +106,10 @@
   </div>
 </footer>
 
-<script src="app.js?v=1.72.4" defer></script>
+<!-- Switch to modules -->
+<script type="module" src="main.js?v=2.0.0"></script>
 
+<!-- Hamburger toggle -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
@@ -120,6 +122,7 @@
 })();
 </script>
 
+<!-- Boot probe -->
 <script>
 window.addEventListener('load', function () {
   setTimeout(function () {
@@ -128,7 +131,7 @@ window.addEventListener('load', function () {
       var div = document.createElement('div');
       div.className = 'error-banner';
       div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
-        'App script did not execute. Check Network → app.js (200), hard-reload, and confirm file ends with "})();".';
+        'App script did not execute. Check Network → main.js (200), hard-reload, and confirm modules are loading.';
       host.prepend(div);
     } else {
       var v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;

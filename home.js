@@ -1,48 +1,11 @@
-// home.js — home grid + infinite scroll
-import { BASE, PER_PAGE, EXCLUDE_CAT, state, saveHomeCache, isHomeRoute, app, controllers, setRestoring, isRestoring, nextFrame } from './shared.js';
-import { esc, decodeEntities, ordinalDate, normalizeContent, hardenLinks, whenImagesSettled, showError } from './utils.js';
+import {
+  APP_VERSION, app, state, stateForSave, saveHomeCache,
+  showError, esc, nextFrame, whenImagesSettled, ordinalDate,
+  isHomeRoute
+} from "./common.js";
+import { fetchLeanPostsPage, mediaMap, authorMap, mediaInfoFromSizes } from "./api.js";
 
-function getAuthor(p){ return p?._embedded?.author?.[0]?.name || ""; }
-function hasExcluded(p){
-  const groups=p?._embedded?.["wp:term"]||[];
-  const cats=groups.flat().filter(t=>(t?.taxonomy||"").toLowerCase()==="category");
-  const norm=(x)=>(x||"").trim().toLowerCase();
-  return cats.some(c=>norm(c.slug)===EXCLUDE_CAT || norm(c.name)===EXCLUDE_CAT);
-}
-
-export function buildCardElement(post){
-  const card = document.createElement("div");
-  card.className = "card";
-  const fm = (post?._embedded?.["wp:featuredmedia"]?.[0])||null;
-  let imgSrc = "";
-  if (fm){
-    const sizes=fm.media_details?.sizes||{};
-    const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
-    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
-    imgSrc = best?.source_url || fm.source_url || "";
-  } else {
-    const div=document.createElement("div"); div.innerHTML=post?.content?.rendered||"";
-    const img=div.querySelector("img"); if(img){ imgSrc = img.getAttribute("data-src")||img.getAttribute("src")||""; }
-  }
-  const author = getAuthor(post) || "";
-  const date = ordinalDate(post.date);
-  const excerpt = decodeEntities((post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim());
-  const postHref = `#/post/${post.id}`;
-  const titleHTML = (post?.title?.rendered || "Untitled");
-
-  card.innerHTML = `
-    ${imgSrc
-      ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
-           <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb" loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw" />
-         </a>`
-      : `<div class="thumb" aria-hidden="true"></div>`}
-    <div class="card-body">
-      <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
-      <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
-      <p class="excerpt">${esc(excerpt)}</p>
-    </div>`;
-  return card;
-}
+const BATCH_SIZE = 18;
 
 function getGrid(){
   if (!isHomeRoute()) return null;
@@ -68,17 +31,89 @@ function showLoader(){ getLoader().style.display="flex"; }
 function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
 function getSentinel(){
   let s = document.getElementById("scrollSentinel");
-  if(!s){ s=document.createElement("div"); s.id="scrollSentinel"; s.style.cssText="height:1px;width:100%;"; app().appendChild(s); }
-  else { app().appendChild(s); }
+  if(!s){
+    s=document.createElement("div");
+    s.id="scrollSentinel";
+    s.style.cssText="height:1px;width:100%;margin-top:900px";
+    app().appendChild(s);
+  } else {
+    s.style.marginTop = "900px";
+    app().appendChild(s);
+  }
   return s;
 }
 
-export function renderGridFromPosts(posts, append=false){
+function getAuthorName(post){
+  return authorMap.get(post.author) ||
+         post?._embedded?.author?.[0]?.name || "";
+}
+function resolveFeatured(post){
+  const mId = post.featured_media;
+  if (mId && mediaMap.has(mId)) return mediaMap.get(mId);
+  const m = post?._embedded?.["wp:featuredmedia"]?.[0];
+  return m ? mediaInfoFromSizes(m) : { src:"", width:null, height:null };
+}
+
+function buildCardElement(post){
+  const card = document.createElement("div");
+  card.className = "card";
+  const media = resolveFeatured(post);
+  const imgSrc = media?.src || "";
+  const imgW = media?.width || 600;
+  const imgH = media?.height || 360;
+
+  const author = getAuthorName(post) || "";
+  const date = ordinalDate(post.date);
+  const excerpt = (post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim();
+  const postHref = `#/post/${post.id}`;
+  const titleHTML = post?.title?.rendered || "Untitled";
+
+  card.innerHTML = `
+    ${imgSrc
+      ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
+           <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb"
+                loading="lazy" decoding="async" fetchpriority="low"
+                width="${imgW}" height="${imgH}"
+                sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw"
+                onerror="this.onerror=null; try{ this.closest('.thumb-link').replaceWith(Object.assign(document.createElement('div'),{className:'thumb'})); }catch{}" />
+         </a>`
+      : `<div class="thumb" aria-hidden="true"></div>`}
+    <div class="card-body">
+      <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
+      <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
+      <p class="excerpt">${esc(excerpt)}</p>
+    </div>`;
+  return card;
+}
+
+function appendCardsInBatches(container, posts){
+  let i = 0;
+  function step(){
+    const frag = document.createDocumentFragment();
+    for (let n=0; n<BATCH_SIZE && i<posts.length; n++, i++){
+      const p = posts[i];
+      if (!p) continue;
+      frag.appendChild(buildCardElement(p));
+    }
+    container.appendChild(frag);
+
+    const MAX_DOM_CARDS = 220;
+    if (container.children.length > MAX_DOM_CARDS) {
+      const toRemove = container.children.length - MAX_DOM_CARDS;
+      for (let k = 0; k < toRemove; k++) {
+        container.removeChild(container.firstElementChild);
+      }
+    }
+
+    if (i < posts.length) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function renderGridFromPosts(posts, append=false){
   const grid = getGrid(); if(!grid) return;
   if(!append) grid.innerHTML="";
-  const frag=document.createDocumentFragment();
-  (posts||[]).forEach(p=>{ if(p && !hasExcluded(p)) frag.appendChild(buildCardElement(p)); });
-  grid.appendChild(frag);
+  appendCardsInBatches(grid, posts || []);
   getLoader();
   const s = getSentinel();
   if (state._io && typeof state._io.observe === 'function'){
@@ -89,57 +124,66 @@ export function renderGridFromPosts(posts, append=false){
   }
 }
 
-export async function loadNextPage(){
+export async function loadNextPage(controllers){
   if (!isHomeRoute()) return;
-  if (isRestoring()) return;
+  if (!state.firstPageShown) return;
+  const now = performance.now();
+  if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) return;
   if (state.isLoading) return;
+  if (state._loadingTicket) return;
   if (Number.isFinite(state.totalPages) && state.page >= state.totalPages) return;
 
   if (controllers.listAbort){ try{ controllers.listAbort.abort(); }catch{} }
   controllers.listAbort = new AbortController();
 
-  state.isLoading=true; saveHomeCache(); showLoader();
+  state.isLoading=true; state._loadingTicket=true; saveHomeCache(); showLoader();
   try{
     const next=(state.page||1)+1;
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${next}&_embed=1`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.listAbort.signal });
-    if(!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
-    const newPosts = await res.json();
-    const existingIds=new Set((state.posts||[]).map(p=>p?.id));
-    const add=[];
-    for (const p of newPosts){ if(!p||existingIds.has(p.id)||hasExcluded(p)) continue; add.push(p); existingIds.add(p.id); }
-    state.posts=(state.posts||[]).concat(add);
+    const { posts:newPosts, totalPages } = await fetchLeanPostsPage(next, controllers.listAbort.signal);
+    state.posts=(state.posts||[]).concat(newPosts || []);
     state.page=next;
-    const tp=Number(res.headers.get("X-WP-TotalPages"));
-    if(Number.isFinite(tp)&&tp>0) state.totalPages=tp;
-    else if(Array.isArray(newPosts)&&newPosts.length<PER_PAGE) state.totalPages=state.page;
-    saveHomeCache(); renderGridFromPosts(add, true);
+    if (Number.isFinite(totalPages)) state.totalPages = totalPages;
+    else if (Array.isArray(newPosts) && newPosts.length < 12) state.totalPages = state.page;
+
+    state.allowNextPageAfterTs = performance.now() + 500;
+
+    saveHomeCache(); renderGridFromPosts(newPosts, true);
   }catch(err){ if(err?.name!=='AbortError') showError(err); }
-  finally{ hideLoader(); state.isLoading=false; saveHomeCache(); }
+  finally{ hideLoader(); state.isLoading=false; state._loadingTicket=false; saveHomeCache(); }
 }
 
-export function ensureInfiniteScroll(){
-  const sentinel = getSentinel();
+export function ensureInfiniteScroll(controllers){
+  const sentinel = document.getElementById("scrollSentinel") || getSentinel();
   if (state._io && typeof state._io.observe === 'function'){
     if (state._sentinel && state._sentinel !== sentinel){ try{ state._io.unobserve(state._sentinel);}catch{} }
     state._io.observe(sentinel); state._sentinel = sentinel; return;
   }
-  const io=new IntersectionObserver((entries)=>{
-    const e=entries[0];
-    if(!e||!e.isIntersecting) return;
-    if(!isHomeRoute()) return;
-    if (isRestoring()) return;
-    loadNextPage();
-  }, { root:null, rootMargin:"1000px 0px", threshold:0 });
-  io.observe(sentinel);
-  state._io = io; state._sentinel = sentinel; state._ioAttached = true;
+  if (!state._io){
+    state._io=new IntersectionObserver((entries)=>{
+      const e=entries[0];
+      if(!e||!e.isIntersecting) return;
+      if (!isHomeRoute()) return;
+      loadNextPage(controllers);
+    }, { root:null, rootMargin:"800px 0px", threshold:0 });
+  }
+  state._io.observe(sentinel);
+  state._sentinel = sentinel; state._ioAttached = true;
 }
 
-export async function renderHome(){
+export async function renderHome(controllers){
   if (!app()) return;
 
+  if (!state.returningFromDetail) {
+    state.posts = [];
+    state.page = 1;
+    state.totalPages = null;
+    state.firstPageShown = false;
+    state.allowNextPageAfterTs = 0;
+    state.hasUserScrolled = false;
+    saveHomeCache();
+  }
+
   if (state.returningFromDetail && Array.isArray(state.posts) && state.posts.length){
-    setRestoring(true);
     const targetY = (typeof state.homeScrollY === "number" ? state.homeScrollY : state.scrollY) || 0;
     const wantAnchor = !targetY && state.scrollAnchorPostId;
 
@@ -152,7 +196,7 @@ export async function renderHome(){
 
     app().innerHTML = "";
     renderGridFromPosts(state.posts,false);
-    ensureInfiniteScroll();
+    ensureInfiniteScroll(controllers);
 
     (async ()=>{
       try{
@@ -160,7 +204,7 @@ export async function renderHome(){
         await nextFrame();
         if (targetY > 0) window.scrollTo(0, targetY);
         else if (wantAnchor){ const el=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el?.closest(".card")||el)?.scrollIntoView({block:"start"}); }
-        await whenImagesSettled(grid,2000);
+        await whenImagesSettled(grid,900);
         await nextFrame();
         if (targetY > 0) window.scrollTo(0, targetY);
         else if (wantAnchor){ const el2=document.querySelector(`[data-id="${state.scrollAnchorPostId}"]`); (el2?.closest(".card")||el2)?.scrollIntoView({block:"start"}); }
@@ -168,7 +212,7 @@ export async function renderHome(){
         app().style.minHeight = "";
         document.documentElement.style.removeProperty("overflow-anchor");
         document.documentElement.style.scrollBehavior = prevScrollBehavior || "";
-        state.returningFromDetail=false; setRestoring(false); saveHomeCache();
+        state.returningFromDetail=false; saveHomeCache();
       }
     })();
     return;
@@ -178,46 +222,30 @@ export async function renderHome(){
   if (controllers.listAbort){ try{ controllers.listAbort.abort(); }catch{} }
   controllers.listAbort = new AbortController();
 
-  async function fetchPage(pageNum){
-    const url = `${BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}&_embed=1`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.listAbort.signal });
-    if(!res.ok){
-      const text=await res.text().catch(()=> "");
-      const err=new Error(`API Error ${res.status}${res.statusText?`: ${res.statusText}`:""}`); err.details=text?.slice(0,300);
-      throw err;
-    }
-    const data=await res.json(); return { data, res };
-  }
-
   try{
-    let data, res;
-    try{ ({data, res} = await fetchPage(1)); }
-    catch(e1){
-      if(e1?.name==='AbortError' || controllers.listAbort.signal.aborted) return;
-      console.warn("[OkObserver] First attempt failed, retrying fallback:", e1);
-      if (controllers.listAbort){ try{ controllers.listAbort.abort(); }catch{} }
-      controllers.listAbort = new AbortController();
-      const fallbackUrl = `${BASE}/posts?per_page=${PER_PAGE}&page=1&_fields=id,date,title,excerpt,content,link`;
-      const res2 = await fetch(fallbackUrl, { headers:{Accept:"application/json"}, signal: controllers.listAbort.signal });
-      if(!res2.ok){
-        const text=await res2.text().catch(()=> "");
-        const err=new Error(`API Error ${res2.status}${res2.statusText?`: ${res2.statusText}`:""}`); err.details=text?.slice(0,300);
-        throw err;
-      }
-      data = await res2.json(); res = res2;
+    const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
+
+    if (Array.isArray(posts) && posts[0]?.date) {
+      console.info("[OkObserver] Home page1 newest (post-render check):", posts[0].date);
     }
 
-    const posts = Array.isArray(data) ? data : [];
-    if (!posts.length){
+    if (!Array.isArray(posts) || !posts.length){
       app().innerHTML=""; showError("No posts returned from the server.");
-      renderGridFromPosts([], false); ensureInfiniteScroll(); return;
+      return;
     }
 
-    app().innerHTML=""; renderGridFromPosts(posts,false); ensureInfiniteScroll();
-    state.posts = posts.filter(p=>p && !hasExcluded(p));
+    app().innerHTML="";
+    renderGridFromPosts(posts,false);
+
+    state.firstPageShown = true;
+    state.allowNextPageAfterTs = performance.now() + 1200;
+    state.hasUserScrolled = false;
+
+    setTimeout(() => { ensureInfiniteScroll(controllers); }, 500);
+
+    state.posts = posts.slice();
     state.page = 1;
-    const tp = Number(res.headers?.get?.("X-WP-TotalPages"));
-    state.totalPages = Number.isFinite(tp)&&tp>0 ? tp : null;
+    state.totalPages = Number.isFinite(totalPages) ? totalPages : null;
     state.scrollY = 0; state.homeScrollY=0; state.scrollAnchorPostId=null; state.isLoading=false;
     saveHomeCache();
   } catch(err){
@@ -226,20 +254,53 @@ export async function renderHome(){
       showError(err?.message || err);
       if (err?.details) showError(err.details);
     }
-    app().innerHTML=""; renderGridFromPosts([], false);
+    app().innerHTML="";
   }
 }
 
-// Fallback paginator if IO is missing/throttled
-export function attachScrollFallback(){
+// navigation from cards
+document.addEventListener('click', (e)=>{
+  const link = e.target.closest('a.thumb-link, a.title-link');
+  if (!link) return;
+  const href = link.getAttribute('href') || '';
+  if (href.startsWith('#/post/')) {
+    e.preventDefault();
+    state.scrollY = window.scrollY || window.pageYOffset || 0;
+    state.homeScrollY = state.scrollY;
+    const id = Number(link.dataset.id || '') || null;
+    if (id !== null) state.scrollAnchorPostId = id;
+    state.returningFromDetail = true;
+    try{ sessionStorage.setItem('__okCache', JSON.stringify(stateForSave(state))); }catch{}
+    const old = location.hash;
+    location.hash = href;
+    if (old === href) window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+});
+
+// unlock next-page after small scroll
+window.addEventListener('scroll', function () {
+  if (!isHomeRoute()) return;
+  const y = window.scrollY || window.pageYOffset || 0;
+  state.scrollY = y;
+  if (!state.hasUserScrolled && y > 50) {
+    state.hasUserScrolled = true;
+  }
+}, { passive: true });
+
+// Fallback infinite scroll
+export function attachScrollFallback(controllers){
   window.addEventListener('scroll', function () {
     if (!isHomeRoute()) return;
-    if (isRestoring()) return;
     if (state.isLoading) return;
-    const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 800);
+
+    const now = performance.now();
+    if (!state.firstPageShown) return;
+    if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) return;
+
+    const nearBottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - 800);
     if (nearBottom) {
-      if (!state._io || typeof state._io.observe !== 'function') ensureInfiniteScroll();
-      loadNextPage();
+      if (!state._io || typeof state._io.observe !== 'function') ensureInfiniteScroll(controllers);
+      loadNextPage(controllers);
     }
   }, { passive: true });
 }

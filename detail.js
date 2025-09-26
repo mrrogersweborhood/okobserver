@@ -1,21 +1,7 @@
-// detail.js — post detail
-import { BASE, state, saveHomeCache, app, controllers } from './shared.js';
-import { normalizeContent, normalizeFirstParagraph, hardenLinks, showError } from './utils.js';
-
-function featuredSrcsetAndSize(p){
-  const m=p?._embedded?.["wp:featuredmedia"]?.[0];
-  if(!m) return { src:"", width:null, height:null };
-  const sizes=m.media_details?.sizes||{};
-  const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
-  const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
-  return { src:(best?.source_url || m.source_url || ""), width:(best?.width||null), height:(best?.height||null) };
-}
-function getAuthor(p){ return p?._embedded?.author?.[0]?.name || ""; }
-function ordinalDate(iso){
-  const d=new Date(iso); const day=d.getDate();
-  const suf=(n)=>(n>3&&n<21)?"th":(["th","st","nd","rd"][Math.min(n%10,4)]||"th");
-  return `${d.toLocaleString("en-US",{month:"long"})} ${day}${suf(day)}, ${d.getFullYear()}`;
-}
+import { app, state, stateForSave, saveHomeCache, showError,
+         normalizeMediaUrl, normalizeFirstParagraph, deLazyImages,
+         transformEmbeds, hardenLinks } from "./common.js";
+import { fetchPost, authorMap } from "./api.js";
 
 function renderPostShell(){
   try{ const ld=document.getElementById("infiniteLoader"); if(ld) ld.remove(); }catch{}
@@ -38,24 +24,34 @@ function renderPostShell(){
   const goHome = (e)=>{
     e?.preventDefault?.();
     state.returningFromDetail = true;
-    try{ sessionStorage.setItem("__okCache", JSON.stringify({ ...state, _io:undefined, _sentinel:undefined, isLoading:undefined })); }catch{}
+    try{ sessionStorage.setItem("__okCache", JSON.stringify(stateForSave(state))); }catch{}
     location.hash = "#/";
   };
   document.getElementById("backBottom")?.addEventListener("click", goHome);
 }
 
-export async function renderPost(id){
+function featuredSrcFromPost(p){
+  const m=p?._embedded?.["wp:featuredmedia"]?.[0];
+  if(!m) return { src:"", width:null, height:null };
+  const sizes=m.media_details?.sizes||{};
+  const order=["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+  const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+  return { src:(best?.source_url || m.source_url || ""), width:(best?.width||null), height:(best?.height||null) };
+}
+
+export async function renderDetail(id, controllers){
   renderPostShell();
   if (controllers.detailAbort){ try{ controllers.detailAbort.abort(); }catch{} }
   controllers.detailAbort = new AbortController();
-  const url = `${BASE}/posts/${id}?_embed=1`;
   try{
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.detailAbort.signal });
-    if(!res.ok) throw new Error('Post not found');
-    const post = await res.json();
-    const { src, width, height } = featuredSrcsetAndSize(post);
-    const author = getAuthor(post);
-    const date = ordinalDate(post.date);
+    const post = await fetchPost(id, controllers.detailAbort.signal);
+    let { src, width, height } = featuredSrcFromPost(post);
+    src = normalizeMediaUrl(src);
+
+    const author =
+      post?._embedded?.author?.[0]?.name ||
+      authorMap.get(post.author) || "";
+    const date = new Date(post.date).toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
 
     const pTitle = document.getElementById('pTitle');
     const pAuthor = document.getElementById('pAuthor');
@@ -77,15 +73,17 @@ export async function renderPost(id){
       pHero.decoding = 'async';
       pHero.fetchPriority = 'high';
       pHero.sizes = '100vw';
+      pHero.onerror = function(){ this.style.display='none'; };
     }
 
     if (pContent) {
-      pContent.innerHTML = normalizeContent(post?.content?.rendered || "");
-      const idle = window.requestIdleCallback || function (cb){ return setTimeout(cb, 1); };
-      idle(() => {
-        try { normalizeFirstParagraph(pContent); } catch {}
-        try { hardenLinks(pContent); } catch {}
-      });
+      const tmp = document.createElement('div');
+      tmp.innerHTML = post?.content?.rendered || "";
+      deLazyImages(tmp);
+      transformEmbeds(tmp);
+      pContent.innerHTML = tmp.innerHTML;
+      try { normalizeFirstParagraph(pContent); } catch {}
+      try { hardenLinks(pContent); } catch {}
     }
 
     const backBtn = document.getElementById('backBottom');
