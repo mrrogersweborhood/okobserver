@@ -1,12 +1,14 @@
-/* app.js — OkObserver — v1.72.4
-   – Remove forbidden request headers (CORS fix)
-   – Keep page-1 freshness via cache:'no-store' + cachebust
+/* app.js — OkObserver — v1.72.5
+   – Hard-reload detection + cache purge (true fresh start on hard refresh)
+   – Page-1 uses cache:"reload" (CORS-safe freshness)
+   – Router normalizes empty hash to "#/"
+   – Home baseline reset on first entry (no mid-stream paging)
    – Guarded infinite scroll; strict cartoon(category) filter
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.72.4";
+  const APP_VERSION = "v1.72.5";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -49,10 +51,6 @@
 
   function stateForSave(st){ const { _io, _sentinel, isLoading, _loadingTicket, ...rest } = st || {}; return rest; }
   function saveHomeCache(){ try{ sessionStorage.setItem("__okCache", JSON.stringify(stateForSave(state))); }catch{} }
-  (function rehydrate(){
-    try{ const raw=sessionStorage.getItem("__okCache"); if(raw) Object.assign(state, JSON.parse(raw)||{}); }catch{}
-    state._io=null; state._sentinel=null; state.isLoading=false; state._loadingTicket=false;
-  })();
 
   try {
     const cv = sessionStorage.getItem("__home_cache_version");
@@ -149,6 +147,52 @@
       return u;
     } catch { return u; }
   }
+
+  // --- NEW: purge helper so hard refresh truly starts fresh
+  function clearHomeCaches(reason){
+    try {
+      Object.keys(sessionStorage).forEach(k => {
+        if (k && k.startsWith("__home_page_")) sessionStorage.removeItem(k);
+      });
+      sessionStorage.removeItem("__okCache");
+      sessionStorage.removeItem("__boot_seen");
+      console.info("[OkObserver] Cleared home caches (" + (reason||"") + ")");
+    } catch {}
+  }
+  // Rehydrate with hard-reload detection
+  (function rehydrate(){
+    let navType = "";
+    try {
+      const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+      navType = nav ? nav.type : (performance.navigation && performance.navigation.type === 1 ? "reload" : "");
+    } catch {}
+    const isReload = (navType === "reload");
+
+    if (isReload) {
+      clearHomeCaches("hard-reload");
+    }
+
+    try {
+      const raw = sessionStorage.getItem("__okCache");
+      if (raw && !isReload) Object.assign(state, JSON.parse(raw) || {});
+    } catch {}
+
+    state._io=null; state._sentinel=null; state.isLoading=false; state._loadingTicket=false;
+
+    if (isReload) {
+      state.posts = [];
+      state.page = 1;
+      state.totalPages = null;
+      state.scrollY = 0;
+      state.homeScrollY = 0;
+      state.scrollAnchorPostId = null;
+      state.returningFromDetail = false;
+      state.firstPageShown = false;
+      state.allowNextPageAfterTs = 0;
+      state.hasUserScrolled = false;
+    }
+  })();
+
   function normalizeFirstParagraph(root){
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(node){
@@ -272,7 +316,7 @@
     for (const m of items){ mediaMap.set(m.id, mediaInfoFromSizes(m)); }
   }
 
-  // Page fetch with page-1 hard bypass + probe (no forbidden request headers)
+  // Page fetch with page-1 hard bypass + probe (CORS-safe)
   async function fetchLeanPostsPage(pageNum, signal){
     if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
@@ -294,7 +338,7 @@
       mode: "cors",
       credentials: "omit",
       redirect: "follow",
-      cache: (pageNum === 1 ? "no-store" : "default"),
+      cache: (pageNum === 1 ? "reload" : "default"), // << page-1 freshness without forbidden headers
     };
 
     async function fetchPage(href, options){
@@ -318,14 +362,14 @@
     if (pageNum === 1) {
       try {
         const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
-        const probeRes = await fetch(probeUrl, { headers, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"no-store" });
+        const probeRes = await fetch(probeUrl, { headers, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload" });
         if (probeRes.ok) {
           const probe = await probeRes.json();
           const probeDate = probe?.[0]?.date ? new Date(probe[0].date).getTime() : 0;
           const page1Date = posts?.[0]?.date ? new Date(posts[0].date).getTime() : 0;
           if (probeDate && page1Date && probeDate > page1Date) {
             const hardUrl = url + `&__fresh=${performance.now()}`;
-            const fresh = await fetchPage(hardUrl, { ...opts, cache:"no-store" });
+            const fresh = await fetchPage(hardUrl, { ...opts, cache:"reload" });
             fresh.items.sort((a,b)=> new Date(b.date) - new Date(a.date));
             posts = fresh.items;
             totalPages = fresh.totalPages;
@@ -435,10 +479,10 @@
     if(!s){
       s=document.createElement("div");
       s.id="scrollSentinel";
-      s.style.cssText="height:1px;width:100%;margin-top:600px"; // push below the fold
+      s.style.cssText="height:1px;width:100%;margin-top:900px"; // deeper push below the fold
       app().appendChild(s);
     } else {
-      s.style.marginTop = "600px";
+      s.style.marginTop = "900px";
       app().appendChild(s);
     }
     return s;
@@ -536,6 +580,18 @@
   async function renderHome(){
     if (!app()) return;
 
+    // If this is a fresh entry to home (not returning from a detail view), baseline paging
+    if (!state.returningFromDetail) {
+      state.posts = [];
+      state.page = 1;
+      state.totalPages = null;
+      state.firstPageShown = false;
+      state.allowNextPageAfterTs = 0;
+      state.hasUserScrolled = false;
+      saveHomeCache();
+    }
+
+    // Scroll-restore path when coming back from detail
     if (state.returningFromDetail && Array.isArray(state.posts) && state.posts.length){
       const targetY = (typeof state.homeScrollY === "number" ? state.homeScrollY : state.scrollY) || 0;
       const wantAnchor = !targetY && state.scrollAnchorPostId;
@@ -792,8 +848,11 @@
     }
   }
 
-  // Router & wiring
+  // Router & wiring (normalize empty hash)
   async function router(){
+    if (!location.hash || location.hash === "#") {
+      location.replace("#/");
+    }
     const hash = window.location.hash || "#/";
     const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
     if (m && m[1]) {
