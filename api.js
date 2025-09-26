@@ -1,13 +1,60 @@
-// api.js — robust cartoon filter (category OR tag; plus permalink), refilters cache, authors/images intact
+// api.js — FINAL: server-side excludes for cartoon categories/tags + client fallback filter
+// also: authors/images via _embedded, soft timeout, lean page-1, cache re-filter
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
 export const authorMap = new Map();  // id -> name
 
-// Robust cartoon check: category or tag name/slug contains "cartoon", or permalink path includes /cartoon(s)/
+// --- Exclusion ID caches (filled once, reused) ---
+let EXCLUDED_CAT_IDS = [];
+let EXCLUDED_TAG_IDS = [];
+let exclusionsReady = false;
+let exclusionsPromise = null;
+
+// Resolve category/tag IDs containing "cartoon" (slug or name)
+async function primeExclusions(signal){
+  if (exclusionsReady) return;
+  if (exclusionsPromise) return exclusionsPromise;
+
+  async function fetchAll(endpoint){
+    // pull up to 100; if more exist, WP will paginate, but 100 is plenty here
+    const url = `${BASE}/${endpoint}?search=cartoon&per_page=100&_fields=id,slug,name`;
+    const res = await fetch(url, { headers:{Accept:"application/json"}, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload" });
+    if (!res.ok) return [];
+    return res.json();
+  }
+
+  exclusionsPromise = (async()=>{
+    try {
+      const [cats, tags] = await Promise.all([
+        fetchAll("categories"),
+        fetchAll("tags"),
+      ]);
+
+      const match = (t) => {
+        const slug = (t?.slug || "").toLowerCase();
+        const name = (t?.name || "").toLowerCase();
+        return slug.includes("cartoon") || name.includes("cartoon");
+      };
+
+      EXCLUDED_CAT_IDS = (Array.isArray(cats) ? cats.filter(match).map(x=>x.id) : []).filter(Boolean);
+      EXCLUDED_TAG_IDS = (Array.isArray(tags) ? tags.filter(match).map(x=>x.id) : []).filter(Boolean);
+
+      exclusionsReady = true;
+      console.info("[OkObserver] Exclusions:", { categories: EXCLUDED_CAT_IDS, tags: EXCLUDED_TAG_IDS });
+    } catch (e) {
+      // If anything fails, we’ll fall back to client-side filtering only
+      console.warn("[OkObserver] Could not fetch exclusion IDs; will rely on client filter.", e);
+      exclusionsReady = true;
+    }
+  })();
+
+  return exclusionsPromise;
+}
+
+// Robust cartoon check: any term (category or tag) with slug/name containing "cartoon", or permalink path includes /cartoon(s)/
 function isCartoon(p){
   try {
-    // terms via _embedded
     const groups = p?._embedded?.["wp:term"];
     if (Array.isArray(groups)) {
       for (const group of groups){
@@ -23,10 +70,8 @@ function isCartoon(p){
         }
       }
     }
-    // permalink check
     const link = (p?.link || "").toLowerCase();
     if (link.includes("/cartoon/") || link.includes("/cartoons/")) return true;
-
     return false;
   } catch { return false; }
 }
@@ -78,29 +123,35 @@ function getHomePageCache(page){
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
+  // Ensure exclusions are primed (no-op if already done)
+  try { await primeExclusions(signal); } catch {}
+
   const cached = getHomePageCache(pageNum);
   if (cached){
     if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
     if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
-    // Re-filter cached posts with robust logic
-    const posts = (cached.posts || []).filter(p => !isCartoon(p));
+    const posts = (cached.posts || []).filter(p => !isCartoon(p)); // re-filter cached
     return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
-  // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Include full _embedded for compat (authors/media), and include link for permalink-based filter
+  // Keep _embedded whole (compat for authors/media), and include link for permalink filtering
   const fields = [
     "id","date","title.rendered","excerpt.rendered","author","featured_media",
-    "link",            // <-- needed for /cartoon(s)/ path check
-    "_embedded"        // <-- author names, featured media, terms
+    "link",
+    "_embedded"
   ].join(",");
+
+  // Build exclusion params if we discovered any
+  const catParam = EXCLUDED_CAT_IDS.length ? `&categories_exclude=${EXCLUDED_CAT_IDS.join(",")}` : "";
+  const tagParam = EXCLUDED_TAG_IDS.length ? `&tags_exclude=${EXCLUDED_TAG_IDS.join(",")}` : "";
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
   const url =
     `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}` +
-    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}${bust}`;
+    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}` +
+    `${catParam}${tagParam}${bust}`;
 
   const headers = { Accept: "application/json" };
   const opts = {
@@ -137,6 +188,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
+  // Probe most-recent to ensure page-1 is fresh
   if (pageNum === 1) {
     try {
       const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
@@ -159,7 +211,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     }
   }
 
-  // Robust filter
+  // Client-side belt-and-suspenders filter
   posts = posts.filter(p => !isCartoon(p));
 
   // Featured images from embedded; fallback /media if missing
