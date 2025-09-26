@@ -1,52 +1,34 @@
-// api.js — category-only cartoon filter with AbortError-safe exclusions
+// api.js — category-only cartoon filter (self-learning from embedded terms; no extra WP calls)
 // authors/images via _embedded, soft timeout, lean page-1, cache re-filter
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
 export const authorMap = new Map();  // id -> name
 
-// --- Category exclusion ID cache (filled once, reused) ---
-let EXCLUDED_CAT_IDS = [];
-let exclusionsReady = false;
-let exclusionsPromise = null;
+// Learned category IDs to exclude (populated from embedded terms we already fetch)
+const EXCLUDED_CAT_IDS = new Set();
 
-// Resolve category IDs whose slug or name contains "cartoon".
-// AbortError is treated as benign: we just proceed with client-side filtering.
-async function primeCategoryExclusions(){
-  if (exclusionsReady) return;
-  if (exclusionsPromise) return exclusionsPromise;
-
-  exclusionsPromise = (async()=>{
-    try {
-      const url = `${BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
-      // decoupled from route aborts (no external signal)
-      const res = await fetch(url, {
-        headers:{Accept:"application/json"},
-        mode:"cors", credentials:"omit", redirect:"follow", cache:"default"
-      });
-      if (!res.ok) { EXCLUDED_CAT_IDS = []; return; }
-      const cats = await res.json();
-      const match = (t) => {
-        const slug = (t?.slug || "").toLowerCase();
-        const name = (t?.name || "").toLowerCase();
-        return slug.includes("cartoon") || name.includes("cartoon");
-      };
-      EXCLUDED_CAT_IDS = (Array.isArray(cats) ? cats.filter(match).map(x=>x.id) : []).filter(Boolean);
-      if (EXCLUDED_CAT_IDS.length) {
-        console.info("[OkObserver] Category exclusions primed:", EXCLUDED_CAT_IDS);
+// Learn cartoon category IDs from a batch of posts' embedded terms
+function learnCartoonCategoryIdsFrom(posts){
+  try{
+    for (const p of (posts || [])){
+      const groups = p?._embedded?.["wp:term"];
+      if (!Array.isArray(groups)) continue;
+      for (const group of groups){
+        if (!Array.isArray(group)) continue;
+        for (const term of group){
+          if (!term) continue;
+          const tax  = (term.taxonomy || "").toLowerCase();
+          if (tax !== "category") continue;
+          const slug = (term.slug || "").toLowerCase();
+          const name = (term.name || "").toLowerCase();
+          if (slug.includes("cartoon") || name.includes("cartoon")){
+            if (Number.isFinite(term.id)) EXCLUDED_CAT_IDS.add(term.id);
+          }
+        }
       }
-    } catch (e) {
-      // AbortError or network issues — ignore and rely on client-side filter
-      if (e?.name !== "AbortError") {
-        console.warn("[OkObserver] Category exclusions fetch skipped; using client filter only.");
-      }
-      EXCLUDED_CAT_IDS = [];
-    } finally {
-      exclusionsReady = true;
     }
-  })();
-
-  return exclusionsPromise;
+  } catch {/* ignore */}
 }
 
 // Client-side guard: ONLY exclude if a CATEGORY term contains "cartoon"
@@ -115,9 +97,6 @@ function getHomePageCache(page){
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-  // Fire-and-forget priming (doesn't block; safe if aborted elsewhere)
-  try { void primeCategoryExclusions(); } catch {}
-
   const cached = getHomePageCache(pageNum);
   if (cached){
     if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
@@ -129,16 +108,16 @@ export async function fetchLeanPostsPage(pageNum, signal){
   // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Keep _embedded whole (compat for authors/media)
+  // Keep _embedded whole (compat for authors/media) and include categories array
   const fields = [
     "id","date","title.rendered","excerpt.rendered","author","featured_media",
-    "_embedded"
+    "categories",          // numeric category IDs on the post (not strictly needed, but cheap)
+    "_embedded"            // includes category objects with slug/name so we can learn IDs
   ].join(",");
 
-  // If exclusions are ready, include server-side exclude; else omit (client filter will handle it)
-  const catParam = (exclusionsReady && EXCLUDED_CAT_IDS.length)
-    ? `&categories_exclude=${EXCLUDED_CAT_IDS.join(",")}`
-    : "";
+  // If we’ve already learned cartoon category IDs, exclude them server-side now
+  const learned = Array.from(EXCLUDED_CAT_IDS);
+  const catParam = learned.length ? `&categories_exclude=${learned.join(",")}` : "";
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
   const url =
@@ -156,7 +135,6 @@ export async function fetchLeanPostsPage(pageNum, signal){
     cache: (pageNum === 1 ? "reload" : "default"),
   };
 
-  // Soft timeout so we don’t hang forever on a slow origin
   function withTimeout(promise, ms){
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Request timed out")), ms);
@@ -179,11 +157,15 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
-  // Newest-first
+  // NEW: learn cartoon category IDs from this page, then filter this page immediately
+  learnCartoonCategoryIdsFrom(posts);
+  posts = posts.filter(p => !isCartoonCategory(p));
+
+  // Newest-first (belt & suspenders)
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-  // Probe most-recent to ensure page-1 is fresh
+  // Probe most-recent to ensure page-1 is fresh (unchanged)
   if (pageNum === 1) {
     try {
       const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
@@ -195,8 +177,10 @@ export async function fetchLeanPostsPage(pageNum, signal){
         if (probeDate && page1Date && probeDate > page1Date) {
           const hardUrl = url + `&__fresh=${performance.now()}`;
           const fresh = await fetchPage(hardUrl, { ...opts, cache:"reload" });
-          fresh.items.sort((a,b)=> new Date(b.date) - new Date(a.date));
-          posts = fresh.items;
+          learnCartoonCategoryIdsFrom(fresh.items);
+          const filtered = fresh.items.filter(p => !isCartoonCategory(p));
+          filtered.sort((a,b)=> new Date(b.date) - new Date(a.date));
+          posts = filtered;
           totalPages = fresh.totalPages;
           console.info("[OkObserver] Page 1 refreshed via probe; newest:", posts[0]?.date);
         }
@@ -205,9 +189,6 @@ export async function fetchLeanPostsPage(pageNum, signal){
       console.warn("[OkObserver] Probe failed; using first result.");
     }
   }
-
-  // Client-side category-only filter
-  posts = posts.filter(p => !isCartoonCategory(p));
 
   // Featured images from embedded; fallback /media if missing
   const missingMediaIds = [];
