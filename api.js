@@ -1,4 +1,4 @@
-// api.js — lean payload + faster page-1 + soft timeout
+// api.js — restore authors & images (compat-safe _embedded + media fallback) + lean payload + faster page-1 + soft timeout
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
@@ -75,7 +75,8 @@ export async function fetchLeanPostsPage(pageNum, signal){
   // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Keep _embed=1 (author names), but whitelist fields we actually use (drops payload size)
+  // Compat-safe: include full _embedded to ensure author + featured media exist on all WP versions.
+  // Still trim top-level fields to keep payload lean.
   const fields = [
     "id",
     "date",
@@ -83,21 +84,13 @@ export async function fetchLeanPostsPage(pageNum, signal){
     "excerpt.rendered",
     "author",
     "featured_media",
-    // Embedded media (only sizes/urls/dimensions we need)
-    "_embedded.wp:featuredmedia",
-    "_embedded.wp:featuredmedia.0.media_details.sizes",
-    "_embedded.wp:featuredmedia.0.source_url",
-    // Embedded author (name only)
-    "_embedded.author",
-    "_embedded.author.0.name",
-    // Terms (to filter cartoon category)
-    "_embedded.wp:term",
-    "_embedded.wp:term.*.taxonomy",
-    "_embedded.wp:term.*.slug"
+    "_embedded" // <- include full embedded for compatibility
   ].join(",");
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
-  const url = `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}${bust}`;
+  const url =
+    `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}` +
+    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}${bust}`;
 
   const headers = { Accept: "application/json" };
   const opts = {
@@ -132,6 +125,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
+  // Newest-first (belt-and-suspenders)
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
@@ -159,29 +153,28 @@ export async function fetchLeanPostsPage(pageNum, signal){
   }
 
   // Filter out cartoons
-  posts = posts.filter(p => {
-    const groups = p?._embedded?.["wp:term"];
-    if (!Array.isArray(groups)) return true;
-    for (const group of groups){
-      if (!Array.isArray(group)) continue;
-      for (const term of group){
-        if (term && term.taxonomy === 'category' && term.slug === 'cartoon') return false;
-      }
-    }
-    return true;
-  });
+  posts = posts.filter(p => !isCartoonByEmbedded(p));
 
-  // Use embedded media (avoid extra /media?include=… fetch in most cases)
+  // Map featured images from embedded; fall back to /media if any missing
+  const missingMediaIds = [];
   for (const p of posts){
     const m = p?._embedded?.["wp:featuredmedia"]?.[0];
-    if (!m) continue;
-    const sizes = m?.media_details?.sizes || {};
-    const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
-    const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
-    const src = (best?.source_url || m.source_url || "");
-    if (p.featured_media && src) {
-      mediaMap.set(p.featured_media, { src, width: best?.width || null, height: best?.height || null });
+    if (m) {
+      const sizes = m?.media_details?.sizes || {};
+      const order = ["2048x2048","1536x1536","large","medium_large","medium","thumbnail"];
+      const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+      const src = normalizeMediaUrl(best?.source_url || m.source_url || "");
+      if (p.featured_media && src) {
+        mediaMap.set(p.featured_media, { src, width: best?.width || null, height: best?.height || null });
+      } else if (p.featured_media) {
+        missingMediaIds.push(p.featured_media);
+      }
+    } else if (p.featured_media) {
+      missingMediaIds.push(p.featured_media);
     }
+  }
+  if (missingMediaIds.length){
+    try { await batchFetchMedia(Array.from(new Set(missingMediaIds)), signal); } catch {}
   }
 
   // Author names from embedded
@@ -190,7 +183,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
   }
 
-  // Cache the lean page
+  // Cache the page
   const mediaObj = {};
   posts.forEach(p => { const id=p.featured_media; if (id && mediaMap.has(id)) mediaObj[id] = mediaMap.get(id); });
   const authorObj = {};
