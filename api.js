@@ -1,9 +1,14 @@
-// api.js — FINAL: server-side excludes for cartoon categories/tags + client fallback filter
+// api.js — FINAL: server-side excludes for cartoon categories/tags + client fallback filter + HARD DENYLIST
 // also: authors/images via _embedded, soft timeout, lean page-1, cache re-filter
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
 export const authorMap = new Map();  // id -> name
+
+// --- Hard denylist for specific post IDs that must never show ---
+const HARDBAN_POST_IDS = new Set([
+  380985, // user-reported cartoon that leaked
+]);
 
 // --- Exclusion ID caches (filled once, reused) ---
 let EXCLUDED_CAT_IDS = [];
@@ -17,7 +22,6 @@ async function primeExclusions(signal){
   if (exclusionsPromise) return exclusionsPromise;
 
   async function fetchAll(endpoint){
-    // pull up to 100; if more exist, WP will paginate, but 100 is plenty here
     const url = `${BASE}/${endpoint}?search=cartoon&per_page=100&_fields=id,slug,name`;
     const res = await fetch(url, { headers:{Accept:"application/json"}, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload" });
     if (!res.ok) return [];
@@ -43,7 +47,7 @@ async function primeExclusions(signal){
       exclusionsReady = true;
       console.info("[OkObserver] Exclusions:", { categories: EXCLUDED_CAT_IDS, tags: EXCLUDED_TAG_IDS });
     } catch (e) {
-      // If anything fails, we’ll fall back to client-side filtering only
+      // If anything fails, fall back to client-side filtering only
       console.warn("[OkObserver] Could not fetch exclusion IDs; will rely on client filter.", e);
       exclusionsReady = true;
     }
@@ -52,15 +56,22 @@ async function primeExclusions(signal){
   return exclusionsPromise;
 }
 
-// Robust cartoon check: any term (category or tag) with slug/name containing "cartoon", or permalink path includes /cartoon(s)/
+// Robust cartoon check: hard denylist OR permalink path OR any term (category/tag) contains "cartoon"
 function isCartoon(p){
   try {
+    if (!p) return false;
+
+    if (HARDBAN_POST_IDS.has(Number(p.id))) return true;
+
+    const link = (p.link || "").toLowerCase();
+    if (link.includes("/cartoon/") || link.includes("/cartoons/")) return true;
+
     const groups = p?._embedded?.["wp:term"];
     if (Array.isArray(groups)) {
       for (const group of groups){
         if (!Array.isArray(group)) continue;
         for (const term of group){
-          const tax = (term?.taxonomy || "").toLowerCase();
+          const tax  = (term?.taxonomy || "").toLowerCase();
           const slug = (term?.slug || "").toLowerCase();
           const name = (term?.name || "").toLowerCase();
           if ((tax === "category" || tax === "post_tag") &&
@@ -70,10 +81,8 @@ function isCartoon(p){
         }
       }
     }
-    const link = (p?.link || "").toLowerCase();
-    if (link.includes("/cartoon/") || link.includes("/cartoons/")) return true;
-    return false;
-  } catch { return false; }
+  } catch {/* ignore */}
+  return false;
 }
 
 export function mediaInfoFromSizes(m){
@@ -123,7 +132,7 @@ function getHomePageCache(page){
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-  // Ensure exclusions are primed (no-op if already done)
+  // Ensure server-side exclusion IDs are primed (no-op if already done)
   try { await primeExclusions(signal); } catch {}
 
   const cached = getHomePageCache(pageNum);
@@ -134,6 +143,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
+  // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
   // Keep _embedded whole (compat for authors/media), and include link for permalink filtering
@@ -163,6 +173,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     cache: (pageNum === 1 ? "reload" : "default"),
   };
 
+  // Soft timeout so we don’t hang forever on a slow origin
   function withTimeout(promise, ms){
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Request timed out")), ms);
@@ -185,6 +196,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
+  // Newest-first
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
@@ -211,7 +223,7 @@ export async function fetchLeanPostsPage(pageNum, signal){
     }
   }
 
-  // Client-side belt-and-suspenders filter
+  // Belt-and-suspenders filter (hard denylist + terms + permalink)
   posts = posts.filter(p => !isCartoon(p));
 
   // Featured images from embedded; fallback /media if missing

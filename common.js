@@ -28,7 +28,7 @@ export const app = () => document.getElementById("app");
 
 export function esc(s=""){ return s.replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-// NEW: decode HTML entities (handles &#8220; etc.)
+// decode HTML entities (handles &#8220; etc.)
 const __decoderEl = document.createElement("textarea");
 export function decodeEntities(str){
   __decoderEl.innerHTML = str || "";
