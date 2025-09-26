@@ -1,54 +1,39 @@
-// api.js — FINAL: server-side excludes for cartoon categories/tags + client fallback filter + HARD DENYLIST
+// api.js — category-only cartoon filter (no URL/tag checks)
 // also: authors/images via _embedded, soft timeout, lean page-1, cache re-filter
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
 export const authorMap = new Map();  // id -> name
 
-// --- Hard denylist for specific post IDs that must never show ---
-const HARDBAN_POST_IDS = new Set([
-  380985, // user-reported cartoon that leaked
-]);
-
-// --- Exclusion ID caches (filled once, reused) ---
+// --- Category exclusion ID cache (filled once, reused) ---
 let EXCLUDED_CAT_IDS = [];
-let EXCLUDED_TAG_IDS = [];
 let exclusionsReady = false;
 let exclusionsPromise = null;
 
-// Resolve category/tag IDs containing "cartoon" (slug or name)
-async function primeExclusions(signal){
+// Resolve category IDs whose slug or name contains "cartoon"
+async function primeCategoryExclusions(signal){
   if (exclusionsReady) return;
   if (exclusionsPromise) return exclusionsPromise;
 
-  async function fetchAll(endpoint){
-    const url = `${BASE}/${endpoint}?search=cartoon&per_page=100&_fields=id,slug,name`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload" });
-    if (!res.ok) return [];
-    return res.json();
-  }
-
   exclusionsPromise = (async()=>{
     try {
-      const [cats, tags] = await Promise.all([
-        fetchAll("categories"),
-        fetchAll("tags"),
-      ]);
-
+      const url = `${BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
+      const res = await fetch(url, {
+        headers:{Accept:"application/json"},
+        signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"reload"
+      });
+      const cats = res.ok ? await res.json() : [];
       const match = (t) => {
         const slug = (t?.slug || "").toLowerCase();
         const name = (t?.name || "").toLowerCase();
         return slug.includes("cartoon") || name.includes("cartoon");
       };
-
       EXCLUDED_CAT_IDS = (Array.isArray(cats) ? cats.filter(match).map(x=>x.id) : []).filter(Boolean);
-      EXCLUDED_TAG_IDS = (Array.isArray(tags) ? tags.filter(match).map(x=>x.id) : []).filter(Boolean);
-
-      exclusionsReady = true;
-      console.info("[OkObserver] Exclusions:", { categories: EXCLUDED_CAT_IDS, tags: EXCLUDED_TAG_IDS });
+      console.info("[OkObserver] Category exclusions:", EXCLUDED_CAT_IDS);
     } catch (e) {
-      // If anything fails, fall back to client-side filtering only
-      console.warn("[OkObserver] Could not fetch exclusion IDs; will rely on client filter.", e);
+      console.warn("[OkObserver] Could not fetch category exclusions; relying on client filter only.", e);
+      EXCLUDED_CAT_IDS = [];
+    } finally {
       exclusionsReady = true;
     }
   })();
@@ -56,32 +41,22 @@ async function primeExclusions(signal){
   return exclusionsPromise;
 }
 
-// Robust cartoon check: hard denylist OR permalink path OR any term (category/tag) contains "cartoon"
-function isCartoon(p){
+// Client-side guard: ONLY exclude if a CATEGORY term contains "cartoon"
+function isCartoonCategory(p){
   try {
-    if (!p) return false;
-
-    if (HARDBAN_POST_IDS.has(Number(p.id))) return true;
-
-    const link = (p.link || "").toLowerCase();
-    if (link.includes("/cartoon/") || link.includes("/cartoons/")) return true;
-
     const groups = p?._embedded?.["wp:term"];
-    if (Array.isArray(groups)) {
-      for (const group of groups){
-        if (!Array.isArray(group)) continue;
-        for (const term of group){
-          const tax  = (term?.taxonomy || "").toLowerCase();
-          const slug = (term?.slug || "").toLowerCase();
-          const name = (term?.name || "").toLowerCase();
-          if ((tax === "category" || tax === "post_tag") &&
-              (slug.includes("cartoon") || name.includes("cartoon"))) {
-            return true;
-          }
-        }
+    if (!Array.isArray(groups)) return false;
+    for (const group of groups){
+      if (!Array.isArray(group)) continue;
+      for (const term of group){
+        const tax  = (term?.taxonomy || "").toLowerCase();
+        if (tax !== "category") continue;
+        const slug = (term?.slug || "").toLowerCase();
+        const name = (term?.name || "").toLowerCase();
+        if (slug.includes("cartoon") || name.includes("cartoon")) return true;
       }
     }
-  } catch {/* ignore */}
+  } catch { /* ignore */ }
   return false;
 }
 
@@ -132,36 +107,34 @@ function getHomePageCache(page){
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-  // Ensure server-side exclusion IDs are primed (no-op if already done)
-  try { await primeExclusions(signal); } catch {}
+  // Ensure server-side category exclusions are primed (no-op if already done)
+  try { await primeCategoryExclusions(signal); } catch {}
 
   const cached = getHomePageCache(pageNum);
   if (cached){
     if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
     if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
-    const posts = (cached.posts || []).filter(p => !isCartoon(p)); // re-filter cached
+    const posts = (cached.posts || []).filter(p => !isCartoonCategory(p)); // re-filter cached
     return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
   // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Keep _embedded whole (compat for authors/media), and include link for permalink filtering
+  // Keep _embedded whole (compat for authors/media)
   const fields = [
     "id","date","title.rendered","excerpt.rendered","author","featured_media",
-    "link",
     "_embedded"
   ].join(",");
 
-  // Build exclusion params if we discovered any
+  // Build server-side exclusion param (categories only)
   const catParam = EXCLUDED_CAT_IDS.length ? `&categories_exclude=${EXCLUDED_CAT_IDS.join(",")}` : "";
-  const tagParam = EXCLUDED_TAG_IDS.length ? `&tags_exclude=${EXCLUDED_TAG_IDS.join(",")}` : "";
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
   const url =
     `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}` +
     `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}` +
-    `${catParam}${tagParam}${bust}`;
+    `${catParam}${bust}`;
 
   const headers = { Accept: "application/json" };
   const opts = {
@@ -223,8 +196,8 @@ export async function fetchLeanPostsPage(pageNum, signal){
     }
   }
 
-  // Belt-and-suspenders filter (hard denylist + terms + permalink)
-  posts = posts.filter(p => !isCartoon(p));
+  // Client-side category-only filter
+  posts = posts.filter(p => !isCartoonCategory(p));
 
   // Featured images from embedded; fallback /media if missing
   const missingMediaIds = [];
