@@ -1,19 +1,20 @@
-/* app.js — OkObserver — v1.72.2
-   Hard page-1 bypass + freshness probe + explicit page-1 logging
-   + delayed infinite scroll attach (prevents immediate page-2 fire)
-   + cartoon filter by embedded slug (no ID reliance)
+/* app.js — OkObserver — v1.72.3
+   • Page-1 hard bypass + freshness probe + explicit page-1 logging
+   • Guarded infinite scroll (no auto-jump to page 2)
+   • Cartoon filter strictly by taxonomy === "category" and slug === "cartoon"
+   • Keeps newest-first, scroll restore, perf tweaks
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.72.2";
+  const APP_VERSION = "v1.72.3";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
   const BASE = "https://okobserver.org/wp-json/wp/v2";
   const PER_PAGE = 12;
 
-  const CACHE_VERSION = "home-v6"; // bump to flush stale page caches once
+  const CACHE_VERSION = "home-v6";
 
   (function bootFreshness(){
     try {
@@ -41,6 +42,11 @@
     _ioAttached: false,
     _io: null,
     _sentinel: null,
+
+    // Added gating state
+    firstPageShown: false,           // has page 1 rendered?
+    allowNextPageAfterTs: 0,         // perf.now() threshold for page 2
+    hasUserScrolled: false,          // becomes true after small scroll
   });
 
   function stateForSave(st){ const { _io, _sentinel, isLoading, _loadingTicket, ...rest } = st || {}; return rest; }
@@ -135,12 +141,7 @@
     try {
       u = String(u).trim();
       if (u.startsWith("//")) return "https:" + u;
-      const mapping = [
-        "okobserver.org",
-        "www.okobserver.org",
-        "okobserver.files.wordpress.com",
-        "files.wordpress.com"
-      ];
+      const mapping = ["okobserver.org","www.okobserver.org","okobserver.files.wordpress.com","files.wordpress.com"];
       for (const host of mapping){
         const http = "http://" + host + "/";
         const https = "https://" + host + "/";
@@ -150,7 +151,6 @@
       return u;
     } catch { return u; }
   }
-
   function normalizeFirstParagraph(root){
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(node){
@@ -212,7 +212,7 @@
 
   const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
 
-  // ========= CARTOON FILTER (by slug via embedded terms) =========
+  // Cartoon filter strictly by category slug "cartoon"
   const CARTOON_SLUG = "cartoon";
   function isCartoonByEmbedded(p){
     const groups = p?._embedded?.["wp:term"];
@@ -220,15 +220,15 @@
     for (const group of groups){
       if (!Array.isArray(group)) continue;
       for (const term of group){
-        if (term && term.slug === CARTOON_SLUG) return true;
+        if (term && term.taxonomy === 'category' && term.slug === CARTOON_SLUG) return true;
       }
     }
     return false;
   }
 
-  // ===== Lean data layer for HOME =====
-  const HOME_CACHE_PREFIX = "__home_page_"; // + page number
-  const HOME_PAGE_TTL_MS = 10 * 60 * 1000; // 10 minutes for page 1 only
+  // Home cache
+  const HOME_CACHE_PREFIX = "__home_page_";
+  const HOME_PAGE_TTL_MS = 10 * 60 * 1000;
 
   function putHomePageCache(page, payload){
     try { const withTs = { ts: Date.now(), ...payload };
@@ -274,12 +274,10 @@
     for (const m of items){ mediaMap.set(m.id, mediaInfoFromSizes(m)); }
   }
 
-  // ===== Freshness-probed page fetch (with client cartoon filter) =====
+  // Page fetch with page-1 hard bypass + probe
   async function fetchLeanPostsPage(pageNum, signal){
-    // hard-flush page-1 cache before fetching
     if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
-    // cache hit?
     const cached = getHomePageCache(pageNum);
     if (cached){
       if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
@@ -287,18 +285,10 @@
       return { posts: cached.posts || [], totalPages: cached.totalPages ?? null, fromCache: true };
     }
 
-    // Build URL — no server-side excludes; cartoon filtered client-side
     const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
     const url =
-      `${BASE}/posts`
-      + `?status=publish`
-      + `&per_page=${PER_PAGE}`
-      + `&page=${pageNum}`
-      + `&_embed=1`
-      + `&orderby=date&order=desc`
-      + bust;
+      `${BASE}/posts?status=publish&per_page=${PER_PAGE}&page=${pageNum}&_embed=1&orderby=date&order=desc${bust}`;
 
-    // Force no-store on page 1 to defeat sticky proxies
     const baseHeaders = { Accept: "application/json" };
     const page1Headers = { ...baseHeaders, "Cache-Control": "no-store", Pragma: "no-cache" };
     const opts = {
@@ -320,14 +310,11 @@
       return { items, totalPages };
     }
 
-    // First attempt for requested page
     let { items: posts, totalPages } = await fetchPage(url, opts);
 
-    // Sort newest-first
     posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
     if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-    // === Page-1 freshness probe ===
     if (pageNum === 1) {
       try {
         const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
@@ -351,28 +338,23 @@
       }
     }
 
-    // Cartoon filter (by embedded slug)
     posts = posts.filter(p => !isCartoonByEmbedded(p));
 
-    // Hydrate media
     const mediaIds = Array.from(new Set(posts.map(p=>p.featured_media).filter(Boolean)));
     await Promise.allSettled([ batchFetchMedia(mediaIds, signal) ]);
 
-    // Author names from _embedded
     for (const p of posts){
       const name = p?._embedded?.author?.[0]?.name;
       if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
     }
 
-    // Compact cache maps
     const mediaObj = {}; mediaIds.forEach(id => { const v = mediaMap.get(id); if (v) mediaObj[id] = v; });
     const authorObj = {}; posts.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || ""; });
 
     putHomePageCache(pageNum, { posts, totalPages, media: mediaObj, authors: authorObj });
     return { posts, totalPages, fromCache: false };
   }
-
-  // ===== Rendering helpers for HOME =====
+  // Rendering helpers
   function getAuthorName(post){
     return authorMap.get(post.author) ||
            post?._embedded?.author?.[0]?.name ||
@@ -394,9 +376,6 @@
 
     const media = resolveFeatured(post);
     const imgSrc = media?.src || "";
-    theImg: {
-      // normalize missing images gracefully
-    }
     const imgW = media?.width || 600;
     const imgH = media?.height || 360;
 
@@ -454,8 +433,15 @@
   function hideLoader(){ const ld=document.getElementById("infiniteLoader"); if(ld) ld.style.display="none"; }
   function getSentinel(){
     let s = document.getElementById("scrollSentinel");
-    if(!s){ s=document.createElement("div"); s.id="scrollSentinel"; s.style.cssText="height:1px;width:100%;"; app().appendChild(s); }
-    else { app().appendChild(s); }
+    if(!s){
+      s=document.createElement("div");
+      s.id="scrollSentinel";
+      s.style.cssText="height:1px;width:100%;margin-top:600px"; // push below the fold
+      app().appendChild(s);
+    } else {
+      s.style.marginTop = "600px";
+      app().appendChild(s);
+    }
     return s;
   }
 
@@ -500,6 +486,14 @@
 
   async function loadNextPage(){
     if (!isHomeRoute()) return;
+
+    // Gate: only allow after page 1 is shown AND user scrolled a bit OR grace elapsed
+    if (!state.firstPageShown) return;
+    const now = performance.now();
+    if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) {
+      return;
+    }
+
     if (state.isLoading) return;
     if (state._loadingTicket) return;
     if (Number.isFinite(state.totalPages) && state.page >= state.totalPages) return;
@@ -515,6 +509,10 @@
       state.page=next;
       if (Number.isFinite(totalPages)) state.totalPages = totalPages;
       else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) state.totalPages = state.page;
+
+      // small cooldown to avoid chain-firing
+      state.allowNextPageAfterTs = performance.now() + 500;
+
       saveHomeCache(); renderGridFromPosts(newPosts, true);
     }catch(err){ if(err?.name!=='AbortError') showError(err); }
     finally{ hideLoader(); state.isLoading=false; state._loadingTicket=false; saveHomeCache(); }
@@ -537,7 +535,6 @@
     state._io.observe(sentinel);
     state._sentinel = sentinel; state._ioAttached = true;
   }
-
   async function renderHome(){
     if (!app()) return;
 
@@ -583,7 +580,7 @@
     try{
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
 
-      // Explicit page-1 newest log so it always appears
+      // Explicit page-1 newest log
       if (Array.isArray(posts) && posts[0]?.date) {
         console.info("[OkObserver] Home page1 newest (post-render check):", posts[0].date);
       }
@@ -596,7 +593,12 @@
       app().innerHTML="";
       renderGridFromPosts(posts,false);
 
-      // Delay attaching infinite scroll a touch so page-2 doesn't prefire before we see page-1 logs
+      // Mark page-1 as shown and set grace timer before enabling next page
+      state.firstPageShown = true;
+      state.allowNextPageAfterTs = performance.now() + 1200;
+      state.hasUserScrolled = false;
+
+      // Delay infinite scroll wiring a touch (prevents instant page-2 fire)
       setTimeout(() => { ensureInfiniteScroll(); }, 500);
 
       state.posts = posts.slice();
@@ -709,7 +711,7 @@
     }
   }
 
-  // ===== About (cached) =====
+  // About (cached)
   const ABOUT_CACHE_KEY = "__about_html";
   const ABOUT_CACHE_TS_KEY = "__about_ts";
   const ABOUT_TTL_MS = 60 * 60 * 1000;
@@ -795,7 +797,7 @@
     }
   }
 
-  // ===== Router & wiring =====
+  // Router & wiring
   async function router(){
     const hash = window.location.hash || "#/";
     const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
@@ -831,10 +833,14 @@
     }
   });
 
-  // Track home scroll
+  // Track home scroll (unlock next-page after small user scroll)
   window.addEventListener('scroll', function () {
     if (!isHomeRoute()) return;
-    state.scrollY = window.scrollY || window.pageYOffset || 0;
+    const y = window.scrollY || window.pageYOffset || 0;
+    state.scrollY = y;
+    if (!state.hasUserScrolled && y > 50) {
+      state.hasUserScrolled = true;
+    }
   }, { passive: true });
 
   // Fallback infinite scroll
@@ -842,6 +848,12 @@
     window.addEventListener('scroll', function () {
       if (!isHomeRoute()) return;
       if (state.isLoading) return;
+
+      // Respect gating here too
+      const now = performance.now();
+      if (!state.firstPageShown) return;
+      if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) return;
+
       const nearBottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - 800);
       if (nearBottom) {
         if (!state._io || typeof state._io.observe !== 'function') ensureInfiniteScroll();
