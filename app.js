@@ -1,13 +1,12 @@
-/* app.js — OkObserver — v1.72.3
-   • Page-1 hard bypass + freshness probe + explicit page-1 logging
-   • Guarded infinite scroll (no auto-jump to page 2)
-   • Cartoon filter strictly by taxonomy === "category" and slug === "cartoon"
-   • Keeps newest-first, scroll restore, perf tweaks
+/* app.js — OkObserver — v1.72.4
+   – Remove forbidden request headers (CORS fix)
+   – Keep page-1 freshness via cache:'no-store' + cachebust
+   – Guarded infinite scroll; strict cartoon(category) filter
 */
 (function () {
   "use strict";
 
-  const APP_VERSION = "v1.72.3";
+  const APP_VERSION = "v1.72.4";
   window.APP_VERSION = APP_VERSION;
   console.info("OkObserver app loaded", APP_VERSION);
 
@@ -43,10 +42,9 @@
     _io: null,
     _sentinel: null,
 
-    // Added gating state
-    firstPageShown: false,           // has page 1 rendered?
-    allowNextPageAfterTs: 0,         // perf.now() threshold for page 2
-    hasUserScrolled: false,          // becomes true after small scroll
+    firstPageShown: false,
+    allowNextPageAfterTs: 0,
+    hasUserScrolled: false,
   });
 
   function stateForSave(st){ const { _io, _sentinel, isLoading, _loadingTicket, ...rest } = st || {}; return rest; }
@@ -268,13 +266,13 @@
     const need = ids.filter(id => id && !mediaMap.has(id));
     if (!need.length) return;
     const url = `${BASE}/media?include=${need.join(",")}&per_page=${Math.max(need.length, 100)}`;
-    const res = await fetch(url, { headers:{Accept:"application/json"}, signal });
+    const res = await fetch(url, { headers:{Accept:"application/json"}, signal, mode:"cors", credentials:"omit", redirect:"follow" });
     if (!res.ok) throw new Error(`Media fetch ${res.status}`);
     const items = await res.json();
     for (const m of items){ mediaMap.set(m.id, mediaInfoFromSizes(m)); }
   }
 
-  // Page fetch with page-1 hard bypass + probe
+  // Page fetch with page-1 hard bypass + probe (no forbidden request headers)
   async function fetchLeanPostsPage(pageNum, signal){
     if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
 
@@ -289,11 +287,13 @@
     const url =
       `${BASE}/posts?status=publish&per_page=${PER_PAGE}&page=${pageNum}&_embed=1&orderby=date&order=desc${bust}`;
 
-    const baseHeaders = { Accept: "application/json" };
-    const page1Headers = { ...baseHeaders, "Cache-Control": "no-store", Pragma: "no-cache" };
+    const headers = { Accept: "application/json" };
     const opts = {
-      headers: (pageNum === 1 ? page1Headers : baseHeaders),
+      headers,
       signal,
+      mode: "cors",
+      credentials: "omit",
+      redirect: "follow",
       cache: (pageNum === 1 ? "no-store" : "default"),
     };
 
@@ -318,15 +318,14 @@
     if (pageNum === 1) {
       try {
         const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
-        const probeRes = await fetch(probeUrl, { headers: page1Headers, signal, cache: "no-store" });
+        const probeRes = await fetch(probeUrl, { headers, signal, mode:"cors", credentials:"omit", redirect:"follow", cache:"no-store" });
         if (probeRes.ok) {
           const probe = await probeRes.json();
           const probeDate = probe?.[0]?.date ? new Date(probe[0].date).getTime() : 0;
           const page1Date = posts?.[0]?.date ? new Date(posts[0].date).getTime() : 0;
           if (probeDate && page1Date && probeDate > page1Date) {
             const hardUrl = url + `&__fresh=${performance.now()}`;
-            const hardOpts = { ...opts, cache: "no-store", headers: page1Headers };
-            const fresh = await fetchPage(hardUrl, hardOpts);
+            const fresh = await fetchPage(hardUrl, { ...opts, cache:"no-store" });
             fresh.items.sort((a,b)=> new Date(b.date) - new Date(a.date));
             posts = fresh.items;
             totalPages = fresh.totalPages;
@@ -510,7 +509,6 @@
       if (Number.isFinite(totalPages)) state.totalPages = totalPages;
       else if (Array.isArray(newPosts) && newPosts.length < PER_PAGE) state.totalPages = state.page;
 
-      // small cooldown to avoid chain-firing
       state.allowNextPageAfterTs = performance.now() + 500;
 
       saveHomeCache(); renderGridFromPosts(newPosts, true);
@@ -580,7 +578,6 @@
     try{
       const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
 
-      // Explicit page-1 newest log
       if (Array.isArray(posts) && posts[0]?.date) {
         console.info("[OkObserver] Home page1 newest (post-render check):", posts[0].date);
       }
@@ -593,12 +590,10 @@
       app().innerHTML="";
       renderGridFromPosts(posts,false);
 
-      // Mark page-1 as shown and set grace timer before enabling next page
       state.firstPageShown = true;
       state.allowNextPageAfterTs = performance.now() + 1200;
       state.hasUserScrolled = false;
 
-      // Delay infinite scroll wiring a touch (prevents instant page-2 fire)
       setTimeout(() => { ensureInfiniteScroll(); }, 500);
 
       state.posts = posts.slice();
@@ -658,7 +653,7 @@
     controllers.detailAbort = new AbortController();
     const url = `${BASE}/posts/${id}?_embed=1`;
     try{
-      const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.detailAbort.signal });
+      const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.detailAbort.signal, mode:"cors", credentials:"omit", redirect:"follow" });
       if(!res.ok) throw new Error('Post not found');
       const post = await res.json();
       let { src, width, height } = featuredSrcFromPost(post);
@@ -755,7 +750,7 @@
 
     const url = `${BASE}/pages?slug=contact-about-donate&_embed=1`;
     try{
-      const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.aboutAbort.signal });
+      const res = await fetch(url, { headers:{Accept:"application/json"}, signal: controllers.aboutAbort.signal, mode:"cors", credentials:"omit", redirect:"follow" });
       if(!res.ok) throw new Error(`About page not available (${res.status})`);
       const pages = await res.json();
       const page = Array.isArray(pages) ? pages[0] : null;
@@ -849,7 +844,6 @@
       if (!isHomeRoute()) return;
       if (state.isLoading) return;
 
-      // Respect gating here too
       const now = performance.now();
       if (!state.firstPageShown) return;
       if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) return;
