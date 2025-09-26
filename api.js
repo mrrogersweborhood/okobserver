@@ -1,21 +1,34 @@
-// api.js — ensure cartoons are filtered even from cache; keep authors/images via _embedded + fallback; soft timeout; lean page-1
+// api.js — robust cartoon filter (category OR tag; plus permalink), refilters cache, authors/images intact
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
 
 export const mediaMap = new Map();   // id -> { src, width, height }
 export const authorMap = new Map();  // id -> name
 
-export const CARTOON_SLUG = "cartoon";
-
-export function isCartoonByEmbedded(p){
-  const groups = p?._embedded?.["wp:term"];
-  if (!Array.isArray(groups)) return false;
-  for (const group of groups){
-    if (!Array.isArray(group)) continue;
-    for (const term of group){
-      if (term && term.taxonomy === 'category' && term.slug === CARTOON_SLUG) return true;
+// Robust cartoon check: category or tag name/slug contains "cartoon", or permalink path includes /cartoon(s)/
+function isCartoon(p){
+  try {
+    // terms via _embedded
+    const groups = p?._embedded?.["wp:term"];
+    if (Array.isArray(groups)) {
+      for (const group of groups){
+        if (!Array.isArray(group)) continue;
+        for (const term of group){
+          const tax = (term?.taxonomy || "").toLowerCase();
+          const slug = (term?.slug || "").toLowerCase();
+          const name = (term?.name || "").toLowerCase();
+          if ((tax === "category" || tax === "post_tag") &&
+              (slug.includes("cartoon") || name.includes("cartoon"))) {
+            return true;
+          }
+        }
+      }
     }
-  }
-  return false;
+    // permalink check
+    const link = (p?.link || "").toLowerCase();
+    if (link.includes("/cartoon/") || link.includes("/cartoons/")) return true;
+
+    return false;
+  } catch { return false; }
 }
 
 export function mediaInfoFromSizes(m){
@@ -69,17 +82,19 @@ export async function fetchLeanPostsPage(pageNum, signal){
   if (cached){
     if (cached.media) Object.entries(cached.media).forEach(([k,v]) => mediaMap.set(Number(k), v));
     if (cached.authors) Object.entries(cached.authors).forEach(([k,v]) => authorMap.set(Number(k), v));
-    // RE-FILTER cached posts to ensure cartoons never show (covers old caches)
-    const posts = (cached.posts || []).filter(p => !isCartoonByEmbedded(p));
+    // Re-filter cached posts with robust logic
+    const posts = (cached.posts || []).filter(p => !isCartoon(p));
     return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
   // Smaller page-1 for faster first paint
   const perPage = (pageNum === 1 ? 9 : PER_PAGE);
 
-  // Keep _embedded whole for compatibility so authors/media are always present
+  // Include full _embedded for compat (authors/media), and include link for permalink-based filter
   const fields = [
-    "id","date","title.rendered","excerpt.rendered","author","featured_media","_embedded"
+    "id","date","title.rendered","excerpt.rendered","author","featured_media",
+    "link",            // <-- needed for /cartoon(s)/ path check
+    "_embedded"        // <-- author names, featured media, terms
   ].join(",");
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
@@ -97,7 +112,6 @@ export async function fetchLeanPostsPage(pageNum, signal){
     cache: (pageNum === 1 ? "reload" : "default"),
   };
 
-  // Soft timeout so we don’t hang forever on a slow origin
   function withTimeout(promise, ms){
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Request timed out")), ms);
@@ -120,11 +134,9 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
-  // Newest-first (belt and suspenders)
   posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
   if (posts[0]?.date) console.info("[OkObserver] Page", pageNum, "newest:", posts[0].date);
 
-  // Probe most-recent to ensure page-1 is fresh
   if (pageNum === 1) {
     try {
       const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
@@ -147,8 +159,8 @@ export async function fetchLeanPostsPage(pageNum, signal){
     }
   }
 
-  // Filter out cartoons
-  posts = posts.filter(p => !isCartoonByEmbedded(p));
+  // Robust filter
+  posts = posts.filter(p => !isCartoon(p));
 
   // Featured images from embedded; fallback /media if missing
   const missingMediaIds = [];
