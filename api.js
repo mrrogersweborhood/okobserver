@@ -1,8 +1,7 @@
 // api.js — faster first paint + definitive category('cartoon') exclusion via WP REST
-// Changes:
-//  • Page-1 smaller (perPage=6) + allow HTTP cache (no bust, no cache:"reload")
-//  • Defer freshness probe to idle so it doesn't block paint
-//  • Keep _embed (no _fields trim) so author names are present
+//  • Page-1 smaller (6) + allow HTTP cache
+//  • Dotted _fields to keep authors/media/terms (lighter payload)
+//  • If server strips _embedded with _fields, recover in idle (no regression)
 //  • Category-only filter (slug === "cartoon") server-side when possible + client-side guard
 
 import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
@@ -95,7 +94,6 @@ function getHomePageCache(page){
 
 export async function fetchLeanPostsPage(pageNum, signal){
   if (pageNum === 1) { try { sessionStorage.removeItem("__home_page_1"); } catch {} }
-
   if (pageNum === 1) { try { await ensureCartoonCategoryId(); } catch {} } else { try { void ensureCartoonCategoryId(); } catch {} }
 
   const cached = getHomePageCache(pageNum);
@@ -106,19 +104,28 @@ export async function fetchLeanPostsPage(pageNum, signal){
     return { posts, totalPages: cached.totalPages ?? null, fromCache: true };
   }
 
-  // SPEED: leaner page-1 and let browser reuse cache (no bust; no cache:"reload")
   const perPage = (pageNum === 1 ? 6 : PER_PAGE);
+
+  // Minimal fields that still keep _embedded author/media/terms
+  const fields = [
+    "id","date","title.rendered","excerpt.rendered","author","featured_media","categories",
+    "_embedded.author.name",
+    "_embedded.wp:featuredmedia.source_url",
+    "_embedded.wp:featuredmedia.media_details.sizes",
+    "_embedded.wp:term"
+  ].join(",");
+
   const catParam = CARTOON_CAT_ID != null ? `&categories_exclude=${CARTOON_CAT_ID}` : "";
 
   const url =
     `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}` +
-    `&_embed=1&orderby=date&order=desc` +
+    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}` +
     `${catParam}`;
 
   const headers = { Accept: "application/json" };
   const opts = {
     headers, signal, mode: "cors", credentials: "omit", redirect: "follow",
-    cache: (pageNum === 1 ? "default" : "default") // was "reload"
+    cache: "default"
   };
 
   function withTimeout(promise, ms){
@@ -142,37 +149,42 @@ export async function fetchLeanPostsPage(pageNum, signal){
 
   let { items: posts, totalPages } = await fetchPage(url, opts);
 
-  // Strict category-only filter
-  posts = posts.filter(p => !isCartoonCategory(p));
-
-  // Newest-first
-  posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
-
-  // Defer the freshness probe: schedule after first paint instead of blocking it
-  if (pageNum === 1) {
+  // SAFETY: if _embedded was stripped, refresh in idle without _fields (don’t block paint)
+  if (pageNum === 1 && posts && posts.length && !posts[0]?._embedded) {
     const idle = window.requestIdleCallback || (cb => setTimeout(cb, 1200));
     idle(async () => {
       try {
-        const probeUrl = `${BASE}/posts?status=publish&per_page=1&_embed=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
-        const probeRes = await fetch(probeUrl, { headers, mode:"cors", credentials:"omit", cache:"reload" });
-        if (probeRes.ok) {
-          const probe = await probeRes.json();
-          const probeDate = probe?.[0]?.date ? new Date(probe[0].date).getTime() : 0;
-          const page1Date = posts?.[0]?.date ? new Date(posts[0].date).getTime() : 0;
-          if (probeDate && page1Date && probeDate > page1Date) {
-            // silently refresh cache for next navigation; don't re-render now
-            try {
-              const fresh = await fetchPage(url + `&__fresh=${performance.now()}`, { ...opts, cache:"reload" });
-              const filtered = (fresh.items || []).filter(p => !isCartoonCategory(p)).sort((a,b)=> new Date(b.date)-new Date(a.date));
-              const mediaObj = {}; filtered.forEach(p => { const id=p.featured_media; if (id && mediaMap.has(id)) mediaObj[id] = mediaMap.get(id); });
-              const authorObj = {}; filtered.forEach(p => { if (p?.author != null) authorObj[p.author] = authorMap.get(p.author) || (p?._embedded?.author?.[0]?.name || ""); });
-              putHomePageCache(1, { posts: filtered, totalPages: fresh.totalPages ?? totalPages, media: mediaObj, authors: authorObj });
-            } catch {}
+        const noFieldsUrl =
+          `${BASE}/posts?status=publish&per_page=6&page=1&_embed=1&orderby=date&order=desc${catParam}&__fresh=${performance.now()}`;
+        const freshRes = await fetch(noFieldsUrl, { headers, mode:"cors", credentials:"omit", cache:"reload" });
+        if (freshRes.ok) {
+          const fresh = await freshRes.json();
+          if (Array.isArray(fresh) && fresh.length) {
+            const filtered = fresh.filter(p => !isCartoonCategory(p)).sort((a,b)=> new Date(b.date)-new Date(a.date));
+            const mediaObj = {};
+            filtered.forEach(p => {
+              const m = p?._embedded?.["wp:featuredmedia"]?.[0];
+              if (m){
+                const sizes=m?.media_details?.sizes || {};
+                const order=["large","medium_large","medium","thumbnail","1536x1536","2048x2048"];
+                const best = order.map(k=>sizes[k]).find(s=>s?.source_url) || null;
+                const src = normalizeMediaUrl(best?.source_url || m.source_url || "");
+                if (p.featured_media && src) mediaMap.set(p.featured_media,{src,width:best?.width||null,height:best?.height||null});
+                if (p.featured_media && mediaMap.has(p.featured_media)) mediaObj[p.featured_media]=mediaMap.get(p.featured_media);
+              }
+            });
+            const authorObj = {};
+            filtered.forEach(p => { if (p?.author!=null) authorObj[p.author] = p?._embedded?.author?.[0]?.name || ""; });
+            putHomePageCache(1, { posts: filtered, totalPages: totalPages ?? null, media: mediaObj, authors: authorObj });
           }
         }
       } catch {}
     });
   }
+
+  // Strict category-only filter and sort
+  posts = posts.filter(p => !isCartoonCategory(p));
+  posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   // Featured images + authors
   const missingMediaIds = [];

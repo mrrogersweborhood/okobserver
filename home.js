@@ -1,4 +1,4 @@
-// home.js — mark first two thumbs as high priority to speed above-the-fold paint
+// home.js — faster first paint and smooth infinite scroll
 import {
   APP_VERSION, app, state, stateForSave, saveHomeCache,
   showError, esc, nextFrame, whenImagesSettled, ordinalDate,
@@ -86,7 +86,14 @@ function buildCardElement(post, indexInBatch=0){
          </a>`
       : `<div class="thumb" aria-hidden="true"></div>`}
     <div class="card-body">
-      <h3 class="title"><a class="title-link" href="${esc(postHref)}" data-id="${post.id}">${titleHTML}</a></h3>
+      <h3 class="title">
+        <a class="title-link"
+           href="${esc(postHref)}"
+           data-id="${post.id}"
+           style="color:#1E90FF;text-decoration:none;font-weight:700">
+           ${titleHTML}
+        </a>
+      </h3>
       <div class="meta-author-date"><strong class="author">${esc(author)}</strong><span class="date">${date}</span></div>
       <p class="excerpt">${safeExcerpt}</p>
     </div>`;
@@ -104,7 +111,8 @@ function appendCardsInBatches(container, posts){
     }
     container.appendChild(frag);
 
-    const MAX_DOM_CARDS = 220;
+    // Keep DOM light for smooth scroll
+    const MAX_DOM_CARDS = 150;
     if (container.children.length > MAX_DOM_CARDS) {
       const toRemove = container.children.length - MAX_DOM_CARDS;
       for (let k = 0; k < toRemove; k++) container.removeChild(container.firstElementChild);
@@ -241,7 +249,7 @@ export async function renderHome(controllers){
   }
 }
 
-// navigation from cards (unchanged)
+// Card navigation: preserve scroll position + anchor
 document.addEventListener('click', (e)=>{
   const link = e.target.closest('a.thumb-link, a.title-link');
   if (!link) return;
@@ -260,7 +268,7 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-// unlock next-page after small scroll (unchanged)
+// Unlock next-page after small scroll
 window.addEventListener('scroll', function () {
   if (!isHomeRoute()) return;
   const y = window.scrollY || window.pageYOffset || 0;

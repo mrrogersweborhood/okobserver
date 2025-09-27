@@ -6,6 +6,8 @@
 <title>OkObserver — Latest News</title>
 
 <link rel="icon" type="image/png" href="icon.png" />
+
+<!-- Warm up connections -->
 <link rel="preconnect" href="https://okobserver.org" crossorigin>
 <link rel="dns-prefetch" href="//okobserver.org">
 <link rel="preconnect" href="https://okobserver.files.wordpress.com" crossorigin>
@@ -25,11 +27,16 @@
   .center{text-align:center}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-  .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+  .card{
+    border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;
+    /* Faster: don’t render off-screen cards until needed */
+    content-visibility:auto;
+    contain-intrinsic-size:260px 320px;
+  }
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
 
-  /* --- PERMANENT POST TITLE COLOR FIX --- */
+  /* PERMANENT post-title color (all link states, high specificity) */
   .grid .card .title a,
   .grid .card .title a:link,
   .grid .card .title a:visited,
@@ -37,16 +44,13 @@
   .title-link,
   .title-link:link,
   .title-link:visited,
-  .title-link:active {
+  .title-link:active{
     color:#1E90FF !important;
     text-decoration:none;
     font-weight:700;
   }
   .grid .card .title a:hover,
-  .title-link:hover {
-    color:#1E90FF !important;
-    text-decoration:underline;
-  }
+  .title-link:hover{ color:#1E90FF !important; text-decoration:underline }
 
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
@@ -60,7 +64,7 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
-  .post .content > :is(p,div,section,article,blockquote):first-of-type {
+  .post .content > :is(p,div,section,article,blockquote):first-of-type{
     text-align:left !important;
     text-indent:0 !important;
     margin-left:0 !important;
@@ -71,25 +75,25 @@
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
   .error-banner .close:hover{opacity:.8}
 
-  /* --- Hamburger / responsive nav --- */
-  .hamburger { display:none; appearance:none; background:transparent; border:0; padding:8px; margin-left:auto; cursor:pointer; outline:none; }
-  .hamburger-box { width:28px; height:20px; display:inline-block; position:relative; }
-  .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after { width:28px; height:2px; background:#fff; position:absolute; left:0; transition:transform .2s ease,opacity .2s ease; content:""; display:block; }
-  .hamburger-inner { top:9px; } .hamburger-inner::before { top:-8px; } .hamburger-inner::after { top:8px; }
-  .hamburger[aria-expanded="true"] .hamburger-inner { transform:rotate(45deg); }
-  .hamburger[aria-expanded="true"] .hamburger-inner::before { transform:translateY(8px) rotate(90deg); }
-  .hamburger[aria-expanded="true"] .hamburger-inner::after { transform:translateY(-8px) rotate(90deg); opacity:0; }
+  /* Hamburger / responsive nav */
+  .hamburger{display:none;appearance:none;background:transparent;border:0;padding:8px;margin-left:auto;cursor:pointer;outline:none}
+  .hamburger-box{width:28px;height:20px;display:inline-block;position:relative}
+  .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block}
+  .hamburger-inner{top:9px}.hamburger-inner::before{top:-8px}.hamburger-inner::after{top:8px}
+  .hamburger[aria-expanded="true"] .hamburger-inner{transform:rotate(45deg)}
+  .hamburger[aria-expanded="true"] .hamburger-inner::before{transform:translateY(8px) rotate(90deg)}
+  .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
 
-  .nav-links { margin-left:auto; display:flex; gap:10px; }
+  .nav-links{margin-left:auto;display:flex;gap:10px}
 
-  @media (max-width: 820px) {
-    .container.nav { align-items:center; }
-    .brand { flex:1 1 auto; }
-    .hamburger { display:inline-flex; }
-    .nav-links { position:absolute; top:100%; right:0; left:0; background:var(--secondary); display:grid; gap:0; border-bottom-left-radius:10px; border-bottom-right-radius:10px; overflow:hidden; transition:max-height .2s ease, opacity .2s ease; }
-    .nav-links a { padding:12px 18px; border-top:1px solid rgba(255,255,255,0.18); }
-    .nav-links[data-state="closed"] { max-height:0; opacity:0; pointer-events:none; }
-    .nav-links[data-state="open"]   { max-height:240px; opacity:1; pointer-events:auto; }
+  @media (max-width:820px){
+    .container.nav{align-items:center}
+    .brand{flex:1 1 auto}
+    .hamburger{display:inline-flex}
+    .nav-links{position:absolute;top:100%;right:0;left:0;background:var(--secondary);display:grid;gap:0;border-bottom-left-radius:10px;border-bottom-right-radius:10px;overflow:hidden;transition:max-height .2s ease,opacity .2s ease}
+    .nav-links a{padding:12px 18px;border-top:1px solid rgba(255,255,255,0.18)}
+    .nav-links[data-state="closed"]{max-height:0;opacity:0;pointer-events:none}
+    .nav-links[data-state="open"]{max-height:240px;opacity:1;pointer-events:auto}
   }
 </style>
 </head>
@@ -131,38 +135,38 @@
   </div>
 </footer>
 
-<script src="app.js?v=1.72.3" defer></script>
+<!-- keep whatever script loader your app uses; if single-bundle: -->
+<script src="app.js?v=1.72.4" defer></script>
 
 <script>
 (function(){
-  const btn = document.getElementById('menuToggle');
-  const nav = document.getElementById('primaryNav');
-  if (!btn || !nav) return;
-  function setOpen(open){ btn.setAttribute('aria-expanded', String(open)); nav.dataset.state = open ? 'open' : 'closed'; }
-  btn.addEventListener('click', ()=> setOpen(btn.getAttribute('aria-expanded') !== 'true'));
-  nav.addEventListener('click', e=>{ if (e.target.tagName === 'A') setOpen(false); });
-  window.addEventListener('hashchange', ()=> setOpen(false));
+  const btn=document.getElementById('menuToggle'), nav=document.getElementById('primaryNav');
+  if(!btn||!nav) return;
+  const setOpen=o=>{btn.setAttribute('aria-expanded',String(o));nav.dataset.state=o?'open':'closed'};
+  btn.addEventListener('click',()=>setOpen(btn.getAttribute('aria-expanded')!=='true'));
+  nav.addEventListener('click',e=>{if(e.target.tagName==='A')setOpen(false)});
+  window.addEventListener('hashchange',()=>setOpen(false));
 })();
 </script>
 
 <script>
-window.addEventListener('load', function () {
-  setTimeout(function () {
-    if (!window.APP_VERSION) {
-      var host = document.getElementById('app') || document.body;
-      var div = document.createElement('div');
-      div.className = 'error-banner';
-      div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
+window.addEventListener('load',function(){
+  setTimeout(function(){
+    if(!window.APP_VERSION){
+      var host=document.getElementById('app')||document.body;
+      var div=document.createElement('div');
+      div.className='error-banner';
+      div.innerHTML='<button class="close" aria-label="Dismiss">×</button>'+
         'App script did not execute. Check Network → app.js (200), hard-reload, and confirm file ends with "})();".';
       host.prepend(div);
     } else {
-      var v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;
-      var y = document.getElementById('year'); if (y) y.textContent = new Date().getFullYear();
+      var v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
+      var y=document.getElementById('year'); if(y) y.textContent=(new Date()).getFullYear();
     }
-  }, 700);
+  },700);
 });
-document.addEventListener('click', function(e){
-  var btn = e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
 });
 </script>
 </body>
