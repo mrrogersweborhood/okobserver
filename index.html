@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OkObserver — Latest News</title>
 
-<!-- Favicon -->
 <link rel="icon" type="image/png" href="icon.png" />
-
-<!-- Performance hints: let the browser warm up connections early -->
 <link rel="preconnect" href="https://okobserver.org" crossorigin>
 <link rel="dns-prefetch" href="//okobserver.org">
 <link rel="preconnect" href="https://okobserver.files.wordpress.com" crossorigin>
@@ -31,7 +28,26 @@
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-  .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
+
+  /* --- PERMANENT POST TITLE COLOR FIX --- */
+  .grid .card .title a,
+  .grid .card .title a:link,
+  .grid .card .title a:visited,
+  .grid .card .title a:active,
+  .title-link,
+  .title-link:link,
+  .title-link:visited,
+  .title-link:active {
+    color:#1E90FF !important;
+    text-decoration:none;
+    font-weight:700;
+  }
+  .grid .card .title a:hover,
+  .title-link:hover {
+    color:#1E90FF !important;
+    text-decoration:underline;
+  }
+
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
@@ -45,10 +61,10 @@
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
-    text-align: left !important;
-    text-indent: 0 !important;
-    margin-left: 0 !important;
-    padding-left: 0 !important;
+    text-align:left !important;
+    text-indent:0 !important;
+    margin-left:0 !important;
+    padding-left:0 !important;
   }
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
