@@ -1,4 +1,5 @@
 // api.js — definitive category('cartoon') exclusion using WordPress REST API
+// FIX: Do NOT trim response with `_fields=...` so `_embedded.author` remains intact (author names show).
 // - Resolves the category ID for slug "cartoon" via /wp/v2/categories
 // - Excludes server-side with categories_exclude=<ID> when available
 // - Also filters client-side strictly where category term slug === "cartoon"
@@ -24,7 +25,7 @@ async function ensureCartoonCategoryId() {
 
   cartoonCatPromise = (async () => {
     try {
-      // First, try direct slug lookup (fastest & exact)
+      // Try direct slug lookup first
       let url = `${BASE}/categories?slug=cartoon&_fields=id,slug`;
       let res = await fetch(url, {
         headers: { Accept: "application/json" },
@@ -43,7 +44,7 @@ async function ensureCartoonCategoryId() {
         }
       }
 
-      // Fallback: search=cartoon; confirm slug === "cartoon"
+      // Fallback: broad search then confirm slug
       url = `${BASE}/categories?search=cartoon&per_page=100&_fields=id,slug`;
       res = await fetch(url, {
         headers: { Accept: "application/json" },
@@ -62,11 +63,11 @@ async function ensureCartoonCategoryId() {
         }
       }
 
-      // Not found or blocked; stick with client-side filter only.
+      // Not found or blocked; client-side filter will handle it
       CARTOON_CAT_ID = null;
       console.info("[OkObserver] 'cartoon' category ID not resolved; client-side filter will handle it.");
       return CARTOON_CAT_ID;
-    } catch (e) {
+    } catch {
       // Network/CORS issues — just proceed with client-side filter.
       CARTOON_CAT_ID = null;
       console.info("[OkObserver] Category ID resolve skipped; using client filter only.");
@@ -147,18 +148,12 @@ function getHomePageCache(page) {
 
 export async function fetchLeanPostsPage(pageNum, signal) {
   if (pageNum === 1) {
-    try {
-      sessionStorage.removeItem("__home_page_1");
-    } catch {}
+    try { sessionStorage.removeItem("__home_page_1"); } catch {}
   }
 
-  // Kick off category ID resolution (non-blocking for non-page1)
-  if (pageNum === 1) {
-    // On page-1, prefer to await so we can pass categories_exclude immediately if possible
-    try { await ensureCartoonCategoryId(); } catch {}
-  } else {
-    try { void ensureCartoonCategoryId(); } catch {}
-  }
+  // Kick off category ID resolution (non-blocking except page-1 we prefer to await)
+  if (pageNum === 1) { try { await ensureCartoonCategoryId(); } catch {} }
+  else { try { void ensureCartoonCategoryId(); } catch {} }
 
   const cached = getHomePageCache(pageNum);
   if (cached) {
@@ -171,25 +166,13 @@ export async function fetchLeanPostsPage(pageNum, signal) {
   // Smaller page-1 for faster first paint
   const perPage = pageNum === 1 ? 9 : PER_PAGE;
 
-  // Keep _embedded whole (authors/media + terms) and include plain numeric categories (cheap)
-  const fields = [
-    "id",
-    "date",
-    "title.rendered",
-    "excerpt.rendered",
-    "author",
-    "featured_media",
-    "categories",
-    "_embedded",
-  ].join(",");
-
   // If we resolved the cartoon category ID, exclude it server-side
   const catParam = CARTOON_CAT_ID != null ? `&categories_exclude=${CARTOON_CAT_ID}` : "";
 
   const bust = `&_=${Date.now()}.${Math.random().toString(36).slice(2)}`;
   const url =
     `${BASE}/posts?status=publish&per_page=${perPage}&page=${pageNum}` +
-    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}` +
+    `&_embed=1&orderby=date&order=desc` +               // <-- NO _fields param now
     `${catParam}${bust}`;
 
   const headers = { Accept: "application/json" };
@@ -207,14 +190,8 @@ export async function fetchLeanPostsPage(pageNum, signal) {
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error("Request timed out")), ms);
       promise.then(
-        v => {
-          clearTimeout(t);
-          resolve(v);
-        },
-        e => {
-          clearTimeout(t);
-          reject(e);
-        }
+        v => { clearTimeout(t); resolve(v); },
+        e => { clearTimeout(t); reject(e); }
       );
     });
   }
@@ -244,7 +221,7 @@ export async function fetchLeanPostsPage(pageNum, signal) {
   // Probe most-recent to ensure page-1 is fresh
   if (pageNum === 1) {
     try {
-      const probeUrl = `${BASE}/posts?status=publish&per_page=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
+      const probeUrl = `${BASE}/posts?status=publish&per_page=1&_embed=1&_fields=id,date&orderby=date&order=desc&_=${Date.now()}`;
       const probeRes = await fetch(probeUrl, {
         headers,
         signal,
@@ -267,7 +244,7 @@ export async function fetchLeanPostsPage(pageNum, signal) {
           console.info("[OkObserver] Page 1 refreshed via probe; newest:", posts[0]?.date);
         }
       }
-    } catch (e) {
+    } catch {
       console.warn("[OkObserver] Probe failed; using first result.");
     }
   }
@@ -291,12 +268,10 @@ export async function fetchLeanPostsPage(pageNum, signal) {
     }
   }
   if (missingMediaIds.length) {
-    try {
-      await batchFetchMedia(Array.from(new Set(missingMediaIds)), signal);
-    } catch {}
+    try { await batchFetchMedia(Array.from(new Set(missingMediaIds)), signal); } catch {}
   }
 
-  // Author names from embedded
+  // Author names from embedded (now present because we didn't _fields-trim the post response)
   for (const p of posts) {
     const name = p?._embedded?.author?.[0]?.name;
     if (p?.author != null && typeof name === "string") authorMap.set(p.author, name);
