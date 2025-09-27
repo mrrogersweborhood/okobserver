@@ -1,48 +1,33 @@
-import { APP_VERSION, app, state, saveHomeCache, clearHomeCaches, isHomeRoute } from "./common.js";
-import { renderHome, ensureInfiniteScroll, attachScrollFallback, loadNextPage } from "./home.js";
+// main.js — modular entry point for OkObserver
+// Sets a global version (used by the error banner) and imports the actual app.
+// It tries preferred entries first (e.g., core.js), then falls back to app.js
+// so you can switch gradually without breaking.
 
-console.info("OkObserver (modules) loaded", APP_VERSION);
+window.APP_VERSION = "v2.0.0-mod";
 
-// Hard-reload detection + purge before any rehydrate
-(function rehydrate(){
-  let navType = "";
-  try {
-    const nav = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
-    navType = nav ? nav.type : (performance.navigation && performance.navigation.type === 1 ? "reload" : "");
-  } catch {}
-  const isReload = (navType === "reload");
-  if (isReload) {
-    clearHomeCaches("hard-reload");
+(async () => {
+  const candidates = [
+    "./core.js",          // your modern modular bootstrap (if present)
+    "./router.js",        // alternate modular entry (if you split router)
+    "./main-app.js",      // another common filename
+    "./app.js"            // legacy monolith fallback (still works as a module import)
+  ];
+
+  let loaded = false;
+  for (const href of candidates) {
+    try {
+      await import(href);
+      console.info("[OkObserver] Loaded entry:", href, window.APP_VERSION);
+      loaded = true;
+      break;
+    } catch (e) {
+      // Keep trying next candidate
+      console.debug("[OkObserver] Entry not found or failed:", href, e?.message || e);
+    }
   }
-  // We intentionally do not read __okCache here; home.js manages it.
+
+  if (!loaded) {
+    console.error("[OkObserver] No entry module could be loaded. Check filenames/paths.");
+    // Let the existing error banner in index.html alert the user if needed
+  }
 })();
-
-// Controllers (shared aborts)
-const controllers = { listAbort: null, detailAbort: null, aboutAbort: null };
-
-async function router(){
-  if (!location.hash || location.hash === "#") {
-    location.replace("#/");
-  }
-  const hash = window.location.hash || "#/";
-  const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
-  if (m && m[1]) {
-    const { renderDetail } = await import("./detail.js");
-    await renderDetail(m[1], controllers);
-  } else if (hash.startsWith("#/about")) {
-    const { renderAbout } = await import("./about.js");
-    await renderAbout(controllers);
-  } else {
-    await renderHome(controllers);
-  }
-}
-
-window.addEventListener("hashchange", router);
-window.addEventListener("DOMContentLoaded", router);
-if (document.readyState === "interactive" || document.readyState === "complete") { router(); }
-
-// Keep scroll listener to unlock page-2 and fallback infinite scroll in home
-attachScrollFallback(controllers);
-
-// Optional: expose for debugging
-window.__ok = { state, loadNextPage, ensureInfiniteScroll, version: APP_VERSION };

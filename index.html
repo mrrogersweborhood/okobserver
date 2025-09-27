@@ -135,9 +135,10 @@
   </div>
 </footer>
 
-<!-- keep whatever script loader your app uses; if single-bundle: -->
-<script src="app.js?v=1.72.4" defer></script>
+<!-- SWITCHED: load ES module entry instead of legacy app.js -->
+<script type="module" src="main.js?v=2.0.0-mod"></script>
 
+<!-- Hamburger toggle -->
 <script>
 (function(){
   const btn=document.getElementById('menuToggle'), nav=document.getElementById('primaryNav');
@@ -149,6 +150,7 @@
 })();
 </script>
 
+<!-- Boot probe: shows red banner if app (modules) did not initialize -->
 <script>
 window.addEventListener('load',function(){
   setTimeout(function(){
@@ -157,7 +159,7 @@ window.addEventListener('load',function(){
       var div=document.createElement('div');
       div.className='error-banner';
       div.innerHTML='<button class="close" aria-label="Dismiss">×</button>'+
-        'App script did not execute. Check Network → app.js (200), hard-reload, and confirm file ends with "})();".';
+        'App script did not execute. Check Network → main.js (200), module imports (200), hard-reload, and confirm files exist.';
       host.prepend(div);
     } else {
       var v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
