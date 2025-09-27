@@ -3,8 +3,14 @@
 //  • Dotted _fields to keep authors/media/terms (lighter payload)
 //  • If server strips _embedded with _fields, recover in idle (no regression)
 //  • Category-only filter (slug === "cartoon") server-side when possible + client-side guard
+//  • NEW: BASE comes from window.OKO_API_BASE (Cloudflare proxy) if present
 
-import { BASE, PER_PAGE, normalizeMediaUrl } from "./common.js";
+import { PER_PAGE, normalizeMediaUrl } from "./common.js";
+
+// Prefer the Cloudflare proxy set in main.js, else fall back to origin WP
+const BASE = (typeof window !== "undefined" && window.OKO_API_BASE)
+  ? window.OKO_API_BASE
+  : "https://okobserver.org/wp-json/wp/v2";
 
 export const mediaMap = new Map();
 export const authorMap = new Map();
