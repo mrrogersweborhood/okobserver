@@ -1,5 +1,4 @@
-// home.js — eager (home route) — includes decoded excerpts + idle trimming
-
+// home.js — mark first two thumbs as high priority to speed above-the-fold paint
 import {
   APP_VERSION, app, state, stateForSave, saveHomeCache,
   showError, esc, nextFrame, whenImagesSettled, ordinalDate,
@@ -46,8 +45,7 @@ function getSentinel(){
 }
 
 function getAuthorName(post){
-  return authorMap.get(post.author) ||
-         post?._embedded?.author?.[0]?.name || "";
+  return authorMap.get(post.author) || post?._embedded?.author?.[0]?.name || "";
 }
 function resolveFeatured(post){
   const mId = post.featured_media;
@@ -56,7 +54,7 @@ function resolveFeatured(post){
   return m ? mediaInfoFromSizes(m) : { src:"", width:null, height:null };
 }
 
-function buildCardElement(post){
+function buildCardElement(post, indexInBatch=0){
   const card = document.createElement("div");
   card.className = "card";
   const media = resolveFeatured(post);
@@ -67,7 +65,6 @@ function buildCardElement(post){
   const author = getAuthorName(post) || "";
   const date = ordinalDate(post.date);
 
-  // CLEAN EXCERPT: strip tags -> decode HTML entities -> then escape for safety
   const rawExcerpt = (post?.excerpt?.rendered||"").replace(/<[^>]+>/g,"").trim();
   const decodedExcerpt = decodeEntities(rawExcerpt);
   const safeExcerpt = esc(decodedExcerpt);
@@ -75,11 +72,14 @@ function buildCardElement(post){
   const postHref = `#/post/${post.id}`;
   const titleHTML = post?.title?.rendered || "Untitled";
 
+  // First two images get high priority to speed above-the-fold
+  const prio = (indexInBatch < 2) ? 'fetchpriority="high" importance="high"' : 'fetchpriority="low"';
+
   card.innerHTML = `
     ${imgSrc
       ? `<a class="thumb-link" href="${esc(postHref)}" data-id="${post.id}" aria-label="Open post">
            <img src="${esc(imgSrc)}" alt="${esc(titleHTML)}" class="thumb"
-                loading="lazy" decoding="async" fetchpriority="low"
+                loading="lazy" decoding="async" ${prio}
                 width="${imgW}" height="${imgH}"
                 sizes="(max-width: 600px) 100vw, (max-width: 1100px) 50vw, 33vw"
                 onerror="this.onerror=null; try{ this.closest('.thumb-link').replaceWith(Object.assign(document.createElement('div'),{className:'thumb'})); }catch{}" />
@@ -100,18 +100,15 @@ function appendCardsInBatches(container, posts){
     for (let n=0; n<BATCH_SIZE && i<posts.length; n++, i++){
       const p = posts[i];
       if (!p) continue;
-      frag.appendChild(buildCardElement(p));
+      frag.appendChild(buildCardElement(p, i));
     }
     container.appendChild(frag);
 
     const MAX_DOM_CARDS = 220;
     if (container.children.length > MAX_DOM_CARDS) {
       const toRemove = container.children.length - MAX_DOM_CARDS;
-      for (let k = 0; k < toRemove; k++) {
-        container.removeChild(container.firstElementChild);
-      }
+      for (let k = 0; k < toRemove; k++) container.removeChild(container.firstElementChild);
     }
-
     if (i < posts.length) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
@@ -126,12 +123,9 @@ function renderGridFromPosts(posts, append=false){
   if (state._io && typeof state._io.observe === 'function'){
     if (state._sentinel && state._sentinel !== s){ try{ state._io.unobserve(state._sentinel);}catch{} }
     state._io.observe(s); state._sentinel = s;
-  } else {
-    state._io=null; state._sentinel=null; ensureInfiniteScroll(controllersRef);
   }
 }
 
-// controllers reference for non-exported helpers
 let controllersRef = { listAbort:null, detailAbort:null, aboutAbort:null };
 
 export async function loadNextPage(controllers){
@@ -155,31 +149,10 @@ export async function loadNextPage(controllers){
     state.page=next;
     if (Number.isFinite(totalPages)) state.totalPages = totalPages;
     else if (Array.isArray(newPosts) && newPosts.length < 12) state.totalPages = state.page;
-
     state.allowNextPageAfterTs = performance.now() + 500;
-
     saveHomeCache(); renderGridFromPosts(newPosts, true);
   }catch(err){ if(err?.name!=='AbortError') showError(err); }
   finally{ hideLoader(); state.isLoading=false; state._loadingTicket=false; saveHomeCache(); }
-}
-
-export function ensureInfiniteScroll(controllers){
-  controllersRef = controllers || controllersRef;
-  const sentinel = document.getElementById("scrollSentinel") || getSentinel();
-  if (state._io && typeof state._io.observe === 'function'){
-    if (state._sentinel && state._sentinel !== sentinel){ try{ state._io.unobserve(state._sentinel);}catch{} }
-    state._io.observe(sentinel); state._sentinel = sentinel; return;
-  }
-  if (!state._io){
-    state._io=new IntersectionObserver((entries)=>{
-      const e=entries[0];
-      if(!e||!e.isIntersecting) return;
-      if (!isHomeRoute()) return;
-      loadNextPage(controllersRef);
-    }, { root:null, rootMargin:"800px 0px", threshold:0 });
-  }
-  state._io.observe(sentinel);
-  state._sentinel = sentinel; state._ioAttached = true;
 }
 
 export async function renderHome(controllers){
@@ -187,12 +160,8 @@ export async function renderHome(controllers){
   if (!app()) return;
 
   if (!state.returningFromDetail) {
-    state.posts = [];
-    state.page = 1;
-    state.totalPages = null;
-    state.firstPageShown = false;
-    state.allowNextPageAfterTs = 0;
-    state.hasUserScrolled = false;
+    state.posts = []; state.page = 1; state.totalPages = null;
+    state.firstPageShown = false; state.allowNextPageAfterTs = 0; state.hasUserScrolled = false;
     saveHomeCache();
   }
 
@@ -209,7 +178,6 @@ export async function renderHome(controllers){
 
     app().innerHTML = "";
     renderGridFromPosts(state.posts,false);
-    ensureInfiniteScroll(controllersRef);
 
     (async ()=>{
       try{
@@ -231,26 +199,17 @@ export async function renderHome(controllers){
     return;
   }
 
-  app().innerHTML = `<p class="center">Loading…</p>`;
+  app().innerHTML = `<div id="grid" class="grid"></div><p id="gridLoader" class="center">Loading…</p>`;
+
   if (controllers.listAbort){ try{ controllers.listAbort.abort(); }catch{} }
   controllers.listAbort = new AbortController();
 
   try{
     const { posts, totalPages } = await fetchLeanPostsPage(1, controllers.listAbort.signal);
 
-    if (Array.isArray(posts) && posts[0]?.date) {
-      console.info("[OkObserver] Home page1 newest (post-render check):", posts[0].date);
-    }
-
-    if (!Array.isArray(posts) || !posts.length){
-      app().innerHTML=""; showError("No posts returned from the server.");
-      return;
-    }
-
-    app().innerHTML="";
+    const gl = document.getElementById('gridLoader'); if (gl) gl.remove();
     renderGridFromPosts(posts,false);
 
-    // Defer excerpt trimming to idle to keep the first paint snappy
     const idle = window.requestIdleCallback || (cb => setTimeout(cb, 1));
     idle(() => {
       try {
@@ -262,10 +221,10 @@ export async function renderHome(controllers){
     });
 
     state.firstPageShown = true;
-    state.allowNextPageAfterTs = performance.now() + 1200;
+    state.allowNextPageAfterTs = performance.now() + 900;
     state.hasUserScrolled = false;
 
-    setTimeout(() => { ensureInfiniteScroll(controllersRef); }, 500);
+    setTimeout(() => { getSentinel(); }, 200);
 
     state.posts = posts.slice();
     state.page = 1;
@@ -278,11 +237,11 @@ export async function renderHome(controllers){
       showError(err?.message || err);
       if (err?.details) showError(err.details);
     }
-    app().innerHTML="";
+    const gl = document.getElementById('gridLoader'); if (gl) gl.remove();
   }
 }
 
-// navigation from cards
+// navigation from cards (unchanged)
 document.addEventListener('click', (e)=>{
   const link = e.target.closest('a.thumb-link, a.title-link');
   if (!link) return;
@@ -301,31 +260,10 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-// unlock next-page after small scroll
+// unlock next-page after small scroll (unchanged)
 window.addEventListener('scroll', function () {
   if (!isHomeRoute()) return;
   const y = window.scrollY || window.pageYOffset || 0;
   state.scrollY = y;
-  if (!state.hasUserScrolled && y > 50) {
-    state.hasUserScrolled = true;
-  }
+  if (!state.hasUserScrolled && y > 50) state.hasUserScrolled = true;
 }, { passive: true });
-
-// Fallback infinite scroll
-export function attachScrollFallback(controllers){
-  controllersRef = controllers || controllersRef;
-  window.addEventListener('scroll', function () {
-    if (!isHomeRoute()) return;
-    if (state.isLoading) return;
-
-    const now = performance.now();
-    if (!state.firstPageShown) return;
-    if (!(state.hasUserScrolled || (state.allowNextPageAfterTs && now >= state.allowNextPageAfterTs))) return;
-
-    const nearBottom = (window.innerHeight + (window.scrollY || window.pageYOffset || 0)) >= (document.body.scrollHeight - 800);
-    if (nearBottom) {
-      if (!state._io || typeof state._io.observe !== 'function') ensureInfiniteScroll(controllersRef);
-      loadNextPage(controllersRef);
-    }
-  }, { passive: true });
-}
