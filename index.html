@@ -6,8 +6,6 @@
 <title>OkObserver — Latest News</title>
 
 <link rel="icon" type="image/png" href="icon.png" />
-
-<!-- Warm up connections -->
 <link rel="preconnect" href="https://okobserver.org" crossorigin>
 <link rel="dns-prefetch" href="//okobserver.org">
 <link rel="preconnect" href="https://okobserver.files.wordpress.com" crossorigin>
@@ -29,14 +27,12 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{
     border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;
-    /* Faster: don’t render off-screen cards until needed */
-    content-visibility:auto;
-    contain-intrinsic-size:260px 320px;
+    content-visibility:auto; contain-intrinsic-size:260px 320px;
   }
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
 
-  /* PERMANENT post-title color (all link states, high specificity) */
+  /* Force post title color */
   .grid .card .title a,
   .grid .card .title a:link,
   .grid .card .title a:visited,
@@ -45,9 +41,7 @@
   .title-link:link,
   .title-link:visited,
   .title-link:active{
-    color:#1E90FF !important;
-    text-decoration:none;
-    font-weight:700;
+    color:#1E90FF !important;text-decoration:none;font-weight:700;
   }
   .grid .card .title a:hover,
   .title-link:hover{ color:#1E90FF !important; text-decoration:underline }
@@ -65,17 +59,13 @@
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
   .post .content > :is(p,div,section,article,blockquote):first-of-type{
-    text-align:left !important;
-    text-indent:0 !important;
-    margin-left:0 !important;
-    padding-left:0 !important;
+    text-align:left !important; text-indent:0 !important; margin-left:0 !important; padding-left:0 !important;
   }
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
   .error-banner .close:hover{opacity:.8}
 
-  /* Hamburger / responsive nav */
   .hamburger{display:none;appearance:none;background:transparent;border:0;padding:8px;margin-left:auto;cursor:pointer;outline:none}
   .hamburger-box{width:28px;height:20px;display:inline-block;position:relative}
   .hamburger-inner,.hamburger-inner::before,.hamburger-inner::after{width:28px;height:2px;background:#fff;position:absolute;left:0;transition:transform .2s ease,opacity .2s ease;content:"";display:block}
@@ -83,7 +73,6 @@
   .hamburger[aria-expanded="true"] .hamburger-inner{transform:rotate(45deg)}
   .hamburger[aria-expanded="true"] .hamburger-inner::before{transform:translateY(8px) rotate(90deg)}
   .hamburger[aria-expanded="true"] .hamburger-inner::after{transform:translateY(-8px) rotate(90deg);opacity:0}
-
   .nav-links{margin-left:auto;display:flex;gap:10px}
 
   @media (max-width:820px){
@@ -135,10 +124,9 @@
   </div>
 </footer>
 
-<!-- SWITCHED: load ES module entry instead of legacy app.js -->
-<script type="module" src="main.js?v=2.0.0-mod"></script>
+<!-- ✅ Only this one module script is needed -->
+<script type="module" src="main.js?v=2.1.1-router-fix"></script>
 
-<!-- Hamburger toggle -->
 <script>
 (function(){
   const btn=document.getElementById('menuToggle'), nav=document.getElementById('primaryNav');
@@ -146,11 +134,10 @@
   const setOpen=o=>{btn.setAttribute('aria-expanded',String(o));nav.dataset.state=o?'open':'closed'};
   btn.addEventListener('click',()=>setOpen(btn.getAttribute('aria-expanded')!=='true'));
   nav.addEventListener('click',e=>{if(e.target.tagName==='A')setOpen(false)});
-  window.addEventListener('hashchange',()=>setOpen(false));
+  window.addEventListener('hashchange',()=> setOpen(false));
 })();
 </script>
 
-<!-- Boot probe: shows red banner if app (modules) did not initialize -->
 <script>
 window.addEventListener('load',function(){
   setTimeout(function(){
@@ -159,7 +146,7 @@ window.addEventListener('load',function(){
       var div=document.createElement('div');
       div.className='error-banner';
       div.innerHTML='<button class="close" aria-label="Dismiss">×</button>'+
-        'App script did not execute. Check Network → main.js (200), module imports (200), hard-reload, and confirm files exist.';
+        'App script did not execute. Check Network → main.js (200), imports (200), then hard-reload.';
       host.prepend(div);
     } else {
       var v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
