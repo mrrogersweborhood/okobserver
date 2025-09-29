@@ -1,42 +1,40 @@
-// main.js — modular entry point for OkObserver
-// - Sets global version for the banner
-// - Points API to Cloudflare Worker proxy via window.OKO_API_BASE (api.js honors this)
-// - Registers Service Worker for repeat-visit speed
-// - Dynamically imports your app entry (core/router/main-app/app.js)
+// main.js — explicit entry, no fallback imports
+// Routes #/, #/about, #/post/:id and nothing else.
 
-window.APP_VERSION = "v2.1.0-proxy";
+window.APP_VERSION = "v2.1.2-nofallback";
 
-// FRONT-END API BASE → use Cloudflare Worker proxy on same origin
-// api.js will use this override if present, so we don't have to edit common.js.
+// If you’re using the Cloudflare proxy, keep this:
 window.OKO_API_BASE = `${location.origin}/api/wp/v2`;
 
-// Register Service Worker for API & image caching on repeat visits
+// Optional: Service Worker (safe to keep)
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js?v=7").catch(()=>{});
 }
 
-(async () => {
-  const candidates = [
-    "./core.js",          // modern modular bootstrap (if present)
-    "./router.js",        // alternate modular entry
-    "./main-app.js",      // another common filename
-    "./app.js"            // legacy monolith fallback (imported as module)
-  ];
+// Router
+async function router() {
+  const hash = location.hash || "#/";
+  const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
 
-  let loaded = false;
-  for (const href of candidates) {
-    try {
-      await import(href);
-      console.info("[OkObserver] Loaded entry:", href, window.APP_VERSION);
-      loaded = true;
-      break;
-    } catch (e) {
-      console.debug("[OkObserver] Entry not found or failed:", href, e?.message || e);
+  try {
+    if (m && m[1]) {
+      const { renderPost } = await import("./detail.js");
+      await renderPost(m[1]);
+      return;
     }
+    if (hash.startsWith("#/about")) {
+      const { renderAbout } = await import("./about.js");
+      await renderAbout();
+      return;
+    }
+    const { renderHome } = await import("./home.js");
+    await renderHome({});
+  } catch (e) {
+    console.error("[OkObserver] Router error:", e);
+    const host = document.getElementById("app") || document.body;
+    host.innerHTML = `<p class="center">Something went wrong. Please reload.</p>`;
   }
+}
 
-  if (!loaded) {
-    console.error("[OkObserver] No entry module could be loaded. Check filenames/paths.");
-    // The existing error banner in index.html will surface if needed.
-  }
-})();
+window.addEventListener("hashchange", router);
+window.addEventListener("load", router);
