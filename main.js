@@ -1,7 +1,7 @@
 // main.js — entry point for OkObserver modular app
 // Updated to use Cloudflare Worker proxy
 
-window.APP_VERSION = "v2.2.0-worker";
+window.APP_VERSION = "v2.2.1-worker-fix";
 console.info("OkObserver app loaded", window.APP_VERSION);
 
 // ✅ Cloudflare Worker proxy URL
