@@ -1,6 +1,6 @@
 // home.js — renders the post summary grid
 
-// ✅ Ensure state bucket exists for aborts
+// Ensure state bucket exists for aborts (safe if already set elsewhere)
 const st = (window.__OKO_ST ??= { listAbort: null });
 
 import { fetchLeanPostsPage } from "./api.js";
@@ -10,7 +10,7 @@ export async function renderHome() {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // ✅ cancel any previous request and create new AbortController
+  // Cancel any prior in-flight list fetch and create a new AbortController
   if (st.listAbort) {
     try { st.listAbort.abort(); } catch {}
   }
@@ -19,20 +19,23 @@ export async function renderHome() {
 
   app.innerHTML = `<p class="center">Loading…</p>`;
 
-  let posts;
+  let pageData;
   try {
-    posts = await fetchLeanPostsPage(1, { signal });
+    // NOTE: fetchLeanPostsPage returns an object: { posts, totalPages, fromCache }
+    pageData = await fetchLeanPostsPage(1, signal);
   } catch (e) {
     console.error("[OkObserver] Home load failed:", e);
     app.innerHTML = `<p class="center">Error loading posts.</p>`;
     return;
   }
 
-  if (!posts || !posts.length) {
+  const posts = pageData?.posts || [];
+  if (!posts.length) {
     app.innerHTML = `<p class="center">No posts found.</p>`;
     return;
   }
 
+  // Build grid and render
   app.innerHTML = "";
   const grid = document.createElement("div");
   grid.className = "grid";
@@ -40,5 +43,6 @@ export async function renderHome() {
 
   renderGridFromPosts(posts, grid);
 
-  // TODO: infinite scroll re-init would go here if you’re using it
+  // (Optional) re-init infinite scroll here if you have it modularized
+  // initInfiniteScroll({ startPage: 1, totalPages: pageData.totalPages, signal });
 }
