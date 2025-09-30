@@ -2,17 +2,5 @@ name = "okobserver-proxy"
 main = "worker.js"
 compatibility_date = "2024-09-01"
 
-# ROUTES:
-# If you have a custom domain proxied by Cloudflare (recommended), set custom_domain=true
-# and update example.com below to your hostname.
-# Example (custom domain):
-# routes = [
-#   { pattern = "example.com/api/wp/v2/*", custom_domain = true }
-# ]
-
-# If you must target the GitHub Pages hostname directly (no custom domain), leave custom_domain=false
-# and update the pattern to match your exact GH Pages URL path.
-# Example (GitHub Pages under a project path):
-routes = [
-  { pattern = "mrrogersweborhood.github.io/okobserver/api/wp/v2/*", custom_domain = false }
-]
+# Using workers.dev (no custom routes needed); wrangler will give you a URL like:
+# https://okobserver-proxy.<your-account>.workers.dev
