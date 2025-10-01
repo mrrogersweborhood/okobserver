@@ -24,10 +24,12 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{
     border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;
+    /* smoother load while images resolve */
     content-visibility:auto;
     contain-intrinsic-size: 360px;
   }
 
+  /* Summary thumbnails: fill width, no cropping, intrinsic height */
   .thumb{
     display:block;
     width:100%;
@@ -44,7 +46,7 @@
 
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
 
-  /* Title clamped to 2 lines */
+  /* Title: 2-line clamp for tidy rows; reserves height for short titles */
   .title{font-size:1.1em;margin:4px 0;color:var(--secondary);font-weight:700}
   .title,
   .title a{
@@ -56,14 +58,19 @@
     line-height:1.25em;
   }
 
+  /* Author/date: reserve a line so rows align better */
   .meta-author-date{
     font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px;
+    min-height: 1.2em;
   }
   .meta-author-date .date{color:#000;font-weight:normal}
 
-  /* Excerpt restored to full (no line clamp) */
+  /* Excerpt: FULL text (no clamp), but keep a baseline min-height for uniformity */
   .excerpt{
     font-size:.9em;color:#333;
+    line-height:1.2em;
+    min-height: calc(1.2em * 3);   /* reserve ≈3 lines so short cards don't collapse */
+    overflow:visible;               /* ensure no clipping */
   }
 
   .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
@@ -74,6 +81,7 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
 
+  /* Post detail hero: never crop */
   .post .hero{
     display:block;
     width:100%;
@@ -85,6 +93,7 @@
     border-radius:10px;
   }
 
+  /* Kill stray first-paragraph indents coming from WP */
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
     text-align: left !important;
     text-indent: 0 !important;
@@ -92,6 +101,7 @@
     padding-left: 0 !important;
   }
 
+  /* Hamburger / responsive nav */
   .hamburger { display: none; appearance: none; background: transparent; border: 0; padding: 8px; margin-left: auto; cursor: pointer; outline: none; }
   .hamburger-box { width: 28px; height: 20px; display: inline-block; position: relative; }
   .hamburger-inner, .hamburger-inner::before, .hamburger-inner::after {
@@ -125,12 +135,16 @@
 <header>
   <div class="container nav">
     <div class="brand">
-      <img id="siteLogo" src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
+      <img
+        id="siteLogo"
+        src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
         alt="The Oklahoma Observer"
-        width="260" height="60"
+        width="260"
+        height="60"
         style="display:block;height:auto;max-height:60px;width:auto;max-width:260px"
         decoding="async"
-        onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';" />
+        onerror="this.style.display='none';document.getElementById('logoFallback').style.display='block';"
+      />
       <div id="logoFallback" style="display:none;font-weight:700">The Oklahoma Observer</div>
       <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
@@ -157,7 +171,7 @@
   </div>
 </footer>
 
-<script type="module" src="main.js?v=2.2.7-excerpt-restore"></script>
+<script type="module" src="main.js?v=2.2.8-uniform-no-clamp"></script>
 
 <script>
 (function(){
