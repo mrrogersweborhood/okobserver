@@ -22,13 +22,55 @@
   .center{text-align:center}
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-  .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
+  .card{
+    border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;
+    content-visibility:auto;
+    contain-intrinsic-size: 360px;
+  }
 
-  .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
+  /* Thumbnails on summary page: fill width, no cropping, intrinsic height */
+  .thumb{
+    display:block;
+    width:100%;
+    height:auto !important;
+    max-height:none !important;
+    aspect-ratio:auto !important;
+    object-fit:contain !important;
+    object-position:center center !important;
+    background:#f0f0f0;
+    cursor:pointer;
+    border:0;
+    box-shadow:none;
+  }
+
+  .card-body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+
   .title{font-size:1.1em;margin:4px 0;color:var(--secondary);font-weight:700}
-  .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
+  .title,
+  .title a{
+    display:-webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow:hidden;
+    min-height: calc(1.25em * 2);
+    line-height:1.25em;
+  }
+
+  .meta-author-date{
+    font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px;
+    min-height: 1.2em;
+  }
   .meta-author-date .date{color:#000;font-weight:normal}
-  .excerpt{font-size:.9em;color:#333}
+
+  .excerpt{
+    font-size:.9em;color:#333;
+    display:-webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow:hidden;
+    line-height:1.2em;
+    min-height: calc(1.2em * 3);
+  }
 
   .btn{display:inline-block;padding:6px 12px;border:none;border-radius:6px;background:var(--secondary);color:#fff;text-decoration:none;cursor:pointer;font-size:.9em}
   .btn[disabled]{opacity:.6;cursor:not-allowed}
@@ -38,6 +80,7 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
 
+  /* Hero image on post detail (never cropped) */
   .post .hero{
     display:block;
     width:100%;
@@ -49,6 +92,7 @@
     border-radius:10px;
   }
 
+  /* Ensure first block has zero indent even if WP injects inline styles */
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
     text-align: left !important;
     text-indent: 0 !important;
@@ -83,21 +127,6 @@
     .nav-links a { padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.18); }
     .nav-links[data-state="closed"] { max-height: 0; opacity: 0; pointer-events: none; }
     .nav-links[data-state="open"]   { max-height: 240px; opacity: 1; pointer-events: auto; }
-  }
-
-  /* ==== Post summary thumbnail: fill width, no cropping, intrinsic height ==== */
-  .grid .card img.thumb{
-    display:block;
-    width:100%;
-    height:auto !important;              /* no fixed height */
-    max-height:none !important;          /* no cap that forces crop */
-    aspect-ratio:auto !important;        /* let image decide its own height */
-    object-fit:contain !important;       /* show entire image */
-    object-position:center center !important;
-    background:#f0f0f0;
-    cursor:pointer;
-    border:0;
-    box-shadow:none;
   }
 </style>
 </head>
@@ -141,7 +170,7 @@
   </div>
 </footer>
 
-<script type="module" src="main.js?v=2.2.4-thumbs"></script>
+<script type="module" src="main.js?v=2.2.6-indent-fix"></script>
 
 <script>
 (function(){
