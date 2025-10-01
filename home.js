@@ -1,22 +1,41 @@
-// home.js — renders the post summary grid with infinite scroll
+// home.js — post summary grid with infinite scroll + scroll restore
 
-// Shared state bucket (safe if already exists elsewhere)
 const st = (window.__OKO_ST ??= {
   listAbort: null,
   io: null,
   page: 1,
   totalPages: 1,
   loading: false,
+  homeClickSaver: null,
 });
 
 import { fetchLeanPostsPage } from "./api.js";
 import { renderGridFromPosts, appendCards } from "./shared.js";
 
+const SCROLL_KEY = "__home_scroll_y";
+
+function saveScrollBeforeNavigate(e) {
+  const a = e.target.closest && e.target.closest('a[href^="#/post/"]');
+  if (!a) return;
+  try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch {}
+}
+
+function restoreScrollIfAny() {
+  try {
+    const raw = sessionStorage.getItem(SCROLL_KEY);
+    if (!raw) return;
+    const y = Math.max(0, parseInt(raw, 10) || 0);
+    // Wait a tick so layout is ready
+    requestAnimationFrame(() => { window.scrollTo(0, y); });
+    sessionStorage.removeItem(SCROLL_KEY);
+  } catch {}
+}
+
 export async function renderHome() {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // 🔸 Reset per-visit state
+  // Reset per-visit state
   st.page = 1;
   st.totalPages = 1;
   st.loading = false;
@@ -28,6 +47,13 @@ export async function renderHome() {
 
   // Cleanup any prior observer
   if (st.io) { try { st.io.disconnect(); } catch {} st.io = null; }
+
+  // Ensure we save scroll when the user clicks into a post
+  if (st.homeClickSaver) {
+    document.removeEventListener("click", st.homeClickSaver, true);
+  }
+  st.homeClickSaver = saveScrollBeforeNavigate;
+  document.addEventListener("click", st.homeClickSaver, true);
 
   app.innerHTML = `<p class="center">Loading…</p>`;
 
@@ -57,28 +83,25 @@ export async function renderHome() {
 
   renderGridFromPosts(posts, grid);
 
-  // Add a sentinel for infinite scroll
+  // Restore prior scroll position if returning from a post
+  restoreScrollIfAny();
+
+  // Sentinel for infinite scroll
   const sentinel = document.createElement("div");
   sentinel.id = "scroll-sentinel";
   sentinel.style.height = "1px";
   sentinel.style.marginTop = "1px";
   app.appendChild(sentinel);
 
-  // IntersectionObserver callback
   const onIntersect = async (entries) => {
     const entry = entries[0];
     if (!entry || !entry.isIntersecting) return;
     if (st.loading) return;
-    if (st.page >= st.totalPages) {
-      // No more pages — stop observing
-      try { st.io?.disconnect(); } catch {}
-      return;
-    }
+    if (st.page >= st.totalPages) { try { st.io?.disconnect(); } catch {} return; }
 
     st.loading = true;
     st.page += 1;
 
-    // New AbortController just for the next page load
     if (st.listAbort) { try { st.listAbort.abort(); } catch {} }
     st.listAbort = new AbortController();
     const nextSignal = st.listAbort.signal;
@@ -90,14 +113,12 @@ export async function renderHome() {
       st.totalPages = Number(nextData?.totalPages || st.totalPages);
     } catch (e) {
       console.warn("[OkObserver] Next page load failed:", e);
-      // Roll back the page pointer so we can retry on next intersection
       st.page = Math.max(1, st.page - 1);
     } finally {
       st.loading = false;
     }
   };
 
-  // Create and start observer (rootMargin to pre-load a bit earlier)
   st.io = new IntersectionObserver(onIntersect, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
   st.io.observe(sentinel);
 }

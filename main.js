@@ -1,16 +1,10 @@
-// main.js — entry point for OkObserver modular app
-// Updated to use Cloudflare Worker proxy
+// main.js — entry point for OkObserver modular app (stable baseline)
 
-window.APP_VERSION = "v2.2.1-worker-fix";
+window.APP_VERSION = "v2.2.2-stable";
 console.info("OkObserver app loaded", window.APP_VERSION);
 
-// ✅ Cloudflare Worker proxy URL
+// ✅ Use your Cloudflare Worker proxy
 window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
-
-// Simple state
-const state = {
-  currentView: null,
-};
 
 // Router
 async function router() {
@@ -33,7 +27,6 @@ async function router() {
   }
 }
 
-// Listen for navigation
 window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", router);
 
