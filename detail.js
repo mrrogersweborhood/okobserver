@@ -1,41 +1,53 @@
 // detail.js — single post detail (bottom-only Back button, consistent dates)
-// Strong first-paragraph normalization (kills indent from inline styles, NBSPs, blockquotes)
+// Strong first-paragraph normalization (handles nested spans, NBSP/ZWSP, inline styles, leading blockquotes)
 
 import { fetchPost } from "./api.js";
 import { ordinalDate } from "./common.js";
 
-/** Returns the first *visible-text* block inside root (skips empty wrappers). */
+/** Depth-first iterator over nodes */
+function* walkNodes(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null);
+  let n = walker.currentNode;
+  while (n) {
+    yield n;
+    n = walker.nextNode();
+  }
+}
+
+/** Remove *all* leading whitespace-like chars from the first text run in the subtree */
+function stripLeadingWhitespaceDeep(root) {
+  const WS_RE = /^[\u00A0\u200B\u200C\u200D\uFEFF \t\r\n]+/; // NBSP, ZW* & spaces/tabs/newlines
+  for (const n of walkNodes(root)) {
+    if (n.nodeType === Node.TEXT_NODE && n.nodeValue) {
+      const before = n.nodeValue;
+      const after = before.replace(WS_RE, "");
+      if (after !== before) {
+        n.nodeValue = after;
+        if (after.length > 0) return; // done once we hit the first non-empty text
+        // If emptied, keep going to next text node until we finally meet real content
+      } else if (before.trim().length > 0) {
+        // first non-whitespace text encountered
+        return;
+      }
+    } else if (n.nodeType === Node.ELEMENT_NODE) {
+      // If this element is entirely empty or only whitespace, continue; otherwise keep walking
+      // No-op here; walking handles it
+    }
+  }
+}
+
+/** Best-effort: find the first *real* content block (has meaningful text somewhere inside) */
 function firstContentBlock(root) {
   if (!root) return null;
-  const candidates = root.querySelectorAll(
-    'p, div, section, article, blockquote, ul, ol, h1, h2, h3, h4, h5, h6'
-  );
+  const candidates = root.querySelectorAll('p, div, section, article, blockquote, ul, ol');
   for (const el of candidates) {
-    // Skip if it only contains images/figures or whitespace
     const text = (el.textContent || "").replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, "");
     if (text.length > 0) return el;
   }
   return null;
 }
 
-/** Strip leading spaces/NBSP/ZWSP from the first actual text node inside el. */
-function stripLeadingWhitespace(el) {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      // Find the first non-empty, visible text node
-      return node.nodeValue && node.nodeValue.trim().length
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_SKIP;
-    }
-  });
-  const textNode = walker.nextNode();
-  if (textNode) {
-    // Remove NBSP (\u00A0), ZWSP (\u200B-\u200D), BOM (\uFEFF), regular spaces/tabs
-    textNode.nodeValue = textNode.nodeValue.replace(/^[\u00A0\u200B\u200C\u200D\uFEFF \t]+/, "");
-  }
-}
-
-/** Remove inline indent/margins on el and its ancestors up to .content */
+/** Zero out left offsets (indent/margins/padding/border-left) on el and ancestors up to root */
 function zeroInlineLeftOffsets(el, root) {
   let cur = el;
   while (cur && cur !== root && cur.nodeType === 1) {
@@ -51,43 +63,50 @@ function zeroInlineLeftOffsets(el, root) {
         if (s.trim()) cur.setAttribute("style", s);
         else cur.removeAttribute("style");
       }
-      // Also force computed style overrides (highest priority inline)
       cur.style.textIndent = "0";
       cur.style.marginLeft = "0";
       cur.style.paddingLeft = "0";
-      // If a blockquote adds a left border/spacing, neutralize it (first block only)
-      if (cur.tagName === "BLOCKQUOTE") {
-        cur.style.borderLeft = "none";
-      }
+      if (cur.tagName === "BLOCKQUOTE") cur.style.borderLeft = "none";
     } catch {}
     cur = cur.parentElement;
   }
 }
 
-/** If the very first block is a blockquote, try to unwrap it gently (optional). */
+/** If the first block is a simple blockquote>P|DIV, unwrap it; else just neutralize its left offsets */
 function gentlyUnwrapLeadingBlockquote(root, first) {
   if (!first || first.tagName !== "BLOCKQUOTE") return;
-  // Only unwrap if simple structure: blockquote > single p/div with text
-  const children = Array.from(first.children || []);
-  if (children.length === 1 && /^(P|DIV)$/i.test(children[0].tagName)) {
-    const p = children[0];
-    // Move p before blockquote then remove blockquote
-    first.parentNode.insertBefore(p, first);
+  const kids = Array.from(first.children || []);
+  if (kids.length === 1 && /^(P|DIV)$/i.test(kids[0].tagName)) {
+    const inner = kids[0];
+    first.parentNode.insertBefore(inner, first);
     first.remove();
   } else {
-    // If complex, just kill its left offsets
     zeroInlineLeftOffsets(first, root);
   }
 }
 
-/** Normalize the first content block to remove any leading indent from WP */
+/** Normalize any left-pushed indent coming from WP */
 function normalizeFirstParagraph(root) {
   if (!root) return;
+  // Remove pure leading whitespace across nested spans/text nodes
+  stripLeadingWhitespaceDeep(root);
+
+  // Now find the first real block
   const first = firstContentBlock(root);
   if (!first) return;
+
+  // If it begins with a blockquote wrapper, unwrap/neutralize it
   gentlyUnwrapLeadingBlockquote(root, first);
+
+  // Remove inline left-offsets on the first block and its wrapper chain
   zeroInlineLeftOffsets(first, root);
-  stripLeadingWhitespace(first);
+
+  // Also scrub the *very first inline* inside that block for stray inline text-indent
+  const firstInline = first.querySelector("span, em, strong, a, i, b, u, small, sup, sub");
+  if (firstInline) zeroInlineLeftOffsets(firstInline, root);
+
+  // Finally, ensure the very first text run has no NBSP/ZWSP left
+  stripLeadingWhitespaceDeep(first);
 }
 
 export async function renderPost(id) {
@@ -111,7 +130,6 @@ export async function renderPost(id) {
       ? `<img class="hero" src="${heroSrc}" alt="" decoding="async" loading="eager" />`
       : "";
 
-    // Only bottom Back button (per your spec)
     container.innerHTML = `
       <article class="post">
         <h1>${post.title.rendered || "Untitled"}</h1>
@@ -127,7 +145,7 @@ export async function renderPost(id) {
       </article>
     `;
 
-    // Normalize the first visible block to remove any unwanted indentation
+    // Normalize after content render
     const contentRoot = container.querySelector(".content");
     normalizeFirstParagraph(contentRoot);
   } catch (err) {
