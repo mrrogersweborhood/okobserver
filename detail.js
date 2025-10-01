@@ -1,7 +1,8 @@
 // detail.js — single post detail
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
-// - Makes existing iframes responsive by wrapping them in .embed
-// - Converts bare YouTube/Vimeo/Facebook video links into responsive iframes
+// - Makes existing iframes responsive (.embed)
+// - Auto-embeds YouTube/Vimeo
+// - Facebook video links: **fallback to clickable thumbnail + "Watch on Facebook" button** (no embed)
 // - Shows only a bottom “Back to posts” button
 
 import { fetchPost } from "./api.js";
@@ -111,7 +112,7 @@ function normalizeFirstParagraph(root) {
 }
 
 /* =========================
-   oEmbed rescue (YouTube/Vimeo/Facebook)
+   oEmbed helpers
    ========================= */
 
 function toYouTubeId(url) {
@@ -138,23 +139,17 @@ function toVimeoId(url) {
   return null;
 }
 
-/** Detect a Facebook *video* URL; return canonical plugin src if so */
-function toFacebookVideoPluginSrc(url) {
+function isFacebookVideoUrl(url) {
   try {
     const u = new URL(url);
-    if (!u.hostname.includes("facebook.com")) return null;
-    // Accept common forms:
+    if (!u.hostname.includes("facebook.com")) return false;
+    // Common forms:
     // https://www.facebook.com/{page}/videos/{id}
     // https://www.facebook.com/watch/?v={id}
-    const isWatch = u.pathname.startsWith("/watch") && u.searchParams.get("v");
-    const looksLikeVideos = /\/videos\/\d+/.test(u.pathname);
-    if (!isWatch && !looksLikeVideos) return null;
-
-    const href = encodeURIComponent(url);
-    // Build plugin URL; show_text=false yields just the player
-    return `https://www.facebook.com/plugins/video.php?href=${href}&show_text=false&width=800`;
+    if (u.pathname.startsWith("/watch") && u.searchParams.get("v")) return true;
+    if (/\/videos\/\d+/.test(u.pathname)) return true;
   } catch {}
-  return null;
+  return false;
 }
 
 function buildIframeWrap(src, ratio = "16x9") {
@@ -164,7 +159,32 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
-/** Make existing iframes responsive; convert bare links to embeds */
+function buildFacebookLinkCard(url, existingImgEl) {
+  // Build a simple card: optional thumbnail image + "Watch on Facebook" button
+  const card = document.createElement("div");
+  card.className = "fb-link-card";
+  card.style.margin = "16px 0";
+  card.style.textAlign = "center";
+
+  let imgHtml = "";
+  if (existingImgEl && existingImgEl.src) {
+    // Use provided image (from <a><img/></a>)—already optimized by site
+    const src = existingImgEl.getAttribute("src");
+    const alt = existingImgEl.getAttribute("alt") || "";
+    imgHtml = `<img src="${src}" alt="${alt}" style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto 10px;" loading="lazy" decoding="async" />`;
+  }
+
+  // Button styled to match site color
+  card.innerHTML = `
+    ${imgHtml}
+    <a class="btn" href="${url}" target="_blank" rel="noopener">
+      Watch on Facebook
+    </a>
+  `;
+  return card;
+}
+
+/** Make existing iframes responsive; convert bare links to embeds; Facebook → link card */
 function enhanceEmbeds(root) {
   if (!root) return;
 
@@ -192,9 +212,10 @@ function enhanceEmbeds(root) {
     // Prefer WP data attribute
     let url = el.getAttribute && el.getAttribute("data-oembed-url");
     // Else anchor href
+    let anchorEl = null;
     if (!url) {
-      const a = el.querySelector && el.querySelector("a[href]");
-      if (a && a.getAttribute) url = a.getAttribute("href") || "";
+      anchorEl = el.querySelector && el.querySelector("a[href]");
+      if (anchorEl && anchorEl.getAttribute) url = anchorEl.getAttribute("href") || "";
     }
     // Else element text that looks like a URL
     if (!url) {
@@ -203,50 +224,61 @@ function enhanceEmbeds(root) {
     }
     if (!url) return;
 
-    let src = null;
+    // Facebook policy: DO NOT embed; use link card fallback
+    if (isFacebookVideoUrl(url)) {
+      // Try to find a thumbnail if the anchor wraps an <img>
+      const img = anchorEl && anchorEl.querySelector && anchorEl.querySelector("img");
+      const card = buildFacebookLinkCard(url, img || null);
+      el.replaceWith(card);
+      return;
+    }
+
+    // YouTube
     const yt = toYouTubeId(url);
-    if (yt) src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`;
-
-    if (!src) {
-      const vm = toVimeoId(url);
-      if (vm) src = `https://player.vimeo.com/video/${vm}`;
+    if (yt) {
+      el.replaceWith(buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`));
+      return;
     }
 
-    if (!src) {
-      const fb = toFacebookVideoPluginSrc(url);
-      if (fb) src = fb;
-    }
-
-    if (src) {
-      el.replaceWith(buildIframeWrap(src));
+    // Vimeo
+    const vm = toVimeoId(url);
+    if (vm) {
+      el.replaceWith(buildIframeWrap(`https://player.vimeo.com/video/${vm}`));
+      return;
     }
   });
 
-  // 2) Any leftover standalone anchors → try convert to embeds (covers image-wrapped links)
+  // 2) Any leftover standalone anchors → try convert to embeds or FB link card
   root.querySelectorAll("a[href]").forEach((a) => {
-    if (a.closest(".embed")) return; // already inside an embed
+    if (a.closest(".embed") || a.closest(".fb-link-card")) return; // already handled
     const url = a.getAttribute("href") || "";
     if (!url) return;
 
-    let src = null;
+    // Facebook → link card (use surrounding container if possible)
+    if (isFacebookVideoUrl(url)) {
+      const img = a.querySelector && a.querySelector("img");
+      const card = buildFacebookLinkCard(url, img || null);
+      const container = a.closest("figure, p, div") || a;
+      container.replaceWith(card);
+      return;
+    }
+
+    // YouTube
     const yt = toYouTubeId(url);
-    if (yt) src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`;
-
-    if (!src) {
-      const vm = toVimeoId(url);
-      if (vm) src = `https://player.vimeo.com/video/${vm}`;
-    }
-
-    if (!src) {
-      const fb = toFacebookVideoPluginSrc(url);
-      if (fb) src = fb;
-    }
-
-    if (src) {
-      const wrap = buildIframeWrap(src);
-      // Replace a logical container if possible
+    if (yt) {
+      const wrap = buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`);
       const container = a.closest("figure, p, div") || a;
       container.replaceWith(wrap);
+      return;
+    }
+
+    // Vimeo
+    const vm = toVimeoId(url);
+    if (vm) {
+      const wrap = buildIframeWrap(`https://player.vimeo.com/video/${vm}`);
+      const container = a.closest("figure, p, div") || a;
+      container.replaceWith(wrap);
+      return;
     }
   });
 }
@@ -296,7 +328,7 @@ export async function renderPost(id) {
     // 1) Remove unwanted first-paragraph indentation
     normalizeFirstParagraph(contentRoot);
 
-    // 2) Wrap existing iframes and convert bare links → responsive embeds
+    // 2) Wrap existing iframes and convert bare links. Facebook → link card.
     enhanceEmbeds(contentRoot);
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
