@@ -2,8 +2,8 @@
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
 // - Makes existing iframes responsive (.embed)
 // - Auto-embeds YouTube/Vimeo
-// - Facebook video links: **fallback to clickable thumbnail + "Watch on Facebook" button** (no embed)
-// - Shows only a bottom “Back to posts” button
+// - Facebook video links: **show a clickable preview image that opens Facebook in a new tab** (no button)
+// - Bottom-only “Back to posts” button
 
 import { fetchPost } from "./api.js";
 import { ordinalDate } from "./common.js";
@@ -159,32 +159,46 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
-function buildFacebookLinkCard(url, existingImgEl) {
-  // Build a simple card: optional thumbnail image + "Watch on Facebook" button
-  const card = document.createElement("div");
-  card.className = "fb-link-card";
-  card.style.margin = "16px 0";
-  card.style.textAlign = "center";
+/** Create a *clickable image* linking to Facebook — no button, no plugin */
+function buildFacebookClickableImage(url, existingImgEl) {
+  const wrap = document.createElement("div");
+  wrap.className = "fb-link-card";
+  wrap.style.margin = "16px 0";
+  wrap.style.textAlign = "center";
 
-  let imgHtml = "";
+  // Use provided image if available
   if (existingImgEl && existingImgEl.src) {
-    // Use provided image (from <a><img/></a>)—already optimized by site
-    const src = existingImgEl.getAttribute("src");
-    const alt = existingImgEl.getAttribute("alt") || "";
-    imgHtml = `<img src="${src}" alt="${alt}" style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto 10px;" loading="lazy" decoding="async" />`;
+    const img = document.createElement("img");
+    img.src = existingImgEl.getAttribute("src");
+    img.alt = existingImgEl.getAttribute("alt") || "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.style.maxWidth = "100%";
+    img.style.height = "auto";
+    img.style.borderRadius = "8px";
+    img.style.display = "block";
+    img.style.margin = "0 auto";
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.appendChild(img);
+    wrap.appendChild(a);
+  } else {
+    // Fallback: simple text link (no button)
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = "Watch on Facebook";
+    wrap.appendChild(a);
   }
 
-  // Button styled to match site color
-  card.innerHTML = `
-    ${imgHtml}
-    <a class="btn" href="${url}" target="_blank" rel="noopener">
-      Watch on Facebook
-    </a>
-  `;
-  return card;
+  return wrap;
 }
 
-/** Make existing iframes responsive; convert bare links to embeds; Facebook → link card */
+/** Make existing iframes responsive; convert bare links to embeds; Facebook → clickable image link */
 function enhanceEmbeds(root) {
   if (!root) return;
 
@@ -224,11 +238,10 @@ function enhanceEmbeds(root) {
     }
     if (!url) return;
 
-    // Facebook policy: DO NOT embed; use link card fallback
+    // Facebook policy: DO NOT embed; use clickable preview image
     if (isFacebookVideoUrl(url)) {
-      // Try to find a thumbnail if the anchor wraps an <img>
       const img = anchorEl && anchorEl.querySelector && anchorEl.querySelector("img");
-      const card = buildFacebookLinkCard(url, img || null);
+      const card = buildFacebookClickableImage(url, img || null);
       el.replaceWith(card);
       return;
     }
@@ -248,16 +261,16 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // 2) Any leftover standalone anchors → try convert to embeds or FB link card
+  // 2) Any leftover standalone anchors → try convert to embeds or FB clickable image
   root.querySelectorAll("a[href]").forEach((a) => {
     if (a.closest(".embed") || a.closest(".fb-link-card")) return; // already handled
     const url = a.getAttribute("href") || "";
     if (!url) return;
 
-    // Facebook → link card (use surrounding container if possible)
+    // Facebook → clickable image (keep existing <img> if present)
     if (isFacebookVideoUrl(url)) {
       const img = a.querySelector && a.querySelector("img");
-      const card = buildFacebookLinkCard(url, img || null);
+      const card = buildFacebookClickableImage(url, img || null);
       const container = a.closest("figure, p, div") || a;
       container.replaceWith(card);
       return;
@@ -328,7 +341,7 @@ export async function renderPost(id) {
     // 1) Remove unwanted first-paragraph indentation
     normalizeFirstParagraph(contentRoot);
 
-    // 2) Wrap existing iframes and convert bare links. Facebook → link card.
+    // 2) Wrap existing iframes and convert links. Facebook → clickable image.
     enhanceEmbeds(contentRoot);
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
