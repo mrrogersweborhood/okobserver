@@ -1,6 +1,7 @@
 // detail.js — single post detail
-// - Normalizes first paragraph (kills unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
-// - Restores missing video embeds by converting bare URLs to responsive iframes (YouTube/Vimeo)
+// - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
+// - Makes existing iframes responsive by wrapping them in .embed
+// - Converts bare YouTube/Vimeo/Facebook video links into responsive iframes
 // - Shows only a bottom “Back to posts” button
 
 import { fetchPost } from "./api.js";
@@ -110,7 +111,7 @@ function normalizeFirstParagraph(root) {
 }
 
 /* =========================
-   oEmbed rescue (YouTube/Vimeo)
+   oEmbed rescue (YouTube/Vimeo/Facebook)
    ========================= */
 
 function toYouTubeId(url) {
@@ -137,27 +138,37 @@ function toVimeoId(url) {
   return null;
 }
 
-function buildYouTubeIframe(id) {
-  const src = `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
+/** Detect a Facebook *video* URL; return canonical plugin src if so */
+function toFacebookVideoPluginSrc(url) {
+  try {
+    const u = new URL(url);
+    if (!u.hostname.includes("facebook.com")) return null;
+    // Accept common forms:
+    // https://www.facebook.com/{page}/videos/{id}
+    // https://www.facebook.com/watch/?v={id}
+    const isWatch = u.pathname.startsWith("/watch") && u.searchParams.get("v");
+    const looksLikeVideos = /\/videos\/\d+/.test(u.pathname);
+    if (!isWatch && !looksLikeVideos) return null;
+
+    const href = encodeURIComponent(url);
+    // Build plugin URL; show_text=false yields just the player
+    return `https://www.facebook.com/plugins/video.php?href=${href}&show_text=false&width=800`;
+  } catch {}
+  return null;
+}
+
+function buildIframeWrap(src, ratio = "16x9") {
   const wrap = document.createElement("div");
-  wrap.className = "embed embed-16x9";
-  wrap.innerHTML = `<iframe src="${src}" loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
+  wrap.className = `embed embed-${ratio}`;
+  wrap.innerHTML = `<iframe src="${src}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
   return wrap;
 }
 
-function buildVimeoIframe(id) {
-  const src = `https://player.vimeo.com/video/${id}`;
-  const wrap = document.createElement("div");
-  wrap.className = "embed embed-16x9";
-  wrap.innerHTML = `<iframe src="${src}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
-  return wrap;
-}
-
-/** Convert bare WP embed wrappers (URL only) into real iframes. Keep existing iframes responsive. */
+/** Make existing iframes responsive; convert bare links to embeds */
 function enhanceEmbeds(root) {
   if (!root) return;
 
-  // Make existing iframes responsive
+  // 0) Make existing iframes responsive (wrap in .embed if not already)
   root.querySelectorAll("iframe").forEach((f) => {
     const parent = f.parentElement;
     if (!parent || !parent.classList.contains("embed")) {
@@ -171,25 +182,72 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // Handle WP wrappers or plain <p> with a bare URL
-  const candidates = root.querySelectorAll("figure.wp-block-embed, .wp-block-embed__wrapper, p");
-  candidates.forEach((el) => {
-    if (el.querySelector && el.querySelector("iframe")) return; // already handled
+  // 1) Handle WP wrappers or nodes that might only contain a URL
+  const wrappers = root.querySelectorAll(
+    "figure.wp-block-embed, .wp-block-embed__wrapper, div.wp-video, p, div"
+  );
+  wrappers.forEach((el) => {
+    if (el.querySelector && el.querySelector("iframe")) return; // already handled above
 
-    let url = "";
-    const a = el.querySelector && el.querySelector("a[href]");
-    if (a && a.getAttribute) url = a.getAttribute("href") || "";
+    // Prefer WP data attribute
+    let url = el.getAttribute && el.getAttribute("data-oembed-url");
+    // Else anchor href
+    if (!url) {
+      const a = el.querySelector && el.querySelector("a[href]");
+      if (a && a.getAttribute) url = a.getAttribute("href") || "";
+    }
+    // Else element text that looks like a URL
     if (!url) {
       const t = (el.textContent || "").trim();
       if (/^https?:\/\//i.test(t)) url = t;
     }
     if (!url) return;
 
+    let src = null;
     const yt = toYouTubeId(url);
-    if (yt) { el.replaceWith(buildYouTubeIframe(yt)); return; }
+    if (yt) src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`;
 
-    const vm = toVimeoId(url);
-    if (vm) { el.replaceWith(buildVimeoIframe(vm)); return; }
+    if (!src) {
+      const vm = toVimeoId(url);
+      if (vm) src = `https://player.vimeo.com/video/${vm}`;
+    }
+
+    if (!src) {
+      const fb = toFacebookVideoPluginSrc(url);
+      if (fb) src = fb;
+    }
+
+    if (src) {
+      el.replaceWith(buildIframeWrap(src));
+    }
+  });
+
+  // 2) Any leftover standalone anchors → try convert to embeds (covers image-wrapped links)
+  root.querySelectorAll("a[href]").forEach((a) => {
+    if (a.closest(".embed")) return; // already inside an embed
+    const url = a.getAttribute("href") || "";
+    if (!url) return;
+
+    let src = null;
+    const yt = toYouTubeId(url);
+    if (yt) src = `https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`;
+
+    if (!src) {
+      const vm = toVimeoId(url);
+      if (vm) src = `https://player.vimeo.com/video/${vm}`;
+    }
+
+    if (!src) {
+      const fb = toFacebookVideoPluginSrc(url);
+      if (fb) src = fb;
+    }
+
+    if (src) {
+      const wrap = buildIframeWrap(src);
+      // Replace a logical container if possible
+      const container = a.closest("figure, p, div") || a;
+      container.replaceWith(wrap);
+    }
   });
 }
 
@@ -235,10 +293,10 @@ export async function renderPost(id) {
 
     const contentRoot = container.querySelector(".content");
 
-    // Remove unwanted first-paragraph indentation
+    // 1) Remove unwanted first-paragraph indentation
     normalizeFirstParagraph(contentRoot);
 
-    // Restore embeds where WP provided only a URL wrapper
+    // 2) Wrap existing iframes and convert bare links → responsive embeds
     enhanceEmbeds(contentRoot);
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
