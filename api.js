@@ -44,6 +44,7 @@ async function ensureCartoonCategoryId(signal) {
   return id;
 }
 
+// ⬇️ IMPORTANT: no _fields here, so WordPress returns full `_embedded` (author + featured media)
 function buildPostsURL(page, cartoonId) {
   const u = new URL(`${BASE}/posts`);
   u.searchParams.set("status", "publish");
@@ -52,20 +53,6 @@ function buildPostsURL(page, cartoonId) {
   u.searchParams.set("_embed", "1");
   u.searchParams.set("orderby", "date");
   u.searchParams.set("order", "desc");
-  // ✅ Include the entire _embedded block so author + featured media are present
-  u.searchParams.set(
-    "_fields",
-    [
-      "_embedded",            // << keep the full embed object
-      "id",
-      "date",
-      "title.rendered",
-      "excerpt.rendered",
-      "author",
-      "featured_media",
-      "categories"
-    ].join(",")
-  );
   if (typeof cartoonId === "number") {
     u.searchParams.set("categories_exclude", String(cartoonId));
   }
@@ -74,6 +61,7 @@ function buildPostsURL(page, cartoonId) {
   return u.toString();
 }
 
+/** Client-side safety filter: remove posts that have term slug "cartoon". */
 function filterOutCartoonsClient(posts) {
   return posts.filter(p => {
     try {
@@ -88,23 +76,28 @@ function filterOutCartoonsClient(posts) {
   });
 }
 
+/** Fetch a page of posts (lightweight) with robust cartoon exclusion. */
 export async function fetchLeanPostsPage(page = 1, signal) {
   const cartoonId = await ensureCartoonCategoryId(signal);
   const url = buildPostsURL(page, cartoonId);
   const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`API Error ${res.status}`);
+
   const totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
   let posts = await res.json();
   if (!Array.isArray(posts)) posts = [];
+
+  // Safety: even if server-side exclude applied, still run client filter
   const filtered = filterOutCartoonsClient(posts);
+
   return { posts: filtered, totalPages, fromCache: false };
 }
 
+/** Fetch a single post with embed data (keep full embed as well). */
 export async function fetchPost(id, signal) {
   const u = new URL(`${BASE}/posts/${id}`);
   u.searchParams.set("_embed", "1");
-  // full embed for detail too
-  u.searchParams.set("_fields", ["_embedded","id","date","title.rendered","content.rendered","author","featured_media","categories"].join(","));
+  // no _fields — ensure full `_embedded` for detail, too
   const res = await fetch(u.toString(), { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`API Error ${res.status}`);
   return res.json();
