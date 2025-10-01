@@ -24,19 +24,6 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
 
-  /* --- Thumbnail images on summary page (never cropped) --- */
-  .thumb{
-    display:block;
-    width:100%;
-    height:auto !important;
-    max-height:240px;
-    aspect-ratio:16/9;
-    object-fit:contain !important;
-    object-position:center center !important;
-    background:#f0f0f0;
-    cursor:pointer;
-  }
-
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
   .title{font-size:1.1em;margin:4px 0;color:var(--secondary);font-weight:700}
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
@@ -51,7 +38,6 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
 
-  /* --- Hero image on post detail (never cropped) --- */
   .post .hero{
     display:block;
     width:100%;
@@ -98,6 +84,21 @@
     .nav-links[data-state="closed"] { max-height: 0; opacity: 0; pointer-events: none; }
     .nav-links[data-state="open"]   { max-height: 240px; opacity: 1; pointer-events: auto; }
   }
+
+  /* ==== Post summary thumbnail: fill width, no cropping, intrinsic height ==== */
+  .grid .card img.thumb{
+    display:block;
+    width:100%;
+    height:auto !important;              /* no fixed height */
+    max-height:none !important;          /* no cap that forces crop */
+    aspect-ratio:auto !important;        /* let image decide its own height */
+    object-fit:contain !important;       /* show entire image */
+    object-position:center center !important;
+    background:#f0f0f0;
+    cursor:pointer;
+    border:0;
+    box-shadow:none;
+  }
 </style>
 </head>
 <body>
@@ -140,7 +141,7 @@
   </div>
 </footer>
 
-<script type="module" src="main.js?v=2.2.3-images"></script>
+<script type="module" src="main.js?v=2.2.4-thumbs"></script>
 
 <script>
 (function(){
