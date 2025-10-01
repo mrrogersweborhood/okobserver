@@ -30,8 +30,8 @@ function pickFeaturedSrc(post) {
   }
 }
 
-// Render a single card element for a post
-function renderCard(post) {
+// 🔹 Exported: make a single card element (so other modules can append without clearing)
+export function renderCard(post) {
   const id = post?.id;
   const href = id ? `#/post/${id}` : "#/";
   const title = decodeEntities(post?.title?.rendered || "Untitled");
@@ -88,12 +88,20 @@ function renderCard(post) {
   return card;
 }
 
-// 🔹 Exported: renders the list of posts into a container
+// 🔹 Exported: clear container then render all posts
 export function renderGridFromPosts(posts, container) {
   if (!Array.isArray(posts) || !container) return;
   // Clear container first
   while (container.firstChild) container.removeChild(container.firstChild);
   // Render cards
+  for (const post of posts) {
+    container.appendChild(renderCard(post));
+  }
+}
+
+// 🔹 Exported: append posts without clearing (used for infinite scroll)
+export function appendCards(posts, container) {
+  if (!Array.isArray(posts) || !container) return;
   for (const post of posts) {
     container.appendChild(renderCard(post));
   }
