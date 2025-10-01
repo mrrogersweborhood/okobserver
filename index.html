@@ -24,37 +24,21 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
 
-  /* Thumbnails (post summary images) — never crop */
+  /* --- Thumbnail images on summary page (never cropped) --- */
   .thumb{
     display:block;
     width:100%;
-    aspect-ratio:16/9;
-    height:auto;
+    height:auto !important;
     max-height:240px;
-    object-fit:contain;
-    object-position:center center;
+    aspect-ratio:16/9;
+    object-fit:contain !important;
+    object-position:center center !important;
     background:#f0f0f0;
     cursor:pointer;
   }
 
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-
-  /* Force post title link color/weight */
-  .grid .card .title a,
-  .grid .card .title a:link,
-  .grid .card .title a:visited,
-  .grid .card .title a:active,
-  .title-link,
-  .title-link:link,
-  .title-link:visited,
-  .title-link:active{
-    color:#1E90FF !important;
-    text-decoration:none !important;
-    font-weight:700 !important;
-  }
-  .grid .card .title a:hover,
-  .title-link:hover{ color:#1E90FF !important; text-decoration:underline !important }
-
+  .title{font-size:1.1em;margin:4px 0;color:var(--secondary);font-weight:700}
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
@@ -67,14 +51,14 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
 
-  /* Hero image (post detail) — never crop */
+  /* --- Hero image on post detail (never cropped) --- */
   .post .hero{
     display:block;
     width:100%;
-    height:auto;
+    height:auto !important;
     max-height:70vh;
-    object-fit:contain;
-    object-position:center center;
+    object-fit:contain !important;
+    object-position:center center !important;
     margin:16px 0;
     border-radius:10px;
   }
@@ -134,12 +118,10 @@
       <div style="font-size:0.9em;margin-top:6px;">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
 
-    <!-- Hamburger button -->
     <button id="menuToggle" class="hamburger" aria-label="Open menu" aria-controls="primaryNav" aria-expanded="false">
       <span class="hamburger-box"><span class="hamburger-inner"></span></span>
     </button>
 
-    <!-- Primary nav -->
     <nav id="primaryNav" class="nav-links" data-state="closed">
       <a href="#/" id="nav-home">Home</a>
       <a href="#/about" id="nav-about">About</a>
@@ -158,10 +140,8 @@
   </div>
 </footer>
 
-<!-- App entry point (ES module) -->
-<script type="module" src="main.js?v=2.2.2-stable"></script>
+<script type="module" src="main.js?v=2.2.3-images"></script>
 
-<!-- Hamburger toggle -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
