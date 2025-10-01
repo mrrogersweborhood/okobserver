@@ -52,25 +52,24 @@ function buildPostsURL(page, cartoonId) {
   u.searchParams.set("_embed", "1");
   u.searchParams.set("orderby", "date");
   u.searchParams.set("order", "desc");
+  // ✅ Include the entire _embedded block so author + featured media are present
   u.searchParams.set(
     "_fields",
     [
+      "_embedded",            // << keep the full embed object
       "id",
       "date",
       "title.rendered",
       "excerpt.rendered",
       "author",
       "featured_media",
-      "categories",
-      "_embedded.author.name",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes",
-      "_embedded.wp:term"
+      "categories"
     ].join(",")
   );
   if (typeof cartoonId === "number") {
     u.searchParams.set("categories_exclude", String(cartoonId));
   }
+  // small cache buster for page-1 freshness
   u.searchParams.set("__fresh", (Math.random() * 1000).toFixed(3));
   return u.toString();
 }
@@ -104,6 +103,8 @@ export async function fetchLeanPostsPage(page = 1, signal) {
 export async function fetchPost(id, signal) {
   const u = new URL(`${BASE}/posts/${id}`);
   u.searchParams.set("_embed", "1");
+  // full embed for detail too
+  u.searchParams.set("_fields", ["_embedded","id","date","title.rendered","content.rendered","author","featured_media","categories"].join(","));
   const res = await fetch(u.toString(), { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`API Error ${res.status}`);
   return res.json();

@@ -18,7 +18,7 @@ function pickFeaturedSrc(post) {
     const m = post?._embedded?.["wp:featuredmedia"]?.[0];
     if (!m) return "";
     const sizes = m.media_details?.sizes || {};
-    const order = ["large", "medium_large", "medium", "thumbnail", "1536x1536", "2048x2048"];
+    const order = ["large", "medium_large", "medium", "thumbnail", "1536x1536", "2048x2048", "full"];
     const best = order.map(k => sizes[k]).find(s => s?.source_url) || null;
     return (best?.source_url || m.source_url || "").trim();
   } catch { return ""; }
@@ -28,7 +28,10 @@ export function renderCard(post) {
   const id = post?.id;
   const href = id ? `#/post/${id}` : "#/";
   const title = decodeEntities(post?.title?.rendered || "Untitled");
-  const author = post?._embedded?.author?.[0]?.name || "";
+  const author =
+    post?._embedded?.author?.[0]?.name ||
+    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
+    "";
   const date = new Date(post?.date || Date.now());
   const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   const thumb = pickFeaturedSrc(post);
@@ -61,12 +64,14 @@ export function renderCard(post) {
 
   const meta = document.createElement("div");
   meta.className = "meta-author-date";
-  const authorSpan = document.createElement("span");
-  authorSpan.textContent = author || "";
+  if (author) {
+    const authorSpan = document.createElement("span");
+    authorSpan.textContent = author;
+    meta.appendChild(authorSpan);
+  }
   const dateSpan = document.createElement("span");
   dateSpan.className = "date";
   dateSpan.textContent = dateStr;
-  meta.appendChild(authorSpan);
   meta.appendChild(dateSpan);
 
   const p = document.createElement("p");
