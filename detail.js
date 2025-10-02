@@ -1,8 +1,10 @@
 // detail.js — single post detail
-// Ensures there is at most ONE video player:
-//  - If content already has an embed (iframe/video or fb-link-card), DO NOT add a hero fallback.
-//  - Otherwise, if a Facebook video URL exists, wrap the HERO image as a clickable link to open in a new tab.
-// Also: normalize first paragraph, responsive embeds for YT/Vimeo, bottom-only “Back to posts”.
+// Ensures at most ONE player per video (dedupe by YouTube/Vimeo ID).
+// Logic:
+//  - If content already has an embed (iframe/video/fb-card), we DO NOT add a hero fallback.
+//  - While converting anchors (YT/Vimeo), skip duplicates by ID; remove duplicate anchors.
+//  - Facebook video: use clickable hero image only when no embed is present.
+// Also: de-indent first paragraph, responsive embeds for YT/Vimeo, bottom-only “Back to posts”.
 
 import { fetchPost } from "./api.js";
 import { ordinalDate } from "./common.js";
@@ -167,7 +169,6 @@ function buildFacebookClickableImage(url, src) {
 /** Extract first FB video URL from RAW HTML (before DOM tweaks) */
 function findFacebookUrlFromHtml(html) {
   if (!html) return "";
-  // Match either /watch?v=ID or /videos/ID patterns
   const re = /https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=\d+|[^"'\s]+\/videos\/\d+)/i;
   const m = html.match(re);
   return m ? m[0] : "";
@@ -192,7 +193,7 @@ function findFirstFacebookVideoUrlInDom(root) {
   return fbUrl;
 }
 
-/** Remove leftover FB anchors so only image/embed remains visible */
+/** Remove leftover FB anchors so only image/embed remains */
 function removeResidualFacebookAnchors(root) {
   root.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href") || "";
@@ -205,10 +206,40 @@ function removeResidualFacebookAnchors(root) {
 }
 
 /* =========================
+   Dedup helpers for YT/Vimeo
+   ========================= */
+function videoKeyFromUrl(url) {
+  const yt = toYouTubeId(url);
+  if (yt) return `yt:${yt}`;
+  const vm = toVimeoId(url);
+  if (vm) return `vm:${vm}`;
+  return "";
+}
+function videoKeyFromIframeSrc(src) {
+  try {
+    const u = new URL(src, location.href);
+    if (u.hostname.includes("youtube.com") && u.pathname.startsWith("/embed/")) {
+      return `yt:${u.pathname.split("/")[2]}`;
+    }
+    if (u.hostname.includes("player.vimeo.com") && u.pathname.startsWith("/video/")) {
+      return `vm:${u.pathname.split("/")[2]}`;
+    }
+  } catch {}
+  return "";
+}
+
+/* =========================
    Embed conversion (YT/Vimeo only; FB handled via image link)
    ========================= */
 function enhanceEmbeds(root) {
   if (!root) return;
+
+  // Build a set of already-embedded video keys from existing iframes
+  const existing = new Set();
+  root.querySelectorAll("iframe").forEach((f) => {
+    const key = videoKeyFromIframeSrc(f.getAttribute("src") || "");
+    if (key) existing.add(key);
+  });
 
   // Wrap existing iframes responsively
   root.querySelectorAll("iframe").forEach((f) => {
@@ -224,25 +255,39 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // Convert standalone anchors for YT/Vimeo (Facebook is NOT auto-embedded)
+  // Convert standalone anchors for YT/Vimeo; skip if duplicate video key already present
   root.querySelectorAll("a[href]").forEach((a) => {
     const url = a.getAttribute("href") || "";
     if (!url) return;
     if (a.closest(".embed") || a.closest(".fb-link-card")) return;
 
-    const yt = toYouTubeId(url);
-    if (yt) {
-      const wrap = buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`);
-      a.replaceWith(wrap);
-      return;
+    const key = videoKeyFromUrl(url);
+
+    // YouTube/Vimeo anchors:
+    if (key.startsWith("yt:") || key.startsWith("vm:")) {
+      if (existing.has(key)) {
+        // Duplicate of an already-embedded player → remove the anchor
+        a.replaceWith(document.createTextNode(""));
+        return;
+      }
+      // Not a duplicate → embed and record
+      if (key.startsWith("yt:")) {
+        const yt = key.slice(3);
+        const wrap = buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`);
+        a.replaceWith(wrap);
+        existing.add(key);
+        return;
+      }
+      if (key.startsWith("vm:")) {
+        const vm = key.slice(3);
+        const wrap = buildIframeWrap(`https://player.vimeo.com/video/${vm}`);
+        a.replaceWith(wrap);
+        existing.add(key);
+        return;
+      }
     }
 
-    const vm = toVimeoId(url);
-    if (vm) {
-      const wrap = buildIframeWrap(`https://player.vimeo.com/video/${vm}`);
-      a.replaceWith(wrap);
-      return;
-    }
+    // Facebook anchors are handled elsewhere via image-link fallback; do nothing here.
   });
 }
 
@@ -292,7 +337,7 @@ export async function renderPost(id) {
 
     const contentRoot = container.querySelector(".content");
 
-    // Normalize first paragraph & enable YT/Vimeo responsive embeds
+    // Normalize first paragraph & enable YT/Vimeo responsive embeds (with dedupe)
     normalizeFirstParagraph(contentRoot);
     enhanceEmbeds(contentRoot);
 
