@@ -1,21 +1,24 @@
-// main.js — entry router
-import { renderHome, saveHomeSnapshot } from "./home.js";
-
-// Expose version for the footer probe (match index.html version query)
+// main.js — entry router (robust)
+// If this file runs, footer probe will see APP_VERSION and the red banner won't appear.
 window.APP_VERSION = "v2.2.4";
+
+function isHome(hash) {
+  return hash === "" || hash === "#" || hash === "#/";
+}
 
 async function renderPostDetail(id) {
   const { renderPost } = await import("./detail.js");
-  renderPost(id);
+  return renderPost(id);
 }
 
 async function renderAbout() {
   const { renderAbout } = await import("./about.js");
-  renderAbout();
+  return renderAbout();
 }
 
-function isHome(hash) {
-  return hash === "" || hash === "#" || hash === "#/";
+async function renderHome() {
+  const mod = await import("./home.js");
+  return mod.renderHome();
 }
 
 async function router() {
@@ -26,11 +29,14 @@ async function router() {
     return;
   }
 
-  // If leaving Home, snapshot in case navigation didn't go through an <a> click
-  const app = document.getElementById("app");
-  if (app && app.querySelector(".grid")) {
-    saveHomeSnapshot();
-  }
+  // If leaving Home, snapshot (safe even if not on Home)
+  try {
+    const app = document.getElementById("app");
+    if (app && app.querySelector(".grid")) {
+      const { saveHomeSnapshot } = await import("./home.js");
+      saveHomeSnapshot();
+    }
+  } catch {}
 
   const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
   if (m && m[1]) {
@@ -42,5 +48,5 @@ async function router() {
   }
 }
 
-window.addEventListener("hashchange", router);
-window.addEventListener("load", router);
+window.addEventListener("hashchange", () => { router().catch(console.error); });
+window.addEventListener("load",        () => { router().catch(console.error); });
