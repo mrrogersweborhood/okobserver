@@ -2,8 +2,8 @@
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
 // - Makes existing iframes responsive (.embed)
 // - Auto-embeds YouTube/Vimeo
-// - Facebook video links: show ONLY a clickable preview image that opens FB in a new tab (no URL/text shown)
-// - Removes leftover FB anchors like “Click here to watch.”
+// - Facebook videos: prefer image preview; if no inline image, wrap the HERO featured image as the clickable opener to FB (new tab)
+// - Removes leftover FB URL anchors/text (no "watch on facebook" text/button shown)
 // - Bottom-only “Back to posts” button
 
 import { fetchPost } from "./api.js";
@@ -94,7 +94,7 @@ function normalizeFirstParagraph(root) {
 }
 
 /* =========================
-   oEmbed helpers
+   Video helpers
    ========================= */
 
 function toYouTubeId(url) {
@@ -138,17 +138,27 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
-/** Build a clickable preview image that opens FB in a new tab (no text shown) */
-function buildFacebookClickableImage(url, existingImgEl) {
+/** Create a clickable preview image that opens FB in a new tab (no text shown) */
+function buildFacebookClickableImage(url, existingImgElOrSrc) {
   const wrap = document.createElement("div");
   wrap.className = "fb-link-card";
   wrap.style.margin = "16px 0";
   wrap.style.textAlign = "center";
 
-  if (existingImgEl && existingImgEl.src) {
+  // Accept <img> element OR a URL string
+  let src = "";
+  let alt = "";
+  if (typeof existingImgElOrSrc === "string") {
+    src = existingImgElOrSrc;
+  } else if (existingImgElOrSrc && existingImgElOrSrc.src) {
+    src = existingImgElOrSrc.getAttribute("src");
+    alt = existingImgElOrSrc.getAttribute("alt") || "";
+  }
+
+  if (src) {
     const img = document.createElement("img");
-    img.src = existingImgEl.getAttribute("src");
-    img.alt = existingImgEl.getAttribute("alt") || "";
+    img.src = src;
+    img.alt = alt;
     img.loading = "lazy";
     img.decoding = "async";
     img.style.maxWidth = "100%";
@@ -164,33 +174,52 @@ function buildFacebookClickableImage(url, existingImgEl) {
     a.appendChild(img);
     wrap.appendChild(a);
   } else {
-    // If truly no image exists, remove the URL entirely (no text shown)
+    // No image at all — hide the card section entirely
     wrap.style.display = "none";
   }
 
   return wrap;
 }
 
-/* Remove leftover FB anchors like "Click here to watch." or raw URL anchors */
+/** Find the first Facebook video URL in the content */
+function findFirstFacebookVideoUrl(root) {
+  let fbUrl = "";
+  root.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href") || "";
+    if (!href) return;
+    if (!fbUrl && isFacebookVideoUrl(href)) fbUrl = href;
+  });
+  if (!fbUrl) {
+    // Try plain text URL in content
+    const t = (root.textContent || "").trim();
+    const m = t.match(/https?:\/\/\S+/g);
+    if (m) {
+      for (const u of m) {
+        if (isFacebookVideoUrl(u)) { fbUrl = u; break; }
+      }
+    }
+  }
+  return fbUrl;
+}
+
+/** Remove leftover FB anchors like "Click here to watch." or raw URLs */
 function removeResidualFacebookAnchors(root) {
   root.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href") || "";
     if (!href) return;
     if (isFacebookVideoUrl(href)) {
-      // If it's not our clickable image wrapper, remove it.
       if (!a.closest(".fb-link-card")) {
-        // Preserve surrounding text cleanly: drop the anchor entirely.
-        a.replaceWith(document.createTextNode(""));
+        a.replaceWith(document.createTextNode("")); // drop the anchor text entirely
       }
     }
   });
 }
 
-/** Make existing iframes responsive; YouTube/Vimeo embeds; Facebook → clickable preview image only */
+/** Make existing iframes responsive; convert links to embeds; Facebook → clickable image if image present */
 function enhanceEmbeds(root) {
   if (!root) return;
 
-  // 0) Make existing iframes responsive
+  // Make existing iframes responsive
   root.querySelectorAll("iframe").forEach((f) => {
     const parent = f.parentElement;
     if (!parent || !parent.classList.contains("embed")) {
@@ -204,33 +233,30 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // 1) Handle wrappers or nodes that might only contain a URL
-  const wrappers = root.querySelectorAll(
-    "figure.wp-block-embed, .wp-block-embed__wrapper, div.wp-video, p, div"
-  );
+  // Typical WP wrappers or <p>/<div> with URL
+  const wrappers = root.querySelectorAll("figure.wp-block-embed, .wp-block-embed__wrapper, div.wp-video, p, div");
   wrappers.forEach((el) => {
     if (el.querySelector && el.querySelector("iframe")) return;
 
-    // Prefer WP data attribute
     let url = el.getAttribute && el.getAttribute("data-oembed-url");
-    // Else anchor href
     let anchorEl = null;
     if (!url) {
       anchorEl = el.querySelector && el.querySelector("a[href]");
       if (anchorEl && anchorEl.getAttribute) url = anchorEl.getAttribute("href") || "";
     }
-    // Else element text that looks like a URL
     if (!url) {
       const t = (el.textContent || "").trim();
       if (/^https?:\/\//i.test(t)) url = t;
     }
     if (!url) return;
 
-    // Facebook → clickable image (no URL text)
+    // Facebook → clickable image IF the wrapper has an <img>
     if (isFacebookVideoUrl(url)) {
       const img = anchorEl && anchorEl.querySelector && anchorEl.querySelector("img");
-      const card = buildFacebookClickableImage(url, img || null);
-      el.replaceWith(card);
+      if (img) {
+        const card = buildFacebookClickableImage(url, img);
+        el.replaceWith(card);
+      }
       return;
     }
 
@@ -249,17 +275,14 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // 2) Any leftover anchors → YouTube/Vimeo embeds or FB → clickable image
+  // Leftover standalone anchors → convert YT/Vimeo embeds; FB anchors are handled later via hero
   root.querySelectorAll("a[href]").forEach((a) => {
     if (a.closest(".embed") || a.closest(".fb-link-card")) return;
     const url = a.getAttribute("href") || "";
     if (!url) return;
 
     if (isFacebookVideoUrl(url)) {
-      const img = a.querySelector && a.querySelector("img");
-      const card = buildFacebookClickableImage(url, img || null);
-      const container = a.closest("figure, p, div") || a;
-      container.replaceWith(card);
+      // Skip here (we will wrap hero later if needed)
       return;
     }
 
@@ -279,9 +302,6 @@ function enhanceEmbeds(root) {
       return;
     }
   });
-
-  // 3) Clean up: remove any leftover FB anchors like "Click here to watch." or raw URLs
-  removeResidualFacebookAnchors(root);
 }
 
 /* =========================
@@ -326,12 +346,41 @@ export async function renderPost(id) {
 
     const contentRoot = container.querySelector(".content");
 
-    // 1) Remove unwanted first-paragraph indentation
+    // 1) First-paragraph de-indent
     normalizeFirstParagraph(contentRoot);
 
-    // 2) Wrap existing iframes and convert links.
-    //    Facebook → clickable image only; remove any leftover FB URLs/anchors.
+    // 2) Handle embeds (YT/Vimeo auto-embed; FB gets handled if it already has an image)
     enhanceEmbeds(contentRoot);
+
+    // 3) If there's a Facebook video URL but NO inline preview image was found,
+    //    wrap the HERO image itself as the clickable opener to Facebook.
+    const fbUrl = findFirstFacebookVideoUrl(contentRoot);
+    if (fbUrl) {
+      const alreadyHasCard = contentRoot.querySelector(".fb-link-card");
+      if (!alreadyHasCard) {
+        const heroEl = container.querySelector(".hero");
+        if (heroEl) {
+          const link = document.createElement("a");
+          link.href = fbUrl;
+          link.target = "_blank";
+          link.rel = "noopener";
+          // replace hero with linked hero
+          heroEl.replaceWith(link);
+          link.appendChild(heroEl);
+        } else if (heroSrc) {
+          // No hero element rendered (rare), insert a clickable one above content
+          const clickable = buildFacebookClickableImage(fbUrl, heroSrc);
+          const article = container.querySelector("article.post");
+          const content = container.querySelector(".content");
+          if (article && content) article.insertBefore(clickable, content);
+        }
+      }
+    }
+
+    // 4) Remove any residual FB anchors/URLs (no text should remain)
+    if (fbUrl) {
+      removeResidualFacebookAnchors(contentRoot);
+    }
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
     container.innerHTML = `<p class="center">Error loading post.</p>`;
