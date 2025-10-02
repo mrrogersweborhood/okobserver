@@ -1,389 +1,198 @@
-// detail.js — single post detail
-// Ensures at most ONE player per video (dedupe by YouTube/Vimeo ID).
-// Logic:
-//  - If content already has an embed (iframe/video/fb-card), we DO NOT add a hero fallback.
-//  - While converting anchors (YT/Vimeo), skip duplicates by ID; remove duplicate anchors.
-//  - Facebook video: use clickable hero image only when no embed is present.
-// Also: de-indent first paragraph, responsive embeds for YT/Vimeo, bottom-only “Back to posts”.
+// detail.js — post detail view with robust first-paragraph normalization
 
 import { fetchPost } from "./api.js";
-import { ordinalDate } from "./common.js";
+import { saveHomeSnapshot } from "./home.js";
 
-/* =========================
-   First-paragraph normalizer
-   ========================= */
-function* walkNodes(root) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null);
-  let n = walker.currentNode;
-  while (n) { yield n; n = walker.nextNode(); }
+// Utilities
+function ordinalDate(dateISO) {
+  const d = new Date(dateISO);
+  const day = d.getDate();
+  const ord =
+    day % 10 === 1 && day !== 11 ? "st" :
+    day % 10 === 2 && day !== 12 ? "nd" :
+    day % 10 === 3 && day !== 13 ? "rd" : "th";
+  return d.toLocaleString(undefined, { month: "long" }) + ` ${day}${ord}, ${d.getFullYear()}`;
 }
 
-function stripLeadingWhitespaceDeep(root) {
-  const WS_RE = /^[\u00A0\u200B\u200C\u200D\uFEFF \t\r\n]+/;
-  for (const n of walkNodes(root)) {
-    if (n.nodeType === Node.TEXT_NODE && n.nodeValue) {
-      const before = n.nodeValue;
-      const after = before.replace(WS_RE, "");
-      if (after !== before) {
-        n.nodeValue = after;
-        if (after.length > 0) return;
-      } else if (before.trim().length > 0) {
-        return;
-      }
-    }
-  }
-}
-
-function firstContentBlock(root) {
-  if (!root) return null;
-  const nodes = root.querySelectorAll("p, div, section, article, blockquote, ul, ol");
-  for (const el of nodes) {
-    const txt = (el.textContent || "").replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, "");
-    if (txt.length > 0) return el;
-  }
-  return null;
-}
-
-function zeroInlineLeftOffsets(el, root) {
-  let cur = el;
-  while (cur && cur !== root && cur.nodeType === 1) {
-    try {
-      const styleAttr = cur.getAttribute && cur.getAttribute("style");
-      if (styleAttr) {
-        let s = styleAttr;
-        s = s.replace(/text-indent\s*:\s*[^;]+;?/gi, "");
-        s = s.replace(/margin-left\s*:\s*[^;]+;?/gi, "");
-        s = s.replace(/padding-left\s*:\s*[^;]+;?/gi, "");
-        s = s.replace(/border-left\s*:\s*[^;]+;?/gi, "");
-        s = s.replace(/^\s*;\s*|\s*;\s*$/g, "");
-        if (s.trim()) cur.setAttribute("style", s);
-        else cur.removeAttribute("style");
-      }
-      cur.style.textIndent = "0";
-      cur.style.marginLeft = "0";
-      cur.style.paddingLeft = "0";
-      if (cur.tagName === "BLOCKQUOTE") cur.style.borderLeft = "none";
-    } catch {}
-    cur = cur.parentElement;
-  }
-}
-
-function gentlyUnwrapLeadingBlockquote(root, first) {
-  if (!first || first.tagName !== "BLOCKQUOTE") return;
-  const kids = Array.from(first.children || []);
-  if (kids.length === 1 && /^(P|DIV)$/i.test(kids[0].tagName)) {
-    const inner = kids[0];
-    first.parentNode.insertBefore(inner, first);
-    first.remove();
-  } else {
-    zeroInlineLeftOffsets(first, root);
-  }
-}
-
-function normalizeFirstParagraph(root) {
-  if (!root) return;
-  stripLeadingWhitespaceDeep(root);
-  const first = firstContentBlock(root);
-  if (!first) return;
-  gentlyUnwrapLeadingBlockquote(root, first);
-  zeroInlineLeftOffsets(first, root);
-  const firstInline = first.querySelector("span, em, strong, a, i, b, u, small, sup, sub");
-  if (firstInline) zeroInlineLeftOffsets(firstInline, root);
-  stripLeadingWhitespaceDeep(first);
-}
-
-/* =========================
-   Video helpers
-   ========================= */
-function toYouTubeId(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
-    if (u.hostname.includes("youtube.com")) {
-      if (u.pathname.startsWith("/watch")) return u.searchParams.get("v");
-      if (u.pathname.startsWith("/shorts/")) return u.pathname.split("/")[2];
-      const m = u.pathname.match(/\/embed\/([^/?#]+)/);
-      if (m) return m[1];
-    }
-  } catch {}
-  return null;
-}
-
-function toVimeoId(url) {
-  try {
-    const u = new URL(url);
-    if (!u.hostname.includes("vimeo.com")) return null;
-    const m = u.pathname.match(/^\/(\d+)(?:$|[/?#])/);
-    return m ? m[1] : null;
-  } catch {}
-  return null;
-}
-
-function isFacebookVideoUrl(url) {
-  try {
-    const u = new URL(url);
-    if (!u.hostname.includes("facebook.com")) return false;
-    if (u.pathname.startsWith("/watch") && u.searchParams.get("v")) return true;
-    if (/\/videos\/\d+/.test(u.pathname)) return true;
-  } catch {}
-  return false;
-}
-
-function buildIframeWrap(src, ratio = "16x9") {
-  const wrap = document.createElement("div");
-  wrap.className = `embed embed-${ratio}`;
-  wrap.innerHTML = `<iframe src="${src}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`;
-  return wrap;
-}
-
-function buildFacebookClickableImage(url, src) {
-  const wrap = document.createElement("div");
-  wrap.className = "fb-link-card";
-  wrap.style.margin = "16px 0";
-  wrap.style.textAlign = "center";
-
-  if (src) {
-    const img = document.createElement("img");
-    img.src = src;
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.style.maxWidth = "100%";
-    img.style.height = "auto";
-    img.style.borderRadius = "8px";
-    img.style.display = "block";
-    img.style.margin = "0 auto";
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.appendChild(img);
-    wrap.appendChild(a);
-  } else {
-    wrap.style.display = "none";
-  }
-
-  return wrap;
-}
-
-/** Extract first FB video URL from RAW HTML (before DOM tweaks) */
-function findFacebookUrlFromHtml(html) {
+function decodeEntities(html) {
   if (!html) return "";
-  const re = /https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=\d+|[^"'\s]+\/videos\/\d+)/i;
-  const m = html.match(re);
-  return m ? m[0] : "";
+  return String(html)
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;|&apos;/g, "'")
+    .replace(/&hellip;|&#8230;/g, "…")
+    .replace(/&#8211;|&ndash;/g, "–")
+    .replace(/&#8220;/g, "“")
+    .replace(/&#8221;/g, "”");
 }
 
-/** Secondary: scan rendered DOM for a FB URL (safety net) */
-function findFirstFacebookVideoUrlInDom(root) {
-  let fbUrl = "";
-  root.querySelectorAll("a[href]").forEach((a) => {
-    const href = a.getAttribute("href") || "";
-    if (href && !fbUrl && isFacebookVideoUrl(href)) fbUrl = href;
-  });
-  if (!fbUrl) {
-    const t = (root.textContent || "").trim();
-    const m = t.match(/https?:\/\/\S+/g);
-    if (m) {
-      for (const u of m) {
-        if (isFacebookVideoUrl(u)) { fbUrl = u; break; }
-      }
+// Find the first block-level element that actually contains text content
+function findFirstTextBlock(root) {
+  if (!root) return null;
+  const isBlock = (el) => {
+    const name = el?.nodeName?.toLowerCase();
+    return !!name && /^(p|div|section|article|blockquote)$/.test(name);
+  };
+  // BFS through blocks until we see non-empty text
+  const q = Array.from(root.children || []);
+  while (q.length) {
+    const el = q.shift();
+    if (!el) continue;
+    if (isBlock(el)) {
+      // textContent stripped of whitespace/nbsp/br
+      const text = el.textContent
+        .replace(/\u00A0/g, " ")
+        .replace(/^\s+|\s+$/g, "");
+      if (text.length > 0) return el;
     }
+    q.push(...(el.children || []));
   }
-  return fbUrl;
+  return null;
 }
 
-/** Remove leftover FB anchors so only image/embed remains */
-function removeResidualFacebookAnchors(root) {
-  root.querySelectorAll("a[href]").forEach((a) => {
-    const href = a.getAttribute("href") || "";
-    if (href && isFacebookVideoUrl(href)) {
-      if (!a.closest(".fb-link-card")) {
-        a.replaceWith(document.createTextNode(""));
-      }
+// Remove inline indent styles and leading fillers (&nbsp;, NBSP, starting <br>)
+function normalizeFirstParagraph(root) {
+  const first = findFirstTextBlock(root);
+  if (!first) return;
+
+  // 1) Strip inline text-indent from style attribute (if present)
+  const styleAttr = first.getAttribute("style");
+  if (styleAttr && /text-indent/i.test(styleAttr)) {
+    const cleaned = styleAttr.replace(/text-indent\s*:\s*[^;]+;?/gi, "");
+    if (cleaned.trim()) first.setAttribute("style", cleaned);
+    else first.removeAttribute("style");
+  }
+  // Also explicitly neutralize via style API (in case of specificity)
+  if (first.style) {
+    try {
+      first.style.textIndent = "0";
+      // Hard stop any left offsets that mimic indentation
+      if (first.style.marginLeft) first.style.marginLeft = "";
+      if (first.style.paddingLeft) first.style.paddingLeft = "";
+    } catch {}
+  }
+
+  // 2) Remove leading fillers in the HTML: &nbsp;, NBSP, and stray <br> at the start
+  // Do this carefully to avoid removing meaningful content.
+  const html = first.innerHTML;
+  if (html) {
+    const cleaned = html
+      // remove leading <br> tags (one or more)
+      .replace(/^(\s*<br\s*\/?>)+/i, "")
+      // remove leading nbsp characters/entities/spaces
+      .replace(/^(\u00A0|&nbsp;|\s)+/i, "");
+    if (cleaned !== html) first.innerHTML = cleaned;
+  }
+
+  // 3) Also sweep nested descendants inside the first block for explicit text-indent
+  first.querySelectorAll("*[style]").forEach((el) => {
+    const st = el.getAttribute("style");
+    if (!st) return;
+    if (/text-indent/i.test(st)) {
+      const newSt = st.replace(/text-indent\s*:\s*[^;]+;?/gi, "");
+      if (newSt.trim()) el.setAttribute("style", newSt);
+      else el.removeAttribute("style");
     }
   });
 }
 
-/* =========================
-   Dedup helpers for YT/Vimeo
-   ========================= */
-function videoKeyFromUrl(url) {
-  const yt = toYouTubeId(url);
-  if (yt) return `yt:${yt}`;
-  const vm = toVimeoId(url);
-  if (vm) return `vm:${vm}`;
-  return "";
-}
-function videoKeyFromIframeSrc(src) {
-  try {
-    const u = new URL(src, location.href);
-    if (u.hostname.includes("youtube.com") && u.pathname.startsWith("/embed/")) {
-      return `yt:${u.pathname.split("/")[2]}`;
-    }
-    if (u.hostname.includes("player.vimeo.com") && u.pathname.startsWith("/video/")) {
-      return `vm:${u.pathname.split("/")[2]}`;
-    }
-  } catch {}
-  return "";
+// Clickable hero behavior: open external video links in new tab when hero is a video proxy
+function bindHeroClickIfVideo(app, post) {
+  const heroLink = app.querySelector(".post .hero-link");
+  const heroImg  = app.querySelector(".post img.hero");
+  if (!heroLink || !heroImg) return;
+  const href = heroLink.getAttribute("href");
+  if (!href) return;
+
+  // Provide a hover affordance via CSS class
+  heroImg.classList.add("is-clickable");
+  heroLink.addEventListener("click", (e) => {
+    // Always open in new tab
+    e.preventDefault();
+    window.open(href, "_blank", "noopener");
+  }, { passive: false });
 }
 
-/* =========================
-   Embed conversion (YT/Vimeo only; FB handled via image link)
-   ========================= */
-function enhanceEmbeds(root) {
-  if (!root) return;
-
-  // Build a set of already-embedded video keys from existing iframes
-  const existing = new Set();
-  root.querySelectorAll("iframe").forEach((f) => {
-    const key = videoKeyFromIframeSrc(f.getAttribute("src") || "");
-    if (key) existing.add(key);
-  });
-
-  // Wrap existing iframes responsively
-  root.querySelectorAll("iframe").forEach((f) => {
-    const parent = f.parentElement;
-    if (!parent || !parent.classList.contains("embed")) {
-      const wrap = document.createElement("div");
-      wrap.className = "embed embed-16x9";
-      f.replaceWith(wrap);
-      f.removeAttribute("width");
-      f.removeAttribute("height");
-      f.setAttribute("loading", "lazy");
-      wrap.appendChild(f);
-    }
-  });
-
-  // Convert standalone anchors for YT/Vimeo; skip if duplicate video key already present
-  root.querySelectorAll("a[href]").forEach((a) => {
-    const url = a.getAttribute("href") || "";
-    if (!url) return;
-    if (a.closest(".embed") || a.closest(".fb-link-card")) return;
-
-    const key = videoKeyFromUrl(url);
-
-    // YouTube/Vimeo anchors:
-    if (key.startsWith("yt:") || key.startsWith("vm:")) {
-      if (existing.has(key)) {
-        // Duplicate of an already-embedded player → remove the anchor
-        a.replaceWith(document.createTextNode(""));
-        return;
-      }
-      // Not a duplicate → embed and record
-      if (key.startsWith("yt:")) {
-        const yt = key.slice(3);
-        const wrap = buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`);
-        a.replaceWith(wrap);
-        existing.add(key);
-        return;
-      }
-      if (key.startsWith("vm:")) {
-        const vm = key.slice(3);
-        const wrap = buildIframeWrap(`https://player.vimeo.com/video/${vm}`);
-        a.replaceWith(wrap);
-        existing.add(key);
-        return;
-      }
-    }
-
-    // Facebook anchors are handled elsewhere via image-link fallback; do nothing here.
-  });
-}
-
-/* =========================
-   Render
-   ========================= */
 export async function renderPost(id) {
-  const container = document.getElementById("app");
-  if (!container) return;
-  container.innerHTML = '<p class="center">Loading…</p>';
+  const app = document.getElementById("app");
+  if (!app) return;
 
+  app.innerHTML = `<div class="container"><p class="center">Loading…</p></div>`;
+
+  let post;
   try {
-    const post = await fetchPost(id);
-
-    const author =
-      post?._embedded?.author?.[0]?.name ||
-      (Array.isArray(post?.authors) && post.authors[0]?.name) ||
-      "";
-
-    const dateStr = ordinalDate(new Date(post.date));
-
-    const media = post?._embedded?.["wp:featuredmedia"]?.[0];
-    const heroSrc = media?.source_url || "";
-
-    // Capture FB URL from RAW HTML before DOM ops
-    const fbUrlFromHtml = findFacebookUrlFromHtml(post?.content?.rendered || "");
-
-    // Render shell (hero first, then content)
-    const hero = heroSrc
-      ? `<img class="hero" src="${heroSrc}" alt="" decoding="async" loading="eager" />`
-      : "";
-
-    container.innerHTML = `
-      <article class="post">
-        <h1>${post.title.rendered || "Untitled"}</h1>
-        <div class="meta-author-date">
-          <span>${author ? `<strong>${author}</strong>` : ""}</span>
-          <span class="date">${dateStr}</span>
+    post = await fetchPost(id);
+  } catch (e) {
+    app.innerHTML = `
+      <div class="container">
+        <div class="error-banner">
+          <button class="close" aria-label="Dismiss">×</button>
+          Failed to load post.
         </div>
-        ${hero}
-        <div class="content">${post.content.rendered || ""}</div>
-        <div style="margin-top:1.5rem">
+      </div>`;
+    return;
+  }
+
+  // Extract author & media
+  const author =
+    post?._embedded?.author?.[0]?.name ||
+    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
+    "";
+
+  const media = post?._embedded?.["wp:featuredmedia"]?.[0];
+  const heroSrc =
+    media?.media_details?.sizes?.large?.source_url ||
+    media?.media_details?.sizes?.medium_large?.source_url ||
+    media?.source_url ||
+    "";
+
+  // Detect a Facebook video link in content for hero click-through
+  const contentHtml = decodeEntities(post?.content?.rendered || "");
+  const fbMatch = contentHtml.match(/https?:\/\/(www\.)?facebook\.com\/[^"'\s)]+/i);
+  const videoHref = fbMatch ? fbMatch[0] : "";
+
+  const title = decodeEntities(post?.title?.rendered || "");
+  const dateText = ordinalDate(post?.date || new Date().toISOString());
+
+  // Build detail shell
+  app.innerHTML = `
+    <div class="container">
+      <article class="post" data-id="${post.id}">
+        <h1>${title}</h1>
+        <div class="meta-author-date">
+          ${author ? `<strong>${author}</strong>` : ``}
+          <span class="date">${dateText}</span>
+        </div>
+
+        ${heroSrc ? `
+          ${videoHref ? `
+            <a class="hero-link" href="${videoHref}" target="_blank" rel="noopener">
+              <img class="hero" src="${heroSrc}" alt="" />
+            </a>
+          ` : `
+            <img class="hero" src="${heroSrc}" alt="" />
+          `}
+        ` : ``}
+
+        <div class="content">${contentHtml}</div>
+
+        <div style="margin-top:20px">
           <a class="btn" href="#/">Back to posts</a>
         </div>
       </article>
-    `;
+    </div>
+  `;
 
-    const contentRoot = container.querySelector(".content");
+  // Normalize first paragraph indentation reliably
+  const contentRoot = app.querySelector(".post .content");
+  if (contentRoot) normalizeFirstParagraph(contentRoot);
 
-    // Normalize first paragraph & enable YT/Vimeo responsive embeds (with dedupe)
-    normalizeFirstParagraph(contentRoot);
-    enhanceEmbeds(contentRoot);
+  // Enhance hero if we detected a video URL (hover/click handled safely)
+  bindHeroClickIfVideo(app, post);
 
-    // Determine FB URL (prefer raw HTML match; fallback to DOM)
-    const fbUrl = fbUrlFromHtml || findFirstFacebookVideoUrlInDom(contentRoot);
-
-    // STRONG SAFEGUARD:
-    // If the content already has an embed OR hero is already wrapped, DO NOT create a fallback.
-    const hasExistingVideo =
-      !!contentRoot.querySelector("iframe, video, .fb-link-card");
-    const heroEl = container.querySelector(".hero");
-    const heroAlreadyLinked = !!(heroEl && heroEl.parentElement && heroEl.parentElement.tagName === "A");
-
-    if (fbUrl && !hasExistingVideo && !heroAlreadyLinked) {
-      // No visible video yet → guarantee a clickable image via HERO
-      if (heroEl) {
-        const a = document.createElement("a");
-        a.href = fbUrl;
-        a.target = "_blank";
-        a.rel = "noopener";
-        heroEl.replaceWith(a);
-        a.appendChild(heroEl);
-      } else if (heroSrc) {
-        // Rare: no hero element but we have heroSrc → inject clickable hero above content
-        const card = buildFacebookClickableImage(fbUrl, heroSrc);
-        const article = container.querySelector("article.post");
-        const content = container.querySelector(".content");
-        if (article && content) article.insertBefore(card, content);
-      } else {
-        // Last resort: clone first content image
-        const anyImg = contentRoot.querySelector("img");
-        if (anyImg && anyImg.getAttribute("src")) {
-          const card = buildFacebookClickableImage(fbUrl, anyImg.getAttribute("src"));
-          const article = container.querySelector("article.post");
-          const content = container.querySelector(".content");
-          if (article && content) article.insertBefore(card, content);
-        }
-      }
-    }
-
-    // Clean up leftover FB anchors/URLs so only image/embed remains
-    if (fbUrl) {
-      removeResidualFacebookAnchors(contentRoot);
-    }
-  } catch (err) {
-    console.error("[OkObserver] Failed to render post", err);
-    container.innerHTML = `<p class="center">Error loading post.</p>`;
-  }
+  // Close error banners
+  document.addEventListener("click", function(e){
+    const btn = e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
+  }, { once: true, capture: true });
 }
