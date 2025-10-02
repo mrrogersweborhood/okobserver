@@ -1,8 +1,20 @@
 // home.js — renders the post summary grid, snapshot/restore, infinite scroll,
-// and now: robust thumbnail handling with a media backfill if _embed is missing.
+// and robust thumbnail handling:
+//  1) use _embed-provided featured image if present
+//  2) backfill by featured_media id (media batch)
+//  3) if still missing, batch-fetch post content and use first <img> as preview
+//  4) if STILL missing, use site logo as a placeholder thumbnail
 
-import { fetchLeanPostsPage, fetchMediaBatch, buildUrl } from "./api.js";
+import {
+  fetchLeanPostsPage,
+  fetchMediaBatch,
+  fetchPostsContentFirstImage
+} from "./api.js";
 import { SS, HOME_SNAPSHOT_KEY, HOME_SNAPSHOT_TTL_MS, now, debounce } from "./shared.js";
+
+// Site logo placeholder (same as header)
+const PLACEHOLDER_LOGO =
+  "https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png";
 
 // ===== Public API (used by router/main) =====
 export function saveHomeSnapshot() {
@@ -75,8 +87,8 @@ export async function renderHome() {
     </div>
   `;
 
-  // Backfill missing thumbnails if needed (e.g., when _embed is stripped by proxy)
-  await backfillThumbsIntoGrid(app, posts);
+  // Backfills:
+  await ensureThumbnails(app, posts);
 
   bindHomeInteractions(app, { page, hasMore });
 }
@@ -84,9 +96,8 @@ export async function renderHome() {
 // ===== Card markup =====
 function renderCard(p) {
   const href = `#/post/${p.id}`;
-  const img = p.thumb
-    ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />`
-    : `<div class="thumb" aria-hidden="true" style="background:#f0f0f0;height:160px"></div>`;
+  const imgSrc = p.thumb || PLACEHOLDER_LOGO; // immediate placeholder if missing
+  const img = `<img class="thumb" src="${imgSrc}" alt="" loading="lazy" decoding="async" />`;
   const author = p.author || "";
   const date = p.dateText || "";
 
@@ -137,8 +148,8 @@ function setupInfiniteScroll(app, state) {
       if (posts && posts.length) {
         const html = posts.map(renderCard).join("");
         grid.insertAdjacentHTML("beforeend", html);
-        // Backfill for the newly appended cards if needed
-        await backfillThumbsIntoGrid(app, posts);
+        // Backfills for appended posts
+        await ensureThumbnails(app, posts);
         page = next;
         hasMore = !!more;
       } else {
@@ -161,45 +172,82 @@ function setupInfiniteScroll(app, state) {
 }
 
 /* =========================
-   Thumbnail backfill
+   Thumbnail backfills (2 stages) + final placeholder
    ========================= */
-/**
- * If some posts have no p.thumb but do have featuredId, request a batch
- *   GET /media?include=...&_fields=id,source_url,media_details.sizes,alt_text
- * and patch the DOM thumbnails in place.
- */
-async function backfillThumbsIntoGrid(app, posts) {
-  const needs = posts.filter(p => !p.thumb && p.featuredId);
-  if (!needs.length) return;
-
-  const idSet = [...new Set(needs.map(p => p.featuredId).filter(Boolean))];
-  if (!idSet.length) return;
-
-  let mediaMap = {};
-  try {
-    mediaMap = await fetchMediaBatch(idSet);
-  } catch {
-    return; // silent; we keep placeholders
+async function ensureThumbnails(app, posts) {
+  // 1) media-ID backfill for cards where featured_media exists but _embed didn’t include it
+  const needById = posts.filter(p => !p.thumb && p.featuredId);
+  if (needById.length) {
+    const idSet = [...new Set(needById.map(p => p.featuredId).filter(Boolean))];
+    if (idSet.length) {
+      try {
+        const mediaMap = await fetchMediaBatch(idSet);
+        patchThumbsFromMap(app, posts, mediaMap, /*prop*/"featuredId");
+      } catch { /* silent */ }
+    }
   }
 
-  // Patch DOM
-  needs.forEach(p => {
-    const media = mediaMap[p.featuredId];
+  // 2) content-first-image backfill for anything still without a thumbnail
+  const stillMissing = posts.filter(p => {
+    const card = app.querySelector(`.card[data-id="${p.id}"]`);
+    if (!card) return false;
+    const img = card.querySelector("img.thumb");
+    return !img || !img.getAttribute("src") || isPlaceholder(img.getAttribute("src"));
+  });
+
+  if (stillMissing.length) {
+    const ids = stillMissing.map(p => p.id);
+    try {
+      const contentMap = await fetchPostsContentFirstImage(ids);
+      patchThumbsFromMap(app, stillMissing, contentMap, /*prop*/"id");
+    } catch { /* silent */ }
+  }
+
+  // 3) FINAL GUARANTEE: logo placeholder for any remaining missing thumbs
+  applyLogoPlaceholderIfMissing(app, posts);
+}
+
+function patchThumbsFromMap(app, postsSubset, map, keyProp) {
+  postsSubset.forEach(p => {
+    const key = p[keyProp];
+    const media = map[key];
     if (!media?.src) return;
     const card = app.querySelector(`.card[data-id="${p.id}"]`);
     if (!card) return;
     const link = card.querySelector(".thumb-link");
     if (!link) return;
 
-    // Replace placeholder with real image
     const existingImg = link.querySelector("img.thumb");
     if (existingImg) {
-      // had img but empty src? make sure it points to real
       existingImg.src = media.src;
       if (!existingImg.alt) existingImg.alt = media.alt || "";
     } else {
-      // had placeholder div — inject an <img>
       link.innerHTML = `<img class="thumb" src="${media.src}" alt="${media.alt || ""}" loading="lazy" decoding="async" />`;
     }
   });
+}
+
+function applyLogoPlaceholderIfMissing(app, posts) {
+  posts.forEach(p => {
+    const card = app.querySelector(`.card[data-id="${p.id}"]`);
+    if (!card) return;
+    const link = card.querySelector(".thumb-link");
+    if (!link) return;
+    let img = link.querySelector("img.thumb");
+    if (!img) {
+      // If somehow we still have a div placeholder, replace it
+      link.innerHTML = `<img class="thumb" src="${PLACEHOLDER_LOGO}" alt="The Oklahoma Observer" loading="lazy" decoding="async" />`;
+      return;
+    }
+    const src = img.getAttribute("src") || "";
+    if (!src || isPlaceholder(src)) {
+      img.setAttribute("src", PLACEHOLDER_LOGO);
+      if (!img.getAttribute("alt")) img.setAttribute("alt", "The Oklahoma Observer");
+    }
+  });
+}
+
+function isPlaceholder(src) {
+  // treat empty, data URIs, or just whitespace as missing
+  return !src || /^data:|^\s*$/.test(src);
 }
