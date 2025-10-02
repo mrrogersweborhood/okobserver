@@ -2,7 +2,7 @@
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
 // - Makes existing iframes responsive (.embed)
 // - Auto-embeds YouTube/Vimeo
-// - Facebook videos: prefer image preview; if no inline image, wrap the HERO featured image as the clickable opener to FB (new tab)
+// - Facebook video links: show a clickable preview image; if none inline, wrap the HERO featured image
 // - Removes leftover FB URL anchors/text (no "watch on facebook" text/button shown)
 // - Bottom-only “Back to posts” button
 
@@ -215,7 +215,7 @@ function removeResidualFacebookAnchors(root) {
   });
 }
 
-/** Make existing iframes responsive; convert links to embeds; Facebook → clickable image if image present */
+/** Make iframes responsive; convert links to embeds; Facebook → clickable image if image present */
 function enhanceEmbeds(root) {
   if (!root) return;
 
@@ -275,7 +275,7 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // Leftover standalone anchors → convert YT/Vimeo embeds; FB anchors are handled later via hero
+  // Leftover standalone anchors → convert YT/Vimeo embeds; FB anchors handled later via hero
   root.querySelectorAll("a[href]").forEach((a) => {
     if (a.closest(".embed") || a.closest(".fb-link-card")) return;
     const url = a.getAttribute("href") || "";
@@ -364,7 +364,6 @@ export async function renderPost(id) {
           link.href = fbUrl;
           link.target = "_blank";
           link.rel = "noopener";
-          // replace hero with linked hero
           heroEl.replaceWith(link);
           link.appendChild(heroEl);
         } else if (heroSrc) {
