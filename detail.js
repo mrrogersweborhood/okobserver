@@ -2,7 +2,7 @@
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
 // - Makes existing iframes responsive (.embed)
 // - Auto-embeds YouTube/Vimeo
-// - Facebook video links: **show a clickable preview image that opens Facebook in a new tab** (no button)
+// - Facebook video links: **show a clickable preview image that opens Facebook in a new tab** (no button/text)
 // - Bottom-only “Back to posts” button
 
 import { fetchPost } from "./api.js";
@@ -159,14 +159,13 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
-/** Create a *clickable image* linking to Facebook — no button, no plugin */
+/** Create a clickable preview image that opens Facebook in a new tab (no text/button) */
 function buildFacebookClickableImage(url, existingImgEl) {
   const wrap = document.createElement("div");
   wrap.className = "fb-link-card";
   wrap.style.margin = "16px 0";
   wrap.style.textAlign = "center";
 
-  // Use provided image if available
   if (existingImgEl && existingImgEl.src) {
     const img = document.createElement("img");
     img.src = existingImgEl.getAttribute("src");
@@ -186,12 +185,12 @@ function buildFacebookClickableImage(url, existingImgEl) {
     a.appendChild(img);
     wrap.appendChild(a);
   } else {
-    // Fallback: simple text link (no button)
+    // If there is truly no image available, retain the plain anchor text (keeps content accessible)
     const a = document.createElement("a");
     a.href = url;
     a.target = "_blank";
     a.rel = "noopener";
-    a.textContent = "Watch on Facebook";
+    a.textContent = url;
     wrap.appendChild(a);
   }
 
@@ -238,7 +237,7 @@ function enhanceEmbeds(root) {
     }
     if (!url) return;
 
-    // Facebook policy: DO NOT embed; use clickable preview image
+    // Facebook videos → clickable preview image (no embed)
     if (isFacebookVideoUrl(url)) {
       const img = anchorEl && anchorEl.querySelector && anchorEl.querySelector("img");
       const card = buildFacebookClickableImage(url, img || null);
@@ -341,7 +340,7 @@ export async function renderPost(id) {
     // 1) Remove unwanted first-paragraph indentation
     normalizeFirstParagraph(contentRoot);
 
-    // 2) Wrap existing iframes and convert links. Facebook → clickable image.
+    // 2) Wrap existing iframes and convert links. Facebook → clickable image only.
     enhanceEmbeds(contentRoot);
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
