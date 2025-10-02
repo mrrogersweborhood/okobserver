@@ -1,9 +1,8 @@
 // detail.js — single post detail
-// Handles:
-// - Normalizes first paragraph (removes unwanted indent)
-// - Responsive embeds (YT/Vimeo iframe wrap)
-// - Facebook video fallback: always ensures a clickable image (hero preferred)
-// - Back to posts button (bottom only)
+// Guarantees: if content has a Facebook video URL, the post shows a clickable image
+// that opens the video in a new tab. Priority: wrap HERO image. If no hero, inject
+// a clickable image. Also: normalize first paragraph, responsive YT/Vimeo embeds,
+// bottom-only “Back to posts” button.
 
 import { fetchPost } from "./api.js";
 import { ordinalDate } from "./common.js";
@@ -135,6 +134,7 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
+/** Build a clickable preview image that opens FB in a new tab (no text shown) */
 function buildFacebookClickableImage(url, src) {
   const wrap = document.createElement("div");
   wrap.className = "fb-link-card";
@@ -165,20 +165,38 @@ function buildFacebookClickableImage(url, src) {
   return wrap;
 }
 
-function findFirstFacebookVideoUrl(root) {
+/** Extract first FB video URL from RAW HTML (before DOM tweaks) */
+function findFacebookUrlFromHtml(html) {
+  if (!html) return "";
+  // Match watch?v=... or /videos/{id}
+  const re = /https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=\d+|[^"'\s]+\/videos\/\d+)/i;
+  const m = html.match(re);
+  return m ? m[0] : "";
+}
+
+/** Secondary: scan rendered DOM for a FB URL (safety net) */
+function findFirstFacebookVideoUrlInDom(root) {
   let fbUrl = "";
   root.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href") || "";
-    if (!href) return;
-    if (!fbUrl && isFacebookVideoUrl(href)) fbUrl = href;
+    if (href && !fbUrl && isFacebookVideoUrl(href)) fbUrl = href;
   });
+  if (!fbUrl) {
+    const t = (root.textContent || "").trim();
+    const m = t.match(/https?:\/\/\S+/g);
+    if (m) {
+      for (const u of m) {
+        if (isFacebookVideoUrl(u)) { fbUrl = u; break; }
+      }
+    }
+  }
   return fbUrl;
 }
 
 function removeResidualFacebookAnchors(root) {
   root.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href") || "";
-    if (isFacebookVideoUrl(href)) {
+    if (href && isFacebookVideoUrl(href)) {
       if (!a.closest(".fb-link-card")) {
         a.replaceWith(document.createTextNode(""));
       }
@@ -192,6 +210,7 @@ function removeResidualFacebookAnchors(root) {
 function enhanceEmbeds(root) {
   if (!root) return;
 
+  // Wrap existing iframes responsively
   root.querySelectorAll("iframe").forEach((f) => {
     const parent = f.parentElement;
     if (!parent || !parent.classList.contains("embed")) {
@@ -205,6 +224,7 @@ function enhanceEmbeds(root) {
     }
   });
 
+  // Convert standalone anchors for YT/Vimeo
   root.querySelectorAll("a[href]").forEach((a) => {
     const url = a.getAttribute("href") || "";
     if (!url) return;
@@ -223,6 +243,8 @@ function enhanceEmbeds(root) {
       a.replaceWith(wrap);
       return;
     }
+
+    // Do not auto-embed Facebook; we’ll use the image approach
   });
 }
 
@@ -236,6 +258,7 @@ export async function renderPost(id) {
 
   try {
     const post = await fetchPost(id);
+
     const author =
       post?._embedded?.author?.[0]?.name ||
       (Array.isArray(post?.authors) && post.authors[0]?.name) ||
@@ -245,6 +268,11 @@ export async function renderPost(id) {
 
     const media = post?._embedded?.["wp:featuredmedia"]?.[0];
     const heroSrc = media?.source_url || "";
+
+    // IMPORTANT: capture the Facebook URL from RAW HTML before DOM ops
+    const fbUrlFromHtml = findFacebookUrlFromHtml(post?.content?.rendered || "");
+
+    // Render basic shell
     const hero = heroSrc
       ? `<img class="hero" src="${heroSrc}" alt="" decoding="async" loading="eager" />`
       : "";
@@ -266,14 +294,21 @@ export async function renderPost(id) {
 
     const contentRoot = container.querySelector(".content");
 
+    // Normalize first paragraph
     normalizeFirstParagraph(contentRoot);
+
+    // Convert YT/Vimeo if needed (Facebook handled via image click)
     enhanceEmbeds(contentRoot);
 
-    const fbUrl = findFirstFacebookVideoUrl(contentRoot);
+    // Determine FB URL (prefer raw HTML match; fallback to DOM scan)
+    const fbUrl =
+      fbUrlFromHtml ||
+      findFirstFacebookVideoUrlInDom(contentRoot);
+
     if (fbUrl) {
+      // 1) Prefer wrapping the HERO image so there is ALWAYS a clickable image.
       const heroEl = container.querySelector(".hero");
       if (heroEl) {
-        // Always wrap the hero image if it exists
         const link = document.createElement("a");
         link.href = fbUrl;
         link.target = "_blank";
@@ -281,21 +316,23 @@ export async function renderPost(id) {
         heroEl.replaceWith(link);
         link.appendChild(heroEl);
       } else if (heroSrc) {
-        // fallback: create clickable hero from heroSrc
+        // Rare case: no hero element but we have a heroSrc → inject clickable image above content
         const card = buildFacebookClickableImage(fbUrl, heroSrc);
         const article = container.querySelector("article.post");
         const content = container.querySelector(".content");
         if (article && content) article.insertBefore(card, content);
       } else {
-        // fallback: try any image in content
+        // As a last resort, try first image in content
         const anyImg = contentRoot.querySelector("img");
-        if (anyImg) {
-          const card = buildFacebookClickableImage(fbUrl, anyImg.src);
+        if (anyImg && anyImg.getAttribute("src")) {
+          const card = buildFacebookClickableImage(fbUrl, anyImg.getAttribute("src"));
           const article = container.querySelector("article.post");
           const content = container.querySelector(".content");
           if (article && content) article.insertBefore(card, content);
         }
       }
+
+      // Remove any leftover FB anchors/URLs so only the image remains visible
       removeResidualFacebookAnchors(contentRoot);
     }
   } catch (err) {
