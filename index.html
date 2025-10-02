@@ -53,14 +53,20 @@
     white-space: normal !important;
   }
 
-  /* NEW: Inline images inside post content — scale/respect aspect/center */
+  /* Inline images inside post content — scale/respect aspect/center */
   .post .content img{
-    max-width:100%;
-    height:auto;
+    max-width:100% !important;
+    height:auto !important;
     display:block;
     margin:12px auto;
     object-fit:contain;
   }
+  /* If WP emitted width/height attributes or inline dims, ignore them */
+  .post .content img[width],
+  .post .content img[height]{ width:auto !important; height:auto !important; }
+  .post .content a > img{ display:block; }
+  .post .content figure,
+  .post .content .wp-caption{ max-width:100%; margin:12px auto; }
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
   .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
@@ -130,7 +136,6 @@
 
 <!-- Configure API base for Cloudflare Worker -->
 <script>
-  // Ensure trailing slash and includes /wp/v2/
   window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2/";
 </script>
 
@@ -183,8 +188,8 @@
   </div>
 </footer>
 
-<!-- App entry (cache-busted with matching version) -->
-<script type="module" src="main.js?v=2.2.4"></script>
+<!-- App entry -->
+<script type="module" src="main.js?v=2.2.5"></script>
 
 <!-- Hamburger toggle -->
 <script>

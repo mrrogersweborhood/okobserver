@@ -1,4 +1,5 @@
-// detail.js — post detail view with hardened first-paragraph de-indent (JS + CSS guards)
+// detail.js — post detail view with hardened first-paragraph de-indent
+// and inline-image fixes (handles lazy placeholders, removes bad width/height)
 
 import { fetchPost } from "./api.js";
 import { saveHomeSnapshot } from "./home.js";
@@ -27,48 +28,39 @@ function decodeEntities(html) {
     .replace(/&#8221;/g, "”");
 }
 
-// Block detection: include typical containers that may hold the first text
+// Block detection for first paragraph
 const BLOCK_TAG = /^(p|div|section|article|blockquote|figure)$/i;
 
-// Return the first block-like element that actually contains non-empty text
 function findFirstTextBlock(root) {
   if (!root) return null;
   const q = Array.from(root.children || []);
   while (q.length) {
     const el = q.shift();
     if (!el) continue;
-
     if (BLOCK_TAG.test(el.tagName)) {
-      // Text with whitespace & NBSP trimmed
       const text = (el.textContent || "")
         .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
         .replace(/^\s+|\s+$/g, "");
       if (text.length > 0) return el;
     }
-    // Continue BFS
     q.push(...(el.children || []));
   }
   return null;
 }
 
-// Strip common inline indent styles from an element's style attribute
 function stripIndentStylesInline(el) {
   if (!el) return;
   const styleAttr = el.getAttribute?.("style");
   if (styleAttr) {
     const cleaned = styleAttr
-      // remove text-indent
       .replace(/text-indent\s*:\s*[^;]+;?/gi, "")
-      // remove left margins/padding often used to fake indents
       .replace(/margin-left\s*:\s*[^;]+;?/gi, "")
       .replace(/padding-left\s*:\s*[^;]+;?/gi, "")
-      // neutralize white-space that preserves leading spaces
       .replace(/white-space\s*:\s*[^;]+;?/gi, "");
     if (cleaned.trim()) el.setAttribute("style", cleaned);
     else el.removeAttribute("style");
   }
   if (el.style) {
-    // Also clear via style API to win over specificity
     try {
       el.style.textIndent = "0";
       el.style.marginLeft = "";
@@ -78,59 +70,38 @@ function stripIndentStylesInline(el) {
   }
 }
 
-// Remove leading <br> and leading space entities (&nbsp;/&ensp;/&emsp;/unicode spaces)
 function stripLeadingFillersFromHTML(html) {
   if (!html) return html;
   return html
-    // remove leading <br> tags
     .replace(/^(\s*<br\s*\/?>)+/i, "")
-    // unwrap empty tags that only contain breaks/spaces at the start (e.g., <span>&nbsp;</span>)
     .replace(/^(\s*<(?:span|em|strong|i|b)[^>]*>(?:\s|&nbsp;|&ensp;|&emsp;|<br\s*\/?>)*<\/(?:span|em|strong|i|b)>\s*)+/i, "")
-    // remove leading NBSP/ENSP/EMSP and other unicode wide spaces, plus normal spaces/tabs
     .replace(/^([\u00A0\u2000-\u200A\u202F\u205F\u3000]|&nbsp;|&ensp;|&emsp;|\s)+/i, "");
 }
 
-// Normalize first paragraph/first text block
 function normalizeFirstParagraph(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
-
-  // Clean the block itself
   stripIndentStylesInline(first);
   first.innerHTML = stripLeadingFillersFromHTML(first.innerHTML);
-
-  // Clean first-level children (they often carry span/inline styles that indent)
   const kids = Array.from(first.children || []);
   for (let i = 0; i < kids.length; i++) {
     const child = kids[i];
     stripIndentStylesInline(child);
-    // Only strip leading fillers from the very first child that contributes content
-    if (i === 0) {
-      child.innerHTML = stripLeadingFillersFromHTML(child.innerHTML);
-    }
+    if (i === 0) child.innerHTML = stripLeadingFillersFromHTML(child.innerHTML);
   }
-
-  // Deep sweep: any descendant explicitly setting text-indent/margins gets neutralized
   first.querySelectorAll("*[style]").forEach((el) => stripIndentStylesInline(el));
 }
 
-// Final hard guard: apply !important zeroing to defeat stubborn inline styles
 function hardNukeIndent(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
-
-  // Clean leading fillers again in case inline tags regened content
   first.innerHTML = stripLeadingFillersFromHTML(first.innerHTML);
-
-  // Force zero with !important
   try {
     first.style.setProperty("text-indent", "0", "important");
     first.style.setProperty("margin-left", "0", "important");
     first.style.setProperty("padding-left", "0", "important");
     first.style.setProperty("white-space", "normal", "important");
   } catch {}
-
-  // Also force the very first inline child if present
   const firstInline = first.firstElementChild;
   if (firstInline) {
     try {
@@ -142,18 +113,51 @@ function hardNukeIndent(root) {
   }
 }
 
-// Clickable hero behavior: open external video links in new tab when hero is a video proxy
-function bindHeroClickIfVideo(app, post) {
+/* ===== Inline image normalization (fixes 1px/skinny images) ===== */
+function fixInlineImages(root) {
+  if (!root) return;
+  const imgs = root.querySelectorAll("img");
+  imgs.forEach(img => {
+    // Lazyload placeholders → swap in real source if present
+    const d = img.dataset || {};
+    const candidates = [d.src, d.lazySrc, d.original, d.full, d.large, d.medium, img.getAttribute("data-src"), img.getAttribute("data-lazy-src"), img.getAttribute("data-original"), img.getAttribute("data-full")].filter(Boolean);
+    if (candidates.length) {
+      const current = img.getAttribute("src") || "";
+      // If current is a pixel/blank, upgrade
+      if (!current || /data:image\/gif|data:image\/svg|blank\.gif/i.test(current)) {
+        img.setAttribute("src", candidates[0]);
+      }
+    }
+
+    // Neutralize HTML width/height attributes & inline size styles
+    if (img.hasAttribute("width")) img.removeAttribute("width");
+    if (img.hasAttribute("height")) img.removeAttribute("height");
+    if (img.style) {
+      img.style.width = "auto";
+      img.style.height = "auto";
+      img.style.maxWidth = "100%";
+      // If something forced tiny height, smash it:
+      img.style.setProperty("height", "auto", "important");
+      img.style.setProperty("max-width", "100%", "important");
+    }
+
+    // If wrapped in a link and treated inline, make sure it displays as block
+    const parent = img.parentElement;
+    if (parent && parent.tagName === "A") {
+      parent.style.display = "block";
+    }
+  });
+}
+
+// Clickable hero behavior
+function bindHeroClickIfVideo(app) {
   const heroLink = app.querySelector(".post .hero-link");
   const heroImg  = app.querySelector(".post img.hero");
   if (!heroLink || !heroImg) return;
   const href = heroLink.getAttribute("href");
   if (!href) return;
-
-  // Provide a hover affordance via CSS class
   heroImg.classList.add("is-clickable");
   heroLink.addEventListener("click", (e) => {
-    // Always open in new tab
     e.preventDefault();
     window.open(href, "_blank", "noopener");
   }, { passive: false });
@@ -168,7 +172,7 @@ export async function renderPost(id) {
   let post;
   try {
     post = await fetchPost(id);
-  } catch (e) {
+  } catch {
     app.innerHTML = `
       <div class="container">
         <div class="error-banner">
@@ -179,7 +183,6 @@ export async function renderPost(id) {
     return;
   }
 
-  // Extract author & media
   const author =
     post?._embedded?.author?.[0]?.name ||
     (Array.isArray(post?.authors) && post.authors[0]?.name) ||
@@ -192,7 +195,6 @@ export async function renderPost(id) {
     media?.source_url ||
     "";
 
-  // Detect a Facebook video link in content for hero click-through
   const contentHtml = decodeEntities(post?.content?.rendered || "");
   const fbMatch = contentHtml.match(/https?:\/\/(www\.)?facebook\.com\/[^"'\s)]+/i);
   const videoHref = fbMatch ? fbMatch[0] : "";
@@ -200,7 +202,6 @@ export async function renderPost(id) {
   const title = decodeEntities(post?.title?.rendered || "");
   const dateText = ordinalDate(post?.date || new Date().toISOString());
 
-  // Build detail shell
   app.innerHTML = `
     <div class="container">
       <article class="post" data-id="${post.id}">
@@ -229,17 +230,15 @@ export async function renderPost(id) {
     </div>
   `;
 
-  // Normalize first paragraph indentation reliably (covers inline styles + entities)
   const contentRoot = app.querySelector(".post .content");
   if (contentRoot) {
     normalizeFirstParagraph(contentRoot);
-    hardNukeIndent(contentRoot); // final !important override
+    hardNukeIndent(contentRoot);
+    fixInlineImages(contentRoot);           // ← NEW: fix inline images
   }
 
-  // Enhance hero if we detected a video URL (hover/click handled safely)
-  bindHeroClickIfVideo(app, post);
+  bindHeroClickIfVideo(app);
 
-  // Close error banners
   document.addEventListener("click", function(e){
     const btn = e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
   }, { once: true, capture: true });
