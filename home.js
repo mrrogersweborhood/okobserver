@@ -235,7 +235,6 @@ function applyLogoPlaceholderIfMissing(app, posts) {
     if (!link) return;
     let img = link.querySelector("img.thumb");
     if (!img) {
-      // If somehow we still have a div placeholder, replace it
       link.innerHTML = `<img class="thumb" src="${PLACEHOLDER_LOGO}" alt="The Oklahoma Observer" loading="lazy" decoding="async" />`;
       return;
     }
@@ -248,6 +247,5 @@ function applyLogoPlaceholderIfMissing(app, posts) {
 }
 
 function isPlaceholder(src) {
-  // treat empty, data URIs, or just whitespace as missing
   return !src || /^data:|^\s*$/.test(src);
 }

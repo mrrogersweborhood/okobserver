@@ -1,8 +1,9 @@
 // api.js — resilient API helpers for OkObserver
-// - Robust base URL discovery (prevents "Invalid URL")
+// - Robust base URL discovery
 // - Cartoon category exclusion (optional)
 // - Lean posts paging (with featured_media id)
-// - Single-post fetch with _embed
+// - Batch media fetch by IDs
+// - Batch posts content fetch to extract first <img> when no featured image exists
 
 /* =========================
    Base / URL helpers
@@ -174,7 +175,7 @@ export async function fetchLeanPostsPage(page = 1, perPage = 6) {
       excerpt: decodeEntities(p?.excerpt?.rendered || ""),
       author: authorFromEmbedded(p),
       thumb: pickThumb(media),
-      featuredId: p?.featured_media || null, // <-- add id for backfill
+      featuredId: p?.featured_media || null,
     };
   });
 
@@ -205,6 +206,31 @@ export async function fetchMediaBatch(ids = []) {
       m?.source_url ||
       "";
     out[m.id] = { src: pick || "", alt: m?.alt_text || "" };
+  }
+  return out;
+}
+
+/**
+ * Batch fetch posts by IDs to extract the first <img> from content as a fallback preview.
+ * Returns: { [postId]: { src, alt } }
+ */
+export async function fetchPostsContentFirstImage(ids = []) {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  if (!uniq.length) return {};
+
+  const url = buildUrl("posts", {
+    include: uniq.join(","),
+    per_page: uniq.length,
+    _fields: "id,content.rendered",
+  });
+  const arr = await safeFetch(url);
+  const out = {};
+  for (const p of arr || []) {
+    const html = p?.content?.rendered || "";
+    const m = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+    if (m && m[1]) {
+      out[p.id] = { src: m[1], alt: "" };
+    }
   }
   return out;
 }
