@@ -1,9 +1,10 @@
 // home.js — renders the post summary grid, snapshot/restore, infinite scroll,
-// and robust thumbnail handling:
-//  1) use _embed-provided featured image if present
-//  2) backfill by featured_media id (media batch)
-//  3) if still missing, batch-fetch post content and use first <img> as preview
-//  4) if STILL missing, use site logo as a placeholder thumbnail
+// and robust thumbnail handling without flicker:
+//  1) if we have a thumb up-front, render it
+//  2) if not, render a neutral gray placeholder (NO logo yet)
+//  3) backfill by featured_media id (media batch)
+//  4) if still missing, batch-fetch post content and use first <img> as preview
+//  5) only if STILL missing after both backfills, set the logo once
 
 import {
   fetchLeanPostsPage,
@@ -12,7 +13,7 @@ import {
 } from "./api.js";
 import { SS, HOME_SNAPSHOT_KEY, HOME_SNAPSHOT_TTL_MS, now, debounce } from "./shared.js";
 
-// Site logo placeholder (same as header)
+// Site logo used only as the final fallback (after all backfills)
 const PLACEHOLDER_LOGO =
   "https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png";
 
@@ -87,7 +88,7 @@ export async function renderHome() {
     </div>
   `;
 
-  // Backfills:
+  // Backfills (no logo yet)
   await ensureThumbnails(app, posts);
 
   bindHomeInteractions(app, { page, hasMore });
@@ -96,8 +97,13 @@ export async function renderHome() {
 // ===== Card markup =====
 function renderCard(p) {
   const href = `#/post/${p.id}`;
-  const imgSrc = p.thumb || PLACEHOLDER_LOGO; // immediate placeholder if missing
-  const img = `<img class="thumb" src="${imgSrc}" alt="" loading="lazy" decoding="async" />`;
+
+  // If we already have a thumb URL, render an <img>.
+  // If not, render a neutral gray placeholder div (NO logo here to prevent flicker).
+  const img = p.thumb
+    ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />`
+    : `<div class="thumb ph" aria-hidden="true" style="background:#f0f0f0;height:160px"></div>`;
+
   const author = p.author || "";
   const date = p.dateText || "";
 
@@ -148,7 +154,7 @@ function setupInfiniteScroll(app, state) {
       if (posts && posts.length) {
         const html = posts.map(renderCard).join("");
         grid.insertAdjacentHTML("beforeend", html);
-        // Backfills for appended posts
+        // Backfills for appended posts (no logo yet)
         await ensureThumbnails(app, posts);
         page = next;
         hasMore = !!more;
@@ -172,7 +178,7 @@ function setupInfiniteScroll(app, state) {
 }
 
 /* =========================
-   Thumbnail backfills (2 stages) + final placeholder
+   Thumbnail backfills (2 stages) + final logo (only if still missing)
    ========================= */
 async function ensureThumbnails(app, posts) {
   // 1) media-ID backfill for cards where featured_media exists but _embed didn’t include it
@@ -187,12 +193,12 @@ async function ensureThumbnails(app, posts) {
     }
   }
 
-  // 2) content-first-image backfill for anything still without a thumbnail
+  // 2) content-first-image backfill for anything still without an <img>
   const stillMissing = posts.filter(p => {
     const card = app.querySelector(`.card[data-id="${p.id}"]`);
     if (!card) return false;
     const img = card.querySelector("img.thumb");
-    return !img || !img.getAttribute("src") || isPlaceholder(img.getAttribute("src"));
+    return !img || !img.getAttribute("src");
   });
 
   if (stillMissing.length) {
@@ -203,7 +209,7 @@ async function ensureThumbnails(app, posts) {
     } catch { /* silent */ }
   }
 
-  // 3) FINAL GUARANTEE: logo placeholder for any remaining missing thumbs
+  // 3) FINAL GUARANTEE (no flicker): only now set the logo for any remaining missing thumbs
   applyLogoPlaceholderIfMissing(app, posts);
 }
 
@@ -222,6 +228,7 @@ function patchThumbsFromMap(app, postsSubset, map, keyProp) {
       existingImg.src = media.src;
       if (!existingImg.alt) existingImg.alt = media.alt || "";
     } else {
+      // Replace gray div placeholder with the actual image
       link.innerHTML = `<img class="thumb" src="${media.src}" alt="${media.alt || ""}" loading="lazy" decoding="async" />`;
     }
   });
@@ -233,19 +240,14 @@ function applyLogoPlaceholderIfMissing(app, posts) {
     if (!card) return;
     const link = card.querySelector(".thumb-link");
     if (!link) return;
-    let img = link.querySelector("img.thumb");
-    if (!img) {
+
+    // If there is no <img> at all (still a gray div), or the image has no src, attach logo now.
+    const existingImg = link.querySelector("img.thumb");
+    if (!existingImg) {
       link.innerHTML = `<img class="thumb" src="${PLACEHOLDER_LOGO}" alt="The Oklahoma Observer" loading="lazy" decoding="async" />`;
-      return;
-    }
-    const src = img.getAttribute("src") || "";
-    if (!src || isPlaceholder(src)) {
-      img.setAttribute("src", PLACEHOLDER_LOGO);
-      if (!img.getAttribute("alt")) img.setAttribute("alt", "The Oklahoma Observer");
+    } else if (!existingImg.getAttribute("src")) {
+      existingImg.setAttribute("src", PLACEHOLDER_LOGO);
+      if (!existingImg.getAttribute("alt")) existingImg.setAttribute("alt", "The Oklahoma Observer");
     }
   });
-}
-
-function isPlaceholder(src) {
-  return !src || /^data:|^\s*$/.test(src);
 }
