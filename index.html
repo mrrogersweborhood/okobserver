@@ -25,7 +25,7 @@
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
   .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-  .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
+  .title{font-size:1.1em;margin:4px 0;color:#1E90FF;font-weight:bold}
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
@@ -109,25 +109,14 @@
   a > img.hero:hover {
     opacity: 0.8;
   }
-
-  /* Responsive embed container */
-  .embed {
-    position: relative;
-    width: 100%;
-    max-width: 800px;
-    margin: 20px auto;
-  }
-  .embed iframe,
-  .embed video,
-  .embed object,
-  .embed embed {
-    width: 100%;
-    height: auto;
-    min-height: 320px;
-    display: block;
-    border: 0;
-  }
 </style>
+
+<!-- Configure API base for Cloudflare Worker -->
+<script>
+  // Ensure trailing slash and includes /wp/v2/
+  window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2/";
+</script>
+
 </head>
 <body>
 <header>
@@ -177,10 +166,10 @@
   </div>
 </footer>
 
-<!-- App script (modular entry) -->
-<script type="module" src="main.js?v=2.2.2-hover" defer></script>
+<!-- App entry (cache-busted with matching version) -->
+<script type="module" src="main.js?v=2.2.4"></script>
 
-<!-- Hamburger toggle (no dependency on app.js) -->
+<!-- Hamburger toggle -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
@@ -197,12 +186,10 @@
     setOpen(open);
   });
 
-  // Close after a nav click
   nav.addEventListener('click', function(e){
     if (e.target.tagName === 'A') setOpen(false);
   });
 
-  // Close on hash route change
   window.addEventListener('hashchange', function(){ setOpen(false); });
 })();
 </script>
@@ -216,7 +203,7 @@ window.addEventListener('load', function () {
       var div = document.createElement('div');
       div.className = 'error-banner';
       div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
-        'App script did not execute. Check Network → main.js (200), hard-reload, and confirm file ends with "})();".';
+        'App script did not execute. Check Network → main.js (200), hard-reload.';
       host.prepend(div);
     } else {
       var v = document.getElementById('appVersion'); if (v) v.textContent = window.APP_VERSION;

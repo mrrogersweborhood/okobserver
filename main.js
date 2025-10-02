@@ -1,9 +1,8 @@
 // main.js — entry router
 import { renderHome, saveHomeSnapshot } from "./home.js";
-import { ordinalDate } from "./common.js"; // if needed elsewhere
 
-// Expose version for the footer probe
-window.APP_VERSION = "v2.2.3-home-cache-restore";
+// Expose version for the footer probe (match index.html version query)
+window.APP_VERSION = "v2.2.4";
 
 async function renderPostDetail(id) {
   const { renderPost } = await import("./detail.js");
@@ -27,9 +26,7 @@ async function router() {
     return;
   }
 
-  // Save Home snapshot proactively when leaving Home via hash change
-  // (safety if a link wasn't clicked—e.g., programmatic nav)
-  // Only do this when we are *currently* on Home DOM:
+  // If leaving Home, snapshot in case navigation didn't go through an <a> click
   const app = document.getElementById("app");
   if (app && app.querySelector(".grid")) {
     saveHomeSnapshot();
