@@ -1,4 +1,4 @@
-// detail.js — post detail view with robust first-paragraph normalization
+// detail.js — post detail view with hardened first-paragraph de-indent
 
 import { fetchPost } from "./api.js";
 import { saveHomeSnapshot } from "./home.js";
@@ -27,74 +27,95 @@ function decodeEntities(html) {
     .replace(/&#8221;/g, "”");
 }
 
-// Find the first block-level element that actually contains text content
+// Block detection: include typical containers that may hold the first text
+const BLOCK_TAG = /^(p|div|section|article|blockquote|figure)$/i;
+
+// Return the first block-like element that actually contains non-empty text
 function findFirstTextBlock(root) {
   if (!root) return null;
-  const isBlock = (el) => {
-    const name = el?.nodeName?.toLowerCase();
-    return !!name && /^(p|div|section|article|blockquote)$/.test(name);
-  };
-  // BFS through blocks until we see non-empty text
   const q = Array.from(root.children || []);
   while (q.length) {
     const el = q.shift();
     if (!el) continue;
-    if (isBlock(el)) {
-      // textContent stripped of whitespace/nbsp/br
-      const text = el.textContent
-        .replace(/\u00A0/g, " ")
+
+    if (BLOCK_TAG.test(el.tagName)) {
+      // Text with whitespace & NBSP trimmed
+      const text = (el.textContent || "")
+        .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ")
         .replace(/^\s+|\s+$/g, "");
       if (text.length > 0) return el;
     }
+    // Continue BFS
     q.push(...(el.children || []));
   }
   return null;
 }
 
-// Remove inline indent styles and leading fillers (&nbsp;, NBSP, starting <br>)
+// Strip common inline indent styles from an element's style attribute
+function stripIndentStylesInline(el) {
+  if (!el) return;
+  const styleAttr = el.getAttribute?.("style");
+  if (styleAttr) {
+    const cleaned = styleAttr
+      // remove text-indent
+      .replace(/text-indent\s*:\s*[^;]+;?/gi, "")
+      // remove left margins/padding often used to fake indents
+      .replace(/margin-left\s*:\s*[^;]+;?/gi, "")
+      .replace(/padding-left\s*:\s*[^;]+;?/gi, "")
+      // neutralize white-space that preserves leading spaces
+      .replace(/white-space\s*:\s*[^;]+;?/gi, "");
+    if (cleaned.trim()) el.setAttribute("style", cleaned);
+    else el.removeAttribute("style");
+  }
+  if (el.style) {
+    // Also clear via style API to win over specificity
+    try {
+      el.style.textIndent = "0";
+      el.style.marginLeft = "";
+      el.style.paddingLeft = "";
+      // Avoid preserving leading spaces visually
+      if (el.style.whiteSpace) el.style.whiteSpace = "";
+    } catch {}
+  }
+}
+
+// Remove leading <br> and leading space entities (&nbsp;/&ensp;/&emsp;/unicode spaces)
+function stripLeadingFillersFromHTML(html) {
+  if (!html) return html;
+  return html
+    // remove leading <br> tags
+    .replace(/^(\s*<br\s*\/?>)+/i, "")
+    // unwrap empty tags that only contain breaks/spaces at the start (e.g., <span>&nbsp;</span>)
+    .replace(/^(\s*<(?:span|em|strong|i|b)[^>]*>(?:\s|&nbsp;|&ensp;|&emsp;|<br\s*\/?>)*<\/(?:span|em|strong|i|b)>\s*)+/i, "")
+    // remove leading NBSP/ENSP/EMSP and other unicode wide spaces, plus normal spaces/tabs
+    .replace(/^([\u00A0\u2000-\u200A\u202F\u205F\u3000]|&nbsp;|&ensp;|&emsp;|\s)+/i, "");
+}
+
+// Normalize first paragraph/first text block:
+// - remove inline indent styles on the block and its first-level children
+// - remove leading fillers (&nbsp;, em/en spaces, unicode gaps, <br>)
+// - also clean the very first inline child if it exists (span/strong/etc.)
 function normalizeFirstParagraph(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
 
-  // 1) Strip inline text-indent from style attribute (if present)
-  const styleAttr = first.getAttribute("style");
-  if (styleAttr && /text-indent/i.test(styleAttr)) {
-    const cleaned = styleAttr.replace(/text-indent\s*:\s*[^;]+;?/gi, "");
-    if (cleaned.trim()) first.setAttribute("style", cleaned);
-    else first.removeAttribute("style");
-  }
-  // Also explicitly neutralize via style API (in case of specificity)
-  if (first.style) {
-    try {
-      first.style.textIndent = "0";
-      // Hard stop any left offsets that mimic indentation
-      if (first.style.marginLeft) first.style.marginLeft = "";
-      if (first.style.paddingLeft) first.style.paddingLeft = "";
-    } catch {}
-  }
+  // Clean the block itself
+  stripIndentStylesInline(first);
+  first.innerHTML = stripLeadingFillersFromHTML(first.innerHTML);
 
-  // 2) Remove leading fillers in the HTML: &nbsp;, NBSP, and stray <br> at the start
-  // Do this carefully to avoid removing meaningful content.
-  const html = first.innerHTML;
-  if (html) {
-    const cleaned = html
-      // remove leading <br> tags (one or more)
-      .replace(/^(\s*<br\s*\/?>)+/i, "")
-      // remove leading nbsp characters/entities/spaces
-      .replace(/^(\u00A0|&nbsp;|\s)+/i, "");
-    if (cleaned !== html) first.innerHTML = cleaned;
-  }
-
-  // 3) Also sweep nested descendants inside the first block for explicit text-indent
-  first.querySelectorAll("*[style]").forEach((el) => {
-    const st = el.getAttribute("style");
-    if (!st) return;
-    if (/text-indent/i.test(st)) {
-      const newSt = st.replace(/text-indent\s*:\s*[^;]+;?/gi, "");
-      if (newSt.trim()) el.setAttribute("style", newSt);
-      else el.removeAttribute("style");
+  // Clean first-level children (they often carry span/inline styles that indent)
+  const kids = Array.from(first.children || []);
+  for (let i = 0; i < kids.length; i++) {
+    const child = kids[i];
+    stripIndentStylesInline(child);
+    // Only strip leading fillers from the very first child that contributes content
+    if (i === 0) {
+      child.innerHTML = stripLeadingFillersFromHTML(child.innerHTML);
     }
-  });
+  }
+
+  // Deep sweep: any descendant explicitly setting text-indent/margins gets neutralized
+  first.querySelectorAll("*[style]").forEach((el) => stripIndentStylesInline(el));
 }
 
 // Clickable hero behavior: open external video links in new tab when hero is a video proxy
@@ -184,7 +205,7 @@ export async function renderPost(id) {
     </div>
   `;
 
-  // Normalize first paragraph indentation reliably
+  // Normalize first paragraph indentation reliably (covers inline styles + entities)
   const contentRoot = app.querySelector(".post .content");
   if (contentRoot) normalizeFirstParagraph(contentRoot);
 
