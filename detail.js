@@ -1,8 +1,8 @@
 // detail.js — single post detail
-// Guarantees a good FB video UX WITHOUT duplicates:
-// - If content already has a video (iframe/video or an fb-link-card), DO NOT wrap hero.
-// - Otherwise, if we find a Facebook video URL, wrap the HERO image as a clickable link.
-// - Also: normalize first paragraph, responsive YT/Vimeo, bottom-only “Back to posts”.
+// Ensures there is at most ONE video player:
+//  - If content already has an embed (iframe/video or fb-link-card), DO NOT add a hero fallback.
+//  - Otherwise, if a Facebook video URL exists, wrap the HERO image as a clickable link to open in a new tab.
+// Also: normalize first paragraph, responsive embeds for YT/Vimeo, bottom-only “Back to posts”.
 
 import { fetchPost } from "./api.js";
 import { ordinalDate } from "./common.js";
@@ -192,6 +192,7 @@ function findFirstFacebookVideoUrlInDom(root) {
   return fbUrl;
 }
 
+/** Remove leftover FB anchors so only image/embed remains visible */
 function removeResidualFacebookAnchors(root) {
   root.querySelectorAll("a[href]").forEach((a) => {
     const href = a.getAttribute("href") || "";
@@ -204,7 +205,7 @@ function removeResidualFacebookAnchors(root) {
 }
 
 /* =========================
-   Embed conversion
+   Embed conversion (YT/Vimeo only; FB handled via image link)
    ========================= */
 function enhanceEmbeds(root) {
   if (!root) return;
@@ -223,7 +224,7 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // Convert standalone anchors for YT/Vimeo (Facebook handled via image approach)
+  // Convert standalone anchors for YT/Vimeo (Facebook is NOT auto-embedded)
   root.querySelectorAll("a[href]").forEach((a) => {
     const url = a.getAttribute("href") || "";
     if (!url) return;
@@ -291,47 +292,49 @@ export async function renderPost(id) {
 
     const contentRoot = container.querySelector(".content");
 
-    // De-indent first paragraph and enable YT/Vimeo responsive embeds
+    // Normalize first paragraph & enable YT/Vimeo responsive embeds
     normalizeFirstParagraph(contentRoot);
     enhanceEmbeds(contentRoot);
 
     // Determine FB URL (prefer raw HTML match; fallback to DOM)
     const fbUrl = fbUrlFromHtml || findFirstFacebookVideoUrlInDom(contentRoot);
 
-    // SAFEGUARD: If content already has a visible video, DO NOT wrap hero (prevents duplicates)
+    // STRONG SAFEGUARD:
+    // If the content already has an embed OR hero is already wrapped, DO NOT create a fallback.
     const hasExistingVideo =
       !!contentRoot.querySelector("iframe, video, .fb-link-card");
+    const heroEl = container.querySelector(".hero");
+    const heroAlreadyLinked = !!(heroEl && heroEl.parentElement && heroEl.parentElement.tagName === "A");
 
-    if (fbUrl) {
-      if (!hasExistingVideo) {
-        // No visible video yet → guarantee a clickable image via HERO
-        const heroEl = container.querySelector(".hero");
-        if (heroEl) {
-          const a = document.createElement("a");
-          a.href = fbUrl;
-          a.target = "_blank";
-          a.rel = "noopener";
-          heroEl.replaceWith(a);
-          a.appendChild(heroEl);
-        } else if (heroSrc) {
-          // Rare: no hero element but we have heroSrc → inject clickable hero above content
-          const card = buildFacebookClickableImage(fbUrl, heroSrc);
+    if (fbUrl && !hasExistingVideo && !heroAlreadyLinked) {
+      // No visible video yet → guarantee a clickable image via HERO
+      if (heroEl) {
+        const a = document.createElement("a");
+        a.href = fbUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        heroEl.replaceWith(a);
+        a.appendChild(heroEl);
+      } else if (heroSrc) {
+        // Rare: no hero element but we have heroSrc → inject clickable hero above content
+        const card = buildFacebookClickableImage(fbUrl, heroSrc);
+        const article = container.querySelector("article.post");
+        const content = container.querySelector(".content");
+        if (article && content) article.insertBefore(card, content);
+      } else {
+        // Last resort: clone first content image
+        const anyImg = contentRoot.querySelector("img");
+        if (anyImg && anyImg.getAttribute("src")) {
+          const card = buildFacebookClickableImage(fbUrl, anyImg.getAttribute("src"));
           const article = container.querySelector("article.post");
           const content = container.querySelector(".content");
           if (article && content) article.insertBefore(card, content);
-        } else {
-          // Last resort: clone first content image
-          const anyImg = contentRoot.querySelector("img");
-          if (anyImg && anyImg.getAttribute("src")) {
-            const card = buildFacebookClickableImage(fbUrl, anyImg.getAttribute("src"));
-            const article = container.querySelector("article.post");
-            const content = container.querySelector(".content");
-            if (article && content) article.insertBefore(card, content);
-          }
         }
       }
+    }
 
-      // Remove leftover FB anchors/URLs so only image/embed remains
+    // Clean up leftover FB anchors/URLs so only image/embed remains
+    if (fbUrl) {
       removeResidualFacebookAnchors(contentRoot);
     }
   } catch (err) {
