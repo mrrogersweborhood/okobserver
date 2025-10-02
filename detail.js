@@ -2,7 +2,8 @@
 // - Normalizes first paragraph (removes unwanted indent from WP inline styles, NBSP/ZWSP, leading blockquotes)
 // - Makes existing iframes responsive (.embed)
 // - Auto-embeds YouTube/Vimeo
-// - Facebook video links: **show a clickable preview image that opens Facebook in a new tab** (no button/text)
+// - Facebook video links: show ONLY a clickable preview image that opens FB in a new tab (no URL/text shown)
+// - Removes leftover FB anchors like “Click here to watch.”
 // - Bottom-only “Back to posts” button
 
 import { fetchPost } from "./api.js";
@@ -12,14 +13,12 @@ import { ordinalDate } from "./common.js";
    First-paragraph normalizer
    ========================= */
 
-/** Depth-first iterator */
 function* walkNodes(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL, null);
   let n = walker.currentNode;
   while (n) { yield n; n = walker.nextNode(); }
 }
 
-/** Remove leading NBSP/ZWSP/space across descendants until first real text */
 function stripLeadingWhitespaceDeep(root) {
   const WS_RE = /^[\u00A0\u200B\u200C\u200D\uFEFF \t\r\n]+/;
   for (const n of walkNodes(root)) {
@@ -28,15 +27,14 @@ function stripLeadingWhitespaceDeep(root) {
       const after = before.replace(WS_RE, "");
       if (after !== before) {
         n.nodeValue = after;
-        if (after.length > 0) return;   // done: hit first non-empty text
+        if (after.length > 0) return;
       } else if (before.trim().length > 0) {
-        return; // encountered first non-whitespace text
+        return;
       }
     }
   }
 }
 
-/** Find first real content block inside root (skips wrappers with no text) */
 function firstContentBlock(root) {
   if (!root) return null;
   const nodes = root.querySelectorAll("p, div, section, article, blockquote, ul, ol");
@@ -47,7 +45,6 @@ function firstContentBlock(root) {
   return null;
 }
 
-/** Zero left offsets on element and its ancestors up to root */
 function zeroInlineLeftOffsets(el, root) {
   let cur = el;
   while (cur && cur !== root && cur.nodeType === 1) {
@@ -63,7 +60,6 @@ function zeroInlineLeftOffsets(el, root) {
         if (s.trim()) cur.setAttribute("style", s);
         else cur.removeAttribute("style");
       }
-      // Inline override (wins over theme)
       cur.style.textIndent = "0";
       cur.style.marginLeft = "0";
       cur.style.paddingLeft = "0";
@@ -73,7 +69,6 @@ function zeroInlineLeftOffsets(el, root) {
   }
 }
 
-/** If first block is simple <blockquote><p|div>…</>, unwrap; else just neutralize */
 function gentlyUnwrapLeadingBlockquote(root, first) {
   if (!first || first.tagName !== "BLOCKQUOTE") return;
   const kids = Array.from(first.children || []);
@@ -86,28 +81,15 @@ function gentlyUnwrapLeadingBlockquote(root, first) {
   }
 }
 
-/** Main normalization entry */
 function normalizeFirstParagraph(root) {
   if (!root) return;
-
-  // 1) Remove leading whitespace across descendants
   stripLeadingWhitespaceDeep(root);
-
-  // 2) Find first real block
   const first = firstContentBlock(root);
   if (!first) return;
-
-  // 3) Unwrap/neutralize leading blockquote wrapper
   gentlyUnwrapLeadingBlockquote(root, first);
-
-  // 4) Kill left offsets on the first block and its wrapper chain
   zeroInlineLeftOffsets(first, root);
-
-  // 5) Scrub first inline descendant (spans with inline text-indent etc.)
   const firstInline = first.querySelector("span, em, strong, a, i, b, u, small, sup, sub");
   if (firstInline) zeroInlineLeftOffsets(firstInline, root);
-
-  // 6) Final pass: ensure first text run is clean
   stripLeadingWhitespaceDeep(first);
 }
 
@@ -143,9 +125,6 @@ function isFacebookVideoUrl(url) {
   try {
     const u = new URL(url);
     if (!u.hostname.includes("facebook.com")) return false;
-    // Common forms:
-    // https://www.facebook.com/{page}/videos/{id}
-    // https://www.facebook.com/watch/?v={id}
     if (u.pathname.startsWith("/watch") && u.searchParams.get("v")) return true;
     if (/\/videos\/\d+/.test(u.pathname)) return true;
   } catch {}
@@ -159,7 +138,7 @@ function buildIframeWrap(src, ratio = "16x9") {
   return wrap;
 }
 
-/** Create a clickable preview image that opens Facebook in a new tab (no text/button) */
+/** Build a clickable preview image that opens FB in a new tab (no text shown) */
 function buildFacebookClickableImage(url, existingImgEl) {
   const wrap = document.createElement("div");
   wrap.className = "fb-link-card";
@@ -185,23 +164,33 @@ function buildFacebookClickableImage(url, existingImgEl) {
     a.appendChild(img);
     wrap.appendChild(a);
   } else {
-    // If there is truly no image available, retain the plain anchor text (keeps content accessible)
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.textContent = url;
-    wrap.appendChild(a);
+    // If truly no image exists, remove the URL entirely (no text shown)
+    wrap.style.display = "none";
   }
 
   return wrap;
 }
 
-/** Make existing iframes responsive; convert bare links to embeds; Facebook → clickable image link */
+/* Remove leftover FB anchors like "Click here to watch." or raw URL anchors */
+function removeResidualFacebookAnchors(root) {
+  root.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href") || "";
+    if (!href) return;
+    if (isFacebookVideoUrl(href)) {
+      // If it's not our clickable image wrapper, remove it.
+      if (!a.closest(".fb-link-card")) {
+        // Preserve surrounding text cleanly: drop the anchor entirely.
+        a.replaceWith(document.createTextNode(""));
+      }
+    }
+  });
+}
+
+/** Make existing iframes responsive; YouTube/Vimeo embeds; Facebook → clickable preview image only */
 function enhanceEmbeds(root) {
   if (!root) return;
 
-  // 0) Make existing iframes responsive (wrap in .embed if not already)
+  // 0) Make existing iframes responsive
   root.querySelectorAll("iframe").forEach((f) => {
     const parent = f.parentElement;
     if (!parent || !parent.classList.contains("embed")) {
@@ -215,12 +204,12 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // 1) Handle WP wrappers or nodes that might only contain a URL
+  // 1) Handle wrappers or nodes that might only contain a URL
   const wrappers = root.querySelectorAll(
     "figure.wp-block-embed, .wp-block-embed__wrapper, div.wp-video, p, div"
   );
   wrappers.forEach((el) => {
-    if (el.querySelector && el.querySelector("iframe")) return; // already handled above
+    if (el.querySelector && el.querySelector("iframe")) return;
 
     // Prefer WP data attribute
     let url = el.getAttribute && el.getAttribute("data-oembed-url");
@@ -237,7 +226,7 @@ function enhanceEmbeds(root) {
     }
     if (!url) return;
 
-    // Facebook videos → clickable preview image (no embed)
+    // Facebook → clickable image (no URL text)
     if (isFacebookVideoUrl(url)) {
       const img = anchorEl && anchorEl.querySelector && anchorEl.querySelector("img");
       const card = buildFacebookClickableImage(url, img || null);
@@ -260,13 +249,12 @@ function enhanceEmbeds(root) {
     }
   });
 
-  // 2) Any leftover standalone anchors → try convert to embeds or FB clickable image
+  // 2) Any leftover anchors → YouTube/Vimeo embeds or FB → clickable image
   root.querySelectorAll("a[href]").forEach((a) => {
-    if (a.closest(".embed") || a.closest(".fb-link-card")) return; // already handled
+    if (a.closest(".embed") || a.closest(".fb-link-card")) return;
     const url = a.getAttribute("href") || "";
     if (!url) return;
 
-    // Facebook → clickable image (keep existing <img> if present)
     if (isFacebookVideoUrl(url)) {
       const img = a.querySelector && a.querySelector("img");
       const card = buildFacebookClickableImage(url, img || null);
@@ -275,7 +263,6 @@ function enhanceEmbeds(root) {
       return;
     }
 
-    // YouTube
     const yt = toYouTubeId(url);
     if (yt) {
       const wrap = buildIframeWrap(`https://www.youtube.com/embed/${yt}?rel=0&modestbranding=1`);
@@ -284,7 +271,6 @@ function enhanceEmbeds(root) {
       return;
     }
 
-    // Vimeo
     const vm = toVimeoId(url);
     if (vm) {
       const wrap = buildIframeWrap(`https://player.vimeo.com/video/${vm}`);
@@ -293,6 +279,9 @@ function enhanceEmbeds(root) {
       return;
     }
   });
+
+  // 3) Clean up: remove any leftover FB anchors like "Click here to watch." or raw URLs
+  removeResidualFacebookAnchors(root);
 }
 
 /* =========================
@@ -340,7 +329,8 @@ export async function renderPost(id) {
     // 1) Remove unwanted first-paragraph indentation
     normalizeFirstParagraph(contentRoot);
 
-    // 2) Wrap existing iframes and convert links. Facebook → clickable image only.
+    // 2) Wrap existing iframes and convert links.
+    //    Facebook → clickable image only; remove any leftover FB URLs/anchors.
     enhanceEmbeds(contentRoot);
   } catch (err) {
     console.error("[OkObserver] Failed to render post", err);
