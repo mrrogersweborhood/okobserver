@@ -1,4 +1,4 @@
-// detail.js — post detail view with hardened first-paragraph de-indent
+// detail.js — post detail view with hardened first-paragraph de-indent (JS + CSS guards)
 
 import { fetchPost } from "./api.js";
 import { saveHomeSnapshot } from "./home.js";
@@ -73,7 +73,6 @@ function stripIndentStylesInline(el) {
       el.style.textIndent = "0";
       el.style.marginLeft = "";
       el.style.paddingLeft = "";
-      // Avoid preserving leading spaces visually
       if (el.style.whiteSpace) el.style.whiteSpace = "";
     } catch {}
   }
@@ -91,10 +90,7 @@ function stripLeadingFillersFromHTML(html) {
     .replace(/^([\u00A0\u2000-\u200A\u202F\u205F\u3000]|&nbsp;|&ensp;|&emsp;|\s)+/i, "");
 }
 
-// Normalize first paragraph/first text block:
-// - remove inline indent styles on the block and its first-level children
-// - remove leading fillers (&nbsp;, em/en spaces, unicode gaps, <br>)
-// - also clean the very first inline child if it exists (span/strong/etc.)
+// Normalize first paragraph/first text block
 function normalizeFirstParagraph(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
@@ -116,6 +112,34 @@ function normalizeFirstParagraph(root) {
 
   // Deep sweep: any descendant explicitly setting text-indent/margins gets neutralized
   first.querySelectorAll("*[style]").forEach((el) => stripIndentStylesInline(el));
+}
+
+// Final hard guard: apply !important zeroing to defeat stubborn inline styles
+function hardNukeIndent(root) {
+  const first = findFirstTextBlock(root);
+  if (!first) return;
+
+  // Clean leading fillers again in case inline tags regened content
+  first.innerHTML = stripLeadingFillersFromHTML(first.innerHTML);
+
+  // Force zero with !important
+  try {
+    first.style.setProperty("text-indent", "0", "important");
+    first.style.setProperty("margin-left", "0", "important");
+    first.style.setProperty("padding-left", "0", "important");
+    first.style.setProperty("white-space", "normal", "important");
+  } catch {}
+
+  // Also force the very first inline child if present
+  const firstInline = first.firstElementChild;
+  if (firstInline) {
+    try {
+      firstInline.style.setProperty("text-indent", "0", "important");
+      firstInline.style.setProperty("margin-left", "0", "important");
+      firstInline.style.setProperty("padding-left", "0", "important");
+      firstInline.style.setProperty("white-space", "normal", "important");
+    } catch {}
+  }
 }
 
 // Clickable hero behavior: open external video links in new tab when hero is a video proxy
@@ -207,7 +231,10 @@ export async function renderPost(id) {
 
   // Normalize first paragraph indentation reliably (covers inline styles + entities)
   const contentRoot = app.querySelector(".post .content");
-  if (contentRoot) normalizeFirstParagraph(contentRoot);
+  if (contentRoot) {
+    normalizeFirstParagraph(contentRoot);
+    hardNukeIndent(contentRoot); // final !important override
+  }
 
   // Enhance hero if we detected a video URL (hover/click handled safely)
   bindHeroClickIfVideo(app, post);

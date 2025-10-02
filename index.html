@@ -38,11 +38,20 @@
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
   .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
+
+  /* Prior normalization for first block */
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
     text-align: left !important;
     text-indent: 0 !important;
     margin-left: 0 !important;
     padding-left: 0 !important;
+  }
+  /* EXTRA guard: if the first real paragraph is a <p>, kill any indent/padding/margin */
+  .post .content > p:first-of-type {
+    text-indent: 0 !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    white-space: normal !important;
   }
 
   .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
