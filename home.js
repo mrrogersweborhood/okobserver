@@ -1,23 +1,19 @@
-// home.js — renders the post summary grid and provides restore/save snapshot hooks
+// home.js — renders the post summary grid, snapshot/restore, infinite scroll,
+// and now: robust thumbnail handling with a media backfill if _embed is missing.
 
-import { fetchLeanPostsPage } from "./api.js";
+import { fetchLeanPostsPage, fetchMediaBatch, buildUrl } from "./api.js";
 import { SS, HOME_SNAPSHOT_KEY, HOME_SNAPSHOT_TTL_MS, now, debounce } from "./shared.js";
 
 // ===== Public API (used by router/main) =====
 export function saveHomeSnapshot() {
   const app = document.getElementById("app");
   if (!app) return;
-
-  // Only snapshot the grid container to keep it small
   const grid = app.querySelector(".grid");
   if (!grid) return;
 
   const payload = {
     html: grid.outerHTML,
-    // Remember minimal UI around it (header/Footer are static in index.html)
-    // We also remember scroll so "cursor" stays put.
     scrollY: document.scrollingElement?.scrollTop || window.pageYOffset || 0,
-    // A tiny signature so we can tell if layout changed in future
     meta: { v: 3, when: now() }
   };
 
@@ -40,20 +36,17 @@ export function tryRestoreHome() {
   const app = document.getElementById("app");
   if (!app) return false;
 
-  // Rehydrate the grid into the app shell
   app.innerHTML = `
     <div class="container">
       <div class="grid-restored">${data.html}</div>
+      <div id="sentinel" aria-hidden="true" style="height:1px"></div>
     </div>
   `;
-  // The stored html already includes .grid wrapper; ensure we didn’t nest weirdly
   const inner = app.querySelector(".grid") || app.querySelector(".grid-restored .grid");
   if (!inner) return false;
 
-  // Re-bind behaviors the same way initial render would
-  bindHomeInteractions(app);
+  bindHomeInteractions(app, { restored: true });
 
-  // Restore scroll after next frame so layout is ready
   requestAnimationFrame(() => {
     window.scrollTo(0, data.scrollY || 0);
   });
@@ -66,13 +59,10 @@ export async function renderHome() {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // If we can restore, do it and exit quickly.
   if (tryRestoreHome()) return;
 
   app.innerHTML = `<div class="container"><p class="center">Loading…</p></div>`;
 
-  // Initial page fetch (your existing paging still applies)
-  // Keep page size small for first paint; infinite scroll will add more.
   const page = 1;
   const { posts, hasMore } = await fetchLeanPostsPage(page);
 
@@ -85,18 +75,23 @@ export async function renderHome() {
     </div>
   `;
 
+  // Backfill missing thumbnails if needed (e.g., when _embed is stripped by proxy)
+  await backfillThumbsIntoGrid(app, posts);
+
   bindHomeInteractions(app, { page, hasMore });
 }
 
 // ===== Card markup =====
 function renderCard(p) {
   const href = `#/post/${p.id}`;
-  const img = p.thumb ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />` : `<div class="thumb" aria-hidden="true"></div>`;
+  const img = p.thumb
+    ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />`
+    : `<div class="thumb" aria-hidden="true" style="background:#f0f0f0;height:160px"></div>`;
   const author = p.author || "";
   const date = p.dateText || "";
 
   return `
-    <article class="card" data-id="${p.id}">
+    <article class="card" data-id="${p.id}" data-featured-id="${p.featuredId || ""}">
       <a class="thumb-link" href="${href}" aria-label="${p.title}">
         ${img}
       </a>
@@ -113,18 +108,14 @@ function renderCard(p) {
 }
 
 // ===== Wire up clicks + infinite scroll =====
-function bindHomeInteractions(app, state = { page: 1, hasMore: true }) {
-  // Intercept clicks on cards to save snapshot before route change
+function bindHomeInteractions(app, state = { page: 1, hasMore: true, restored: false }) {
   app.addEventListener("click", onCardClickOnce, { once: true, capture: true });
-
-  // Infinite scroll (idempotent)
   setupInfiniteScroll(app, state);
 }
 
 function onCardClickOnce(e) {
   const a = e.target.closest('a[href^="#/post/"]');
   if (!a) return;
-  // Save snapshot right before we navigate away
   saveHomeSnapshot();
 }
 
@@ -144,18 +135,21 @@ function setupInfiniteScroll(app, state) {
       const next = page + 1;
       const { posts, hasMore: more } = await fetchLeanPostsPage(next);
       if (posts && posts.length) {
-        grid.insertAdjacentHTML("beforeend", posts.map(renderCard).join(""));
+        const html = posts.map(renderCard).join("");
+        grid.insertAdjacentHTML("beforeend", html);
+        // Backfill for the newly appended cards if needed
+        await backfillThumbsIntoGrid(app, posts);
         page = next;
         hasMore = !!more;
       } else {
         hasMore = false;
       }
     } catch {
-      // leave hasMore as-is; allow retries on scroll
+      // allow retry
     } finally {
       loading = false;
     }
-  }, 50);
+  }, 80);
 
   const io = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
@@ -164,4 +158,48 @@ function setupInfiniteScroll(app, state) {
   }, { rootMargin: "800px 0px 800px 0px" });
 
   io.observe(sentinel);
+}
+
+/* =========================
+   Thumbnail backfill
+   ========================= */
+/**
+ * If some posts have no p.thumb but do have featuredId, request a batch
+ *   GET /media?include=...&_fields=id,source_url,media_details.sizes,alt_text
+ * and patch the DOM thumbnails in place.
+ */
+async function backfillThumbsIntoGrid(app, posts) {
+  const needs = posts.filter(p => !p.thumb && p.featuredId);
+  if (!needs.length) return;
+
+  const idSet = [...new Set(needs.map(p => p.featuredId).filter(Boolean))];
+  if (!idSet.length) return;
+
+  let mediaMap = {};
+  try {
+    mediaMap = await fetchMediaBatch(idSet);
+  } catch {
+    return; // silent; we keep placeholders
+  }
+
+  // Patch DOM
+  needs.forEach(p => {
+    const media = mediaMap[p.featuredId];
+    if (!media?.src) return;
+    const card = app.querySelector(`.card[data-id="${p.id}"]`);
+    if (!card) return;
+    const link = card.querySelector(".thumb-link");
+    if (!link) return;
+
+    // Replace placeholder with real image
+    const existingImg = link.querySelector("img.thumb");
+    if (existingImg) {
+      // had img but empty src? make sure it points to real
+      existingImg.src = media.src;
+      if (!existingImg.alt) existingImg.alt = media.alt || "";
+    } else {
+      // had placeholder div — inject an <img>
+      link.innerHTML = `<img class="thumb" src="${media.src}" alt="${media.alt || ""}" loading="lazy" decoding="async" />`;
+    }
+  });
 }
