@@ -23,9 +23,9 @@
 
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .card{border:1px solid #ddd;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column}
-  .thumb{width:100%;height:180px;object-fit:cover;background:#f0f0f0;cursor:pointer}
+  .thumb{width:100%;height:160px;object-fit:cover;background:#f0f0f0;cursor:pointer}
   .card-body{padding:12px;display:flex;flex-direction:column;gap:6px}
-  .title{font-size:1.1em;margin:4px 0;color:var(--secondary);font-weight:700}
+  .title{font-size:1.1em;margin:4px 0;color:var(--secondary)}
   .meta-author-date{font-size:.85em;color:var(--secondary);display:flex;gap:8px;align-items:center;margin-bottom:4px}
   .meta-author-date .date{color:#000;font-weight:normal}
   .excerpt{font-size:.9em;color:#333}
@@ -37,7 +37,7 @@
   .post h1{margin-top:0;color:var(--secondary)}
   .post .meta-author-date{font-size:.9em;color:var(--secondary);margin-bottom:8px;display:flex;gap:8px;align-items:center}
   .post .meta-author-date .date{color:#000;font-weight:normal}
-  .post .hero{width:100%;max-height:420px;object-fit:contain;margin:16px 0;border-radius:10px}
+  .post .hero{width:100%;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px}
   .post .content > :is(p,div,section,article,blockquote):first-of-type {
     text-align: left !important;
     text-indent: 0 !important;
@@ -101,7 +101,16 @@
     .nav-links[data-state="open"]   { max-height: 240px; opacity: 1; pointer-events: auto; }
   }
 
-  /* === Responsive embed support === */
+  /* Clickable hero hover state */
+  a > img.hero {
+    cursor: pointer;
+    transition: opacity 0.25s ease;
+  }
+  a > img.hero:hover {
+    opacity: 0.8;
+  }
+
+  /* Responsive embed container */
   .embed {
     position: relative;
     width: 100%;
@@ -168,10 +177,10 @@
   </div>
 </footer>
 
-<!-- App script -->
-<script type="module" src="main.js?v=2.2.1" defer></script>
+<!-- App script (modular entry) -->
+<script type="module" src="main.js?v=2.2.2-hover" defer></script>
 
-<!-- Hamburger toggle -->
+<!-- Hamburger toggle (no dependency on app.js) -->
 <script>
 (function(){
   const btn = document.getElementById('menuToggle');
