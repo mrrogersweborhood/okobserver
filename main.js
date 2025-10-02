@@ -1,44 +1,49 @@
-// main.js — entry point for OkObserver modular app (stable baseline)
+// main.js — entry router
+import { renderHome, saveHomeSnapshot } from "./home.js";
+import { ordinalDate } from "./common.js"; // if needed elsewhere
 
-window.APP_VERSION = "v2.2.2-stable";
-console.info("OkObserver app loaded", window.APP_VERSION);
+// Expose version for the footer probe
+window.APP_VERSION = "v2.2.3-home-cache-restore";
 
-// ✅ Use your Cloudflare Worker proxy
-window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
+async function renderPostDetail(id) {
+  const { renderPost } = await import("./detail.js");
+  renderPost(id);
+}
 
-// Router
+async function renderAbout() {
+  const { renderAbout } = await import("./about.js");
+  renderAbout();
+}
+
+function isHome(hash) {
+  return hash === "" || hash === "#" || hash === "#/";
+}
+
 async function router() {
   const hash = location.hash || "#/";
-  if (hash === "#/" || hash === "#") {
-    const { renderHome } = await import("./home.js");
-    renderHome();
-  } else if (hash.startsWith("#/post/")) {
-    const m = hash.match(/^#\/post\/(\d+)/);
-    if (m) {
-      const { renderPost } = await import("./detail.js");
-      renderPost(m[1]);
-    }
+
+  if (isHome(hash)) {
+    await renderHome();
+    return;
+  }
+
+  // Save Home snapshot proactively when leaving Home via hash change
+  // (safety if a link wasn't clicked—e.g., programmatic nav)
+  // Only do this when we are *currently* on Home DOM:
+  const app = document.getElementById("app");
+  if (app && app.querySelector(".grid")) {
+    saveHomeSnapshot();
+  }
+
+  const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
+  if (m && m[1]) {
+    await renderPostDetail(m[1]);
   } else if (hash.startsWith("#/about")) {
-    const { renderAbout } = await import("./about.js");
-    renderAbout();
+    await renderAbout();
   } else {
-    const { renderHome } = await import("./home.js");
-    renderHome();
+    await renderHome();
   }
 }
 
 window.addEventListener("hashchange", router);
-window.addEventListener("DOMContentLoaded", router);
-
-// Footer version info
-window.addEventListener("load", () => {
-  const v = document.getElementById("appVersion");
-  if (v) v.textContent = window.APP_VERSION;
-  const y = document.getElementById("year");
-  if (y) y.textContent = new Date().getFullYear();
-});
-
-// Optional: register Service Worker for caching
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js?v=7").catch(() => {});
-}
+window.addEventListener("load", router);

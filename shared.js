@@ -1,98 +1,28 @@
-// shared.js — common UI helpers + grid/card renderers
+// shared.js — small utilities shared across modules
 
-export function decodeEntities(html) {
-  if (!html) return "";
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || div.innerText || "";
-}
-export function stripTags(html) {
-  if (!html) return "";
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return (div.textContent || div.innerText || "").trim();
-}
-
-function pickFeaturedSrc(post) {
-  try {
-    const m = post?._embedded?.["wp:featuredmedia"]?.[0];
-    if (!m) return "";
-    const sizes = m.media_details?.sizes || {};
-    const order = ["large", "medium_large", "medium", "thumbnail", "1536x1536", "2048x2048", "full"];
-    const best = order.map(k => sizes[k]).find(s => s?.source_url) || null;
-    return (best?.source_url || m.source_url || "").trim();
-  } catch { return ""; }
-}
-
-export function renderCard(post) {
-  const id = post?.id;
-  const href = id ? `#/post/${id}` : "#/";
-  const title = decodeEntities(post?.title?.rendered || "Untitled");
-  const author =
-    post?._embedded?.author?.[0]?.name ||
-    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
-    "";
-  const date = new Date(post?.date || Date.now());
-  const dateStr = date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const thumb = pickFeaturedSrc(post);
-  const excerpt = stripTags(post?.excerpt?.rendered || "");
-
-  const card = document.createElement("article");
-  card.className = "card";
-
-  if (thumb) {
-    const img = document.createElement("img");
-    img.className = "thumb";
-    img.src = thumb;
-    img.alt = "";
-    img.decoding = "async";
-    img.loading = "lazy";
-    img.addEventListener("click", () => { location.hash = href; });
-    card.appendChild(img);
+export const SS = {
+  get(key) {
+    try { return sessionStorage.getItem(key); } catch { return null; }
+  },
+  set(key, val) {
+    try { sessionStorage.setItem(key, val); } catch {}
+  },
+  del(key) {
+    try { sessionStorage.removeItem(key); } catch {}
   }
+};
 
-  const body = document.createElement("div");
-  body.className = "card-body";
+// Keys for Home snapshot
+export const HOME_SNAPSHOT_KEY = "__home_snapshot_v3";
+export const HOME_SNAPSHOT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-  const h3 = document.createElement("h3");
-  h3.className = "title";
-  const a = document.createElement("a");
-  a.className = "title-link";
-  a.href = href;
-  a.textContent = title;
-  h3.appendChild(a);
+export function now() { return Date.now(); }
 
-  const meta = document.createElement("div");
-  meta.className = "meta-author-date";
-  if (author) {
-    const authorSpan = document.createElement("span");
-    authorSpan.textContent = author;
-    meta.appendChild(authorSpan);
-  }
-  const dateSpan = document.createElement("span");
-  dateSpan.className = "date";
-  dateSpan.textContent = dateStr;
-  meta.appendChild(dateSpan);
-
-  const p = document.createElement("p");
-  p.className = "excerpt";
-  p.textContent = excerpt;
-
-  body.appendChild(h3);
-  body.appendChild(meta);
-  body.appendChild(p);
-  card.appendChild(body);
-
-  return card;
-}
-
-export function renderGridFromPosts(posts, container) {
-  if (!Array.isArray(posts) || !container) return;
-  while (container.firstChild) container.removeChild(container.firstChild);
-  for (const post of posts) container.appendChild(renderCard(post));
-}
-
-export function appendCards(posts, container) {
-  if (!Array.isArray(posts) || !container) return;
-  for (const post of posts) container.appendChild(renderCard(post));
+// Helper: cheap debounce used by Home rebinds if needed
+export function debounce(fn, ms = 150) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
 }

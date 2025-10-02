@@ -1,124 +1,167 @@
-// home.js — post summary grid with infinite scroll + scroll restore
-
-const st = (window.__OKO_ST ??= {
-  listAbort: null,
-  io: null,
-  page: 1,
-  totalPages: 1,
-  loading: false,
-  homeClickSaver: null,
-});
+// home.js — renders the post summary grid and provides restore/save snapshot hooks
 
 import { fetchLeanPostsPage } from "./api.js";
-import { renderGridFromPosts, appendCards } from "./shared.js";
+import { SS, HOME_SNAPSHOT_KEY, HOME_SNAPSHOT_TTL_MS, now, debounce } from "./shared.js";
 
-const SCROLL_KEY = "__home_scroll_y";
+// ===== Public API (used by router/main) =====
+export function saveHomeSnapshot() {
+  const app = document.getElementById("app");
+  if (!app) return;
 
-function saveScrollBeforeNavigate(e) {
-  const a = e.target.closest && e.target.closest('a[href^="#/post/"]');
-  if (!a) return;
-  try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch {}
+  // Only snapshot the grid container to keep it small
+  const grid = app.querySelector(".grid");
+  if (!grid) return;
+
+  const payload = {
+    html: grid.outerHTML,
+    // Remember minimal UI around it (header/Footer are static in index.html)
+    // We also remember scroll so "cursor" stays put.
+    scrollY: document.scrollingElement?.scrollTop || window.pageYOffset || 0,
+    // A tiny signature so we can tell if layout changed in future
+    meta: { v: 3, when: now() }
+  };
+
+  SS.set(HOME_SNAPSHOT_KEY, JSON.stringify(payload));
 }
 
-function restoreScrollIfAny() {
-  try {
-    const raw = sessionStorage.getItem(SCROLL_KEY);
-    if (!raw) return;
-    const y = Math.max(0, parseInt(raw, 10) || 0);
-    // Wait a tick so layout is ready
-    requestAnimationFrame(() => { window.scrollTo(0, y); });
-    sessionStorage.removeItem(SCROLL_KEY);
-  } catch {}
+export function tryRestoreHome() {
+  const raw = SS.get(HOME_SNAPSHOT_KEY);
+  if (!raw) return false;
+
+  let data;
+  try { data = JSON.parse(raw); } catch { return false; }
+
+  if (!data?.html || !data?.meta?.when) return false;
+  if (now() - data.meta.when > HOME_SNAPSHOT_TTL_MS) {
+    SS.del(HOME_SNAPSHOT_KEY);
+    return false;
+  }
+
+  const app = document.getElementById("app");
+  if (!app) return false;
+
+  // Rehydrate the grid into the app shell
+  app.innerHTML = `
+    <div class="container">
+      <div class="grid-restored">${data.html}</div>
+    </div>
+  `;
+  // The stored html already includes .grid wrapper; ensure we didn’t nest weirdly
+  const inner = app.querySelector(".grid") || app.querySelector(".grid-restored .grid");
+  if (!inner) return false;
+
+  // Re-bind behaviors the same way initial render would
+  bindHomeInteractions(app);
+
+  // Restore scroll after next frame so layout is ready
+  requestAnimationFrame(() => {
+    window.scrollTo(0, data.scrollY || 0);
+  });
+
+  return true;
 }
 
+// ===== Normal Home render (network path) =====
 export async function renderHome() {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // Reset per-visit state
-  st.page = 1;
-  st.totalPages = 1;
-  st.loading = false;
+  // If we can restore, do it and exit quickly.
+  if (tryRestoreHome()) return;
 
-  // Cancel any prior in-flight request
-  if (st.listAbort) { try { st.listAbort.abort(); } catch {} }
-  st.listAbort = new AbortController();
-  const signal = st.listAbort.signal;
+  app.innerHTML = `<div class="container"><p class="center">Loading…</p></div>`;
 
-  // Cleanup any prior observer
-  if (st.io) { try { st.io.disconnect(); } catch {} st.io = null; }
+  // Initial page fetch (your existing paging still applies)
+  // Keep page size small for first paint; infinite scroll will add more.
+  const page = 1;
+  const { posts, hasMore } = await fetchLeanPostsPage(page);
 
-  // Ensure we save scroll when the user clicks into a post
-  if (st.homeClickSaver) {
-    document.removeEventListener("click", st.homeClickSaver, true);
-  }
-  st.homeClickSaver = saveScrollBeforeNavigate;
-  document.addEventListener("click", st.homeClickSaver, true);
+  app.innerHTML = `
+    <div class="container">
+      <div class="grid">
+        ${posts.map(renderCard).join("")}
+      </div>
+      <div id="sentinel" aria-hidden="true" style="height:1px"></div>
+    </div>
+  `;
 
-  app.innerHTML = `<p class="center">Loading…</p>`;
+  bindHomeInteractions(app, { page, hasMore });
+}
 
-  // First page
-  let pageData;
-  try {
-    pageData = await fetchLeanPostsPage(1, signal); // { posts, totalPages }
-  } catch (e) {
-    console.error("[OkObserver] Home load failed:", e);
-    app.innerHTML = `<p class="center">Error loading posts.</p>`;
-    return;
-  }
+// ===== Card markup =====
+function renderCard(p) {
+  const href = `#/post/${p.id}`;
+  const img = p.thumb ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />` : `<div class="thumb" aria-hidden="true"></div>`;
+  const author = p.author || "";
+  const date = p.dateText || "";
 
-  const posts = pageData?.posts || [];
-  st.totalPages = Number(pageData?.totalPages || 1);
+  return `
+    <article class="card" data-id="${p.id}">
+      <a class="thumb-link" href="${href}" aria-label="${p.title}">
+        ${img}
+      </a>
+      <div class="card-body">
+        <a class="title" href="${href}">${p.title}</a>
+        <div class="meta-author-date">
+          ${author ? `<strong>${author}</strong>` : ``}
+          <span class="date">${date}</span>
+        </div>
+        <div class="excerpt">${p.excerpt || ""}</div>
+      </div>
+    </article>
+  `;
+}
 
-  if (!posts.length) {
-    app.innerHTML = `<p class="center">No posts found.</p>`;
-    return;
-  }
+// ===== Wire up clicks + infinite scroll =====
+function bindHomeInteractions(app, state = { page: 1, hasMore: true }) {
+  // Intercept clicks on cards to save snapshot before route change
+  app.addEventListener("click", onCardClickOnce, { once: true, capture: true });
 
-  // Build grid & sentinel
-  app.innerHTML = "";
-  const grid = document.createElement("div");
-  grid.className = "grid";
-  app.appendChild(grid);
+  // Infinite scroll (idempotent)
+  setupInfiniteScroll(app, state);
+}
 
-  renderGridFromPosts(posts, grid);
+function onCardClickOnce(e) {
+  const a = e.target.closest('a[href^="#/post/"]');
+  if (!a) return;
+  // Save snapshot right before we navigate away
+  saveHomeSnapshot();
+}
 
-  // Restore prior scroll position if returning from a post
-  restoreScrollIfAny();
+function setupInfiniteScroll(app, state) {
+  const grid = app.querySelector(".grid");
+  const sentinel = app.querySelector("#sentinel");
+  if (!grid || !sentinel) return;
 
-  // Sentinel for infinite scroll
-  const sentinel = document.createElement("div");
-  sentinel.id = "scroll-sentinel";
-  sentinel.style.height = "1px";
-  sentinel.style.marginTop = "1px";
-  app.appendChild(sentinel);
+  let page = state.page || 1;
+  let loading = false;
+  let hasMore = state.hasMore !== false;
 
-  const onIntersect = async (entries) => {
-    const entry = entries[0];
-    if (!entry || !entry.isIntersecting) return;
-    if (st.loading) return;
-    if (st.page >= st.totalPages) { try { st.io?.disconnect(); } catch {} return; }
-
-    st.loading = true;
-    st.page += 1;
-
-    if (st.listAbort) { try { st.listAbort.abort(); } catch {} }
-    st.listAbort = new AbortController();
-    const nextSignal = st.listAbort.signal;
-
+  const loadMore = debounce(async () => {
+    if (loading || !hasMore) return;
+    loading = true;
     try {
-      const nextData = await fetchLeanPostsPage(st.page, nextSignal);
-      const nextPosts = nextData?.posts || [];
-      appendCards(nextPosts, grid);
-      st.totalPages = Number(nextData?.totalPages || st.totalPages);
-    } catch (e) {
-      console.warn("[OkObserver] Next page load failed:", e);
-      st.page = Math.max(1, st.page - 1);
+      const next = page + 1;
+      const { posts, hasMore: more } = await fetchLeanPostsPage(next);
+      if (posts && posts.length) {
+        grid.insertAdjacentHTML("beforeend", posts.map(renderCard).join(""));
+        page = next;
+        hasMore = !!more;
+      } else {
+        hasMore = false;
+      }
+    } catch {
+      // leave hasMore as-is; allow retries on scroll
     } finally {
-      st.loading = false;
+      loading = false;
     }
-  };
+  }, 50);
 
-  st.io = new IntersectionObserver(onIntersect, { root: null, rootMargin: "600px 0px 600px 0px", threshold: 0 });
-  st.io.observe(sentinel);
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (en.isIntersecting) loadMore();
+    });
+  }, { rootMargin: "800px 0px 800px 0px" });
+
+  io.observe(sentinel);
 }
