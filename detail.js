@@ -1,5 +1,5 @@
 // detail.js — post detail view with hardened first-paragraph de-indent
-// and robust inline-image preprocessing (handles lazy sources & relative URLs)
+// and robust inline-image preprocessing (lazy placeholders + srcset + relative URLs)
 
 import { fetchPost } from "./api.js";
 import { saveHomeSnapshot } from "./home.js";
@@ -116,48 +116,94 @@ function hardNukeIndent(root) {
 // ----- Inline image preprocessing (before render) -----
 const WP_BASE = "https://okobserver.org";
 
+function isPlaceholderSrc(u) {
+  if (!u) return true;
+  if (/^data:image\/(gif|svg)/i.test(u)) return true; // typical lazy placeholders
+  if (/blank|spacer|pixel|transparent/i.test(u)) return true;
+  return false;
+}
+
+function absolutize(url) {
+  if (!url) return url;
+  if (url.startsWith("//")) return location.protocol + url;
+  if (url.startsWith("/")) return WP_BASE + url;
+  return url;
+}
+
+function fixSrcset(srcset) {
+  if (!srcset) return srcset;
+  return srcset
+    .split(",")
+    .map(part => {
+      const bits = part.trim().split(/\s+/);
+      if (!bits.length) return "";
+      bits[0] = absolutize(bits[0]);
+      return bits.filter(Boolean).join(" ");
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
 function prepareContentHTML(html) {
   const wrap = document.createElement("div");
   wrap.innerHTML = html || "";
 
   const imgs = wrap.querySelectorAll("img");
   imgs.forEach(img => {
-    // Prefer real src, else promote common lazy attributes
-    let src =
-      img.getAttribute("src") ||
-      img.getAttribute("data-src") ||
-      img.getAttribute("data-lazy-src") ||
-      img.getAttribute("data-original") ||
-      img.getAttribute("data-full") ||
-      (img.dataset ? (img.dataset.src || img.dataset.lazySrc || img.dataset.original || img.dataset.full) : "") ||
-      "";
+    // gather candidates from data- attrs
+    const candidates = [
+      img.getAttribute("data-full"),
+      img.getAttribute("data-original"),
+      img.getAttribute("data-src"),
+      img.getAttribute("data-lazy-src"),
+      img.dataset ? (img.dataset.full || img.dataset.original || img.dataset.src || img.dataset.lazySrc) : ""
+    ].filter(Boolean);
 
-    // If still no usable src, remove the image to avoid blank gaps
-    if (!src) { img.remove(); return; }
+    // current sources
+    let src = img.getAttribute("src") || "";
+    let srcset = img.getAttribute("srcset") || "";
 
-    // Convert relative paths to absolute
-    if (src.startsWith("/")) src = WP_BASE + src;
+    // If src looks like a placeholder or empty, prefer candidates
+    if (isPlaceholderSrc(src) && candidates.length) {
+      src = candidates[0];
+    }
 
-    // Apply the resolved src and normalize attributes/styles
+    // If still placeholder, try largest from srcset
+    if (isPlaceholderSrc(src) && srcset) {
+      const urls = srcset.split(",").map(s => s.trim().split(/\s+/)[0]).filter(Boolean);
+      if (urls.length) src = urls[urls.length - 1];
+    }
+
+    // If after all this we still don't have something real, drop the img to avoid blank bars
+    if (!src || isPlaceholderSrc(src)) { img.remove(); return; }
+
+    // Absolutize src and srcset URLs
+    src = absolutize(src);
+    srcset = fixSrcset(srcset);
+
     img.setAttribute("src", src);
+    if (srcset) img.setAttribute("srcset", srcset); else img.removeAttribute("srcset");
+
+    // Clean size attributes & inline styles that force tiny dims
     img.removeAttribute("width");
     img.removeAttribute("height");
-
-    // Scrub inline width/height styles
     const st = img.getAttribute("style") || "";
     if (st) {
       const cleaned = st
         .replace(/(?:^|;)\s*width\s*:\s*[^;]+;?/gi, "")
         .replace(/(?:^|;)\s*height\s*:\s*[^;]+;?/gi, "");
-      if (cleaned.trim()) img.setAttribute("style", cleaned);
-      else img.removeAttribute("style");
+      if (cleaned.trim()) img.setAttribute("style", cleaned); else img.removeAttribute("style");
     }
 
     // Ensure consistent layout sizing
     img.classList.add("inline-img");
+
+    // If wrapped by <a>, make sure it can expand
+    const p = img.parentElement;
+    if (p && p.tagName === "A") p.style.display = "block";
   });
 
-  // Normalize common WP caption containers width
+  // Normalize WP caption containers
   wrap.querySelectorAll("figure, .wp-caption").forEach(box => {
     box.style.maxWidth = "100%";
   });
@@ -211,7 +257,7 @@ export async function renderPost(id) {
     media?.source_url ||
     "";
 
-  // Decode and then preprocess content so inline images work
+  // Decode, then preprocess content so inline images work
   const decoded = decodeEntities(post?.content?.rendered || "");
   const contentHtml = prepareContentHTML(decoded);
 
