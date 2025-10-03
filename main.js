@@ -1,52 +1,41 @@
-// main.js — entry router (robust)
-// If this file runs, footer probe will see APP_VERSION and the red banner won't appear.
-window.APP_VERSION = "v2.2.4";
+// main.js — entry point
+// Set API base first, then lazy-load core/router to ensure api.js sees the right base.
 
-function isHome(hash) {
-  return hash === "" || hash === "#" || hash === "#/";
-}
+(() => {
+  // If you ever need to test a different proxy, you can temporarily change this string:
+  const WORKER_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
 
-async function renderPostDetail(id) {
-  const { renderPost } = await import("./detail.js");
-  return renderPost(id);
-}
-
-async function renderAbout() {
-  const { renderAbout } = await import("./about.js");
-  return renderAbout();
-}
-
-async function renderHome() {
-  const mod = await import("./home.js");
-  return mod.renderHome();
-}
-
-async function router() {
-  const hash = location.hash || "#/";
-
-  if (isHome(hash)) {
-    await renderHome();
-    return;
+  // Prefer explicit Worker base. Fallback to direct WP JSON if needed.
+  // (You can override at runtime by setting window.OKO_API_BASE before this file runs.)
+  if (!window.OKO_API_BASE) {
+    window.OKO_API_BASE = WORKER_BASE;
   }
 
-  // If leaving Home, snapshot (safe even if not on Home)
+  // Optional: quick sanity log
+  console.info("[OkObserver] API base:", window.OKO_API_BASE);
+})();
+
+(async () => {
+  // Now that OKO_API_BASE is set, load the core (which sets APP_VERSION and router)
   try {
-    const app = document.getElementById("app");
-    if (app && app.querySelector(".grid")) {
-      const { saveHomeSnapshot } = await import("./home.js");
-      saveHomeSnapshot();
-    }
-  } catch {}
-
-  const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
-  if (m && m[1]) {
-    await renderPostDetail(m[1]);
-  } else if (hash.startsWith("#/about")) {
-    await renderAbout();
-  } else {
-    await renderHome();
+    const { startApp } = await import("./core.js");
+    startApp();
+  } catch (err) {
+    console.error("[OkObserver] No entry module could be loaded. Check filenames/paths.", err);
+    const host = document.getElementById("app") || document.body;
+    const div = document.createElement("div");
+    div.className = "error-banner";
+    div.innerHTML =
+      '<button class="close" aria-label="Dismiss">×</button>' +
+      'App script did not execute. Check Network → main.js (200), hard-reload.';
+    host.prepend(div);
+    document.addEventListener(
+      "click",
+      (e) => {
+        const btn = e.target.closest(".error-banner .close");
+        if (btn) btn.closest(".error-banner")?.remove();
+      },
+      { once: true, capture: true }
+    );
   }
-}
-
-window.addEventListener("hashchange", () => { router().catch(console.error); });
-window.addEventListener("load",        () => { router().catch(console.error); });
+})();
