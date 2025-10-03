@@ -35,26 +35,29 @@ export async function getCartoonCategoryId(signal) {
 
 // ---- posts (lean fields for home) ----
 export async function fetchLeanPostsPage(page = 1, signal) {
+  // IMPORTANT: include `_embedded` in _fields or WP strips the embed block
+  const fields = [
+    "_embedded", // <- keep full embed object
+    "id",
+    "date",
+    "title.rendered",
+    "excerpt.rendered",
+    "author",
+    "featured_media",
+    "categories",
+    "_embedded.author.name",
+    "_embedded.wp:featuredmedia.source_url",
+    "_embedded.wp:featuredmedia.media_details.sizes",
+    "_embedded.wp:term",
+  ].join(",");
+
   const url =
     `${API_BASE}/posts?status=publish` +
     `&per_page=${PER_PAGE}` +
     `&page=${page}` +
     `&_embed=1` +
     `&orderby=date&order=desc` +
-    `&_fields=` +
-      [
-        "id",
-        "date",
-        "title.rendered",
-        "excerpt.rendered",
-        "author",
-        "featured_media",
-        "categories",
-        "_embedded.author.name",
-        "_embedded.wp:featuredmedia.source_url",
-        "_embedded.wp:featuredmedia.media_details.sizes",
-        "_embedded.wp:term"
-      ].join(",");
+    `&_fields=${encodeURIComponent(fields)}`;
 
   const posts = await fetchJSON(url, signal);
   if (!Array.isArray(posts)) throw new Error("Unexpected API shape for posts");
@@ -63,6 +66,7 @@ export async function fetchLeanPostsPage(page = 1, signal) {
 
 // ---- single post for detail ----
 export async function fetchPost(id, signal) {
-  const url = `${API_BASE}/posts/${id}?_embed=1`;
+  // For detail we don't trim fields — let the UI decide
+  const url = `${API_BASE}/posts/${id}?&_embed=1`;
   return fetchJSON(url, signal);
 }
