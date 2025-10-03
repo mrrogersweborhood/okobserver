@@ -1,9 +1,9 @@
 // api.js — REST helpers for OkObserver (WordPress via proxy)
 // Exports used by home.js, detail.js, about.js.
-// v=2.3.1
+// v=2.3.2
 
 // ===== Public constants =====
-export const PER_PAGE = 6;            // <-- added: used by home.js
+export const PER_PAGE = 6;
 
 // ===== Public state =====
 export let cartoonCategoryId = null;
@@ -96,6 +96,12 @@ export async function ensureCartoonCategoryId() {
     cartoonCategoryId = null; // soft-fail; client-side filter can still run
   }
   return cartoonCategoryId;
+}
+
+// ✅ Alias to match existing home.js imports
+export async function getCartoonCategoryId(signal) {
+  // (signal not needed here; kept for compatibility)
+  return ensureCartoonCategoryId();
 }
 
 /* =============== Common field helpers =============== */
