@@ -1,10 +1,5 @@
 // api.js — WordPress REST calls via your Cloudflare Worker proxy
 
-// Uses the base set in main.js (e.g., https://okobserver-proxy.bob-b5c.workers.dev/wp/v2)
-const API_BASE =
-  (typeof window !== "undefined" && window.OKO_API_BASE) ||
-  `${location.origin}/wp/v2`;
-
 export const PER_PAGE = 6;
 
 // -------- sessionStorage helpers --------
@@ -14,9 +9,17 @@ const ss = {
   del(k) { try { sessionStorage.removeItem(k); } catch {} },
 };
 
+// Resolve base **at call time** so main.js can set window.OKO_API_BASE first.
+function getApiBase() {
+  const base =
+    (typeof window !== "undefined" && window.OKO_API_BASE) ||
+    `${location.origin}/wp/v2`;
+  return base.endsWith("/") ? base : `${base}/`;
+}
+
 function buildURL(path, params = {}) {
-  const base = API_BASE.endsWith("/") ? API_BASE : `${API_BASE}/`;
-  const u = new URL(path.replace(/^\//, ""), base);
+  const base = getApiBase();
+  const u = new URL(path.replace(/^\//, ""), base); // e.g., .../wp/v2/ + posts
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === null) continue;
     u.searchParams.set(k, String(v));
