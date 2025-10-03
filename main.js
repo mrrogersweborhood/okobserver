@@ -2,16 +2,15 @@
 // Set API base first, then lazy-load core/router to ensure api.js sees the right base.
 
 (() => {
-  // If you ever need to test a different proxy, you can temporarily change this string:
-  const WORKER_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
+  // Correct Worker base with /wp-json/wp/v2 included
+  const WORKER_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
 
-  // Prefer explicit Worker base. Fallback to direct WP JSON if needed.
-  // (You can override at runtime by setting window.OKO_API_BASE before this file runs.)
+  // Prefer explicit Worker base. Fallback only if window.OKO_API_BASE is already defined.
   if (!window.OKO_API_BASE) {
     window.OKO_API_BASE = WORKER_BASE;
   }
 
-  // Optional: quick sanity log
+  // Optional: log for sanity
   console.info("[OkObserver] API base:", window.OKO_API_BASE);
 })();
 
