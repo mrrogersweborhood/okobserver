@@ -1,4 +1,4 @@
-// home.js — post summary grid (authors, featured images, infinite scroll) — dedupe-safe
+// home.js — post summary grid (perf-tuned, dedupe, scroll-restore, cartoon filter)
 
 import { fetchLeanPostsPage, getCartoonCategoryId } from "./api.js";
 import { decodeEntities, ordinalDate } from "./shared.js";
@@ -14,12 +14,20 @@ const st = {
   grid: null,              // .grid element
   hydratedFromCache: false,
   ids: new Set(),          // track rendered post IDs to prevent duplicates
+  abort: null,             // route-level abort controller
   // Cache keys
   kPage: (p) => `__home_page_${p}`,
   kScroll: "__home_scrollY",
 };
 
-// ---------- Helpers ----------
+// ---------- Abort management ----------
+function resetAbort() {
+  try { st.abort?.abort(); } catch {}
+  st.abort = new AbortController();
+  return st.abort.signal;
+}
+
+// ---------- DOM helpers ----------
 function h(tag, props = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
@@ -55,7 +63,7 @@ function restoreScrollPosition() {
   } catch {}
 }
 
-// Seed the st.ids set by scanning existing cards (used after cache hydrate)
+// Seed IDs from existing DOM (after cache hydrate)
 function seedIdsFromDOM() {
   if (!st.grid) return;
   st.ids.clear();
@@ -65,30 +73,37 @@ function seedIdsFromDOM() {
   });
 }
 
-// ---------- Grid rendering ----------
+// ---------- Card ----------
 function renderCard(post) {
   const id = post.id;
   const title = decodeEntities(post?.title?.rendered || "");
   const dateText = ordinalDate(post?.date || new Date().toISOString());
 
-  // Author from embed
+  // Author
   const author =
     post?._embedded?.author?.[0]?.name ||
     (Array.isArray(post?.authors) && post.authors[0]?.name) ||
     "";
 
-  // Featured image (prefer medium_large/large; fallback to source_url)
+  // Featured image
   const media = post?._embedded?.["wp:featuredmedia"]?.[0];
   const thumb =
     media?.media_details?.sizes?.medium_large?.source_url ||
     media?.media_details?.sizes?.large?.source_url ||
     media?.source_url ||
-    "";
+    "icon.png"; // fallback
 
   const card = h("article", { class: "card", "data-id": id });
 
   if (thumb) {
-    const img = h("img", { class: "thumb", src: thumb, alt: "" });
+    const img = h("img", {
+      class: "thumb",
+      src: thumb,
+      alt: "",
+      loading: "lazy",
+      decoding: "async",
+      fetchpriority: "low"
+    });
     const aImg = h("a", { href: `#/post/${id}`, "aria-label": title }, img);
     card.appendChild(aImg);
   }
@@ -105,7 +120,7 @@ function renderCard(post) {
   );
   body.appendChild(meta);
 
-  // Excerpt (plain text only; not clickable)
+  // Excerpt (strip HTML → text)
   const rawEx = post?.excerpt?.rendered || "";
   const ex = decodeEntities(
     String(rawEx).replace(/<\/?[^>]+(>|$)/g, "").replace(/\s+/g, " ").trim()
@@ -121,31 +136,26 @@ function renderGridFromPosts(posts) {
   const frag = document.createDocumentFragment();
   for (const p of posts) {
     if (!p || typeof p.id !== "number") continue;
-    if (st.ids.has(p.id)) continue;       // <-- skip duplicates
+    if (st.ids.has(p.id)) continue;       // dedupe
     st.ids.add(p.id);
     frag.appendChild(renderCard(p));
   }
   if (frag.childNodes.length) st.grid.appendChild(frag);
 }
 
-// Client-side fallback cartoon filter (if proxy didn’t exclude)
+// Client-side fallback cartoon filter
 function filterOutCartoons(posts, cartoonId) {
   if (!Array.isArray(posts) || !posts.length) return posts;
   return posts.filter((p) => {
     const cats = Array.isArray(p.categories) ? p.categories : [];
     const byId = cartoonId && cats.includes(cartoonId);
-
-    // Also check embedded terms for slug 'cartoon'
     let bySlug = false;
     const terms = p?._embedded?.["wp:term"];
     if (terms && Array.isArray(terms)) {
       for (const arr of terms) {
         if (Array.isArray(arr)) {
           for (const term of arr) {
-            if (term?.taxonomy === "category" && term?.slug === "cartoon") {
-              bySlug = true;
-              break;
-            }
+            if (term?.taxonomy === "category" && term?.slug === "cartoon") { bySlug = true; break; }
           }
         }
         if (bySlug) break;
@@ -155,15 +165,15 @@ function filterOutCartoons(posts, cartoonId) {
   });
 }
 
-// ---------- Fetch + page assembly ----------
+// ---------- Page load ----------
 async function loadPage(page, signal) {
-  // Try cache for page 1 to speed up first paint
+  // Cache-first for page 1
   if (page === 1 && st.grid && !st.grid.children.length) {
     const cached = loadPageHTMLFromCache(1);
     if (cached) {
       st.grid.innerHTML = cached;
       st.hydratedFromCache = true;
-      seedIdsFromDOM();               // <-- prime duplicate filter from cache DOM
+      seedIdsFromDOM();
     }
   }
 
@@ -171,14 +181,10 @@ async function loadPage(page, signal) {
   const posts = await fetchLeanPostsPage(page, signal);
   const clean = filterOutCartoons(posts, cartoonId);
 
-  // Append only *new* posts; skips ones already in the cache DOM
   renderGridFromPosts(clean);
 
-  if (page === 1 && st.grid && !st.hydratedFromCache) {
-    // If we didn't hydrate from cache (cold start), save fresh HTML now
-    savePageHTMLToCache(1, st.grid.innerHTML);
-  } else if (page === 1 && st.grid && st.hydratedFromCache) {
-    // If we hydrated, refresh the cache with the merged, deduped HTML
+  if (page === 1 && st.grid) {
+    // Always refresh the cache with merged deduped HTML
     savePageHTMLToCache(1, st.grid.innerHTML);
   }
 
@@ -186,7 +192,7 @@ async function loadPage(page, signal) {
   return { hasMore: Array.isArray(posts) && posts.length === 6 };
 }
 
-// ---------- Infinite scroll ----------
+// ---------- Infinite scroll + prefetch ----------
 function setupObserver() {
   if (st.io) return;
   st.io = new IntersectionObserver(async (entries) => {
@@ -194,15 +200,21 @@ function setupObserver() {
       if (!entry.isIntersecting) continue;
       if (st.loading || st.ended) return;
       st.loading = true;
+      const signal = resetAbort();
       try {
         st.page += 1;
-        const ctrl = new AbortController();
-        const { hasMore } = await loadPage(st.page, ctrl.signal);
+        const { hasMore } = await loadPage(st.page, signal);
         if (!hasMore) {
           st.ended = true;
           st.sentinel?.remove();
           st.sentinel = null;
           st.io?.disconnect();
+        } else {
+          // Prefetch next page JSON in idle time
+          requestIdleCallback(() => {
+            const s = new AbortController().signal;
+            fetchLeanPostsPage(st.page + 1, s).catch(() => {});
+          }, { timeout: 1500 });
         }
       } catch {
         // noop; user can scroll again to retry
@@ -210,7 +222,8 @@ function setupObserver() {
         st.loading = false;
       }
     }
-  }, { rootMargin: "800px 0px" });
+  }, { rootMargin: "1200px 0px" }); // earlier prefetch
+
   if (st.sentinel) st.io.observe(st.sentinel);
 }
 
@@ -228,7 +241,7 @@ export async function renderHome() {
   const app = document.getElementById("app");
   if (!app) return;
 
-  // Build shell (preserve nodes across navigations for scroll restore)
+  // Shell (persist across nav for scroll restore)
   if (!st.container) {
     st.container = h("div", { class: "container" });
     st.grid = h("div", { class: "grid" });
@@ -237,20 +250,20 @@ export async function renderHome() {
   app.innerHTML = "";
   app.appendChild(st.container);
 
-  // Returning from detail → restore scroll
+  // Restore scroll when coming back from detail
   restoreScrollPosition();
 
-  // Bootstrap first page once
+  // Bootstrap first page once per navigation
   if (!st.grid.children.length) {
     st.loading = true;
     try {
       st.page = 1;
       st.ended = false;
-      st.ids.clear();                // new navigation → clear ID set
+      st.ids.clear();
       st.hydratedFromCache = false;
 
-      const ctrl = new AbortController();
-      const { hasMore } = await loadPage(1, ctrl.signal);
+      const signal = resetAbort();
+      const { hasMore } = await loadPage(1, signal);
       ensureSentinel();
       setupObserver();
       if (!hasMore) {
@@ -270,16 +283,25 @@ export async function renderHome() {
       st.loading = false;
     }
   } else {
-    // If grid already exists (back from detail), re-seed IDs from DOM before observing
     seedIdsFromDOM();
     ensureSentinel();
     setupObserver();
   }
 
-  // Persist scroll position when leaving
+  // Persist scroll on leave
   const save = () => saveScrollPosition();
   window.removeEventListener("beforeunload", save);
   window.removeEventListener("hashchange", save);
   window.addEventListener("beforeunload", save, { once: true });
   window.addEventListener("hashchange", save, { once: true });
+
+  // Prune big in-memory arrays over long sessions
+  if (st.ids.size > 200) {
+    // No DOM rewrite (keeps UI), just limit future duplicate checks
+    const keep = Array.from(st.grid.querySelectorAll(".card[data-id]"))
+      .slice(-200)
+      .map(c => parseInt(c.getAttribute("data-id"), 10))
+      .filter(n => !isNaN(n));
+    st.ids = new Set(keep);
+  }
 }
