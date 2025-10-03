@@ -1,236 +1,67 @@
-// api.js — resilient API helpers for OkObserver
-// - Robust base URL discovery
-// - Cartoon category exclusion (optional)
-// - Lean posts paging (with featured_media id)
-// - Batch media fetch by IDs
-// - Batch posts content fetch to extract first <img> when no featured image exists
+// api.js — WordPress REST API access layer for OkObserver
+// Cleaned up to fix per_page bug
 
-/* =========================
-   Base / URL helpers
-   ========================= */
+const API_BASE = window.OKO_API_BASE || "https://okobserver.org/wp-json/wp/v2";
 
-function apiBase() {
-  let base = (typeof window !== "undefined" && window.OKO_API_BASE) || `${location.origin}/api/wp/v2`;
-  base = String(base).trim();
-  if (!base) base = `${location.origin}/api/wp/v2`;
-  if (!/\/$/.test(base)) base += "/";
-  return base;
-}
+// Always use a number, not a string, for per_page
+const PER_PAGE = 6;
 
-function cleanEndpoint(endpoint) {
-  return String(endpoint || "").replace(/^\/+/, "");
-}
-
-export function buildUrl(endpoint, params) {
-  const base = apiBase();
-  const ep = cleanEndpoint(endpoint);
-  const url = new URL(ep, base);
-  if (params && typeof params === "object") {
-    for (const [k, v] of Object.entries(params)) {
-      if (v === undefined || v === null) continue;
-      url.searchParams.set(k, String(v));
-    }
+// Simple fetch wrapper with error handling
+async function fetchJSON(url, signal) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API Error ${res.status}: ${text}`);
   }
-  return url.toString();
+  return await res.json();
 }
 
-async function safeFetch(url, opt = {}) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opt.timeoutMs ?? 20000);
+// Fetch one page of posts (lean fields for home grid)
+export async function fetchLeanPostsPage(page = 1, signal) {
+  const url =
+    `${API_BASE}/posts?status=publish` +
+    `&per_page=${PER_PAGE}` +
+    `&page=${page}` +
+    `&_embed=1` +
+    `&orderby=date&order=desc` +
+    `&_fields=id,date,title.rendered,excerpt.rendered,author,featured_media,categories,_embedded.author.name,_embedded.wp:featuredmedia.source_url,_embedded.wp:featuredmedia.media_details.sizes,_embedded.wp:term`;
+
+  const posts = await fetchJSON(url, signal);
+
+  // Determine if more pages exist from response headers
+  let hasMore = false;
   try {
-    const res = await fetch(url, { signal: ctrl.signal, credentials: "omit" });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`API Error ${res.status}${text ? `: ${text.slice(0, 120)}` : ""}`);
-    }
-    return res.json();
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-/* =========================
-   Cartoon category lookup (optional)
-   ========================= */
-
-const SS_KEY_CARTOON_ID = "__oko_cartoon_cat_id_v1";
-
-export async function ensureCartoonCategoryId() {
-  try {
-    const cached = sessionStorage.getItem(SS_KEY_CARTOON_ID);
-    if (cached) return cached === "null" ? null : Number(cached);
-
-    const url = buildUrl("categories", {
-      search: "cartoon",
-      per_page: 100,
-      _fields: "id,slug,name",
-    });
-    const cats = await safeFetch(url);
-    const match = Array.isArray(cats)
-      ? cats.find(c => (c?.slug || "").toLowerCase() === "cartoon")
-      : null;
-
-    const id = match?.id ?? null;
-    sessionStorage.setItem(SS_KEY_CARTOON_ID, id == null ? "null" : String(id));
-    return id;
+    const totalPages = parseInt(
+      (await fetch(url, { method: "HEAD", signal })).headers.get("X-WP-TotalPages"),
+      10
+    );
+    hasMore = page < totalPages;
   } catch {
-    return null;
-  }
-}
-
-/* =========================
-   Mapping helpers
-   ========================= */
-
-function pickThumb(media) {
-  try {
-    const sizes = media?.media_details?.sizes || {};
-    const order = ["medium_large", "large", "medium", "full"];
-    for (const key of order) {
-      const s = sizes[key];
-      if (s?.source_url) return s.source_url;
-    }
-    return media?.source_url || "";
-  } catch {
-    return "";
-  }
-}
-
-function authorFromEmbedded(p) {
-  return (
-    p?._embedded?.author?.[0]?.name ||
-    (Array.isArray(p?.authors) && p.authors[0]?.name) ||
-    ""
-  );
-}
-
-function decodeEntities(html) {
-  if (!html) return "";
-  return String(html)
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;|&apos;/g, "'")
-    .replace(/&hellip;|&#8230;/g, "…")
-    .replace(/&#8211;|&ndash;/g, "–")
-    .replace(/&#8220;/g, "“")
-    .replace(/&#8221;/g, "”")
-    .replace(/<[^>]*>/g, "")
-    .trim();
-}
-
-/* =========================
-   Public API
-   ========================= */
-
-export async function fetchPost(id) {
-  const url = buildUrl(`posts/${id}`, { _embed: 1 });
-  return safeFetch(url);
-}
-
-/**
- * Fetch a lean page of posts. Returns:
- *   { posts: [{ id, dateISO, dateText, title, excerpt, author, thumb, featuredId }], hasMore }
- */
-export async function fetchLeanPostsPage(page = 1, perPage = 6) {
-  const cartoonId = await ensureCartoonCategoryId();
-
-  const params = {
-    status: "publish",
-    per_page: perPage,
-    page,
-    _embed: 1,
-    orderby: "date",
-    order: "desc",
-    _fields: [
-      "id",
-      "date",
-      "title.rendered",
-      "excerpt.rendered",
-      "author",
-      "featured_media",
-      "categories",
-      "_embedded.author.name",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes",
-      "_embedded.wp:term",
-    ].join(","),
-    __fresh: (Math.random() * 1000).toFixed(3),
-  };
-
-  if (cartoonId) {
-    params["categories_exclude"] = String(cartoonId);
+    // If HEAD fails, assume true until fetch fails
+    hasMore = posts.length === PER_PAGE;
   }
 
-  const url = buildUrl("posts", params);
-  const data = await safeFetch(url);
-
-  const posts = (Array.isArray(data) ? data : []).map(p => {
-    const media = p?._embedded?.["wp:featuredmedia"]?.[0];
-    return {
-      id: p.id,
-      dateISO: p.date,
-      dateText: new Date(p.date).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }),
-      title: decodeEntities(p?.title?.rendered || ""),
-      excerpt: decodeEntities(p?.excerpt?.rendered || ""),
-      author: authorFromEmbedded(p),
-      thumb: pickThumb(media),
-      featuredId: p?.featured_media || null,
-    };
-  });
-
-  const hasMore = posts.length >= perPage;
   return { posts, hasMore };
 }
 
-/**
- * Batch fetch media by IDs (used to backfill thumbs when _embed is missing).
- * Returns a map: { [id]: { src, alt } }
- */
-export async function fetchMediaBatch(ids = []) {
-  const uniq = [...new Set(ids.filter(Boolean))];
-  if (uniq.length === 0) return {};
-  const url = buildUrl("media", {
-    include: uniq.join(","),
-    per_page: 100,
-    _fields: "id,source_url,media_details.sizes,alt_text",
-  });
-  const arr = await safeFetch(url);
-  const out = {};
-  for (const m of arr || []) {
-    const sizes = m?.media_details?.sizes || {};
-    const pick =
-      sizes?.medium_large?.source_url ||
-      sizes?.large?.source_url ||
-      sizes?.medium?.source_url ||
-      m?.source_url ||
-      "";
-    out[m.id] = { src: pick || "", alt: m?.alt_text || "" };
-  }
-  return out;
+// Fetch full post content for detail page
+export async function fetchPost(id, signal) {
+  const url = `${API_BASE}/posts/${id}?_embed=1`;
+  return await fetchJSON(url, signal);
 }
 
-/**
- * Batch fetch posts by IDs to extract the first <img> from content as a fallback preview.
- * Returns: { [postId]: { src, alt } }
- */
-export async function fetchPostsContentFirstImage(ids = []) {
-  const uniq = [...new Set(ids.filter(Boolean))];
-  if (!uniq.length) return {};
+// Cache cartoon category id (so we can filter them)
+let cartoonCatId = 0;
 
-  const url = buildUrl("posts", {
-    include: uniq.join(","),
-    per_page: uniq.length,
-    _fields: "id,content.rendered",
-  });
-  const arr = await safeFetch(url);
-  const out = {};
-  for (const p of arr || []) {
-    const html = p?.content?.rendered || "";
-    const m = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
-    if (m && m[1]) {
-      out[p.id] = { src: m[1], alt: "" };
-    }
+export async function ensureCartoonCategoryId(signal) {
+  if (cartoonCatId) return cartoonCatId;
+  try {
+    const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug`;
+    const cats = await fetchJSON(url, signal);
+    const c = cats.find((c) => c.slug === "cartoon");
+    cartoonCatId = c?.id || 0;
+  } catch {
+    cartoonCatId = 0;
   }
-  return out;
+  return cartoonCatId;
 }
