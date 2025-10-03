@@ -1,14 +1,17 @@
 // api.js — REST helpers for OkObserver (WordPress via proxy)
 // Exports used by home.js, detail.js, about.js.
-// v=2.3.0
+// v=2.3.1
 
-// Public exports
+// ===== Public constants =====
+export const PER_PAGE = 6;            // <-- added: used by home.js
+
+// ===== Public state =====
 export let cartoonCategoryId = null;
 
 const ss = window.sessionStorage;
 const CARTOON_KEY = "__oko_cartoon_cat_id";
 const BASE_LOCK_KEY = "__oko_api_base_lock";
-const cache = new Map(); // in-memory small cache
+const cache = new Map(); // small in-memory cache
 
 function readCached(key) {
   try { return ss.getItem(key) || null; } catch { return null; }
@@ -19,16 +22,12 @@ function writeCached(key, val) {
 
 // Resolve API base at **call time** (prevents “captured too early” bugs)
 export function apiBase() {
-  // If someone locked it explicitly this session, honor that.
   const locked = readCached(BASE_LOCK_KEY);
   if (locked) return locked;
 
-  // Prefer window.OKO_API_BASE if present (Cloudflare Worker proxy)
   if (typeof window.OKO_API_BASE === "string" && window.OKO_API_BASE) {
     return window.OKO_API_BASE.replace(/\/+$/, "");
   }
-
-  // Fallback: try same-origin /wp/v2 (useful in local dev with a local proxy)
   return `${location.origin}/wp/v2`;
 }
 
@@ -94,8 +93,7 @@ export async function ensureCartoonCategoryId() {
     cartoonCategoryId = await fetchCategoryBySlug("cartoon");
     if (cartoonCategoryId) writeCached(CARTOON_KEY, String(cartoonCategoryId));
   } catch {
-    // soft-fail; leave null so client-side filter can still run
-    cartoonCategoryId = null;
+    cartoonCategoryId = null; // soft-fail; client-side filter can still run
   }
   return cartoonCategoryId;
 }
@@ -128,7 +126,7 @@ export function getAuthorName(post) {
 
 /* =============== Posts & Pages =============== */
 
-export async function fetchPostsPage(page = 1, perPage = 6, { excludeCartoon = true } = {}) {
+export async function fetchPostsPage(page = 1, perPage = PER_PAGE, { excludeCartoon = true } = {}) {
   const base = apiBase();
   const params = {
     status: "publish",
@@ -137,7 +135,6 @@ export async function fetchPostsPage(page = 1, perPage = 6, { excludeCartoon = t
     _embed: 1,
     orderby: "date",
     order: "desc",
-    // keep embedded fields smaller (still include what we need)
     _fields:
       "id,date,title.rendered,excerpt.rendered,author,featured_media,categories," +
       "_embedded.author.name,_embedded.wp:featuredmedia.source_url," +
@@ -153,8 +150,8 @@ export async function fetchPostsPage(page = 1, perPage = 6, { excludeCartoon = t
   return fetchJSON(url);
 }
 
-// “Lean” variant kept for backward compatibility (same as fetchPostsPage)
-export async function fetchLeanPostsPage(page = 1, perPage = 6) {
+// Lean variant kept for compatibility
+export async function fetchLeanPostsPage(page = 1, perPage = PER_PAGE) {
   return fetchPostsPage(page, perPage, { excludeCartoon: true });
 }
 
