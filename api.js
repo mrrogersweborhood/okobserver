@@ -1,5 +1,5 @@
 // api.js — WordPress REST API access via Cloudflare Worker proxy
-// Exports only functions (no mutable named exports)
+// Uses _embed=1 (no _fields trimming) so authors + featured images are available.
 
 const API_BASE =
   (typeof window !== "undefined" && window.OKO_API_BASE) ||
@@ -23,7 +23,8 @@ let _cartoonId = null;
 export async function getCartoonCategoryId(signal) {
   if (_cartoonId !== null) return _cartoonId;
   try {
-    const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug`;
+    // Look up the "cartoon" category id once per session
+    const url = `${API_BASE}/categories?search=cartoon&per_page=100`;
     const cats = await fetchJSON(url, signal);
     const match = Array.isArray(cats) ? cats.find((c) => c.slug === "cartoon") : null;
     _cartoonId = match?.id || 0;
@@ -35,30 +36,13 @@ export async function getCartoonCategoryId(signal) {
 
 /* ------------------- posts ------------------- */
 export async function fetchLeanPostsPage(page = 1, signal) {
-  // IMPORTANT: include `_embedded` *itself* in _fields.
-  const fields =
-    "_embedded," + [
-      "id",
-      "date",
-      "title.rendered",
-      "excerpt.rendered",
-      "author",
-      "featured_media",
-      "categories",
-      // nested convenience (kept for clarity; WP ignores unknown paths if _embedded present)
-      "_embedded.author.name",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes",
-      "_embedded.wp:term"
-    ].join(",");
-
+  // IMPORTANT: do NOT use _fields; let _embed include author + featured media
   const url =
     `${API_BASE}/posts?status=publish` +
     `&per_page=${PER_PAGE}` +
     `&page=${page}` +
     `&_embed=1` +
-    `&orderby=date&order=desc` +
-    `&_fields=${fields}`; // do NOT encode, WP expects comma-separated list
+    `&orderby=date&order=desc`;
 
   const posts = await fetchJSON(url, signal);
   if (!Array.isArray(posts)) throw new Error("Unexpected API shape for posts");
@@ -67,7 +51,7 @@ export async function fetchLeanPostsPage(page = 1, signal) {
 
 /* ------------------ single post ------------------ */
 export async function fetchPost(id, signal) {
-  // Keep it simple for detail: allow full response with _embed
+  // Full payload w/ _embed for detail view
   const url = `${API_BASE}/posts/${id}?_embed=1`;
   return fetchJSON(url, signal);
 }

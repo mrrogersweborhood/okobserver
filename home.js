@@ -58,12 +58,14 @@ function renderCard(post) {
   const id = post.id;
   const title = decodeEntities(post?.title?.rendered || "");
   const dateText = ordinalDate(post?.date || new Date().toISOString());
+
+  // Author from embed
   const author =
     post?._embedded?.author?.[0]?.name ||
     (Array.isArray(post?.authors) && post.authors[0]?.name) ||
     "";
 
-  // Featured image (prefer medium_large/large; fall back to source_url)
+  // Featured image (prefer medium_large/large; fallback to source_url)
   const media = post?._embedded?.["wp:featuredmedia"]?.[0];
   const thumb =
     media?.media_details?.sizes?.medium_large?.source_url ||
@@ -154,7 +156,7 @@ async function loadPage(page, signal) {
     savePageHTMLToCache(1, st.grid.innerHTML);
   }
 
-  // Heuristic: hasMore if we got a full page (api.js uses PER_PAGE=6)
+  // Heuristic: hasMore if we got a full page (PER_PAGE=6)
   return { hasMore: Array.isArray(posts) && posts.length === 6 };
 }
 
