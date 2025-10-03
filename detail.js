@@ -1,105 +1,136 @@
-// detail.js — uses shared.js utilities, one-pass sanitizer, and indent normalization
+// detail.js — single-post view (one player max, FB fallback via clickable hero)
 
-import { fetchPost } from "./api.js";
 import {
-  ordinalDate,
   decodeEntities,
+  ordinalDate,
   sanitizeContent,
   normalizeFirstParagraph,
-  hardNukeIndent,
-  selectHeroSrc
+  selectHeroSrc,
 } from "./shared.js";
+import { fetchPost } from "./api.js";
 
-// Clickable hero behavior (open detected external video in new tab)
-function bindHeroClickIfVideo(app) {
-  const heroLink = app.querySelector(".post .hero-link");
-  const heroImg  = app.querySelector(".post img.hero");
-  if (!heroLink || !heroImg) return;
-  const href = heroLink.getAttribute("href");
-  if (!href) return;
-  heroImg.classList.add("is-clickable");
-  heroLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.open(href, "_blank", "noopener");
-  }, { passive: false });
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : String(v));
+  }
+  kids.flat().forEach((k) => {
+    if (k == null) return;
+    if (typeof k === "string") n.appendChild(document.createTextNode(k));
+    else n.appendChild(k);
+  });
+  return n;
+}
+
+// Detect a single embeddable iframe (YouTube, Vimeo, FB) inside provided HTML
+function extractFirstIframe(html) {
+  const wrap = document.createElement("div");
+  wrap.innerHTML = html;
+  const iframe = wrap.querySelector("iframe");
+  return iframe ? iframe.outerHTML : "";
+}
+
+// Find a Facebook video URL inside content (used for fallback)
+function findFacebookVideoURL(html) {
+  const match = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s)]+/i);
+  return match ? match[0] : "";
+}
+
+// Build the bottom-only Back button (cursor restoration handled by home.js)
+function backButton() {
+  return el(
+    "div",
+    { style: "margin: 16px 0 0" },
+    el(
+      "a",
+      { href: "#/", class: "btn", "aria-label": "Back to posts" },
+      "Back to posts"
+    )
+  );
 }
 
 export async function renderPost(id) {
   const app = document.getElementById("app");
   if (!app) return;
 
-  app.innerHTML = `<div class="container"><p class="center">Loading…</p></div>`;
+  app.innerHTML = `<p class="center">Loading…</p>`;
 
-  let post;
   try {
-    post = await fetchPost(id);
-  } catch {
-    app.innerHTML = `
-      <div class="container">
-        <div class="error-banner">
-          <button class="close" aria-label="Dismiss">×</button>
-          Failed to load post.
-        </div>
-      </div>`;
-    return;
+    const ctrl = new AbortController();
+    const post = await fetchPost(id, ctrl.signal);
+
+    const title = decodeEntities(post?.title?.rendered || "");
+    const date = ordinalDate(post?.date || new Date().toISOString());
+    const author =
+      post?._embedded?.author?.[0]?.name ||
+      (Array.isArray(post?.authors) && post.authors[0]?.name) ||
+      "";
+
+    // Create shell
+    const container = el("div", { class: "container post" });
+    const h1 = el("h1", {}, title);
+    const meta = el(
+      "div",
+      { class: "meta-author-date" },
+      author ? el("strong", {}, author) : "",
+      el("span", { class: "date" }, date)
+    );
+
+    // Content preparation
+    const raw = String(post?.content?.rendered || "");
+    const cleanHTML = sanitizeContent(raw);
+    const firstIframe = extractFirstIframe(cleanHTML);
+    const fbURL = !firstIframe ? findFacebookVideoURL(cleanHTML) : "";
+
+    // Hero: If we have an iframe, render exactly one player; otherwise try hero image.
+    const heroHolder = el("div");
+    if (firstIframe) {
+      // One player only
+      heroHolder.innerHTML = firstIframe;
+      // optional: ensure it’s responsive
+      heroHolder.querySelectorAll("iframe").forEach((f) => {
+        f.setAttribute("width", "100%");
+        f.setAttribute("height", "420");
+        f.setAttribute("loading", "lazy");
+      });
+    } else {
+      const heroSrc = selectHeroSrc(post);
+      if (heroSrc) {
+        // If we have a FB URL (or any external video URL) and no iframe, make hero clickable.
+        const clickable = fbURL ? el("a", { href: fbURL, target: "_blank", rel: "noopener" }) : null;
+        const img = el("img", {
+          class: fbURL ? "hero hoverable" : "hero",
+          src: heroSrc,
+          alt: "",
+          style: "display:block;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px;width:100%;"
+        });
+        if (clickable) {
+          clickable.appendChild(img);
+          heroHolder.appendChild(clickable);
+        } else {
+          heroHolder.appendChild(img);
+        }
+      }
+    }
+
+    // Body content (after hero). Normalize first paragraph indentation.
+    const body = el("div", { class: "content" });
+    body.innerHTML = cleanHTML;
+    normalizeFirstParagraph(body);
+
+    // Assemble (bottom-only Back button)
+    container.appendChild(h1);
+    container.appendChild(meta);
+    if (heroHolder.childNodes.length) container.appendChild(heroHolder);
+    container.appendChild(body);
+    container.appendChild(backButton());
+
+    app.innerHTML = "";
+    app.appendChild(container);
+  } catch (err) {
+    console.error("[OkObserver] Post load failed:", err);
+    app.innerHTML = `<div class="error-banner">Failed to load post. ${err.message || err}</div>`;
   }
-
-  const author =
-    post?._embedded?.author?.[0]?.name ||
-    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
-    "";
-
-  const media   = post?._embedded?.["wp:featuredmedia"]?.[0];
-  const heroSrc = selectHeroSrc(media);
-
-  // Decode, then sanitize content so inline images work
-  const decoded     = decodeEntities(post?.content?.rendered || "");
-  const contentHtml = sanitizeContent(decoded);
-
-  // Try to detect a Facebook video URL for hero click-through
-  const fbMatch  = decoded.match(/https?:\/\/(www\.)?facebook\.com\/[^"'\s)]+/i);
-  const videoHref = fbMatch ? fbMatch[0] : "";
-
-  const title    = decodeEntities(post?.title?.rendered || "");
-  const dateText = ordinalDate(post?.date || new Date().toISOString());
-
-  app.innerHTML = `
-    <div class="container">
-      <article class="post" data-id="${post.id}">
-        <h1>${title}</h1>
-        <div class="meta-author-date">
-          ${author ? `<strong>${author}</strong>` : ``}
-          <span class="date">${dateText}</span>
-        </div>
-
-        ${heroSrc ? `
-          ${videoHref ? `
-            <a class="hero-link" href="${videoHref}" target="_blank" rel="noopener">
-              <img class="hero" src="${heroSrc}" alt="" />
-            </a>
-          ` : `
-            <img class="hero" src="${heroSrc}" alt="" />
-          `}
-        ` : ``}
-
-        <div class="content">${contentHtml}</div>
-
-        <div style="margin-top:20px">
-          <a class="btn" href="#/">Back to posts</a>
-        </div>
-      </article>
-    </div>
-  `;
-
-  const contentRoot = app.querySelector(".post .content");
-  if (contentRoot) {
-    normalizeFirstParagraph(contentRoot);
-    hardNukeIndent(contentRoot);
-  }
-
-  bindHeroClickIfVideo(app);
-
-  document.addEventListener("click", function(e){
-    const btn = e.target.closest('.error-banner .close'); if(btn) btn.closest('.error-banner')?.remove();
-  }, { once: true, capture: true });
 }

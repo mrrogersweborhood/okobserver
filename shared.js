@@ -1,26 +1,21 @@
-// shared.js — consolidated utilities + one-pass content sanitizer
-export const APP_VERSION = "v2.3.1-utils-merge";
-
+// shared.js — consolidated utilities for OkObserver
+export const APP_VERSION = "v2.3.2-utils";
 export const WP_SITE = "https://okobserver.org";
 
 /* =============== Entity decoding =============== */
 export function decodeEntities(html = "") {
-  // Fast, explicit replacements for the entities we see in WP feeds
   return String(html)
-    // spacing & basics
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#039;|&apos;/g, "'")
-    // em/en dashes, ellipsis, curly quotes
     .replace(/&#8211;|&ndash;/g, "–")
     .replace(/&#8212;|&mdash;/g, "—")
     .replace(/&hellip;|&#8230;/g, "…")
     .replace(/&#8220;|&ldquo;/g, "“")
     .replace(/&#8221;|&rdquo;/g, "”")
     .replace(/&#8216;|&lsquo;/g, "‘")
-    .replace(/&#8217;|&rsquo;/g, "’")   // ← this fixes Stitt&#8217;s
-    // fallbacks for stray numeric entities we didn’t enumerate
+    .replace(/&#8217;|&rsquo;/g, "’")
     .replace(/&#(\d+);/g, (_, n) => {
       const code = Number(n);
       try { return String.fromCharCode(code); } catch { return _; }
@@ -38,7 +33,7 @@ export function ordinalDate(dateISO) {
   return d.toLocaleString(undefined, { month: "long" }) + ` ${day}${ord}, ${d.getFullYear()}`;
 }
 
-/* =============== URL helpers (used by detail sanitizer) =============== */
+/* =============== URL helpers =============== */
 export function absolutize(url) {
   if (!url) return url;
   if (url.startsWith("//")) return location.protocol + url;
@@ -150,6 +145,7 @@ export function sanitizeContent(rawHTML = "") {
   const wrap = document.createElement("div");
   wrap.innerHTML = decodeEntities(rawHTML);
 
+  // Normalize inline images & figures
   const imgs = wrap.querySelectorAll("img");
   imgs.forEach(img => {
     const candidates = [
@@ -200,4 +196,20 @@ export function sanitizeContent(rawHTML = "") {
   });
 
   return wrap.innerHTML;
+}
+
+/* =============== Hero selector (used by detail.js) =============== */
+/**
+ * Select the best hero image URL from a WP post object.
+ * Prefers medium_large → large → source_url; returns "" if none.
+ */
+export function selectHeroSrc(post) {
+  const media = post?._embedded?.["wp:featuredmedia"]?.[0];
+  if (!media) return "";
+  return (
+    media?.media_details?.sizes?.medium_large?.source_url ||
+    media?.media_details?.sizes?.large?.source_url ||
+    media?.source_url ||
+    ""
+  );
 }
