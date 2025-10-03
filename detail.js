@@ -1,53 +1,67 @@
-// detail.js — single-post view (one player max, FB fallback via clickable hero)
+// detail.js — post detail view with single-embed rendering + inline URL fix
 
-import {
-  decodeEntities,
-  ordinalDate,
-  sanitizeContent,
-  normalizeFirstParagraph,
-  selectHeroSrc,
-} from "./shared.js";
-import { fetchPost } from "./api.js";
+import { fetchPostById } from "./api.js";
+import { decodeEntities, ordinalDate } from "./shared.js";
 
-function el(tag, attrs = {}, ...kids) {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") n.className = v;
-    else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2).toLowerCase(), v);
-    else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : String(v));
-  }
-  kids.flat().forEach((k) => {
-    if (k == null) return;
-    if (typeof k === "string") n.appendChild(document.createTextNode(k));
-    else n.appendChild(k);
+// Fix double-encoded URLs like "https%3A%2F%2Fsubstack..."
+function maybeDecodeOnce(u) {
+  if (typeof u !== "string" || !u.includes("%2F")) return u;
+  try {
+    // decode only once; if it’s already decoded this won’t run
+    const decoded = decodeURIComponent(u);
+    // basic safety: only allow http(s)
+    if (/^https?:\/\//i.test(decoded)) return decoded;
+  } catch {}
+  return u;
+}
+
+function sanitizeInlineMedia(root) {
+  // Decode once for common attributes that carry URLs
+  root.querySelectorAll("a[href], img[src], source[src], video[src], iframe[src]").forEach(el => {
+    ["href","src","data-src","poster"].forEach(attr => {
+      if (el.hasAttribute(attr)) {
+        const val = el.getAttribute(attr);
+        const fixed = maybeDecodeOnce(val);
+        if (fixed !== val) el.setAttribute(attr, fixed);
+      }
+    });
   });
-  return n;
+
+  // Prevent iframes from overflowing and keep them responsive
+  root.querySelectorAll("iframe").forEach(ifr => {
+    ifr.setAttribute("loading", "lazy");
+    ifr.style.maxWidth = "100%";
+    ifr.style.width = "100%";
+    ifr.style.aspectRatio = ifr.style.aspectRatio || "16/9";
+    ifr.style.height = "auto";
+  });
+
+  // Videos: lazy + responsive
+  root.querySelectorAll("video").forEach(v => {
+    v.setAttribute("preload", "metadata");
+    v.setAttribute("controls", "controls");
+    v.style.maxWidth = "100%";
+    v.style.width = "100%";
+    v.style.height = "auto";
+  });
+
+  // Images: responsive
+  root.querySelectorAll("img").forEach(img => {
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.style.maxWidth = "100%";
+    img.style.height = "auto";
+  });
 }
 
-// Detect a single embeddable iframe (YouTube, Vimeo, FB) inside provided HTML
-function extractFirstIframe(html) {
-  const wrap = document.createElement("div");
-  wrap.innerHTML = html;
-  const iframe = wrap.querySelector("iframe");
-  return iframe ? iframe.outerHTML : "";
-}
-
-// Find a Facebook video URL inside content (used for fallback)
-function findFacebookVideoURL(html) {
-  const match = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s)]+/i);
-  return match ? match[0] : "";
-}
-
-// Build the bottom-only Back button (cursor restoration handled by home.js)
-function backButton() {
-  return el(
-    "div",
-    { style: "margin: 16px 0 0" },
-    el(
-      "a",
-      { href: "#/", class: "btn", "aria-label": "Back to posts" },
-      "Back to posts"
-    )
+function selectHero(post) {
+  const media = post?._embedded?.["wp:featuredmedia"]?.[0];
+  const sizes = media?.media_details?.sizes || {};
+  return (
+    sizes?.large?.source_url ||
+    sizes?.medium_large?.source_url ||
+    media?.source_url ||
+    ""
   );
 }
 
@@ -55,82 +69,67 @@ export async function renderPost(id) {
   const app = document.getElementById("app");
   if (!app) return;
 
-  app.innerHTML = `<p class="center">Loading…</p>`;
+  // container
+  const container = document.createElement("div");
+  container.className = "container post";
+  app.innerHTML = "";
+  app.appendChild(container);
+
+  // Back-to-posts button should appear **after** content is ready (avoid flashes)
+  const addBackButton = () => {
+    const back = document.createElement("a");
+    back.className = "btn";
+    back.href = "#/";
+    back.textContent = "Back to posts";
+    container.appendChild(back);
+  };
 
   try {
-    const ctrl = new AbortController();
-    const post = await fetchPost(id, ctrl.signal);
-
+    const post = await fetchPostById(id); // expects _embed=1 in api.js
     const title = decodeEntities(post?.title?.rendered || "");
-    const date = ordinalDate(post?.date || new Date().toISOString());
+    const dateText = ordinalDate(post?.date || new Date().toISOString());
     const author =
       post?._embedded?.author?.[0]?.name ||
       (Array.isArray(post?.authors) && post.authors[0]?.name) ||
       "";
+    const hero = selectHero(post);
 
-    // Create shell
-    const container = el("div", { class: "container post" });
-    const h1 = el("h1", {}, title);
-    const meta = el(
-      "div",
-      { class: "meta-author-date" },
-      author ? el("strong", {}, author) : "",
-      el("span", { class: "date" }, date)
-    );
+    // title
+    const h1 = document.createElement("h1");
+    h1.textContent = title;
+    container.appendChild(h1);
 
-    // Content preparation
-    const raw = String(post?.content?.rendered || "");
-    const cleanHTML = sanitizeContent(raw);
-    const firstIframe = extractFirstIframe(cleanHTML);
-    const fbURL = !firstIframe ? findFacebookVideoURL(cleanHTML) : "";
+    // meta
+    const meta = document.createElement("div");
+    meta.className = "meta-author-date";
+    meta.innerHTML = `${author ? `<strong>${author}</strong>` : ""} <span class="date">${dateText}</span>`;
+    container.appendChild(meta);
 
-    // Hero: If we have an iframe, render exactly one player; otherwise try hero image.
-    const heroHolder = el("div");
-    if (firstIframe) {
-      // One player only
-      heroHolder.innerHTML = firstIframe;
-      // optional: ensure it’s responsive
-      heroHolder.querySelectorAll("iframe").forEach((f) => {
-        f.setAttribute("width", "100%");
-        f.setAttribute("height", "420");
-        f.setAttribute("loading", "lazy");
-      });
-    } else {
-      const heroSrc = selectHeroSrc(post);
-      if (heroSrc) {
-        // If we have a FB URL (or any external video URL) and no iframe, make hero clickable.
-        const clickable = fbURL ? el("a", { href: fbURL, target: "_blank", rel: "noopener" }) : null;
-        const img = el("img", {
-          class: fbURL ? "hero hoverable" : "hero",
-          src: heroSrc,
-          alt: "",
-          style: "display:block;max-height:420px;object-fit:cover;margin:16px 0;border-radius:10px;width:100%;"
-        });
-        if (clickable) {
-          clickable.appendChild(img);
-          heroHolder.appendChild(clickable);
-        } else {
-          heroHolder.appendChild(img);
-        }
-      }
+    // hero if present
+    if (hero) {
+      const img = document.createElement("img");
+      img.className = "hero hoverable";
+      img.src = hero;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      container.appendChild(img);
     }
 
-    // Body content (after hero). Normalize first paragraph indentation.
-    const body = el("div", { class: "content" });
-    body.innerHTML = cleanHTML;
-    normalizeFirstParagraph(body);
+    // content
+    const content = document.createElement("div");
+    content.className = "content";
+    content.innerHTML = post?.content?.rendered || "";
+    sanitizeInlineMedia(content);
+    container.appendChild(content);
 
-    // Assemble (bottom-only Back button)
-    container.appendChild(h1);
-    container.appendChild(meta);
-    if (heroHolder.childNodes.length) container.appendChild(heroHolder);
-    container.appendChild(body);
-    container.appendChild(backButton());
-
-    app.innerHTML = "";
-    app.appendChild(container);
-  } catch (err) {
-    console.error("[OkObserver] Post load failed:", err);
-    app.innerHTML = `<div class="error-banner">Failed to load post. ${err.message || err}</div>`;
+    // back to posts (bottom only, after content)
+    addBackButton();
+  } catch (e) {
+    container.innerHTML = `
+      <div class="error-banner">
+        <button class="close" aria-label="Dismiss">×</button>
+        Failed to load post: ${e?.message || e}
+      </div>`;
   }
 }

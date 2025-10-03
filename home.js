@@ -1,6 +1,12 @@
-// home.js — post summary grid (perf-tuned, dedupe, scroll-restore, cartoon filter)
+// home.js — post summary grid (perf-tuned, authors/images via api helpers)
 
-import { fetchLeanPostsPage, getCartoonCategoryId } from "./api.js";
+import {
+  fetchLeanPostsPage,
+  getCartoonCategoryId,
+  getFeaturedImage,
+  getAuthorName,
+  PER_PAGE,
+} from "./api.js";
 import { decodeEntities, ordinalDate } from "./shared.js";
 
 // ---------- State ----------
@@ -14,10 +20,10 @@ const st = {
   grid: null,              // .grid element
   hydratedFromCache: false,
   ids: new Set(),          // track rendered post IDs to prevent duplicates
-  abort: null,             // route-level abort controller
+  abort: null,             // route-level AbortController
   // Cache keys
   kPage: (p) => `__home_page_${p}`,
-  kScroll: "__home_scrollY",
+  kScroll: "__home_scrollY`,
 };
 
 // ---------- Abort management ----------
@@ -73,25 +79,35 @@ function seedIdsFromDOM() {
   });
 }
 
+// ---------- Client-side backup cartoon filter ----------
+function filterOutCartoons(posts, cartoonId) {
+  if (!Array.isArray(posts) || !posts.length) return posts;
+  return posts.filter((p) => {
+    const cats = Array.isArray(p.categories) ? p.categories : [];
+    const byId = cartoonId && cats.includes(cartoonId);
+    let bySlug = false;
+    const terms = p?._embedded?.["wp:term"];
+    if (terms && Array.isArray(terms)) {
+      for (const arr of terms) {
+        if (Array.isArray(arr)) {
+          for (const term of arr) {
+            if (term?.taxonomy === "category" && term?.slug === "cartoon") { bySlug = true; break; }
+          }
+        }
+        if (bySlug) break;
+      }
+    }
+    return !(byId || bySlug);
+  });
+}
+
 // ---------- Card ----------
 function renderCard(post) {
   const id = post.id;
   const title = decodeEntities(post?.title?.rendered || "");
   const dateText = ordinalDate(post?.date || new Date().toISOString());
-
-  // Author
-  const author =
-    post?._embedded?.author?.[0]?.name ||
-    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
-    "";
-
-  // Featured image
-  const media = post?._embedded?.["wp:featuredmedia"]?.[0];
-  const thumb =
-    media?.media_details?.sizes?.medium_large?.source_url ||
-    media?.media_details?.sizes?.large?.source_url ||
-    media?.source_url ||
-    "icon.png"; // fallback
+  const author = getAuthorName(post) || "";
+  const thumb = getFeaturedImage(post) || "icon.png";
 
   const card = h("article", { class: "card", "data-id": id });
 
@@ -143,28 +159,6 @@ function renderGridFromPosts(posts) {
   if (frag.childNodes.length) st.grid.appendChild(frag);
 }
 
-// Client-side fallback cartoon filter
-function filterOutCartoons(posts, cartoonId) {
-  if (!Array.isArray(posts) || !posts.length) return posts;
-  return posts.filter((p) => {
-    const cats = Array.isArray(p.categories) ? p.categories : [];
-    const byId = cartoonId && cats.includes(cartoonId);
-    let bySlug = false;
-    const terms = p?._embedded?.["wp:term"];
-    if (terms && Array.isArray(terms)) {
-      for (const arr of terms) {
-        if (Array.isArray(arr)) {
-          for (const term of arr) {
-            if (term?.taxonomy === "category" && term?.slug === "cartoon") { bySlug = true; break; }
-          }
-        }
-        if (bySlug) break;
-      }
-    }
-    return !(byId || bySlug);
-  });
-}
-
 // ---------- Page load ----------
 async function loadPage(page, signal) {
   // Cache-first for page 1
@@ -177,7 +171,9 @@ async function loadPage(page, signal) {
     }
   }
 
+  // Server normally excludes cartoons; keep client backup
   const cartoonId = await getCartoonCategoryId(signal).catch(() => 0);
+
   const posts = await fetchLeanPostsPage(page, signal);
   const clean = filterOutCartoons(posts, cartoonId);
 
@@ -188,8 +184,7 @@ async function loadPage(page, signal) {
     savePageHTMLToCache(1, st.grid.innerHTML);
   }
 
-  // Heuristic: hasMore if we got a full page (PER_PAGE=6)
-  return { hasMore: Array.isArray(posts) && posts.length === 6 };
+  return { hasMore: Array.isArray(posts) && posts.length === PER_PAGE };
 }
 
 // ---------- Infinite scroll + prefetch ----------
@@ -297,7 +292,6 @@ export async function renderHome() {
 
   // Prune big in-memory arrays over long sessions
   if (st.ids.size > 200) {
-    // No DOM rewrite (keeps UI), just limit future duplicate checks
     const keep = Array.from(st.grid.querySelectorAll(".card[data-id]"))
       .slice(-200)
       .map(c => parseInt(c.getAttribute("data-id"), 10))
