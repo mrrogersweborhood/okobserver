@@ -1,29 +1,33 @@
 // shared.js — consolidated utilities + one-pass content sanitizer
-// Safe to import in both home.js and detail.js
+export const APP_VERSION = "v2.3.1-utils-merge";
 
-/* =========================
-   Constants / Configuration
-   ========================= */
-export const APP_VERSION = "v2.3.0-utils-merge";
-
-// WordPress site root (used to absolutize inline <img> paths in content)
 export const WP_SITE = "https://okobserver.org";
 
-/* ===============
-   General helpers
-   =============== */
+/* =============== Entity decoding =============== */
 export function decodeEntities(html = "") {
+  // Fast, explicit replacements for the entities we see in WP feeds
   return String(html)
+    // spacing & basics
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#039;|&apos;/g, "'")
-    .replace(/&hellip;|&#8230;/g, "…")
+    // em/en dashes, ellipsis, curly quotes
     .replace(/&#8211;|&ndash;/g, "–")
-    .replace(/&#8220;/g, "“")
-    .replace(/&#8221;/g, "”");
+    .replace(/&#8212;|&mdash;/g, "—")
+    .replace(/&hellip;|&#8230;/g, "…")
+    .replace(/&#8220;|&ldquo;/g, "“")
+    .replace(/&#8221;|&rdquo;/g, "”")
+    .replace(/&#8216;|&lsquo;/g, "‘")
+    .replace(/&#8217;|&rsquo;/g, "’")   // ← this fixes Stitt&#8217;s
+    // fallbacks for stray numeric entities we didn’t enumerate
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = Number(n);
+      try { return String.fromCharCode(code); } catch { return _; }
+    });
 }
 
+/* =============== Date helper =============== */
 export function ordinalDate(dateISO) {
   const d = new Date(dateISO);
   const day = d.getDate();
@@ -34,14 +38,13 @@ export function ordinalDate(dateISO) {
   return d.toLocaleString(undefined, { month: "long" }) + ` ${day}${ord}, ${d.getFullYear()}`;
 }
 
-// Absolute URL helpers for content assets
+/* =============== URL helpers (used by detail sanitizer) =============== */
 export function absolutize(url) {
   if (!url) return url;
   if (url.startsWith("//")) return location.protocol + url;
   if (url.startsWith("/"))  return WP_SITE + url;
   return url;
 }
-
 export function fixSrcset(srcset) {
   if (!srcset) return srcset;
   return srcset
@@ -55,17 +58,14 @@ export function fixSrcset(srcset) {
     .filter(Boolean)
     .join(", ");
 }
-
 export function isPlaceholderSrc(u) {
   if (!u) return true;
-  if (/^data:image\/(gif|svg)/i.test(u)) return true; // lazy pixels
+  if (/^data:image\/(gif|svg)/i.test(u)) return true;
   if (/blank|spacer|pixel|transparent/i.test(u)) return true;
   return false;
 }
 
-/* ==========================
-   First-paragraph normalization
-   ========================== */
+/* =============== First-paragraph normalization =============== */
 const BLOCK_TAG = /^(p|div|section|article|blockquote|figure)$/i;
 
 export function findFirstTextBlock(root) {
@@ -84,7 +84,6 @@ export function findFirstTextBlock(root) {
   }
   return null;
 }
-
 export function stripIndentStylesInline(el) {
   if (!el) return;
   const styleAttr = el.getAttribute?.("style");
@@ -106,14 +105,12 @@ export function stripIndentStylesInline(el) {
     } catch {}
   }
 }
-
 export function stripLeadingFillersFromHTML(html = "") {
   return html
     .replace(/^(\s*<br\s*\/?>)+/i, "")
     .replace(/^(\s*<(?:span|em|strong|i|b)[^>]*>(?:\s|&nbsp;|&ensp;|&emsp;|<br\s*\/?>)*<\/(?:span|em|strong|i|b)>\s*)+/i, "")
     .replace(/^([\u00A0\u2000-\u200A\u202F\u205F\u3000]|&nbsp;|&ensp;|&emsp;|\s)+/i, "");
 }
-
 export function normalizeFirstParagraph(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
@@ -127,7 +124,6 @@ export function normalizeFirstParagraph(root) {
   }
   first.querySelectorAll("*[style]").forEach((el) => stripIndentStylesInline(el));
 }
-
 export function hardNukeIndent(root) {
   const first = findFirstTextBlock(root);
   if (!first) return;
@@ -149,21 +145,7 @@ export function hardNukeIndent(root) {
   }
 }
 
-/* ==========================
-   One-pass content sanitizer
-   ========================== */
-/**
- * sanitizeContent(html)
- * - Decodes entities
- * - Fixes inline <img>:
- *    • promotes lazy sources (data-full/data-original/data-src/data-lazy-src/srcset)
- *    • absolutizes src & srcset
- *    • strips width/height attrs and inline size styles
- *    • adds "inline-img" class
- *    • drops true placeholders to avoid gaps
- * - Normalizes figure/wp-caption widths
- * - Returns sanitized HTML string
- */
+/* =============== Content sanitizer (detail) =============== */
 export function sanitizeContent(rawHTML = "") {
   const wrap = document.createElement("div");
   wrap.innerHTML = decodeEntities(rawHTML);
@@ -209,7 +191,6 @@ export function sanitizeContent(rawHTML = "") {
     }
 
     img.classList.add("inline-img");
-
     const p = img.parentElement;
     if (p && p.tagName === "A") p.style.display = "block";
   });
@@ -219,17 +200,4 @@ export function sanitizeContent(rawHTML = "") {
   });
 
   return wrap.innerHTML;
-}
-
-/* ==========================
-   Media helpers
-   ========================== */
-export function selectHeroSrc(media) {
-  if (!media) return "";
-  return (
-    media?.media_details?.sizes?.large?.source_url ||
-    media?.media_details?.sizes?.medium_large?.source_url ||
-    media?.source_url ||
-    ""
-  );
 }
