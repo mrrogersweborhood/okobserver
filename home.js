@@ -1,253 +1,301 @@
-// home.js — renders the post summary grid, snapshot/restore, infinite scroll,
-// and robust thumbnail handling without flicker:
-//  1) if we have a thumb up-front, render it
-//  2) if not, render a neutral gray placeholder (NO logo yet)
-//  3) backfill by featured_media id (media batch)
-//  4) if still missing, batch-fetch post content and use first <img> as preview
-//  5) only if STILL missing after both backfills, set the logo once
+// home.js — post summary grid (refactored to use shared.js utilities)
 
+import { fetchLeanPostsPage, ensureCartoonCategoryId } from "./api.js";
 import {
-  fetchLeanPostsPage,
-  fetchMediaBatch,
-  fetchPostsContentFirstImage
-} from "./api.js";
-import { SS, HOME_SNAPSHOT_KEY, HOME_SNAPSHOT_TTL_MS, now, debounce } from "./shared.js";
+  decodeEntities,
+  ordinalDate,
+  selectHeroSrc,
+} from "./shared.js";
 
-// Site logo used only as the final fallback (after all backfills)
-const PLACEHOLDER_LOGO =
-  "https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png";
+// ---------- State ----------
+const st = {
+  page: 1,
+  loading: false,
+  ended: false,
+  io: null,                // IntersectionObserver
+  sentinel: null,
+  container: null,         // #app .container
+  grid: null,              // .grid element
+  // cache keys
+  kPage: (p) => `__home_page_${p}`,
+  kScroll: "__home_scrollY",
+  kCursor: "__home_cursorSel",
+};
 
-// ===== Public API (used by router/main) =====
-export function saveHomeSnapshot() {
-  const app = document.getElementById("app");
-  if (!app) return;
-  const grid = app.querySelector(".grid");
-  if (!grid) return;
-
-  const payload = {
-    html: grid.outerHTML,
-    scrollY: document.scrollingElement?.scrollTop || window.pageYOffset || 0,
-    meta: { v: 3, when: now() }
-  };
-
-  SS.set(HOME_SNAPSHOT_KEY, JSON.stringify(payload));
+// ---------- Helpers ----------
+function h(tag, props = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") el.className = v;
+    else if (k === "dataset") Object.assign(el.dataset, v);
+    else if (k.startsWith("on") && typeof v === "function") {
+      el.addEventListener(k.slice(2).toLowerCase(), v, { passive: true });
+    } else if (v !== false && v != null) {
+      el.setAttribute(k, v === true ? "" : String(v));
+    }
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    if (typeof c === "string") el.appendChild(document.createTextNode(c));
+    else el.appendChild(c);
+  }
+  return el;
 }
 
-export function tryRestoreHome() {
-  const raw = SS.get(HOME_SNAPSHOT_KEY);
-  if (!raw) return false;
+// Cache render output per page so we can rehydrate quickly
+function savePageHTMLToCache(page, html) {
+  try {
+    sessionStorage.setItem(st.kPage(page), html);
+  } catch {}
+}
+function loadPageHTMLFromCache(page) {
+  try {
+    return sessionStorage.getItem(st.kPage(page)) || "";
+  } catch {
+    return "";
+  }
+}
 
-  let data;
-  try { data = JSON.parse(raw); } catch { return false; }
+function saveScrollPosition() {
+  try { sessionStorage.setItem(st.kScroll, String(window.scrollY || 0)); } catch {}
+}
+function restoreScrollPosition() {
+  try {
+    const y = parseFloat(sessionStorage.getItem(st.kScroll) || "0");
+    if (!isNaN(y) && y > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+  } catch {}
+}
 
-  if (!data?.html || !data?.meta?.when) return false;
-  if (now() - data.meta.when > HOME_SNAPSHOT_TTL_MS) {
-    SS.del(HOME_SNAPSHOT_KEY);
-    return false;
+// ---------- Grid rendering ----------
+function renderCard(post) {
+  const id = post.id;
+  const title = decodeEntities(post?.title?.rendered || "");
+  const dateText = ordinalDate(post?.date || new Date().toISOString());
+  const author =
+    post?._embedded?.author?.[0]?.name ||
+    (Array.isArray(post?.authors) && post.authors[0]?.name) ||
+    "";
+
+  // Featured image (grid thumb): prefer medium_large/large; if missing, omit <img> entirely (no placeholder flicker)
+  const media = post?._embedded?.["wp:featuredmedia"]?.[0];
+  const thumb =
+    media?.media_details?.sizes?.medium_large?.source_url ||
+    media?.media_details?.sizes?.large?.source_url ||
+    media?.source_url ||
+    "";
+
+  const card = h("article", { class: "card", "data-id": id });
+
+  const img = thumb
+    ? h(
+        "img",
+        {
+          class: "thumb",
+          src: thumb,
+          alt: "",
+        }
+      )
+    : null;
+
+  // Only the image and the title are clickable → anchor wraps them individually
+  if (img) {
+    const aImg = h("a", { href: `#/post/${id}`, "aria-label": title }, img);
+    card.appendChild(aImg);
   }
 
-  const app = document.getElementById("app");
-  if (!app) return false;
+  const body = h("div", { class: "card-body" });
 
-  app.innerHTML = `
-    <div class="container">
-      <div class="grid-restored">${data.html}</div>
-      <div id="sentinel" aria-hidden="true" style="height:1px"></div>
-    </div>
-  `;
-  const inner = app.querySelector(".grid") || app.querySelector(".grid-restored .grid");
-  if (!inner) return false;
+  const aTitle = h("a", { href: `#/post/${id}`, class: "title" }, title);
+  body.appendChild(aTitle);
 
-  bindHomeInteractions(app, { restored: true });
+  const meta = h(
+    "div",
+    { class: "meta-author-date" },
+    author ? h("strong", {}, author) : "",
+    h("span", { class: "date" }, dateText)
+  );
+  body.appendChild(meta);
 
-  requestAnimationFrame(() => {
-    window.scrollTo(0, data.scrollY || 0);
-  });
+  // Excerpt (plain text; not clickable)
+  const rawEx = post?.excerpt?.rendered || "";
+  const ex = decodeEntities(
+    String(rawEx)
+      .replace(/<\/?[^>]+(>|$)/g, "") // strip tags
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+  if (ex) body.appendChild(h("div", { class: "excerpt" }, ex));
 
-  return true;
+  card.appendChild(body);
+  return card;
 }
 
-// ===== Normal Home render (network path) =====
-export async function renderHome() {
-  const app = document.getElementById("app");
-  if (!app) return;
-
-  if (tryRestoreHome()) return;
-
-  app.innerHTML = `<div class="container"><p class="center">Loading…</p></div>`;
-
-  const page = 1;
-  const { posts, hasMore } = await fetchLeanPostsPage(page);
-
-  app.innerHTML = `
-    <div class="container">
-      <div class="grid">
-        ${posts.map(renderCard).join("")}
-      </div>
-      <div id="sentinel" aria-hidden="true" style="height:1px"></div>
-    </div>
-  `;
-
-  // Backfills (no logo yet)
-  await ensureThumbnails(app, posts);
-
-  bindHomeInteractions(app, { page, hasMore });
+function renderGridFromPosts(posts) {
+  if (!st.grid) return;
+  const frag = document.createDocumentFragment();
+  posts.forEach((p) => frag.appendChild(renderCard(p)));
+  st.grid.appendChild(frag);
 }
 
-// ===== Card markup =====
-function renderCard(p) {
-  const href = `#/post/${p.id}`;
-
-  // If we already have a thumb URL, render an <img>.
-  // If not, render a neutral gray placeholder div (NO logo here to prevent flicker).
-  const img = p.thumb
-    ? `<img class="thumb" src="${p.thumb}" alt="" loading="lazy" decoding="async" />`
-    : `<div class="thumb ph" aria-hidden="true" style="background:#f0f0f0;height:160px"></div>`;
-
-  const author = p.author || "";
-  const date = p.dateText || "";
-
-  return `
-    <article class="card" data-id="${p.id}" data-featured-id="${p.featuredId || ""}">
-      <a class="thumb-link" href="${href}" aria-label="${p.title}">
-        ${img}
-      </a>
-      <div class="card-body">
-        <a class="title" href="${href}">${p.title}</a>
-        <div class="meta-author-date">
-          ${author ? `<strong>${author}</strong>` : ``}
-          <span class="date">${date}</span>
-        </div>
-        <div class="excerpt">${p.excerpt || ""}</div>
-      </div>
-    </article>
-  `;
-}
-
-// ===== Wire up clicks + infinite scroll =====
-function bindHomeInteractions(app, state = { page: 1, hasMore: true, restored: false }) {
-  app.addEventListener("click", onCardClickOnce, { once: true, capture: true });
-  setupInfiniteScroll(app, state);
-}
-
-function onCardClickOnce(e) {
-  const a = e.target.closest('a[href^="#/post/"]');
-  if (!a) return;
-  saveHomeSnapshot();
-}
-
-function setupInfiniteScroll(app, state) {
-  const grid = app.querySelector(".grid");
-  const sentinel = app.querySelector("#sentinel");
-  if (!grid || !sentinel) return;
-
-  let page = state.page || 1;
-  let loading = false;
-  let hasMore = state.hasMore !== false;
-
-  const loadMore = debounce(async () => {
-    if (loading || !hasMore) return;
-    loading = true;
-    try {
-      const next = page + 1;
-      const { posts, hasMore: more } = await fetchLeanPostsPage(next);
-      if (posts && posts.length) {
-        const html = posts.map(renderCard).join("");
-        grid.insertAdjacentHTML("beforeend", html);
-        // Backfills for appended posts (no logo yet)
-        await ensureThumbnails(app, posts);
-        page = next;
-        hasMore = !!more;
-      } else {
-        hasMore = false;
+// Client-side fallback cartoon filter (in case proxy didn’t exclude)
+function filterOutCartoons(posts, cartoonId) {
+  if (!Array.isArray(posts) || !posts.length) return posts;
+  return posts.filter((p) => {
+    // includes category id or an embedded term with slug 'cartoon'
+    const cats = Array.isArray(p.categories) ? p.categories : [];
+    const isCartoonId = cartoonId && cats.includes(cartoonId);
+    let isCartoonSlug = false;
+    const terms = p?._embedded?.["wp:term"];
+    if (terms && Array.isArray(terms)) {
+      for (const arr of terms) {
+        if (Array.isArray(arr)) {
+          for (const term of arr) {
+            if (term?.taxonomy === "category" && term?.slug === "cartoon") {
+              isCartoonSlug = true;
+              break;
+            }
+          }
+        }
+        if (isCartoonSlug) break;
       }
-    } catch {
-      // allow retry
-    } finally {
-      loading = false;
     }
-  }, 80);
-
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((en) => {
-      if (en.isIntersecting) loadMore();
-    });
-  }, { rootMargin: "800px 0px 800px 0px" });
-
-  io.observe(sentinel);
+    return !isCartoonId && !isCartoonSlug;
+  });
 }
 
-/* =========================
-   Thumbnail backfills (2 stages) + final logo (only if still missing)
-   ========================= */
-async function ensureThumbnails(app, posts) {
-  // 1) media-ID backfill for cards where featured_media exists but _embed didn’t include it
-  const needById = posts.filter(p => !p.thumb && p.featuredId);
-  if (needById.length) {
-    const idSet = [...new Set(needById.map(p => p.featuredId).filter(Boolean))];
-    if (idSet.length) {
-      try {
-        const mediaMap = await fetchMediaBatch(idSet);
-        patchThumbsFromMap(app, posts, mediaMap, /*prop*/"featuredId");
-      } catch { /* silent */ }
-    }
+// ---------- Fetch + page assembly ----------
+async function loadPage(page, signal) {
+  // Try cache first
+  const cached = loadPageHTMLFromCache(page);
+  if (cached && st.grid && !st.grid.children.length) {
+    // If this is the first paint, hydrate from cache so the page feels instant
+    st.grid.innerHTML = cached;
+    // Do not return; continue to fetch fresh posts to keep infinite scroll working
   }
 
-  // 2) content-first-image backfill for anything still without an <img>
-  const stillMissing = posts.filter(p => {
-    const card = app.querySelector(`.card[data-id="${p.id}"]`);
-    if (!card) return false;
-    const img = card.querySelector("img.thumb");
-    return !img || !img.getAttribute("src");
-  });
+  const cartoonId = await ensureCartoonCategoryId(signal).catch(() => 0);
 
-  if (stillMissing.length) {
-    const ids = stillMissing.map(p => p.id);
+  const data = await fetchLeanPostsPage(page, signal); // { posts, hasMore }
+  let { posts, hasMore } = data || { posts: [], hasMore: false };
+
+  // Safety: filter cartoons on client too
+  posts = filterOutCartoons(posts, cartoonId);
+
+  // Render
+  renderGridFromPosts(posts);
+
+  // Save the rendered HTML of this page (append-only)
+  if (st.grid) {
     try {
-      const contentMap = await fetchPostsContentFirstImage(ids);
-      patchThumbsFromMap(app, stillMissing, contentMap, /*prop*/"id");
-    } catch { /* silent */ }
+      // Serialize only the nodes appended for this page to keep per-page caches light
+      // (Simple approach: on first page just save entire grid; on next pages, slice from index)
+      savePageHTMLToCache(page, st.grid.innerHTML);
+    } catch {}
   }
 
-  // 3) FINAL GUARANTEE (no flicker): only now set the logo for any remaining missing thumbs
-  applyLogoPlaceholderIfMissing(app, posts);
+  return { hasMore };
 }
 
-function patchThumbsFromMap(app, postsSubset, map, keyProp) {
-  postsSubset.forEach(p => {
-    const key = p[keyProp];
-    const media = map[key];
-    if (!media?.src) return;
-    const card = app.querySelector(`.card[data-id="${p.id}"]`);
-    if (!card) return;
-    const link = card.querySelector(".thumb-link");
-    if (!link) return;
-
-    const existingImg = link.querySelector("img.thumb");
-    if (existingImg) {
-      existingImg.src = media.src;
-      if (!existingImg.alt) existingImg.alt = media.alt || "";
-    } else {
-      // Replace gray div placeholder with the actual image
-      link.innerHTML = `<img class="thumb" src="${media.src}" alt="${media.alt || ""}" loading="lazy" decoding="async" />`;
+// ---------- Infinite scroll ----------
+function setupObserver() {
+  if (st.io) return;
+  st.io = new IntersectionObserver(async (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      if (st.loading || st.ended) return;
+      st.loading = true;
+      try {
+        st.page += 1;
+        const ctrl = new AbortController();
+        const { hasMore } = await loadPage(st.page, ctrl.signal);
+        if (!hasMore) {
+          st.ended = true;
+          st.sentinel?.remove();
+          st.sentinel = null;
+          st.io?.disconnect();
+        }
+      } catch (e) {
+        // swallow; user may scroll again to retry
+      } finally {
+        st.loading = false;
+      }
     }
-  });
+  }, { rootMargin: "800px 0px" });
+  if (st.sentinel) st.io.observe(st.sentinel);
 }
 
-function applyLogoPlaceholderIfMissing(app, posts) {
-  posts.forEach(p => {
-    const card = app.querySelector(`.card[data-id="${p.id}"]`);
-    if (!card) return;
-    const link = card.querySelector(".thumb-link");
-    if (!link) return;
+function ensureSentinel() {
+  if (!st.container) return;
+  if (!st.sentinel) {
+    st.sentinel = h("div", { id: "infinite-sentinel", style: "height:1px" });
+    st.container.appendChild(st.sentinel);
+  }
+  if (st.io && st.sentinel) st.io.observe(st.sentinel);
+}
 
-    // If there is no <img> at all (still a gray div), or the image has no src, attach logo now.
-    const existingImg = link.querySelector("img.thumb");
-    if (!existingImg) {
-      link.innerHTML = `<img class="thumb" src="${PLACEHOLDER_LOGO}" alt="The Oklahoma Observer" loading="lazy" decoding="async" />`;
-    } else if (!existingImg.getAttribute("src")) {
-      existingImg.setAttribute("src", PLACEHOLDER_LOGO);
-      if (!existingImg.getAttribute("alt")) existingImg.setAttribute("alt", "The Oklahoma Observer");
+// ---------- Public: renderHome ----------
+export async function renderHome() {
+  // Build shell
+  const app = document.getElementById("app");
+  if (!app) return;
+
+  // Container + grid (preserve if already exists so scroll restoration is meaningful)
+  if (!st.container) {
+    st.container = h("div", { class: "container" });
+    st.grid = h("div", { class: "grid" });
+    st.container.appendChild(st.grid);
+    app.innerHTML = "";
+    app.appendChild(st.container);
+  } else {
+    app.innerHTML = "";
+    app.appendChild(st.container);
+  }
+
+  // If we’re returning from detail, restore scroll position
+  restoreScrollPosition();
+
+  // First page bootstrap if grid empty
+  if (!st.grid.children.length) {
+    st.loading = true;
+    try {
+      st.page = 1;
+      st.ended = false;
+
+      // Load first page
+      const ctrl = new AbortController();
+      const { hasMore } = await loadPage(1, ctrl.signal);
+
+      // Ensure sentinel + observer for infinite scroll
+      ensureSentinel();
+      setupObserver();
+      if (!hasMore) {
+        st.ended = true;
+        st.sentinel?.remove();
+        st.sentinel = null;
+      }
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : "Failed to load.";
+      st.container.appendChild(
+        h("div", { class: "error-banner" },
+          h("button", { class: "close", "aria-label": "Dismiss" }, "×"),
+          document.createTextNode(`Home load failed: ${msg}`)
+        )
+      );
+    } finally {
+      st.loading = false;
     }
-  });
+  } else {
+    // We have grid content (from prior visit) — ensure observer exists
+    ensureSentinel();
+    setupObserver();
+  }
+
+  // Save scroll on unload/hash change so Back to posts restores exactly
+  const save = () => saveScrollPosition();
+  window.removeEventListener("beforeunload", save);
+  window.removeEventListener("hashchange", save);
+  window.addEventListener("beforeunload", save, { once: true });
+  window.addEventListener("hashchange", save, { once: true });
 }
