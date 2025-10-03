@@ -1,44 +1,63 @@
-// main.js — entry point for OkObserver SPA (modules)
+// main.js — minimal router entry (ES modules)
+// Loads home, detail, about on demand. Keeps API base flexible.
+// v=2.3.0
 
-// 🔒 Lock API base to your Cloudflare Worker proxy
-window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
+window.APP_VERSION = "v2.3.0";
+console.info("[OkObserver] Entry loaded:", window.APP_VERSION);
 
-// Expose version so the boot probe in index.html can verify script execution
-window.APP_VERSION = "v2.3.1";
+// If you want to hard-pin the API base at build time, set window.OKO_API_BASE
+// in a tiny inline script *before* this file. Otherwise modules will read it
+// dynamically and fall back safely.
 
-import { renderHome } from "./home.js";
-import { renderPost } from "./detail.js";   // <-- matches export name
-import { renderAbout } from "./about.js";
-
-// Simple SPA Router
-async function router() {
-  const hash = location.hash || "#/";
-  const app = document.getElementById("app");
-  if (!app) return;
-
-  try {
-    if (/^#\/post\/\d+/.test(hash)) {
-      const id = (hash.match(/^#\/post\/(\d+)/) || [])[1];
-      app.innerHTML = `<div class="center">Loading post…</div>`;
-      await renderPost(id);
-    } else if (hash.startsWith("#/about")) {
-      app.innerHTML = `<div class="center">Loading…</div>`;
-      await renderAbout();
-    } else {
-      app.innerHTML = `<div class="center">Loading…</div>`;
-      await renderHome();
-    }
-  } catch (err) {
-    console.error("[OkObserver] Router failed", err);
-    app.innerHTML = `<div class="error-banner">
-      <button class="close" aria-label="Dismiss">×</button>
-      Failed to load content. ${err?.message || err}
-    </div>`;
-  }
+function routeHash() {
+  return location.hash || "#/";
 }
 
-// Wire up navigation
+async function router() {
+  const hash = routeHash();
+
+  // #/post/123
+  const m = hash.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
+  if (m) {
+    const id = m[1];
+    const { renderPost } = await import("./detail.js");
+    await renderPost(id);
+    return;
+  }
+
+  // #/about
+  if (hash.startsWith("#/about")) {
+    const { renderAbout } = await import("./about.js");
+    await renderAbout();
+    return;
+  }
+
+  // default: home
+  const { renderHome } = await import("./home.js");
+  await renderHome();
+}
+
+// Basic boot error banner (same look/feel as earlier)
+(function bootProbe() {
+  window.addEventListener("load", () => {
+    setTimeout(() => {
+      if (!window.APP_VERSION) {
+        const host = document.getElementById("app") || document.body;
+        const div = document.createElement("div");
+        div.className = "error-banner";
+        div.innerHTML =
+          '<button class="close" aria-label="Dismiss">×</button>' +
+          'App script did not execute. Check Network → main.js (200), hard-reload.';
+        host.prepend(div);
+      }
+    }, 400);
+  });
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".error-banner .close");
+    if (btn) btn.closest(".error-banner")?.remove();
+  });
+})();
+
+// Simple SPA wiring
 window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", router);
-
-console.log("[OkObserver] API base (locked):", window.OKO_API_BASE, window.APP_VERSION);

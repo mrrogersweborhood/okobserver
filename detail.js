@@ -1,4 +1,6 @@
-// detail.js — post detail with "lite" embeds (always visible preview; iframe on click)
+// detail.js — post detail with "lite" embeds and FB clickable hero
+// Restores: single player, visible preview (no white/black boxes), FB opens new tab,
+// no duplicate players, author/date header, first-paragraph no-indent.
 
 import { fetchPostById, getFeaturedImage, getAuthorName } from "./api.js";
 import { decodeEntities, ordinalDate } from "./shared.js";
@@ -30,11 +32,12 @@ function injectScopedStyles(host) {
     .post h1 { margin: 0; color: #1E90FF; }
     .post .meta-author-date { font-size:.95em; color:#1E90FF; margin:8px 0 12px; display:flex; gap:10px; align-items:center; }
     .post .meta-author-date .date { color:#000; font-weight:normal; }
+
     .post .hero { width:100%; max-height:520px; object-fit:cover; margin:16px 0; border-radius:10px; display:block; }
     .post .hero--clickable { cursor:pointer; position:relative; }
     .post .hero--clickable:hover { filter:brightness(0.92); }
 
-    /* 16:9 responsive box with guaranteed height (prevents zero-height white space) */
+    /* 16:9 responsive box so previews always have height (no white/black collapse) */
     .embed { position:relative; width:100%; margin:16px 0; background:#000; border-radius:10px; overflow:hidden; }
     .embed--16x9 { padding-top:56.25%; }
     .embed iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
@@ -147,7 +150,7 @@ function clickableHero(href, imgSrc, alt = "") {
   return wrap;
 }
 
-/* Remove the original node we promoted to avoid duplicates */
+/* Remove original node we promoted to avoid duplicates */
 function removePromotedNodeFrom(html, promotedNode) {
   if (!html) return "";
   const tmp = document.createElement("div");
@@ -216,7 +219,6 @@ export async function renderPost(id) {
       postEl.appendChild(buildLiteEmbed({ kind: "youtube", url: vref.url, thumb, title }));
       heroInserted = true;
     } else if (vref.kind === "vimeo") {
-      // Try featured image or first inline image as the preview
       const thumb = getFeaturedImage(post) || (probe.querySelector("img[src]")?.getAttribute("src")) || "";
       postEl.appendChild(buildLiteEmbed({ kind: "vimeo", url: vref.url, thumb, title }));
       heroInserted = true;
