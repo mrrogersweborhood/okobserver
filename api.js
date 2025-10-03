@@ -7,7 +7,7 @@ const API_BASE =
 
 const PER_PAGE = 6;
 
-// ---- fetch helper ----
+/* ------------------ helpers ------------------ */
 async function fetchJSON(url, signal) {
   const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
   if (!res.ok) {
@@ -17,7 +17,7 @@ async function fetchJSON(url, signal) {
   return res.json();
 }
 
-// ---- cartoon category discovery (function, not variable export) ----
+/* ------------- cartoon category -------------- */
 let _cartoonId = null;
 
 export async function getCartoonCategoryId(signal) {
@@ -33,23 +33,24 @@ export async function getCartoonCategoryId(signal) {
   return _cartoonId;
 }
 
-// ---- posts (lean fields for home) ----
+/* ------------------- posts ------------------- */
 export async function fetchLeanPostsPage(page = 1, signal) {
-  // IMPORTANT: include `_embedded` in _fields or WP strips the embed block
-  const fields = [
-    "_embedded", // <- keep full embed object
-    "id",
-    "date",
-    "title.rendered",
-    "excerpt.rendered",
-    "author",
-    "featured_media",
-    "categories",
-    "_embedded.author.name",
-    "_embedded.wp:featuredmedia.source_url",
-    "_embedded.wp:featuredmedia.media_details.sizes",
-    "_embedded.wp:term",
-  ].join(",");
+  // IMPORTANT: include `_embedded` *itself* in _fields.
+  const fields =
+    "_embedded," + [
+      "id",
+      "date",
+      "title.rendered",
+      "excerpt.rendered",
+      "author",
+      "featured_media",
+      "categories",
+      // nested convenience (kept for clarity; WP ignores unknown paths if _embedded present)
+      "_embedded.author.name",
+      "_embedded.wp:featuredmedia.source_url",
+      "_embedded.wp:featuredmedia.media_details.sizes",
+      "_embedded.wp:term"
+    ].join(",");
 
   const url =
     `${API_BASE}/posts?status=publish` +
@@ -57,16 +58,16 @@ export async function fetchLeanPostsPage(page = 1, signal) {
     `&page=${page}` +
     `&_embed=1` +
     `&orderby=date&order=desc` +
-    `&_fields=${encodeURIComponent(fields)}`;
+    `&_fields=${fields}`; // do NOT encode, WP expects comma-separated list
 
   const posts = await fetchJSON(url, signal);
   if (!Array.isArray(posts)) throw new Error("Unexpected API shape for posts");
   return posts;
 }
 
-// ---- single post for detail ----
+/* ------------------ single post ------------------ */
 export async function fetchPost(id, signal) {
-  // For detail we don't trim fields — let the UI decide
-  const url = `${API_BASE}/posts/${id}?&_embed=1`;
+  // Keep it simple for detail: allow full response with _embed
+  const url = `${API_BASE}/posts/${id}?_embed=1`;
   return fetchJSON(url, signal);
 }
