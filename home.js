@@ -23,7 +23,7 @@ const st = {
   abort: null,             // route-level AbortController
   // Cache keys
   kPage: (p) => `__home_page_${p}`,
-  kScroll: "__home_scrollY`,
+  kScroll: "__home_scrollY",   // <-- fixed (no stray backtick)
 };
 
 // ---------- Abort management ----------
