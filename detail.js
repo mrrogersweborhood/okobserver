@@ -1,5 +1,5 @@
 // detail.js — post detail view with hardened first-paragraph de-indent
-// and inline-image fixes (handles lazy placeholders, removes bad width/height)
+// and robust inline-image preprocessing (handles lazy sources & relative URLs)
 
 import { fetchPost } from "./api.js";
 import { saveHomeSnapshot } from "./home.js";
@@ -28,7 +28,7 @@ function decodeEntities(html) {
     .replace(/&#8221;/g, "”");
 }
 
-// Block detection for first paragraph
+// ----- First paragraph normalization (indent fixes) -----
 const BLOCK_TAG = /^(p|div|section|article|blockquote|figure)$/i;
 
 function findFirstTextBlock(root) {
@@ -113,43 +113,59 @@ function hardNukeIndent(root) {
   }
 }
 
-/* ===== Inline image normalization (fixes 1px/skinny images) ===== */
-function fixInlineImages(root) {
-  if (!root) return;
-  const imgs = root.querySelectorAll("img");
+// ----- Inline image preprocessing (before render) -----
+const WP_BASE = "https://okobserver.org";
+
+function prepareContentHTML(html) {
+  const wrap = document.createElement("div");
+  wrap.innerHTML = html || "";
+
+  const imgs = wrap.querySelectorAll("img");
   imgs.forEach(img => {
-    // Lazyload placeholders → swap in real source if present
-    const d = img.dataset || {};
-    const candidates = [d.src, d.lazySrc, d.original, d.full, d.large, d.medium, img.getAttribute("data-src"), img.getAttribute("data-lazy-src"), img.getAttribute("data-original"), img.getAttribute("data-full")].filter(Boolean);
-    if (candidates.length) {
-      const current = img.getAttribute("src") || "";
-      // If current is a pixel/blank, upgrade
-      if (!current || /data:image\/gif|data:image\/svg|blank\.gif/i.test(current)) {
-        img.setAttribute("src", candidates[0]);
-      }
+    // Prefer real src, else promote common lazy attributes
+    let src =
+      img.getAttribute("src") ||
+      img.getAttribute("data-src") ||
+      img.getAttribute("data-lazy-src") ||
+      img.getAttribute("data-original") ||
+      img.getAttribute("data-full") ||
+      (img.dataset ? (img.dataset.src || img.dataset.lazySrc || img.dataset.original || img.dataset.full) : "") ||
+      "";
+
+    // If still no usable src, remove the image to avoid blank gaps
+    if (!src) { img.remove(); return; }
+
+    // Convert relative paths to absolute
+    if (src.startsWith("/")) src = WP_BASE + src;
+
+    // Apply the resolved src and normalize attributes/styles
+    img.setAttribute("src", src);
+    img.removeAttribute("width");
+    img.removeAttribute("height");
+
+    // Scrub inline width/height styles
+    const st = img.getAttribute("style") || "";
+    if (st) {
+      const cleaned = st
+        .replace(/(?:^|;)\s*width\s*:\s*[^;]+;?/gi, "")
+        .replace(/(?:^|;)\s*height\s*:\s*[^;]+;?/gi, "");
+      if (cleaned.trim()) img.setAttribute("style", cleaned);
+      else img.removeAttribute("style");
     }
 
-    // Neutralize HTML width/height attributes & inline size styles
-    if (img.hasAttribute("width")) img.removeAttribute("width");
-    if (img.hasAttribute("height")) img.removeAttribute("height");
-    if (img.style) {
-      img.style.width = "auto";
-      img.style.height = "auto";
-      img.style.maxWidth = "100%";
-      // If something forced tiny height, smash it:
-      img.style.setProperty("height", "auto", "important");
-      img.style.setProperty("max-width", "100%", "important");
-    }
-
-    // If wrapped in a link and treated inline, make sure it displays as block
-    const parent = img.parentElement;
-    if (parent && parent.tagName === "A") {
-      parent.style.display = "block";
-    }
+    // Ensure consistent layout sizing
+    img.classList.add("inline-img");
   });
+
+  // Normalize common WP caption containers width
+  wrap.querySelectorAll("figure, .wp-caption").forEach(box => {
+    box.style.maxWidth = "100%";
+  });
+
+  return wrap.innerHTML;
 }
 
-// Clickable hero behavior
+// Clickable hero behavior (open detected external video in new tab)
 function bindHeroClickIfVideo(app) {
   const heroLink = app.querySelector(".post .hero-link");
   const heroImg  = app.querySelector(".post img.hero");
@@ -195,8 +211,12 @@ export async function renderPost(id) {
     media?.source_url ||
     "";
 
-  const contentHtml = decodeEntities(post?.content?.rendered || "");
-  const fbMatch = contentHtml.match(/https?:\/\/(www\.)?facebook\.com\/[^"'\s)]+/i);
+  // Decode and then preprocess content so inline images work
+  const decoded = decodeEntities(post?.content?.rendered || "");
+  const contentHtml = prepareContentHTML(decoded);
+
+  // Try to detect a Facebook video URL for hero click-through
+  const fbMatch = decoded.match(/https?:\/\/(www\.)?facebook\.com\/[^"'\s)]+/i);
   const videoHref = fbMatch ? fbMatch[0] : "";
 
   const title = decodeEntities(post?.title?.rendered || "");
@@ -234,7 +254,6 @@ export async function renderPost(id) {
   if (contentRoot) {
     normalizeFirstParagraph(contentRoot);
     hardNukeIndent(contentRoot);
-    fixInlineImages(contentRoot);           // ← NEW: fix inline images
   }
 
   bindHeroClickIfVideo(app);
