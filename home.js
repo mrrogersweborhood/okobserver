@@ -1,4 +1,4 @@
-// home.js — post summary grid (authors, featured images, infinite scroll)
+// home.js — post summary grid (authors, featured images, infinite scroll) — dedupe-safe
 
 import { fetchLeanPostsPage, getCartoonCategoryId } from "./api.js";
 import { decodeEntities, ordinalDate } from "./shared.js";
@@ -12,6 +12,8 @@ const st = {
   sentinel: null,
   container: null,         // #app .container
   grid: null,              // .grid element
+  hydratedFromCache: false,
+  ids: new Set(),          // track rendered post IDs to prevent duplicates
   // Cache keys
   kPage: (p) => `__home_page_${p}`,
   kScroll: "__home_scrollY",
@@ -51,6 +53,16 @@ function restoreScrollPosition() {
     const y = parseFloat(sessionStorage.getItem(st.kScroll) || "0");
     if (!isNaN(y) && y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
   } catch {}
+}
+
+// Seed the st.ids set by scanning existing cards (used after cache hydrate)
+function seedIdsFromDOM() {
+  if (!st.grid) return;
+  st.ids.clear();
+  st.grid.querySelectorAll(".card[data-id]").forEach(card => {
+    const id = parseInt(card.getAttribute("data-id"), 10);
+    if (!isNaN(id)) st.ids.add(id);
+  });
 }
 
 // ---------- Grid rendering ----------
@@ -107,8 +119,13 @@ function renderCard(post) {
 function renderGridFromPosts(posts) {
   if (!st.grid) return;
   const frag = document.createDocumentFragment();
-  posts.forEach((p) => frag.appendChild(renderCard(p)));
-  st.grid.appendChild(frag);
+  for (const p of posts) {
+    if (!p || typeof p.id !== "number") continue;
+    if (st.ids.has(p.id)) continue;       // <-- skip duplicates
+    st.ids.add(p.id);
+    frag.appendChild(renderCard(p));
+  }
+  if (frag.childNodes.length) st.grid.appendChild(frag);
 }
 
 // Client-side fallback cartoon filter (if proxy didn’t exclude)
@@ -141,18 +158,27 @@ function filterOutCartoons(posts, cartoonId) {
 // ---------- Fetch + page assembly ----------
 async function loadPage(page, signal) {
   // Try cache for page 1 to speed up first paint
-  const cached = page === 1 ? loadPageHTMLFromCache(page) : "";
-  if (cached && st.grid && !st.grid.children.length) {
-    st.grid.innerHTML = cached;
+  if (page === 1 && st.grid && !st.grid.children.length) {
+    const cached = loadPageHTMLFromCache(1);
+    if (cached) {
+      st.grid.innerHTML = cached;
+      st.hydratedFromCache = true;
+      seedIdsFromDOM();               // <-- prime duplicate filter from cache DOM
+    }
   }
 
   const cartoonId = await getCartoonCategoryId(signal).catch(() => 0);
   const posts = await fetchLeanPostsPage(page, signal);
   const clean = filterOutCartoons(posts, cartoonId);
 
+  // Append only *new* posts; skips ones already in the cache DOM
   renderGridFromPosts(clean);
 
-  if (page === 1 && st.grid) {
+  if (page === 1 && st.grid && !st.hydratedFromCache) {
+    // If we didn't hydrate from cache (cold start), save fresh HTML now
+    savePageHTMLToCache(1, st.grid.innerHTML);
+  } else if (page === 1 && st.grid && st.hydratedFromCache) {
+    // If we hydrated, refresh the cache with the merged, deduped HTML
     savePageHTMLToCache(1, st.grid.innerHTML);
   }
 
@@ -220,6 +246,9 @@ export async function renderHome() {
     try {
       st.page = 1;
       st.ended = false;
+      st.ids.clear();                // new navigation → clear ID set
+      st.hydratedFromCache = false;
+
       const ctrl = new AbortController();
       const { hasMore } = await loadPage(1, ctrl.signal);
       ensureSentinel();
@@ -241,6 +270,8 @@ export async function renderHome() {
       st.loading = false;
     }
   } else {
+    // If grid already exists (back from detail), re-seed IDs from DOM before observing
+    seedIdsFromDOM();
     ensureSentinel();
     setupObserver();
   }
