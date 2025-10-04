@@ -126,6 +126,15 @@
       color: #900;
     }
   </style>
+
+  <!-- 🔒 Set API base to your Cloudflare Worker BEFORE modules load -->
+  <script>
+    (function () {
+      var BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
+      window.OKO_API_BASE = BASE;
+      try { sessionStorage.setItem("__oko_api_base_lock", BASE); } catch {}
+    })();
+  </script>
 </head>
 <body>
   <header>
@@ -146,6 +155,7 @@
     <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js"></script>
+  <!-- Version bump to ensure cache-bust while debugging -->
+  <script type="module" src="main.js?v=2.3.3"></script>
 </body>
 </html>
