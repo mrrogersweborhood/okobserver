@@ -1,40 +1,50 @@
-// shared.js — small utilities shared across modules
+// shared.js — small utilities shared across views
+// v=2.3.4
 
-/**
- * Decode HTML entities from WP (covers &amp;, &#8217;, &hellip;, etc).
- */
-export function decodeEntities(input = "") {
-  if (!input || typeof input !== "string") return "";
-  // numeric
-  const numeric = input.replace(/&#(\d+);/g, (_, d) => {
-    try { return String.fromCodePoint(parseInt(d, 10)); } catch { return _; }
-  }).replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
-    try { return String.fromCodePoint(parseInt(h, 16)); } catch { return _; }
-  });
-  // named
-  const ta = document.createElement("textarea");
-  ta.innerHTML = numeric;
-  return ta.value;
+export function decodeEntities(str=""){
+  const el = document.createElement("textarea");
+  el.innerHTML = str;
+  return el.value;
 }
 
-/**
- * Format ISO date into "Month 2nd, 2025".
- */
-export function ordinalDate(iso) {
+export function ordinalDate(iso){
+  if (!iso) return "";
   const d = new Date(iso);
-  if (isNaN(d)) return "";
   const day = d.getDate();
-  const month = d.toLocaleString(undefined, { month: "long" });
-  const year = d.getFullYear();
-  const suf = (n) => {
-    const v = n % 100;
-    if (v >= 11 && v <= 13) return "th";
-    switch (n % 10) {
-      case 1: return "st";
-      case 2: return "nd";
-      case 3: return "rd";
-      default: return "th";
-    }
+  const ord = (n)=>{
+    const s=["th","st","nd","rd"], v=n%100;
+    return s[(v-20)%10]||s[v]||s[0];
   };
-  return `${month} ${day}${suf(day)}, ${year}`;
+  const m = d.toLocaleString(undefined,{month:"long"});
+  const y = d.getFullYear();
+  return `${m} ${day}${ord(day)}, ${y}`;
+}
+
+export function createEl(tag, attrs={}, children=[]){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)){
+    if (k==="class") el.className = v;
+    else if (k==="html") el.innerHTML = v;
+    else if (k.startsWith("on") && typeof v==="function") el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) if (c!=null) el.append(c.nodeType?c:document.createTextNode(c));
+  return el;
+}
+
+// Choose the best hero/summary image src given featured url (string or null)
+export function selectHeroSrc(featured, fallback="icon.png"){
+  if (featured && typeof featured === "string") return featured;
+  return fallback;
+}
+
+// Normalize first-paragraph indentation that sometimes appears in WP content
+export function normalizeFirstParagraph(container){
+  const p = container?.querySelector(":scope > p:first-of-type");
+  if (p){
+    p.style.textIndent = "0";
+    p.style.marginLeft = "0";
+    p.style.paddingLeft = "0";
+    p.style.textAlign = "left";
+  }
 }
