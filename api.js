@@ -68,7 +68,6 @@ export async function ensureCartoonCategoryId(){
 export async function getCartoonCategoryId(){ return ensureCartoonCategoryId(); }
 
 /* ---------------- Field helpers ---------------- */
-// synchronous best-effort from _embedded
 export function getFeaturedImage(post){
   try{
     const media = post?._embedded?.["wp:featuredmedia"]?.[0];
@@ -81,7 +80,6 @@ export function getFeaturedImage(post){
     );
   }catch{ return null; }
 }
-// async network fallback using featured_media id
 export async function resolveFeaturedImage(post){
   const fromEmbed = getFeaturedImage(post);
   if (fromEmbed) return fromEmbed;

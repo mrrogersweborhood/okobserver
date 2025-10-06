@@ -1,5 +1,5 @@
 // home.js — summary grid with author + featured image + infinite scroll
-// v=2.3.7 (uses async featured image fallback)
+// v=2.3.8 (no placeholder logo; defer image until real URL resolves)
 
 import {
   PER_PAGE,
@@ -19,22 +19,30 @@ function makeCardSkeleton(post){
   const author= getAuthorName(post);
   const date  = ordinalDate(post?.date);
 
-  // Start with whatever we have (embedded or placeholder)
-  const startImg = getFeaturedImage(post) || "icon.png";
-
   const imgEl = createEl("img", {
     class: "thumb",
-    src: startImg,
     alt: title || "featured image",
     loading: "lazy",
     decoding: "async"
   });
-  imgEl.addEventListener("error", ()=>{ imgEl.src="icon.png"; imgEl.style.objectFit="contain"; });
+  imgEl.style.visibility = "hidden";
+  imgEl.setAttribute("aria-hidden", "true");
 
-  // Try to upgrade image asynchronously if _embedded was missing
-  resolveFeaturedImage(post).then(src=>{
-    if (src && imgEl.src !== src) imgEl.src = src;
-  }).catch(()=>{ /* ignore */ });
+  const embedded = getFeaturedImage(post);
+  const show = (src) => {
+    if (!src) { imgEl.remove(); return; }
+    imgEl.src = src;
+    imgEl.onload = () => {
+      imgEl.style.visibility = "visible";
+      imgEl.removeAttribute("aria-hidden");
+    };
+    imgEl.onerror = () => { imgEl.remove(); };
+  };
+  if (embedded) {
+    show(embedded);
+  } else {
+    resolveFeaturedImage(post).then(show).catch(() => imgEl.remove());
+  }
 
   const titleEl = createEl("h2",{class:"title"},[
     createEl("a",{href:`#/post/${pid}`, title: title}, [title || "Untitled"])
@@ -46,10 +54,10 @@ function makeCardSkeleton(post){
     html: decodeEntities(post?.excerpt?.rendered || "")
   });
 
-  return createEl("article",{class:"card"},[
-    createEl("a",{href:`#/post/${pid}`},[imgEl]),
-    createEl("div",{class:"card-body"},[titleEl, meta, excerpt])
-  ]);
+  const imgWrap = createEl("a",{href:`#/post/${pid}`},[imgEl]);
+  const cardChildren = [imgWrap, createEl("div",{class:"card-body"},[titleEl, meta, excerpt])];
+
+  return createEl("article",{class:"card"}, cardChildren);
 }
 
 export async function renderHome(){

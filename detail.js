@@ -1,8 +1,19 @@
-// detail.js — post detail view (clickable hero + fallback image)
-// v=2.3.7
+// detail.js — post detail view (clickable hero + no placeholder logo)
+// v=2.3.8
 
-import { fetchPostById, getFeaturedImage, resolveFeaturedImage, getAuthorName } from "./api.js";
-import { createEl, decodeEntities, ordinalDate, selectHeroSrc, normalizeFirstParagraph } from "./shared.js";
+import {
+  fetchPostById,
+  getFeaturedImage,
+  resolveFeaturedImage,
+  getAuthorName
+} from "./api.js";
+import {
+  createEl,
+  decodeEntities,
+  ordinalDate,
+  selectHeroSrc,
+  normalizeFirstParagraph
+} from "./shared.js";
 
 const app = () => document.getElementById("app");
 
@@ -30,19 +41,24 @@ export async function renderPost(id){
   const date = ordinalDate(post?.date);
   const contentHTML = String(post?.content?.rendered || "");
 
-  // start image from _embedded or placeholder
-  const initial = getFeaturedImage(post) || "icon.png";
   const extVideo = detectExternalVideoUrl(contentHTML);
 
   const h1 = createEl("h1",{},[title || "Untitled"]);
   const meta = createEl("div",{class:"meta"}, [`${author} — ${date}`]);
-  const hero = createEl("img",{class:"hero", src: initial, alt: title});
-  hero.addEventListener("error", ()=>{ hero.src="icon.png"; hero.style.objectFit="contain"; });
 
-  // upgrade hero asynchronously if needed
-  resolveFeaturedImage(post).then(src=>{
-    if (src && hero.src !== src) hero.src = src;
-  }).catch(()=>{});
+  const hero = createEl("img",{class:"hero", alt: title || "featured image"});
+  hero.style.visibility = "hidden";
+  hero.setAttribute("aria-hidden","true");
+
+  const reveal = (src)=>{
+    if (!src){ hero.remove(); return; }
+    hero.src = src;
+    hero.onload = ()=>{ hero.style.visibility="visible"; hero.removeAttribute("aria-hidden"); };
+    hero.onerror = ()=>{ hero.remove(); };
+  };
+
+  const embedded = getFeaturedImage(post);
+  if (embedded) reveal(embedded); else resolveFeaturedImage(post).then(reveal).catch(()=>hero.remove());
 
   if (extVideo){
     hero.classList.add("hero--clickable");
@@ -55,10 +71,9 @@ export async function renderPost(id){
 
   const backBottom = createEl("a",{class:"btn", href:"#/"},["Back to posts"]);
 
-  const article = createEl("article",{class:"post"},[
-    h1, meta, hero, content, createEl("div",{style:"margin-top:14px"},[backBottom])
-  ]);
+  const parts = [h1, meta, hero, content, createEl("div",{style:"margin-top:14px"},[backBottom])];
 
+  const article = createEl("article",{class:"post"}, parts);
   host.innerHTML = "";
   host.append(article);
 }
