@@ -1,7 +1,7 @@
-// detail.js — post detail view with video awareness
-// v=2.3.4
+// detail.js — post detail view (clickable hero + fallback image)
+// v=2.3.7
 
-import { fetchPostById, getFeaturedImage, getAuthorName } from "./api.js";
+import { fetchPostById, getFeaturedImage, resolveFeaturedImage, getAuthorName } from "./api.js";
 import { createEl, decodeEntities, ordinalDate, selectHeroSrc, normalizeFirstParagraph } from "./shared.js";
 
 const app = () => document.getElementById("app");
@@ -29,15 +29,20 @@ export async function renderPost(id){
   const author = getAuthorName(post);
   const date = ordinalDate(post?.date);
   const contentHTML = String(post?.content?.rendered || "");
-  const featured = selectHeroSrc(getFeaturedImage(post), "icon.png");
-  const extVideo = detectExternalVideoUrl(contentHTML);
 
-  const backBottom = createEl("a",{class:"btn", href:"#/"},["Back to posts"]);
+  // start image from _embedded or placeholder
+  const initial = getFeaturedImage(post) || "icon.png";
+  const extVideo = detectExternalVideoUrl(contentHTML);
 
   const h1 = createEl("h1",{},[title || "Untitled"]);
   const meta = createEl("div",{class:"meta"}, [`${author} — ${date}`]);
-  const hero = createEl("img",{class:"hero", src: featured, alt: title});
+  const hero = createEl("img",{class:"hero", src: initial, alt: title});
   hero.addEventListener("error", ()=>{ hero.src="icon.png"; hero.style.objectFit="contain"; });
+
+  // upgrade hero asynchronously if needed
+  resolveFeaturedImage(post).then(src=>{
+    if (src && hero.src !== src) hero.src = src;
+  }).catch(()=>{});
 
   if (extVideo){
     hero.classList.add("hero--clickable");
@@ -47,6 +52,8 @@ export async function renderPost(id){
 
   const content = createEl("div",{class:"content", html: contentHTML});
   normalizeFirstParagraph(content);
+
+  const backBottom = createEl("a",{class:"btn", href:"#/"},["Back to posts"]);
 
   const article = createEl("article",{class:"post"},[
     h1, meta, hero, content, createEl("div",{style:"margin-top:14px"},[backBottom])
