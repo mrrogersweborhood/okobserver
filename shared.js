@@ -32,13 +32,11 @@ export function createEl(tag, attrs={}, children=[]){
   return el;
 }
 
-// Choose the best hero/summary image src given featured url (string or null)
 export function selectHeroSrc(featured, fallback="icon.png"){
   if (featured && typeof featured === "string") return featured;
   return fallback;
 }
 
-// Normalize first-paragraph indentation that sometimes appears in WP content
 export function normalizeFirstParagraph(container){
   const p = container?.querySelector(":scope > p:first-of-type");
   if (p){

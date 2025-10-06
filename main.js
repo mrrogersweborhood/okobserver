@@ -7,12 +7,12 @@ function hash() { return location.hash || "#/"; }
 async function router() {
   const h = hash();
 
-  const m = h.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
+  const m = h.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
   if (m) {
     const { renderPost } = await import("./detail.js");
     await renderPost(m[1]);
     return;
-    }
+  }
 
   if (h.startsWith("#/about")) {
     const { renderAbout } = await import("./about.js");

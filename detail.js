@@ -7,7 +7,6 @@ import { createEl, decodeEntities, ordinalDate, selectHeroSrc, normalizeFirstPar
 const app = () => document.getElementById("app");
 
 function detectExternalVideoUrl(html){
-  // Look for Facebook/Vimeo/YouTube links
   const a = document.createElement("div");
   a.innerHTML = html || "";
   const links = Array.from(a.querySelectorAll("a[href]")).map(e=>e.getAttribute("href"));
