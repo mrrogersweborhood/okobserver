@@ -24,7 +24,7 @@
         decoding="async"
         onerror="this.style.display='none';document.getElementById('logoFallback')?.style.display='block';"
       />
-      <div id="logoFallback" style="display:none;font-weight:700">The Oklahoma Observer</div>
+      <div id="logoFallback" style="display:none;font-weight:700;color:#fff">The Oklahoma Observer</div>
       <div class="tagline">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
 
@@ -51,7 +51,7 @@
       const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
       try { sessionStorage.setItem('__oko_api_base_lock', WORKER_BASE); } catch {}
       window.OKO_API_BASE = WORKER_BASE;
-      window.APP_VERSION = 'v2.4.1';
+      window.APP_VERSION = 'v2.4.2';
       document.addEventListener('DOMContentLoaded', function(){
         const y=document.getElementById('year'); if(y) y.textContent=new Date().getFullYear();
         const v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
@@ -60,6 +60,6 @@
   </script>
 
   <!-- App entry -->
-  <script type="module" src="main.js?v=2.4.1" defer></script>
+  <script type="module" src="main.js?v=2.4.2" defer></script>
 </body>
 </html>
