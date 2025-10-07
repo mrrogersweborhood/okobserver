@@ -1,80 +1,65 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver — Latest News</title>
-  <link rel="icon" href="icon.png" />
 
-  <style>
-    :root{
-      --brand:#1E90FF;
-      --bg:#f7f9fc;
-      --card:#fff;
-      --border:#e5e7eb;
-      --text:#0b0b0b;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
-    header{background:var(--brand);color:#fff;position:sticky;top:0;z-index:10}
-    .nav{max-width:1200px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:16px}
-    .nav img.logo{height:40px}
-    .nav a{margin-left:auto;color:#fff;text-decoration:none;font-weight:600}
-    .nav a + a{margin-left:16px}
-    main{max-width:1200px;margin:16px auto;padding:0 12px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);overflow:hidden;display:flex;flex-direction:column}
-    .thumb{display:block;width:100%;height:250px;object-fit:cover;background:#f0f0f0}
-    .card-body{padding:14px;display:flex;flex-direction:column;gap:6px}
-    .title{font-size:1.1rem;margin:0;line-height:1.25}
-    .title a{color:var(--brand);text-decoration:none;font-weight:800}
-    .meta{font-size:.86rem;color:#444}
-    .excerpt{font-size:.95rem;color:#222}
-    footer{margin-top:30px;background:#eee;padding:16px;text-align:center;color:#555;font-size:.9rem}
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" href="icon.png" />
 
-    /* Detail */
-    .post h1{margin:.2rem 0 0;color:var(--brand);font-size:2rem}
-    .post .meta{margin:.25rem 0 .5rem}
-    .post .hero{width:100%;max-height:460px;object-fit:cover;border-radius:10px}
-    .post .hero.hero--clickable{cursor:pointer;transition:opacity .2s ease}
-    .post .hero.hero--clickable:hover{opacity:.88}
-
-    /* First-paragraph indentation fixes */
-    .post .content > p:first-of-type{
-      text-indent:0 !important;margin-left:0 !important;padding-left:0 !important;text-align:left !important;
-    }
-
-    /* Error banner */
-    .error-banner{background:#ffdddd;color:#900;padding:10px;border:1px solid #f99;border-radius:6px;margin:10px 0;position:relative}
-    .error-banner .close{position:absolute;top:6px;right:8px;background:none;border:none;font-size:16px;line-height:1;cursor:pointer;color:#900}
-  </style>
-
-  <!-- Lock API base to Cloudflare Worker BEFORE modules load -->
-  <script>
-    (function () {
-      var BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp/v2";
-      window.OKO_API_BASE = BASE;
-      try { sessionStorage.setItem("__oko_api_base_lock", BASE); } catch {}
-    })();
-  </script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <div class="nav">
-      <img src="icon.png" class="logo" alt="The Oklahoma Observer" />
-      <a href="#/">Home</a>
-      <a href="#/about">About</a>
+  <header id="siteHeader" class="site-header">
+    <div class="brand">
+      <img
+        id="siteLogo"
+        src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
+        alt="The Oklahoma Observer"
+        width="260"
+        height="60"
+        style="display:block;height:auto;max-height:60px;width:auto;max-width:260px"
+        decoding="async"
+        onerror="this.style.display='none';document.getElementById('logoFallback')?.style.display='block';"
+      />
+      <div id="logoFallback" style="display:none;font-weight:700">The Oklahoma Observer</div>
+      <div class="tagline">To Comfort The Afflicted And Afflict The Comfortable</div>
     </div>
+
+    <nav id="menu" class="menu">
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+    </nav>
   </header>
 
-  <main>
-    <div id="app">Loading…</div>
-  </main>
+  <main id="app">Loading…</main>
 
-  <footer>
-    Unofficial demo client. © — <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <small>
+        Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span>
+      </small>
+      <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
+    </div>
   </footer>
 
-  <script type="module" src="main.js?v=2.3.4"></script>
+  <!-- Lock API base to Cloudflare Worker before modules load -->
+  <script>
+    (function(){
+      const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
+      try { sessionStorage.setItem('__oko_api_base_lock', WORKER_BASE); } catch {}
+      window.OKO_API_BASE = WORKER_BASE;
+      window.APP_VERSION = 'v2.4.1';
+      document.addEventListener('DOMContentLoaded', function(){
+        const y=document.getElementById('year'); if(y) y.textContent=new Date().getFullYear();
+        const v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
+      });
+    })();
+  </script>
+
+  <!-- App entry -->
+  <script type="module" src="main.js?v=2.4.1" defer></script>
 </body>
 </html>

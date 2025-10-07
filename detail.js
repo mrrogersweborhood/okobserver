@@ -1,21 +1,8 @@
-// detail.js — post detail view (clickable hero + no placeholder logo)
-// v=2.3.8
+// detail.js — post detail (clickable hero for non-embeddables; no duplicate players)
+import { fetchPostById, getFeaturedImage, resolveFeaturedImage, getAuthorName } from './api.js';
+import { createEl, decodeEntities, ordinalDate, normalizeFirstParagraph } from './shared.js';
 
-import {
-  fetchPostById,
-  getFeaturedImage,
-  resolveFeaturedImage,
-  getAuthorName
-} from "./api.js";
-import {
-  createEl,
-  decodeEntities,
-  ordinalDate,
-  selectHeroSrc,
-  normalizeFirstParagraph
-} from "./shared.js";
-
-const app = () => document.getElementById("app");
+const app = () => document.getElementById('app');
 
 function detectExternalVideoUrl(html){
   const a = document.createElement("div");
@@ -30,6 +17,11 @@ function detectExternalVideoUrl(html){
   return null;
 }
 
+function contentHasIframe(html){
+  const a = document.createElement('div'); a.innerHTML = html || '';
+  return !!a.querySelector('iframe');
+}
+
 export async function renderPost(id){
   const host = app();
   if (!host) return;
@@ -41,39 +33,43 @@ export async function renderPost(id){
   const date = ordinalDate(post?.date);
   const contentHTML = String(post?.content?.rendered || "");
 
-  const extVideo = detectExternalVideoUrl(contentHTML);
-
   const h1 = createEl("h1",{},[title || "Untitled"]);
   const meta = createEl("div",{class:"meta"}, [`${author} — ${date}`]);
-
-  const hero = createEl("img",{class:"hero", alt: title || "featured image"});
-  hero.style.visibility = "hidden";
-  hero.setAttribute("aria-hidden","true");
-
-  const reveal = (src)=>{
-    if (!src){ hero.remove(); return; }
-    hero.src = src;
-    hero.onload = ()=>{ hero.style.visibility="visible"; hero.removeAttribute("aria-hidden"); };
-    hero.onerror = ()=>{ hero.remove(); };
-  };
-
-  const embedded = getFeaturedImage(post);
-  if (embedded) reveal(embedded); else resolveFeaturedImage(post).then(reveal).catch(()=>hero.remove());
-
-  if (extVideo){
-    hero.classList.add("hero--clickable");
-    hero.title = "Open video in a new tab";
-    hero.addEventListener("click", ()=>{ window.open(extVideo, "_blank","noopener"); });
-  }
 
   const content = createEl("div",{class:"content", html: contentHTML});
   normalizeFirstParagraph(content);
 
+  const extVideo = detectExternalVideoUrl(contentHTML);
+  const hasIframe = contentHasIframe(contentHTML);
+
+  // Hero image only when not duplicating an existing iframe player
+  let hero = null;
+  if (!hasIframe) {
+    const initial = getFeaturedImage(post);
+    hero = createEl("img",{class:"hero", alt:title || "featured image"});
+    hero.style.visibility = "hidden"; hero.setAttribute("aria-hidden","true");
+
+    const reveal = (src)=>{
+      if (!src){ hero.remove(); hero=null; return; }
+      hero.src = src;
+      hero.onload = ()=>{ hero.style.visibility="visible"; hero.removeAttribute("aria-hidden"); };
+      hero.onerror = ()=>{ hero.remove(); hero=null; };
+    };
+    if (initial) reveal(initial); else resolveFeaturedImage(post).then(reveal).catch(()=>{ hero.remove(); hero=null; });
+
+    if (extVideo){
+      hero?.classList.add("hero--clickable");
+      hero && hero.addEventListener("click", ()=>{ window.open(extVideo, "_blank","noopener"); });
+      if (hero) hero.title = "Open video in a new tab";
+    }
+  }
+
   const backBottom = createEl("a",{class:"btn", href:"#/"},["Back to posts"]);
 
-  const parts = [h1, meta, hero, content, createEl("div",{style:"margin-top:14px"},[backBottom])];
+  const article = createEl("article",{class:"post"},[
+    h1, meta, ...(hero?[hero]:[]), content, createEl("div",{style:"margin-top:14px"},[backBottom])
+  ]);
 
-  const article = createEl("article",{class:"post"}, parts);
   host.innerHTML = "";
   host.append(article);
 }

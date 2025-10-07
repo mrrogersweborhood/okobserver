@@ -1,5 +1,5 @@
 // api.js — WordPress REST helpers via Cloudflare Worker
-// v=2.3.7 (featured image network fallback + safe args)
+// v=2.4.1
 
 export const PER_PAGE = 6;
 export let cartoonCategoryId = null;
@@ -67,7 +67,7 @@ export async function ensureCartoonCategoryId(){
 }
 export async function getCartoonCategoryId(){ return ensureCartoonCategoryId(); }
 
-/* ---------------- Field helpers ---------------- */
+/* ---------------- Featured image helpers ---------------- */
 export function getFeaturedImage(post){
   try{
     const media = post?._embedded?.["wp:featuredmedia"]?.[0];
@@ -114,7 +114,7 @@ export function getAuthorName(post){
   catch{ return "The Oklahoma Observer"; }
 }
 
-/* ---------------- Argument normalization ---------------- */
+/* ---------------- Arg normalization ---------------- */
 function norm(page, perPageOrOpts, maybeOpts){
   let p = Number(page)||1;
   let pp = PER_PAGE;
@@ -137,7 +137,7 @@ function norm(page, perPageOrOpts, maybeOpts){
   return { page:p, perPage:pp, excludeCartoon, signal };
 }
 
-/* ---------------- Posts & Pages ---------------- */
+/* ---------------- Posts & pages ---------------- */
 export async function fetchPostsPage(page=1, perPageOrOpts, maybeOpts){
   const { page:p, perPage:pp, excludeCartoon, signal } = norm(page, perPageOrOpts, maybeOpts);
 

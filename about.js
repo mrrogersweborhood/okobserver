@@ -1,15 +1,17 @@
-// about.js — renders About page pulled from WP Pages
-import { fetchAboutPage } from "./api.js";
-import { createEl } from "./shared.js";
+// about.js — render About page via REST
+import { fetchAboutPage } from './api.js';
+import { createEl } from './shared.js';
 
 export async function renderAbout(){
-  const host = document.getElementById("app");
-  if (!host) return;
+  const root = document.getElementById('app'); if (!root) return;
+  root.innerHTML = 'Loading…';
+  const { title, html } = await fetchAboutPage('contact-about-donate');
 
-  host.innerHTML = "Loading…";
-  const page = await fetchAboutPage("contact-about-donate");
-  const h1 = createEl("h1",{},[page.title || "About"]);
-  const content = createEl("div",{class:"content", html: page.html || "<p>About not available.</p>"});
-  host.innerHTML = "";
-  host.append(createEl("article",{class:"post"},[h1, content]));
+  const wrap = createEl('section',{class:'about-wrap'},[
+    createEl('h1',{},[title || 'About']),
+    createEl('div',{class:'content', html: html || '<p>About page unavailable.</p>'})
+  ]);
+
+  root.innerHTML = '';
+  root.appendChild(wrap);
 }

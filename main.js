@@ -1,48 +1,15 @@
-// main.js — SPA router entry (ES modules)
-window.APP_VERSION = "v2.3.4";
-console.info("[OkObserver] Entry loaded:", window.APP_VERSION);
+// main.js — entry: lock API base and start router
+const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
+try { sessionStorage.setItem('__oko_api_base_lock', WORKER_BASE); } catch {}
+window.OKO_API_BASE = WORKER_BASE;
 
-function hash() { return location.hash || "#/"; }
+import { router, saveScrollForRoute } from './core.js';
 
-async function router() {
-  const h = hash();
+// Save list scroll before navigating away
+window.addEventListener('hashchange', () => saveScrollForRoute(location.hash), { passive:true });
 
-  const m = h.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
-  if (m) {
-    const { renderPost } = await import("./detail.js");
-    await renderPost(m[1]);
-    return;
-  }
+// Start router
+window.addEventListener('hashchange', router, { passive:true });
+window.addEventListener('DOMContentLoaded', router, { once:true, passive:true });
 
-  if (h.startsWith("#/about")) {
-    const { renderAbout } = await import("./about.js");
-    await renderAbout();
-    return;
-  }
-
-  const { renderHome } = await import("./home.js");
-  await renderHome();
-}
-
-// Boot error banner if modules fail
-(function(){
-  window.addEventListener("load", () => {
-    setTimeout(() => {
-      if (!window.APP_VERSION) {
-        const host = document.getElementById("app") || document.body;
-        const div = document.createElement("div");
-        div.className = "error-banner";
-        div.innerHTML = '<button class="close" aria-label="Dismiss">×</button>' +
-          'App script did not execute. Check Network → main.js (200), hard-reload.';
-        host.prepend(div);
-      }
-    }, 400);
-  });
-  document.addEventListener("click",(e)=>{
-    const btn=e.target.closest(".error-banner .close");
-    if(btn) btn.closest(".error-banner")?.remove();
-  });
-})();
-
-window.addEventListener("hashchange", router);
-window.addEventListener("DOMContentLoaded", router);
+console.log('[OkObserver] Entry loaded: v2.4.1, API base:', WORKER_BASE);

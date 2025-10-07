@@ -1,70 +1,52 @@
-// core.js — centralized routing + delegated navigation
+// core.js — router + scroll restore
+const SCROLL_KEY = '__oko_scroll__';
 
-import { APP_VERSION } from "./shared.js";
-
-// Expose version for footer/boot probe
-window.APP_VERSION = APP_VERSION;
-
-function currentHash() {
-  return location.hash || "#/";
+export function saveScrollForRoute(hash){
+  // Save only for home route (#/)
+  try{
+    if ((hash || location.hash || '#/') === '#/'){
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+    }
+  }catch{}
 }
 
-async function router() {
-  const hash = currentHash();
-  const app = document.getElementById("app");
-  if (!app) return;
+function restoreHomeScrollSoon(){
+  try{
+    const y = Number(sessionStorage.getItem(SCROLL_KEY) || 0);
+    // Delay until the grid paints
+    setTimeout(()=>{ window.scrollTo({ top:y, behavior:'instant' in window ? 'instant' : 'auto' }); }, 50);
+  }catch{}
+}
 
-  // About
-  if (hash.startsWith("#/about")) {
-    const { renderAbout } = await import("./about.js");
-    await renderAbout();
+export async function router(){
+  const hash = location.hash || '#/';
+  const app = document.getElementById('app'); if (!app) return;
+
+  // Home
+  if (hash === '#/' || hash === '#') {
+    const { renderHome } = await import('./home.js');
+    await renderHome();
+    restoreHomeScrollSoon();
     return;
   }
 
   // Post detail
   const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
-  if (m && m[1]) {
-    const { renderPost } = await import("./detail.js");
+  if (m){
+    const { renderPost } = await import('./detail.js'));
     await renderPost(m[1]);
     return;
   }
 
-  // Default: Home
-  const { renderHome } = await import("./home.js");
+  // About
+  if (hash.startsWith('#/about')){
+    const { renderAbout } = await import('./about.js');
+    await renderAbout();
+    return;
+  }
+
+  // Fallback → home
+  const { renderHome } = await import('./home.js');
   await renderHome();
-}
-
-// Single global delegated listener for internal nav
-function delegateClicks() {
-  document.addEventListener(
-    "click",
-    (e) => {
-      const a = e.target.closest("a[href]");
-      if (!a) return;
-      const href = a.getAttribute("href");
-      if (!href) return;
-
-      // Internal SPA routes only
-      if (href.startsWith("#/")) {
-        e.preventDefault();
-        if (location.hash === href) {
-          router();
-        } else {
-          location.hash = href;
-        }
-      }
-    },
-    { capture: true }
-  );
-}
-
-export function startApp() {
-  if (startApp._inited) return;
-  startApp._inited = true;
-
-  delegateClicks();
-  window.addEventListener("hashchange", router);
-
-  // First route
-  router();
+  restoreHomeScrollSoon();
 }
