@@ -20,7 +20,8 @@ function restoreHomeScrollSoon(){
 
 export async function router(){
   const hash = location.hash || '#/';
-  const app = document.getElementById('app'); if (!app) return;
+  const app = document.getElementById('app'); 
+  if (!app) return;
 
   // Home
   if (hash === '#/' || hash === '#') {
@@ -33,7 +34,7 @@ export async function router(){
   // Post detail
   const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
   if (m){
-    const { renderPost } = await import('./detail.js'));
+    const { renderPost } = await import('./detail.js'); // ✅ FIXED: removed extra parenthesis
     await renderPost(m[1]);
     return;
   }
