@@ -1,5 +1,5 @@
 // home.js — renders post summaries (Home view)
-// v2.4.7 — restores authors + featured images with robust fallbacks
+// v2.4.8 — adds post date back; preserves author + featured image logic
 
 import {
   fetchLeanPostsPage,
@@ -14,7 +14,7 @@ let isLoading = false;
 let allDone = false;
 let cachedPosts = [];
 
-/* ------------ tiny helpers ------------ */
+/* ------------ helpers ------------ */
 function decodeEntity(str = '') {
   const txt = document.createElement('textarea');
   txt.innerHTML = str;
@@ -28,11 +28,18 @@ function sanitizeExcerpt(html = '') {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const opts = { year: 'numeric', month: 'long', day: 'numeric' };
+  return d.toLocaleDateString(undefined, opts);
+}
+
 /* ------------ card renderer ------------ */
 function makeCard(post, authorMap) {
   const card = createEl('article', { class: 'card' });
 
-  // Featured image (from embed)
+  // Featured image
   const imgSrc = getFeaturedImage(post);
   if (imgSrc) {
     const img = createEl('img', { src: imgSrc, alt: '', class: 'thumb' });
@@ -43,10 +50,10 @@ function makeCard(post, authorMap) {
     card.append(img);
   }
 
-  // Title (blue and clickable)
+  // Title (blue, clickable)
   const titleText = post?.title?.rendered ? decodeEntity(post.title.rendered) : 'Untitled';
   const h2 = createEl('h2', { class: 'title' });
-  const a  = createEl('a', { href: `#/post/${post.id}` });
+  const a = createEl('a', { href: `#/post/${post.id}` });
   a.textContent = titleText;
   a.style.color = '#1E90FF';
   a.addEventListener('click', (e) => {
@@ -57,14 +64,14 @@ function makeCard(post, authorMap) {
   h2.append(a);
   card.append(h2);
 
-  // Author (embedded or fallback map)
+  // Meta line: Author + Date
   const authorName = getAuthorName(post, authorMap);
-  if (authorName) {
-    const author = createEl('div', { class: 'author' }, [`By ${authorName}`]);
-    card.append(author);
-  }
+  const dateStr = formatDate(post.date);
+  const meta = createEl('div', { class: 'meta' });
+  meta.textContent = `${authorName ? `By ${authorName}` : ''}${authorName && dateStr ? ' • ' : ''}${dateStr}`;
+  card.append(meta);
 
-  // Excerpt (not clickable)
+  // Excerpt
   const excerpt = createEl('p', { class: 'excerpt' });
   excerpt.textContent = sanitizeExcerpt(post?.excerpt?.rendered || '');
   card.append(excerpt);
@@ -94,7 +101,6 @@ async function loadNextPage(root) {
     if (!posts.length) {
       allDone = true;
     } else {
-      // Build author fallback map when needed
       const missing = [];
       for (const p of posts) {
         const hasEmbedded = !!(p?._embedded?.author?.[0]?.name);
@@ -130,7 +136,6 @@ function setupInfiniteScroll(root) {
 
 /* ------------ main entry ------------ */
 export async function renderHome() {
-  // Ensure mount exists
   let root = document.getElementById('app');
   if (!root) {
     root = document.createElement('main');
@@ -140,7 +145,6 @@ export async function renderHome() {
     else document.body.appendChild(root);
   }
 
-  // Shell
   root.innerHTML = `
     <section id="home">
       <div class="grid"></div>
@@ -155,7 +159,5 @@ export async function renderHome() {
 
   await loadNextPage(root);
   setupInfiniteScroll(root);
-
-  // Restore scroll if coming back from a post
   restoreScrollPosition();
 }
