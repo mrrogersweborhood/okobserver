@@ -1,4 +1,6 @@
 // detail.js — post detail with clickable hero (no duplicate players) + solid Back button
+// v2.4.5
+
 import {
   fetchPostById,
   getFeaturedImage,
@@ -35,7 +37,7 @@ export async function renderPost(id){
 
   const post = await fetchPostById(id);
 
-  // Author name (embedded or fallback fetch)
+  // Author (embedded or fallback fetch)
   let author = getAuthorName(post);
   if (!author || author === 'The Oklahoma Observer'){
     try{
@@ -58,7 +60,7 @@ export async function renderPost(id){
   const extVideo = detectExternalVideoUrl(contentHTML);
   const hasIframe = contentHasIframe(contentHTML);
 
-  // Hero image only when not duplicating an existing iframe player
+  // Hero image only when content doesn't already contain an iframe player
   let hero = null;
   if (!hasIframe) {
     const initial = getFeaturedImage(post);
@@ -80,15 +82,11 @@ export async function renderPost(id){
     }
   }
 
-  // Back to posts — delayed re-render for reliability
+  // Back to posts — slight delay so DOM flushes before route change
   const backBottom = createEl("a",{class:"btn", href:"#/", role:"button"},["Back to posts"]);
   backBottom.addEventListener("click", (e) => {
     e.preventDefault();
-    // Force router reload after DOM settles
-    setTimeout(() => {
-      location.hash = "#/"; // triggers router(true) in main.js
-      window.scrollTo({ top: 0 });
-    }, 80);
+    setTimeout(() => { location.hash = "#/"; }, 60);
   });
 
   const article = createEl("article",{class:"post"},[
