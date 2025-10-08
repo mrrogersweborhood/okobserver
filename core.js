@@ -1,119 +1,84 @@
-// core.js — app shell + router
-// Ensures Home always re-renders when navigating back to "#/"
-// Version stamp (for the footer / console)
-const APP_VERSION = "v2.4.4";
-window.APP_VERSION = APP_VERSION;
-console.info("[OkObserver] Core loaded:", APP_VERSION);
+// core.js — app shell + router + scroll restore
+// v2.4.4
 
-// Entry points
-import { renderHome }   from "./home.js";
-import { renderPost }   from "./detail.js";
-import { renderAbout }  from "./about.js";
+import { renderHome }  from './home.js';
+import { renderPost }  from './detail.js';
+import { renderAbout } from './about.js';
 
-// DOM helpers
-const $app = () => document.getElementById("app");
-const $ver = () => document.getElementById("appVersion");
-const $year = () => document.getElementById("year");
-
-// Simple debounce utility
-function debounce(fn, ms = 60) {
-  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
-
-// Keep track of the last routed path to detect redundant navs
+const SCROLL_KEY = '__oko_scroll__';
 let lastRoute = null;
 
-// Read the current hash path (default to "#/")
-function currentRoute() {
-  const h = location.hash || "#/";
-  // normalize any stray hashes
-  if (!h.startsWith("#/")) return "#/";
-  return h;
-}
-
-// After rendering home, restore the saved scroll (if any)
+/* ---------------- Scroll restore (Home) ---------------- */
 function restoreHomeScroll() {
   try {
-    const raw = sessionStorage.getItem("__oko_scroll__");
+    const raw = sessionStorage.getItem(SCROLL_KEY);
     if (raw != null) {
       const y = parseInt(raw, 10);
+      sessionStorage.removeItem(SCROLL_KEY);
       if (!Number.isNaN(y)) {
-        // Use rAF to ensure layout is ready
         requestAnimationFrame(() => {
-          window.scrollTo({ top: y, behavior: "instant" in window ? "instant" : "auto" });
+          window.scrollTo({ top: y, behavior: ('instant' in window) ? 'instant' : 'auto' });
         });
+        return;
       }
-      sessionStorage.removeItem("__oko_scroll__");
-    } else {
-      // default to top
-      requestAnimationFrame(() => window.scrollTo({ top: 0 }));
     }
-  } catch {
-    requestAnimationFrame(() => window.scrollTo({ top: 0 }));
-  }
+  } catch {}
+  // Fallback: go to top
+  requestAnimationFrame(() => window.scrollTo({ top: 0 }));
 }
 
-// Main router. If `force` is true, we re-render even if the route did not change.
-export async function router(force = false) {
+/* ---------------- Route helpers ---------------- */
+function currentRoute() {
+  const h = location.hash || '#/';
+  return h.startsWith('#/') ? h : '#/';
+}
+
+/* ---------------- Router ---------------- */
+export async function router(force = true) {
   const route = currentRoute();
 
-  // Always keep footer/version fresh when app becomes interactive
-  try { if ($ver()) $ver().textContent = APP_VERSION; } catch {}
-  try { if ($year()) $year().textContent = String(new Date().getFullYear()); } catch {}
-
-  // Parse routes
-  const postMatch = route.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
-  const isAbout   = route.startsWith("#/about");
-  const isHome    = route === "#/" || route === "#";
-
-  // If the route is the same as before and not forced, do nothing.
-  // BUT for Home we *always* allow re-render if `force` is true so
-  // "Back to posts" reliably paints the grid.
+  // Avoid redundant renders except for Home where we force a repaint
   if (!force && route === lastRoute) return;
 
-  // Route switch
-  if (postMatch) {
+  // Route: /post/:id
+  const m = route.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
+  if (m) {
     lastRoute = route;
-    await renderPost(postMatch[1]);
+    await renderPost(m[1]);
     return;
   }
 
-  if (isAbout) {
+  // Route: /about
+  if (route.startsWith('#/about')) {
     lastRoute = route;
     await renderAbout();
     return;
   }
 
-  // Home (default)
+  // Route: Home (default). Always force fresh grid so “Back to posts” never blanks.
   lastRoute = route;
-  await renderHome({ force: true });   // always force a fresh grid
+  await renderHome();
   restoreHomeScroll();
 }
 
-// Hashchange handler — force re-route to guarantee a repaint
-const onHashChange = debounce(() => router(true), 0);
+/* ---------------- App start ---------------- */
+export function start() {
+  // Initial render (force)
+  router(true);
 
-// Start the app
-export async function start() {
-  // First paint
-  await router(true);
+  // Hash-based navigation — always force repaint so Back works 100%
+  window.addEventListener('hashchange', () => router(true), { passive: true });
 
-  // Wire up navigation events
-  window.addEventListener("hashchange", onHashChange);
+  // When coming back from bfcache/tab history, repaint
+  window.addEventListener('pageshow', (e) => { if (e.persisted) router(true); });
 
-  // Optional: when the page is shown from bfcache, force a re-render
-  window.addEventListener("pageshow", (e) => {
-    if (e.persisted) router(true);
+  // Safety: if a hard reload happens, we’ll keep whatever scroll was last saved by Home
+  window.addEventListener('beforeunload', () => {
+    // (Home saves scroll on click; this is just a fallback)
+    try {
+      if ((location.hash || '#/') === '#/') {
+        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
+      }
+    } catch {}
   });
-
-  // In case there is a delayed CSS/asset load that changes layout,
-  // try restoring scroll again shortly after boot.
-  setTimeout(restoreHomeScroll, 120);
-}
-
-// Auto-start if the script is included after DOM
-if (document.readyState === "complete" || document.readyState === "interactive") {
-  start();
-} else {
-  document.addEventListener("DOMContentLoaded", start, { once: true });
 }

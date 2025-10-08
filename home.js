@@ -1,118 +1,154 @@
-// home.js — summary grid with author + featured images + infinite scroll
-import {
-  fetchLeanPostsPage,
-  getFeaturedImage,
-  resolveFeaturedImage,
-  getAuthorName,
-  getCartoonCategoryId,
-  fetchAuthorsMap,
-  PER_PAGE
-} from './api.js';
+// home.js — renders post summaries (Home view)
+// Compatible with api.js v2.4.4
+// v2.4.4
 
-const app = () => document.getElementById('app');
-const SEEN = new Set();
+import { fetchLeanPostsPage } from './api.js';
+import { createEl, restoreScrollPosition } from './shared.js';
 
-function decodeHtml(s=''){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
-function formatDate(iso){ if(!iso) return ''; const d=new Date(iso);
-  const day=d.getDate(), ord=(n)=>{const j=n%10,k=n%100; if(j===1&&k!==11)return n+'st'; if(j===2&&k!==12)return n+'nd'; if(j===3&&k!==13)return n+'rd'; return n+'th';};
-  return d.toLocaleString('en-US',{month:'long'})+' '+ord(day)+', '+d.getFullYear();
-}
+const PER_PAGE = 6; // Default number of posts per page
+let currentPage = 1;
+let isLoading = false;
+let allDone = false;
+let cachedPosts = [];
 
-function makeCard(post, authorMap){
-  const pid   = String(post.id);
-  const title = decodeHtml(post?.title?.rendered || '');
-  const author= getAuthorName(post, authorMap);
-  const date  = formatDate(post?.date);
+let scrollYBeforeNav = 0;
 
-  const img = document.createElement('img');
-  img.className = 'thumb';
-  img.alt = title || 'featured image';
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.style.visibility = 'hidden';
-  img.setAttribute('aria-hidden','true');
+// Utility to create a card for each post
+function makeCard(post) {
+  const card = createEl('article', { class: 'card' });
 
-  const embedded = getFeaturedImage(post);
-  const reveal = (src)=>{
-    if (!src) { img.remove(); return; }
-    img.src = src;
-    img.onload = ()=>{ img.style.visibility='visible'; img.removeAttribute('aria-hidden'); };
-    img.onerror = ()=>{ img.remove(); };
-  };
-  if (embedded) reveal(embedded); else resolveFeaturedImage(post).then(reveal).catch(()=>img.remove());
+  // Featured image
+  let imgSrc = '';
+  try {
+    imgSrc =
+      post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.sizes?.medium
+        ?.source_url ||
+      post._embedded?.['wp:featuredmedia']?.[0]?.source_url ||
+      '';
+  } catch {}
+  if (imgSrc) {
+    const img = createEl('img', { src: imgSrc, alt: '', class: 'thumb' });
+    img.addEventListener('click', () => {
+      sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0));
+      location.hash = `#/post/${post.id}`;
+    });
+    card.append(img);
+  }
 
-  const card = document.createElement('article');
-  card.className = 'card';
-
-  const link = document.createElement('a');
-  link.href = `#/post/${pid}`;
-  link.addEventListener('click', () => {
-    try { sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0)); } catch {}
+  // Title
+  const title = createEl('h2', { class: 'title' });
+  const titleLink = createEl('a', { href: `#/post/${post.id}` });
+  titleLink.textContent = post.title.rendered.replace(/&[^;]+;/g, decodeEntity);
+  titleLink.style.color = '#1E90FF';
+  titleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0));
+    location.hash = `#/post/${post.id}`;
   });
-  link.appendChild(img);
+  title.append(titleLink);
+  card.append(title);
 
-  const body = document.createElement('div');
-  body.className = 'card-body';
+  // Author
+  const authorName =
+    post._embedded?.author?.[0]?.name || post._embedded?.['author']?.[0]?.name;
+  if (authorName) {
+    const author = createEl('div', { class: 'author' }, [`By ${authorName}`]);
+    card.append(author);
+  }
 
-  const h2 = document.createElement('h2'); h2.className='title';
-  const a  = document.createElement('a'); a.href = `#/post/${pid}`; a.textContent = title || 'Untitled';
-  a.addEventListener('click', () => {
-    try { sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0)); } catch {}
-  });
-  h2.appendChild(a);
+  // Excerpt
+  const excerpt = createEl('p', { class: 'excerpt' });
+  excerpt.innerHTML = sanitizeExcerpt(post.excerpt.rendered);
+  card.append(excerpt);
 
-  const meta = document.createElement('div'); meta.className='meta'; meta.textContent = `${author} — ${date}`;
-
-  const excerpt = document.createElement('div'); excerpt.className='excerpt';
-  excerpt.innerHTML = decodeHtml(post?.excerpt?.rendered || '');
-
-  body.append(h2, meta, excerpt);
-  card.append(link, body);
   return card;
 }
 
-export async function renderHome({ force=false } = {}){
-  const host = app(); if (!host) return;
+// Decode HTML entities
+function decodeEntity(str) {
+  const txt = document.createElement('textarea');
+  txt.innerHTML = str;
+  return txt.value;
+}
 
-  // Clear and rebuild so Back always shows fresh grid
-  host.innerHTML = '';
-  const grid = document.createElement('div'); grid.className='grid';
-  host.appendChild(grid);
+// Clean and shorten excerpt safely
+function sanitizeExcerpt(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const text = div.textContent || div.innerText || '';
+  return text.replace(/\s+/g, ' ').trim();
+}
 
-  // Ensure we know cartoon id before first page
-  const ctrl = new AbortController();
-  try { await getCartoonCategoryId(ctrl.signal); } catch {}
+// Render the full grid from cached posts
+function renderGrid() {
+  const grid = document.querySelector('.grid');
+  grid.innerHTML = '';
+  for (const post of cachedPosts) {
+    grid.append(makeCard(post));
+  }
+}
 
-  let page = 1;
+// Fetch and append next page
+async function loadNextPage() {
+  if (isLoading || allDone) return;
+  isLoading = true;
+  document.querySelector('#loader').style.display = 'block';
 
-  async function loadPage(){
-    const posts = await fetchLeanPostsPage(page, { excludeCartoon: true }, ctrl.signal);
-
-    // Build author fallback map if any post lacks embedded author
-    const needs = [];
-    for (const p of posts){
-      const hasEmbedded = !!(p?._embedded?.author?.[0]?.name);
-      if (!hasEmbedded && p?.author != null) needs.push(Number(p.author));
+  try {
+    const posts = await fetchLeanPostsPage(currentPage);
+    if (!posts.length) {
+      allDone = true;
+    } else {
+      cachedPosts = cachedPosts.concat(posts);
+      renderGrid();
+      currentPage++;
     }
-    let authorMap = {};
-    if (needs.length){
-      try { authorMap = await fetchAuthorsMap(needs, ctrl.signal); } catch {}
-    }
-
-    for (const p of posts){
-      if (SEEN.has(p.id)) continue;
-      SEEN.add(p.id);
-      grid.appendChild(makeCard(p, authorMap));
-    }
-    page++;
+  } catch (err) {
+    console.error('[OkObserver] Home load failed:', err);
   }
 
-  await loadPage();
+  document.querySelector('#loader').style.display = 'none';
+  isLoading = false;
+}
 
-  // Infinite scroll sentinel
-  const sentinel = document.createElement('div'); sentinel.style.height='1px'; host.appendChild(sentinel);
-  const io = new IntersectionObserver(async (ents)=>{
-    for (const e of ents){ if (e.isIntersecting){ try{ await loadPage(); }catch{} } }
-  }, { rootMargin: '900px 0px' });
+// Observe bottom sentinel for infinite scroll
+function setupInfiniteScroll() {
+  const sentinel = document.querySelector('#sentinel');
+  if (!sentinel) return;
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) {
+      loadNextPage();
+    }
+  });
   io.observe(sentinel);
+}
+
+// Main render entry
+export async function renderHome() {
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <section id="home">
+      <div class="grid"></div>
+      <div id="loader" style="display:none;">Loading…</div>
+      <div id="sentinel"></div>
+    </section>
+  `;
+
+  currentPage = 1;
+  allDone = false;
+  cachedPosts = [];
+
+  await loadNextPage();
+  setupInfiniteScroll();
+
+  // Restore scroll position if returning from a post
+  restoreScrollPosition();
+}
+
+// Save current scroll before leaving home
+export function saveScrollBeforeNav() {
+  scrollYBeforeNav = window.scrollY;
+  try {
+    sessionStorage.setItem('__oko_scroll__', String(scrollYBeforeNav));
+  } catch {}
 }
