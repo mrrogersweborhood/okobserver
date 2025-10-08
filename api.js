@@ -1,14 +1,14 @@
 // api.js — WordPress REST helpers via Cloudflare Worker proxy
-// v2.4.5 (exports match detail.js + home.js)
+// v2.4.7 — ensures _embed payload (authors + media) is present; provides author fallback map
 
 const API_BASE =
   window.OKO_API_BASE ||
   sessionStorage.getItem('__oko_api_base_lock') ||
   `${location.origin}/api/wp/v2`;
 
-const PER_PAGE = 6; // internal default
+const PER_PAGE = 6; // default page size
 
-// ---- tiny fetch w/ retry ----
+// Tiny fetch with retry + JSON
 async function apiFetch(url, opts = {}, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -22,7 +22,7 @@ async function apiFetch(url, opts = {}, retries = 2) {
   }
 }
 
-// ---- cartoon category (for exclusion) ----
+// ---------- Category exclusion: "cartoon" ----------
 let _cartoonId = null;
 export async function getCartoonCategoryId(signal) {
   if (_cartoonId !== null) return _cartoonId;
@@ -32,7 +32,7 @@ export async function getCartoonCategoryId(signal) {
     const hit = Array.isArray(cats)
       ? cats.find(c => String(c.slug).toLowerCase() === 'cartoon' || String(c.name).toLowerCase() === 'cartoon')
       : null;
-    _cartoonId = hit ? hit.id : 0; // 0 = not found; harmless
+    _cartoonId = hit ? hit.id : 0; // 0 => nothing to exclude
   } catch (e) {
     console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion', e);
     _cartoonId = 0;
@@ -40,44 +40,36 @@ export async function getCartoonCategoryId(signal) {
   return _cartoonId;
 }
 
-// ---- posts (lean list) ----
+// ---------- Lean posts with FULL embeds ----------
 export async function fetchLeanPostsPage(page = 1, { excludeCartoon = true } = {}, signal) {
   const excludeId = excludeCartoon ? await getCartoonCategoryId(signal) : 0;
 
-  const fields = [
-    'id','date','title.rendered','excerpt.rendered','author','featured_media','categories',
-    '_embedded.author.name',
-    '_embedded.wp:featuredmedia.source_url',
-    '_embedded.wp:featuredmedia.media_details.sizes',
-    '_embedded.wp:term'
-  ].join(',');
-
+  // IMPORTANT: do NOT use _fields here so WordPress returns the full _embedded block.
   const params = new URLSearchParams({
     status: 'publish',
     per_page: String(PER_PAGE),
     page: String(page),
     _embed: '1',
     orderby: 'date',
-    order: 'desc',
-    _fields: fields
+    order: 'desc'
   });
   if (excludeId) params.set('categories_exclude', String(excludeId));
 
   const url = `${API_BASE}/posts?${params.toString()}`;
   const posts = await apiFetch(url, { signal });
-
   if (!Array.isArray(posts)) return [];
-  // extra belt+suspenders filter client-side
+
+  // Extra safety: remove any that still carry the excluded category
   return posts.filter(p => !(excludeId && Array.isArray(p.categories) && p.categories.includes(excludeId)));
 }
 
-// ---- single post (detail) ----
+// ---------- Single post (detail) ----------
 export async function fetchPostById(id, signal) {
   const url = `${API_BASE}/posts/${encodeURIComponent(id)}?_embed=1`;
   return await apiFetch(url, { signal });
 }
 
-// ---- authors (fallback map) ----
+// ---------- Authors fallback ----------
 export async function fetchAuthorsMap(ids = [], signal) {
   const uniq = Array.from(new Set(ids.map(n => Number(n)).filter(n => Number.isFinite(n))));
   if (!uniq.length) return {};
@@ -88,7 +80,6 @@ export async function fetchAuthorsMap(ids = [], signal) {
   return map;
 }
 
-// ---- helpers for embedded data ----
 export function getAuthorName(post, fallbackMap) {
   const embedded = post?._embedded?.author?.[0]?.name;
   if (embedded) return embedded;
@@ -97,25 +88,23 @@ export function getAuthorName(post, fallbackMap) {
   return 'The Oklahoma Observer';
 }
 
+// ---------- Featured image helpers ----------
 export function getFeaturedImage(post) {
   const media = post?._embedded?.['wp:featuredmedia'];
   if (Array.isArray(media) && media[0]) {
-    return media[0].media_details?.sizes?.medium?.source_url || media[0].source_url || null;
+    // Prefer a sized variant; fall back to original source_url
+    return (
+      media[0].media_details?.sizes?.medium?.source_url ||
+      media[0].media_details?.sizes?.large?.source_url ||
+      media[0].source_url ||
+      null
+    );
   }
   return null;
 }
 
-export async function resolveFeaturedImage(_post) {
-  // We already request _embed=1; avoid extra fetch to prevent flicker.
-  return null;
-}
-
-// ---- about page (optional) ----
-export async function fetchAboutPage(slug = 'contact-about-donate', signal) {
-  const url = `${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`;
-  const rows = await apiFetch(url, { signal });
-  return Array.isArray(rows) && rows.length ? rows[0] : null;
-}
+// We already ask for _embed=1; avoid extra fetches that cause flicker
+export async function resolveFeaturedImage(_post) { return null; }
 
 // Export base for debugging
-export { API_BASE };
+export { API_BASE, PER_PAGE };
