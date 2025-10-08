@@ -1,6 +1,5 @@
 // home.js — renders post summaries (Home view)
-// Compatible with api.js v2.4.4
-// v2.4.4
+// Compatible with api.js v2.4.5 and core.js v2.4.4
 
 import { fetchLeanPostsPage } from './api.js';
 import { createEl, restoreScrollPosition } from './shared.js';
@@ -12,57 +11,6 @@ let allDone = false;
 let cachedPosts = [];
 
 let scrollYBeforeNav = 0;
-
-// Utility to create a card for each post
-function makeCard(post) {
-  const card = createEl('article', { class: 'card' });
-
-  // Featured image
-  let imgSrc = '';
-  try {
-    imgSrc =
-      post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.sizes?.medium
-        ?.source_url ||
-      post._embedded?.['wp:featuredmedia']?.[0]?.source_url ||
-      '';
-  } catch {}
-  if (imgSrc) {
-    const img = createEl('img', { src: imgSrc, alt: '', class: 'thumb' });
-    img.addEventListener('click', () => {
-      sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0));
-      location.hash = `#/post/${post.id}`;
-    });
-    card.append(img);
-  }
-
-  // Title
-  const title = createEl('h2', { class: 'title' });
-  const titleLink = createEl('a', { href: `#/post/${post.id}` });
-  titleLink.textContent = post.title.rendered.replace(/&[^;]+;/g, decodeEntity);
-  titleLink.style.color = '#1E90FF';
-  titleLink.addEventListener('click', (e) => {
-    e.preventDefault();
-    sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0));
-    location.hash = `#/post/${post.id}`;
-  });
-  title.append(titleLink);
-  card.append(title);
-
-  // Author
-  const authorName =
-    post._embedded?.author?.[0]?.name || post._embedded?.['author']?.[0]?.name;
-  if (authorName) {
-    const author = createEl('div', { class: 'author' }, [`By ${authorName}`]);
-    card.append(author);
-  }
-
-  // Excerpt
-  const excerpt = createEl('p', { class: 'excerpt' });
-  excerpt.innerHTML = sanitizeExcerpt(post.excerpt.rendered);
-  card.append(excerpt);
-
-  return card;
-}
 
 // Decode HTML entities
 function decodeEntity(str) {
@@ -79,9 +27,60 @@ function sanitizeExcerpt(html) {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// Utility to create a card for each post
+function makeCard(post) {
+  const card = createEl('article', { class: 'card' });
+
+  // Featured image
+  let imgSrc = '';
+  try {
+    imgSrc =
+      post._embedded?.['wp:featuredmedia']?.[0]?.media_details?.sizes?.medium?.source_url ||
+      post._embedded?.['wp:featuredmedia']?.[0]?.source_url ||
+      '';
+  } catch {}
+  if (imgSrc) {
+    const img = createEl('img', { src: imgSrc, alt: '', class: 'thumb' });
+    img.addEventListener('click', () => {
+      try { sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0)); } catch {}
+      location.hash = `#/post/${post.id}`;
+    });
+    card.append(img);
+  }
+
+  // Title
+  const title = createEl('h2', { class: 'title' });
+  const titleLink = createEl('a', { href: `#/post/${post.id}` });
+  titleLink.textContent = (post.title?.rendered ? decodeEntity(post.title.rendered) : 'Untitled');
+  titleLink.style.color = '#1E90FF';
+  titleLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    try { sessionStorage.setItem('__oko_scroll__', String(window.scrollY || 0)); } catch {}
+    location.hash = `#/post/${post.id}`;
+  });
+  title.append(titleLink);
+  card.append(title);
+
+  // Author (from embed)
+  const authorName =
+    post._embedded?.author?.[0]?.name || post._embedded?.['author']?.[0]?.name;
+  if (authorName) {
+    const author = createEl('div', { class: 'author' }, [`By ${authorName}`]);
+    card.append(author);
+  }
+
+  // Excerpt
+  const excerpt = createEl('p', { class: 'excerpt' });
+  excerpt.innerHTML = sanitizeExcerpt(post.excerpt?.rendered || '');
+  card.append(excerpt);
+
+  return card;
+}
+
 // Render the full grid from cached posts
-function renderGrid() {
-  const grid = document.querySelector('.grid');
+function renderGrid(root) {
+  const grid = root.querySelector('.grid');
+  if (!grid) return;
   grid.innerHTML = '';
   for (const post of cachedPosts) {
     grid.append(makeCard(post));
@@ -89,10 +88,12 @@ function renderGrid() {
 }
 
 // Fetch and append next page
-async function loadNextPage() {
+async function loadNextPage(root) {
   if (isLoading || allDone) return;
   isLoading = true;
-  document.querySelector('#loader').style.display = 'block';
+
+  const loader = root.querySelector('#loader');
+  if (loader) loader.style.display = 'block';
 
   try {
     const posts = await fetchLeanPostsPage(currentPage);
@@ -100,32 +101,34 @@ async function loadNextPage() {
       allDone = true;
     } else {
       cachedPosts = cachedPosts.concat(posts);
-      renderGrid();
+      renderGrid(root);
       currentPage++;
     }
   } catch (err) {
     console.error('[OkObserver] Home load failed:', err);
   }
 
-  document.querySelector('#loader').style.display = 'none';
+  if (loader) loader.style.display = 'none';
   isLoading = false;
 }
 
 // Observe bottom sentinel for infinite scroll
-function setupInfiniteScroll() {
-  const sentinel = document.querySelector('#sentinel');
+function setupInfiniteScroll(root) {
+  const sentinel = root.querySelector('#sentinel');
   if (!sentinel) return;
   const io = new IntersectionObserver((entries) => {
     if (entries.some((e) => e.isIntersecting)) {
-      loadNextPage();
+      loadNextPage(root);
     }
-  });
+  }, { rootMargin: '900px 0px' });
   io.observe(sentinel);
 }
 
 // Main render entry
 export async function renderHome() {
-  const root = document.getElementById('root');
+  const root = document.getElementById('app');     // ✅ target #app (not #root)
+  if (!root) return;
+
   root.innerHTML = `
     <section id="home">
       <div class="grid"></div>
@@ -138,14 +141,14 @@ export async function renderHome() {
   allDone = false;
   cachedPosts = [];
 
-  await loadNextPage();
-  setupInfiniteScroll();
+  await loadNextPage(root);
+  setupInfiniteScroll(root);
 
   // Restore scroll position if returning from a post
   restoreScrollPosition();
 }
 
-// Save current scroll before leaving home
+// Save current scroll before leaving home (in case you call it elsewhere)
 export function saveScrollBeforeNav() {
   scrollYBeforeNav = window.scrollY;
   try {
