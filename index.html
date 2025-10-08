@@ -1,60 +1,244 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OkObserver — Latest News</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Oklahoma Observer</title>
 
-  <link rel="icon" type="image/png" href="icon.png" />
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <header id="siteHeader" class="site-header">
-    <div class="brand">
-      <img
-        id="siteLogo"
-        src="https://okobserver.org/wp-content/uploads/2015/09/Observer-Logo-2015-08-05.png"
-        alt="The Oklahoma Observer"
-        width="260"
-        height="60"
-        style="display:block;height:auto;max-height:60px;width:auto;max-width:260px"
-        decoding="async"
-        onerror="this.style.display='none';document.getElementById('logoFallback')?.style.display='block';"
-      />
-      <div id="logoFallback" style="display:none;font-weight:700;color:#fff">The Oklahoma Observer</div>
-      <div class="tagline">To Comfort The Afflicted And Afflict The Comfortable</div>
-    </div>
+    <style>
+      :root {
+        --brand: #1E90FF;
+        --bg: #ffffff;
+        --text: #222;
+        --border: #ddd;
+      }
 
-    <nav id="menu" class="menu">
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
-  </header>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
 
-  <main id="app">Loading…</main>
+      header {
+        position: sticky;
+        top: 0;
+        background: var(--brand);
+        color: #fff;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5em 1em;
+      }
 
-  <footer class="site-footer">
-    <div class="footer-inner">
-      <small>Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span></small>
-      <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
-    </div>
-  </footer>
+      header h1 {
+        font-size: 1.2em;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+      }
 
-  <!-- Lock API base to Worker and set version -->
-  <script>
-    (function(){
-      const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-      try { sessionStorage.setItem('__oko_api_base_lock', WORKER_BASE); } catch {}
-      window.OKO_API_BASE = WORKER_BASE;
-      window.APP_VERSION = 'v2.4.3';
-      document.addEventListener('DOMContentLoaded', function(){
-        const y=document.getElementById('year'); if(y) y.textContent=new Date().getFullYear();
-        const v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
-      });
-    })();
-  </script>
+      header img.logo {
+        height: 32px;
+        width: auto;
+      }
 
-  <!-- Entry (modules) -->
-  <script type="module" src="main.js?v=2.4.3" defer></script>
-</body>
+      nav {
+        display: flex;
+        gap: 1em;
+      }
+
+      nav a {
+        color: #fff;
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      nav a:hover {
+        text-decoration: underline;
+      }
+
+      main {
+        padding: 1em;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      /* 3-column grid layout for post summaries */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.2em;
+      }
+
+      .grid .card {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1em;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        transition: transform 0.1s ease, box-shadow 0.1s ease;
+      }
+
+      .grid .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+      }
+
+      .grid .card img.thumb {
+        display: block;
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-bottom: 0.6em;
+      }
+
+      /* Meta line (author + date) */
+      .grid .card .meta {
+        font-size: 0.9em;
+        color: #555;
+        margin: 0.3em 0 0.8em 0;
+        font-style: italic;
+        display: block;
+      }
+
+      .grid .card .title a {
+        text-decoration: none;
+        color: var(--brand);
+        font-weight: 600;
+        font-size: 1.1em;
+      }
+
+      .grid .card .title a:hover {
+        text-decoration: underline;
+      }
+
+      .grid .card .excerpt {
+        font-size: 0.95em;
+        line-height: 1.5;
+        margin-top: 0.4em;
+      }
+
+      #loader {
+        text-align: center;
+        color: #555;
+        margin: 2em 0;
+      }
+
+      /* Detail (single post) view */
+      .post-detail img.hero {
+        display: block;
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        border-radius: 6px;
+        margin-bottom: 1em;
+        cursor: pointer;
+        transition: opacity 0.2s ease;
+      }
+
+      .post-detail img.hero:hover {
+        opacity: 0.9;
+      }
+
+      .post-detail h1.title {
+        color: var(--brand);
+        font-size: 1.6em;
+        margin-top: 0.4em;
+      }
+
+      .post-detail .meta {
+        color: #555;
+        font-style: italic;
+        font-size: 0.9em;
+        margin-bottom: 1.4em;
+      }
+
+      .post-detail .content {
+        line-height: 1.6;
+      }
+
+      .post-detail p {
+        text-indent: 0 !important; /* remove unwanted indentation */
+        margin-bottom: 1.2em;
+      }
+
+      /* Inline embedded images inside post content */
+      .post-detail .content img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 1.2em auto;
+        border-radius: 6px;
+      }
+
+      /* Embedded videos */
+      .embed {
+        position: relative;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        margin: 1em 0;
+      }
+
+      .embed iframe {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+
+      /* About page styling */
+      .about {
+        max-width: 800px;
+        margin: 2em auto;
+        line-height: 1.6;
+        padding: 1em;
+      }
+
+      .about h2 {
+        color: var(--brand);
+        margin-top: 1em;
+      }
+
+      /* Responsive tweaks */
+      @media (max-width: 768px) {
+        header h1 {
+          font-size: 1em;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>
+        <img src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer" class="logo" />
+        The Oklahoma Observer
+      </h1>
+      <nav>
+        <a href="#/">Posts</a>
+        <a href="#/about">About</a>
+      </nav>
+    </header>
+
+    <main id="app">
+      <div id="loader">Loading…</div>
+    </main>
+
+    <footer style="text-align:center; padding:2em 0; font-size:0.9em; color:#555;">
+      Unofficial demo client. © 2025 — v2.4.8
+    </footer>
+
+    <!-- Main entry -->
+    <script type="module" src="main.js?v=2.4.8" defer></script>
+  </body>
 </html>
