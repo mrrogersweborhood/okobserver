@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Oklahoma Observer</title>
 
+    <!-- Local favicon and icon -->
+    <link rel="icon" type="image/png" href="icon.png" />
+    <link rel="apple-touch-icon" href="icon.png" />
+
     <style>
       :root {
         --brand: #1E90FF;
@@ -66,7 +70,6 @@
         margin: 0 auto;
       }
 
-      /* 3-column grid layout for post summaries */
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -97,7 +100,6 @@
         margin-bottom: 0.6em;
       }
 
-      /* Meta line (author + date) */
       .grid .card .meta {
         font-size: 0.9em;
         color: #555;
@@ -129,7 +131,6 @@
         margin: 2em 0;
       }
 
-      /* Detail (single post) view */
       .post-detail img.hero {
         display: block;
         width: 100%;
@@ -163,11 +164,10 @@
       }
 
       .post-detail p {
-        text-indent: 0 !important; /* remove unwanted indentation */
+        text-indent: 0 !important;
         margin-bottom: 1.2em;
       }
 
-      /* Inline embedded images inside post content */
       .post-detail .content img {
         display: block;
         max-width: 100%;
@@ -176,7 +176,6 @@
         border-radius: 6px;
       }
 
-      /* Embedded videos */
       .embed {
         position: relative;
         padding-bottom: 56.25%;
@@ -193,7 +192,6 @@
         border: 0;
       }
 
-      /* About page styling */
       .about {
         max-width: 800px;
         margin: 2em auto;
@@ -206,7 +204,6 @@
         margin-top: 1em;
       }
 
-      /* Responsive tweaks */
       @media (max-width: 768px) {
         header h1 {
           font-size: 1em;
@@ -221,7 +218,11 @@
   <body>
     <header>
       <h1>
-        <img src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer" class="logo" />
+        <img
+          src="Observer-Logo-2015-08-05.png"
+          alt="The Oklahoma Observer"
+          class="logo"
+        />
         The Oklahoma Observer
       </h1>
       <nav>
@@ -235,10 +236,9 @@
     </main>
 
     <footer style="text-align:center; padding:2em 0; font-size:0.9em; color:#555;">
-      Unofficial demo client. © 2025 — v2.4.8
+      Unofficial demo client. © 2025 — v2.5.0
     </footer>
 
-    <!-- Main entry -->
-    <script type="module" src="main.js?v=2.4.8" defer></script>
+    <script type="module" src="main.js?v=2.5.0" defer></script>
   </body>
 </html>
