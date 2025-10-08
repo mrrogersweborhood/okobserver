@@ -1,5 +1,11 @@
-// detail.js — post detail (clickable hero for non-embeddables; no duplicate players)
-import { fetchPostById, getFeaturedImage, resolveFeaturedImage, getAuthorName } from './api.js';
+// detail.js — post detail with clickable hero (no duplicate players) + solid Back button
+import {
+  fetchPostById,
+  getFeaturedImage,
+  resolveFeaturedImage,
+  getAuthorName,
+  fetchAuthorsMap
+} from './api.js';
 import { createEl, decodeEntities, ordinalDate, normalizeFirstParagraph } from './shared.js';
 
 const app = () => document.getElementById('app');
@@ -28,8 +34,18 @@ export async function renderPost(id){
   host.innerHTML = "Loading…";
 
   const post = await fetchPostById(id);
+
+  // Author name (embedded or fallback fetch)
+  let author = getAuthorName(post);
+  if (!author || author === 'The Oklahoma Observer'){
+    try{
+      const map = await fetchAuthorsMap([post?.author].filter(Boolean));
+      const alt = map[post?.author];
+      if (alt) author = alt;
+    }catch{}
+  }
+
   const title = decodeEntities(post?.title?.rendered || "");
-  const author = getAuthorName(post);
   const date = ordinalDate(post?.date);
   const contentHTML = String(post?.content?.rendered || "");
 
@@ -64,7 +80,12 @@ export async function renderPost(id){
     }
   }
 
-  const backBottom = createEl("a",{class:"btn", href:"#/"},["Back to posts"]);
+  // Back to posts — explicit route change; router re-renders home and restores scroll
+  const backBottom = createEl("a",{class:"btn", href:"#/", role:"button"},["Back to posts"]);
+  backBottom.addEventListener("click", (e) => {
+    e.preventDefault();
+    location.hash = "#/";  // core.router(true) will re-render home
+  });
 
   const article = createEl("article",{class:"post"},[
     h1, meta, ...(hero?[hero]:[]), content, createEl("div",{style:"margin-top:14px"},[backBottom])

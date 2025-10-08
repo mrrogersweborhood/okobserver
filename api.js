@@ -1,200 +1,86 @@
-// api.js — WordPress REST helpers via Cloudflare Worker
-// v=2.4.1
+// api.js — WordPress REST helpers via Cloudflare Worker proxy
+
+const LOCK_KEY = '__oko_api_base_lock';
+const BASE = (() => {
+  try {
+    return sessionStorage.getItem(LOCK_KEY) || window.OKO_API_BASE || '/wp/v2';
+  } catch {
+    return window.OKO_API_BASE || '/wp/v2';
+  }
+})();
 
 export const PER_PAGE = 6;
-export let cartoonCategoryId = null;
 
-const ss = window.sessionStorage;
-const CARTOON_KEY = "__oko_cartoon_cat_id";
-const BASE_LOCK_KEY = "__oko_api_base_lock";
-const mem = new Map();
-
-/* ---------------- Base URL ---------------- */
-function read(k){ try{return ss.getItem(k)||null;}catch{return null;} }
-function write(k,v){ try{ss.setItem(k,v);}catch{} }
-
-export function apiBase(){
-  const locked = read(BASE_LOCK_KEY);
-  if (locked) return locked;
-  if (typeof window.OKO_API_BASE === "string" && window.OKO_API_BASE) {
-    return window.OKO_API_BASE.replace(/\/+$/, "");
-  }
-  return `${location.origin}/wp/v2`;
-}
-export function lockApiBaseOnce(url){
-  if (url) write(BASE_LOCK_KEY, url.replace(/\/+$/,""));
+let _cartoonId = null;
+export async function getCartoonCategoryId(signal){
+  if (_cartoonId !== null) return _cartoonId;
+  const url = `${BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
+  const cats = await res.json();
+  const hit = cats.find(c => String(c.slug).toLowerCase() === 'cartoon' || String(c.name).toLowerCase()==='cartoon');
+  _cartoonId = hit ? hit.id : 0;
+  return _cartoonId;
 }
 
-function build(base, path, params){
-  const url = new URL(path.replace(/^\//,""), base + "/");
-  if (params) for (const [k,v] of Object.entries(params)){
-    if (v===undefined || v===null) continue;
-    url.searchParams.set(k, String(v));
-  }
-  return url.toString();
-}
-async function getJSON(url, opt={}){
-  const res = await fetch(url, {
-    credentials:"omit", mode:"cors", redirect:"follow",
-    ...opt, headers:{ Accept:"application/json", ...(opt.headers||{}) }
-  });
-  if (!res.ok){
-    let body=""; try{ body = await res.text(); }catch{}
-    const err = new Error(`API Error ${res.status}${body?`: ${body.slice(0,200)}`:""}`);
-    err.status = res.status; throw err;
-  }
+export async function fetchLeanPostsPage(page=1, { excludeCartoon = true } = {}, signal){
+  const exclude = excludeCartoon && _cartoonId ? `&categories_exclude=${_cartoonId}` : '';
+  const fields = [
+    'id','date','title.rendered','excerpt.rendered','author','featured_media','categories',
+    '_embedded.author.name','_embedded.wp:featuredmedia.source_url','_embedded.wp:featuredmedia.media_details.sizes',
+    '_embedded.wp:term'
+  ].join(',');
+  const url = `${BASE}/posts?status=publish&per_page=${PER_PAGE}&page=${page}&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}${exclude}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
   return res.json();
 }
 
-/* ---------------- Category helpers ---------------- */
-export async function fetchCategoryBySlug(slug="cartoon"){
-  const url = build(apiBase(), "categories", {
-    search: slug, per_page: 100, _fields: "id,slug,name"
-  });
-  const arr = await getJSON(url);
-  const hit = Array.isArray(arr) ? arr.find(c=>c.slug===slug) : null;
-  return hit?.id ?? null;
+export async function fetchPostById(id, signal){
+  const url = `${BASE}/posts/${id}?_embed=1`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
+  return res.json();
 }
-export async function ensureCartoonCategoryId(){
-  if (cartoonCategoryId) return cartoonCategoryId;
-  const cached = read(CARTOON_KEY);
-  if (cached){ cartoonCategoryId = Number(cached)||null; return cartoonCategoryId; }
-  try{
-    cartoonCategoryId = await fetchCategoryBySlug("cartoon");
-    if (cartoonCategoryId) write(CARTOON_KEY, String(cartoonCategoryId));
-  }catch{ cartoonCategoryId = null; }
-  return cartoonCategoryId;
-}
-export async function getCartoonCategoryId(){ return ensureCartoonCategoryId(); }
 
-/* ---------------- Featured image helpers ---------------- */
+/* ---------- Author helpers ---------- */
+
+// Fetch a map of { id -> name } for the given user IDs.
+export async function fetchAuthorsMap(ids=[], signal){
+  const uniq = Array.from(new Set(ids.filter(n => Number.isFinite(n) || /^\d+$/.test(String(n))).map(Number)));
+  if (uniq.length === 0) return {};
+  const url = `${BASE}/users?per_page=100&include=${uniq.join(',')}&_fields=id,name`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
+  const rows = await res.json();
+  const map = {};
+  for (const u of rows) map[u.id] = u.name;
+  return map;
+}
+
+// Get author name from post + optional fallback map.
+export function getAuthorName(post, fallbackMap){
+  const embedded = post?._embedded?.author?.[0]?.name;
+  if (embedded) return embedded;
+  const id = post?.author;
+  if (fallbackMap && id != null && fallbackMap[id]) return fallbackMap[id];
+  return 'The Oklahoma Observer';
+}
+
+/* ---------- Featured image helpers ---------- */
+
 export function getFeaturedImage(post){
-  try{
-    const media = post?._embedded?.["wp:featuredmedia"]?.[0];
-    const sizes = media?.media_details?.sizes || {};
-    return (
-      sizes?.medium_large?.source_url ||
-      sizes?.large?.source_url ||
-      sizes?.medium?.source_url ||
-      media?.source_url || null
-    );
-  }catch{ return null; }
+  const media = post?._embedded?.['wp:featuredmedia'];
+  if (Array.isArray(media) && media[0]){
+    return media[0].source_url || null;
+  }
+  return null;
 }
+
 export async function resolveFeaturedImage(post){
-  const fromEmbed = getFeaturedImage(post);
-  if (fromEmbed) return fromEmbed;
-
-  const id = Number(post?.featured_media)||0;
-  if (!id) return null;
-
-  const key = `media:${id}`;
-  if (mem.has(key)) return mem.get(key);
-
-  const url = build(apiBase(), `media/${id}`, {
-    _fields: "source_url,media_details.sizes"
-  });
-  try{
-    const m = await getJSON(url);
-    const sizes = m?.media_details?.sizes || {};
-    const src =
-      sizes?.medium_large?.source_url ||
-      sizes?.large?.source_url ||
-      sizes?.medium?.source_url ||
-      m?.source_url || null;
-    mem.set(key, src || null);
-    return src || null;
-  }catch{
-    mem.set(key, null);
-    return null;
-  }
-}
-
-export function getAuthorName(post){
-  try{ return post?._embedded?.author?.[0]?.name || "The Oklahoma Observer"; }
-  catch{ return "The Oklahoma Observer"; }
-}
-
-/* ---------------- Arg normalization ---------------- */
-function norm(page, perPageOrOpts, maybeOpts){
-  let p = Number(page)||1;
-  let pp = PER_PAGE;
-  let excludeCartoon = true;
-  let signal;
-
-  const merge = (opts)=>{
-    if (!opts) return;
-    if (typeof opts.excludeCartoon === "boolean") excludeCartoon = opts.excludeCartoon;
-    if (opts.signal) signal = opts.signal;
-  };
-
-  if (typeof perPageOrOpts === "number" && isFinite(perPageOrOpts)) {
-    pp = perPageOrOpts;
-    merge(maybeOpts);
-  } else if (perPageOrOpts && typeof perPageOrOpts === "object") {
-    if ("aborted" in perPageOrOpts) signal = perPageOrOpts;
-    else merge(perPageOrOpts);
-  }
-  return { page:p, perPage:pp, excludeCartoon, signal };
-}
-
-/* ---------------- Posts & pages ---------------- */
-export async function fetchPostsPage(page=1, perPageOrOpts, maybeOpts){
-  const { page:p, perPage:pp, excludeCartoon, signal } = norm(page, perPageOrOpts, maybeOpts);
-
-  const params = {
-    status:"publish",
-    per_page: pp,
-    page: p,
-    _embed: 1,
-    orderby: "date",
-    order: "desc",
-    _fields: [
-      "id","date","title.rendered","excerpt.rendered","author","featured_media","categories",
-      "_embedded.author.name",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes"
-    ].join(",")
-  };
-
-  if (excludeCartoon) {
-    const cid = await ensureCartoonCategoryId();
-    if (cid) params["categories_exclude"] = cid;
-  }
-
-  const url = build(apiBase(), "posts", params);
-  return getJSON(url, { signal });
-}
-export async function fetchLeanPostsPage(page=1, perPageOrOpts, maybeOpts){
-  return fetchPostsPage(page, perPageOrOpts, maybeOpts);
-}
-
-export async function fetchPostById(id){
-  const key = `post:${id}`;
-  if (mem.has(key)) return mem.get(key);
-
-  const url = build(apiBase(), `posts/${id}`, {
-    _embed: 1,
-    _fields: [
-      "id","date","title.rendered","content.rendered","author","featured_media","categories",
-      "_embedded.author.name",
-      "_embedded.wp:featuredmedia.source_url",
-      "_embedded.wp:featuredmedia.media_details.sizes"
-    ].join(",")
-  });
-  const data = await getJSON(url);
-  mem.set(key, data);
-  return data;
-}
-
-export async function fetchAboutPage(slugLike="contact-about-donate"){
-  const url = build(apiBase(), "pages", {
-    search: slugLike, per_page: 1, _fields: "title.rendered,content.rendered"
-  });
-  try{
-    const arr = await getJSON(url);
-    const hit = Array.isArray(arr) ? arr[0] : null;
-    return { title: hit?.title?.rendered || "About", html: String(hit?.content?.rendered || "") };
-  }catch{
-    return { title:"About", html:"<p>About page unavailable.</p>" };
-  }
+  // Already embedded? return null to avoid duplicate fetch
+  const hit = getFeaturedImage(post);
+  if (hit) return hit;
+  // If not embedded, we avoid an extra call (the grid will simply omit the image)
+  return null;
 }

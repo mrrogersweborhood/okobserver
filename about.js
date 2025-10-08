@@ -1,17 +1,11 @@
-// about.js — render About page via REST
-import { fetchAboutPage } from './api.js';
-import { createEl } from './shared.js';
-
+// about.js — simple render from site page fetched previously (or static)
 export async function renderAbout(){
-  const root = document.getElementById('app'); if (!root) return;
-  root.innerHTML = 'Loading…';
-  const { title, html } = await fetchAboutPage('contact-about-donate');
-
-  const wrap = createEl('section',{class:'about-wrap'},[
-    createEl('h1',{},[title || 'About']),
-    createEl('div',{class:'content', html: html || '<p>About page unavailable.</p>'})
-  ]);
-
-  root.innerHTML = '';
-  root.appendChild(wrap);
+  const app = document.getElementById('app'); if(!app) return;
+  app.innerHTML = `
+    <div class="about-wrap">
+      <h1>About</h1>
+      <p>The Oklahoma Observer — independent journalism and commentary.</p>
+      <p>Visit <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a> for subscriptions and more.</p>
+    </div>
+  `;
 }

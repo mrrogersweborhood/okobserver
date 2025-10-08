@@ -1,57 +1,51 @@
-// shared.js — tiny DOM & formatting helpers
+// shared.js — small utilities used across modules
 
-export function createEl(tag, attrs={}, children){
+export function createEl(tag, props={}, children=[]){
   const el = document.createElement(tag);
-  if (attrs){
-    for (const [k,v] of Object.entries(attrs)){
-      if (v == null) continue;
+  if (props){
+    for (const [k,v] of Object.entries(props)){
       if (k === 'html'){ el.innerHTML = v; continue; }
-      el.setAttribute(k, String(v));
+      if (k === 'class'){ el.className = v; continue; }
+      el.setAttribute(k, v);
     }
   }
-  if (children != null){
-    if (Array.isArray(children)){
-      for (const c of children){
-        if (c == null) continue;
-        if (c.nodeType) el.appendChild(c); else el.append(String(c));
-      }
-    } else {
-      if (children.nodeType) el.appendChild(children); else el.append(String(children));
-    }
-  }
+  if (!Array.isArray(children)) children = [children];
+  children.forEach(c => {
+    if (c == null) return;
+    if (c instanceof Node) el.appendChild(c); else el.appendChild(document.createTextNode(String(c)));
+  });
   return el;
 }
 
-export function decodeEntities(html){
-  if (!html) return '';
-  const t = document.createElement('textarea');
-  t.innerHTML = html;
-  return t.value;
+export function decodeEntities(s=''){
+  const txt = document.createElement('textarea');
+  txt.innerHTML = s;
+  return txt.value;
 }
 
 export function ordinalDate(iso){
-  try{
-    const d = new Date(iso);
-    const day = d.getDate();
-    const suf = (n)=>{
-      const j=n%10,k=n%100;
-      if (j===1 && k!==11) return 'st';
-      if (j===2 && k!==12) return 'nd';
-      if (j===3 && k!==13) return 'rd';
-      return 'th';
-    };
-    return d.toLocaleString('en-US',{ month:'long' }) + ' ' + day + suf(day) + ', ' + d.getFullYear();
-  }catch{ return ''; }
+  if (!iso) return '';
+  const d = new Date(iso);
+  const day = d.getDate();
+  const ord = (n)=>{
+    const j=n%10,k=n%100;
+    if (j===1 && k!==11) return n+'st';
+    if (j===2 && k!==12) return n+'nd';
+    if (j===3 && k!==13) return n+'rd';
+    return n+'th';
+  };
+  return d.toLocaleString('en-US',{month:'long'})+' '+ord(day)+', '+d.getFullYear();
 }
 
-// Ensure the first content block isn’t indented or centered oddly
-export function normalizeFirstParagraph(container){
+// Remove any first-paragraph odd indentation/align injected by WP
+export function normalizeFirstParagraph(root){
   try{
-    const el = container.querySelector(':is(p,div,section,article,blockquote)');
-    if (!el) return;
-    el.style.textAlign = 'left';
-    el.style.textIndent = '0';
-    el.style.marginLeft = '0';
-    el.style.paddingLeft = '0';
+    const first = root.querySelector(':is(p,div,section,article,blockquote)');
+    if (first){
+      first.style.textIndent='0';
+      first.style.marginLeft='0';
+      first.style.paddingLeft='0';
+      first.style.textAlign='left';
+    }
   }catch{}
 }

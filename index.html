@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver — Latest News</title>
 
-  <!-- Favicons -->
   <link rel="icon" type="image/png" href="icon.png" />
-
-  <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -38,20 +35,18 @@
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <small>
-        Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span>
-      </small>
+      <small>Unofficial demo client. © <span id="year"></span> — <span id="appVersion"></span></small>
       <small><a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a></small>
     </div>
   </footer>
 
-  <!-- Lock API base to Cloudflare Worker before modules load -->
+  <!-- Lock API base to Worker and set version -->
   <script>
     (function(){
       const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
       try { sessionStorage.setItem('__oko_api_base_lock', WORKER_BASE); } catch {}
       window.OKO_API_BASE = WORKER_BASE;
-      window.APP_VERSION = 'v2.4.2';
+      window.APP_VERSION = 'v2.4.3';
       document.addEventListener('DOMContentLoaded', function(){
         const y=document.getElementById('year'); if(y) y.textContent=new Date().getFullYear();
         const v=document.getElementById('appVersion'); if(v) v.textContent=window.APP_VERSION;
@@ -59,7 +54,7 @@
     })();
   </script>
 
-  <!-- App entry -->
-  <script type="module" src="main.js?v=2.4.2" defer></script>
+  <!-- Entry (modules) -->
+  <script type="module" src="main.js?v=2.4.3" defer></script>
 </body>
 </html>

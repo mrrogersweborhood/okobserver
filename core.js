@@ -1,8 +1,8 @@
-// core.js — router + scroll restore
+// core.js — router + scroll save/restore for home route
+
 const SCROLL_KEY = '__oko_scroll__';
 
 export function saveScrollForRoute(hash){
-  // Save only for home route (#/)
   try{
     if ((hash || location.hash || '#/') === '#/'){
       sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
@@ -13,20 +13,20 @@ export function saveScrollForRoute(hash){
 function restoreHomeScrollSoon(){
   try{
     const y = Number(sessionStorage.getItem(SCROLL_KEY) || 0);
-    // Delay until the grid paints
-    setTimeout(()=>{ window.scrollTo({ top:y, behavior:'instant' in window ? 'instant' : 'auto' }); }, 50);
+    setTimeout(()=>{ window.scrollTo({ top:y, behavior:('instant' in window)?'instant':'auto' }); }, 50);
   }catch{}
 }
 
-export async function router(){
+export async function router(force = false){
   const hash = location.hash || '#/';
-  const app = document.getElementById('app'); 
+  const app = document.getElementById('app');
   if (!app) return;
 
   // Home
   if (hash === '#/' || hash === '#') {
+    // Force re-render each time we hit home so Back-to-posts always shows grid
     const { renderHome } = await import('./home.js');
-    await renderHome();
+    await renderHome({ force });
     restoreHomeScrollSoon();
     return;
   }
@@ -34,7 +34,7 @@ export async function router(){
   // Post detail
   const m = hash.match(/^#\/post\/(\d+)(?:[\/?].*)?$/);
   if (m){
-    const { renderPost } = await import('./detail.js'); // ✅ FIXED: removed extra parenthesis
+    const { renderPost } = await import('./detail.js');
     await renderPost(m[1]);
     return;
   }
@@ -48,6 +48,6 @@ export async function router(){
 
   // Fallback → home
   const { renderHome } = await import('./home.js');
-  await renderHome();
+  await renderHome({ force:true });
   restoreHomeScrollSoon();
 }
