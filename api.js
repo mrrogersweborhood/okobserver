@@ -1,19 +1,23 @@
 // api.js — WordPress REST helpers via Cloudflare Worker proxy
-// v2.4.9
+// v2.5.1 (hardens API_BASE resolution to avoid relative paths)
 
-// Resolve and normalize API base (always absolute, points at .../wp/v2)
 function resolveApiBase() {
+  // Prefer the base we locked in main.js
   let base =
-    window.OKO_API_BASE ||
-    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('__oko_api_base_lock') : '') ||
+    (typeof window !== 'undefined' && window.OKO_API_BASE) ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('__oko_api_base_lock')) ||
     `${location.origin}/api/wp/v2`;
 
-  // Ensure absolute + no trailing slash
+  // Ensure absolute URL
   if (!/^https?:\/\//i.test(base)) {
     if (base.startsWith('/')) base = `${location.origin}${base}`;
     else base = `https://${base}`;
   }
-  return base.replace(/\/+$/,''); // strip trailing slashes
+  // Ensure it ends with /wp/v2 (exact)
+  if (!/\/wp\/v2$/i.test(base)) {
+    base = base.replace(/\/+$/,'') + '/wp/v2';
+  }
+  return base.replace(/\/+$/,'');
 }
 
 export const API_BASE = resolveApiBase();
@@ -69,7 +73,6 @@ export async function fetchLeanPostsPage(page = 1, { excludeCartoon = true } = {
   const posts = await apiFetch(url, { signal });
   if (!Array.isArray(posts)) return [];
 
-  // Extra safety client-side
   return posts.filter(p => !(excludeId && Array.isArray(p.categories) && p.categories.includes(excludeId)));
 }
 
@@ -112,7 +115,6 @@ export function getFeaturedImage(post) {
   return null;
 }
 
-// We already request _embed=1; avoid extra fetches that cause flicker
 export async function resolveFeaturedImage(_post) { return null; }
 
 // Optional About page
