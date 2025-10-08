@@ -1,29 +1,40 @@
 // main.js — entry module
-// Boots the app and locks the API base used by api.js
-// v2.4.4
+// Force/lock absolute API base and boot app
+// v2.4.9
 
 import { start } from './core.js';
 
-// ---- Configure API base (visible in console for verification) ----
+function normalizeBase(base) {
+  if (!base) return null;
+  // Already absolute?
+  if (/^https?:\/\//i.test(base)) return base.replace(/\/+$/,'') + '/wp/v2';
+  // Starts with slash? make absolute with origin
+  if (base.startsWith('/')) return `${location.origin}${base.replace(/\/+$/,'')}/wp/v2`;
+  // Fallback: assume worker absolute
+  return `https://${base.replace(/\/+$/,'')}/wp/v2`;
+}
+
 (() => {
   const LOCK_KEY = '__oko_api_base_lock';
 
-  // Prefer an explicit global if you've set it earlier
+  // Prefer explicit global if set
   let base = window.OKO_API_BASE;
 
-  // Auto-detect: on GitHub Pages use Cloudflare Worker; otherwise assume same-origin /api
-  if (!base) {
-    const onPages = /github\.io$/i.test(location.hostname);
-    if (onPages) {
-      base = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-    } else {
-      // If you host behind your own reverse proxy, adjust here:
-      // e.g., base = `${location.origin}/api/wp/v2`;
-      base = `${location.origin}/api/wp/v2`;
-    }
+  // On GitHub Pages, always use the Worker
+  const onGitHubPages = /github\.io$/i.test(location.hostname);
+  if (onGitHubPages) {
+    base = 'https://okobserver-proxy.bob-b5c.workers.dev';
   }
 
-  // Expose and lock for api.js
+  // If still not set, fall back to same-origin proxy (for local dev)
+  if (!base) {
+    base = `${location.origin}/api`;
+  }
+
+  // Normalize to absolute + /wp/v2 suffix
+  base = normalizeBase(base);
+
+  // Force override any stale lock each boot
   try {
     sessionStorage.setItem(LOCK_KEY, base);
   } catch {}
@@ -32,5 +43,5 @@ import { start } from './core.js';
   console.info('[OkObserver] API base (locked):', base);
 })();
 
-// ---- Start the application ----
+// Start the app
 start();

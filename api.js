@@ -1,14 +1,25 @@
 // api.js — WordPress REST helpers via Cloudflare Worker proxy
-// v2.4.7 — ensures _embed payload (authors + media) is present; provides author fallback map
+// v2.4.9
 
-const API_BASE =
-  window.OKO_API_BASE ||
-  sessionStorage.getItem('__oko_api_base_lock') ||
-  `${location.origin}/api/wp/v2`;
+// Resolve and normalize API base (always absolute, points at .../wp/v2)
+function resolveApiBase() {
+  let base =
+    window.OKO_API_BASE ||
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('__oko_api_base_lock') : '') ||
+    `${location.origin}/api/wp/v2`;
 
-const PER_PAGE = 6; // default page size
+  // Ensure absolute + no trailing slash
+  if (!/^https?:\/\//i.test(base)) {
+    if (base.startsWith('/')) base = `${location.origin}${base}`;
+    else base = `https://${base}`;
+  }
+  return base.replace(/\/+$/,''); // strip trailing slashes
+}
 
-// Tiny fetch with retry + JSON
+export const API_BASE = resolveApiBase();
+const PER_PAGE = 6;
+
+// Small fetch with retry + JSON
 async function apiFetch(url, opts = {}, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -32,7 +43,7 @@ export async function getCartoonCategoryId(signal) {
     const hit = Array.isArray(cats)
       ? cats.find(c => String(c.slug).toLowerCase() === 'cartoon' || String(c.name).toLowerCase() === 'cartoon')
       : null;
-    _cartoonId = hit ? hit.id : 0; // 0 => nothing to exclude
+    _cartoonId = hit ? hit.id : 0;
   } catch (e) {
     console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion', e);
     _cartoonId = 0;
@@ -40,11 +51,10 @@ export async function getCartoonCategoryId(signal) {
   return _cartoonId;
 }
 
-// ---------- Lean posts with FULL embeds ----------
+// ---------- Lean posts with FULL embeds (no _fields) ----------
 export async function fetchLeanPostsPage(page = 1, { excludeCartoon = true } = {}, signal) {
   const excludeId = excludeCartoon ? await getCartoonCategoryId(signal) : 0;
 
-  // IMPORTANT: do NOT use _fields here so WordPress returns the full _embedded block.
   const params = new URLSearchParams({
     status: 'publish',
     per_page: String(PER_PAGE),
@@ -59,7 +69,7 @@ export async function fetchLeanPostsPage(page = 1, { excludeCartoon = true } = {
   const posts = await apiFetch(url, { signal });
   if (!Array.isArray(posts)) return [];
 
-  // Extra safety: remove any that still carry the excluded category
+  // Extra safety client-side
   return posts.filter(p => !(excludeId && Array.isArray(p.categories) && p.categories.includes(excludeId)));
 }
 
@@ -92,7 +102,6 @@ export function getAuthorName(post, fallbackMap) {
 export function getFeaturedImage(post) {
   const media = post?._embedded?.['wp:featuredmedia'];
   if (Array.isArray(media) && media[0]) {
-    // Prefer a sized variant; fall back to original source_url
     return (
       media[0].media_details?.sizes?.medium?.source_url ||
       media[0].media_details?.sizes?.large?.source_url ||
@@ -103,8 +112,12 @@ export function getFeaturedImage(post) {
   return null;
 }
 
-// We already ask for _embed=1; avoid extra fetches that cause flicker
+// We already request _embed=1; avoid extra fetches that cause flicker
 export async function resolveFeaturedImage(_post) { return null; }
 
-// Export base for debugging
-export { API_BASE, PER_PAGE };
+// Optional About page
+export async function fetchAboutPage(slug = 'contact-about-donate', signal) {
+  const url = `${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`;
+  const rows = await apiFetch(url, { signal });
+  return Array.isArray(rows) && rows.length ? rows[0] : null;
+}
