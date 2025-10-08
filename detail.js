@@ -80,11 +80,15 @@ export async function renderPost(id){
     }
   }
 
-  // Back to posts — explicit route change; router re-renders home and restores scroll
+  // Back to posts — delayed re-render for reliability
   const backBottom = createEl("a",{class:"btn", href:"#/", role:"button"},["Back to posts"]);
   backBottom.addEventListener("click", (e) => {
     e.preventDefault();
-    location.hash = "#/";  // core.router(true) will re-render home
+    // Force router reload after DOM settles
+    setTimeout(() => {
+      location.hash = "#/"; // triggers router(true) in main.js
+      window.scrollTo({ top: 0 });
+    }, 80);
   });
 
   const article = createEl("article",{class:"post"},[
