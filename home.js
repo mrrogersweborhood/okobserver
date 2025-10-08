@@ -1,5 +1,5 @@
 // home.js — renders post summaries (Home view)
-// Compatible with api.js v2.4.5 and core.js v2.4.4
+// Compatible with api.js v2.4.5 and core.js v2.4.6
 
 import { fetchLeanPostsPage } from './api.js';
 import { createEl, restoreScrollPosition } from './shared.js';
@@ -10,24 +10,21 @@ let isLoading = false;
 let allDone = false;
 let cachedPosts = [];
 
-let scrollYBeforeNav = 0;
-
-// Decode HTML entities
+/* ------------ small helpers ------------ */
 function decodeEntity(str) {
   const txt = document.createElement('textarea');
-  txt.innerHTML = str;
+  txt.innerHTML = str || '';
   return txt.value;
 }
 
-// Clean and shorten excerpt safely
 function sanitizeExcerpt(html) {
   const div = document.createElement('div');
-  div.innerHTML = html;
+  div.innerHTML = html || '';
   const text = div.textContent || div.innerText || '';
   return text.replace(/\s+/g, ' ').trim();
 }
 
-// Utility to create a card for each post
+/* ------------ card renderer ------------ */
 function makeCard(post) {
   const card = createEl('article', { class: 'card' });
 
@@ -49,9 +46,10 @@ function makeCard(post) {
   }
 
   // Title
+  const titleText = post.title?.rendered ? decodeEntity(post.title.rendered) : 'Untitled';
   const title = createEl('h2', { class: 'title' });
   const titleLink = createEl('a', { href: `#/post/${post.id}` });
-  titleLink.textContent = (post.title?.rendered ? decodeEntity(post.title.rendered) : 'Untitled');
+  titleLink.textContent = titleText;
   titleLink.style.color = '#1E90FF';
   titleLink.addEventListener('click', (e) => {
     e.preventDefault();
@@ -77,7 +75,7 @@ function makeCard(post) {
   return card;
 }
 
-// Render the full grid from cached posts
+/* ------------ grid helpers ------------ */
 function renderGrid(root) {
   const grid = root.querySelector('.grid');
   if (!grid) return;
@@ -87,7 +85,6 @@ function renderGrid(root) {
   }
 }
 
-// Fetch and append next page
 async function loadNextPage(root) {
   if (isLoading || allDone) return;
   isLoading = true;
@@ -112,7 +109,6 @@ async function loadNextPage(root) {
   isLoading = false;
 }
 
-// Observe bottom sentinel for infinite scroll
 function setupInfiniteScroll(root) {
   const sentinel = root.querySelector('#sentinel');
   if (!sentinel) return;
@@ -124,11 +120,22 @@ function setupInfiniteScroll(root) {
   io.observe(sentinel);
 }
 
-// Main render entry
+/* ------------ main entry ------------ */
 export async function renderHome() {
-  const root = document.getElementById('app');     // ✅ target #app (not #root)
-  if (!root) return;
+  // Robustly acquire or create the mount
+  let root = document.getElementById('app');
+  if (!root) {
+    root = document.createElement('main');
+    root.id = 'app';
+    const footer = document.querySelector('footer');
+    if (footer && footer.parentNode) {
+      footer.parentNode.insertBefore(root, footer);
+    } else {
+      document.body.appendChild(root);
+    }
+  }
 
+  // Render shell
   root.innerHTML = `
     <section id="home">
       <div class="grid"></div>
@@ -146,12 +153,4 @@ export async function renderHome() {
 
   // Restore scroll position if returning from a post
   restoreScrollPosition();
-}
-
-// Save current scroll before leaving home (in case you call it elsewhere)
-export function saveScrollBeforeNav() {
-  scrollYBeforeNav = window.scrollY;
-  try {
-    sessionStorage.setItem('__oko_scroll__', String(scrollYBeforeNav));
-  } catch {}
 }

@@ -1,5 +1,5 @@
 // core.js — app shell + router + scroll restore
-// v2.4.4
+// v2.4.6
 
 import { renderHome }  from './home.js';
 import { renderPost }  from './detail.js';
@@ -7,6 +7,31 @@ import { renderAbout } from './about.js';
 
 const SCROLL_KEY = '__oko_scroll__';
 let lastRoute = null;
+
+/* ---------------- DOM readiness ---------------- */
+function domReady() {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    return Promise.resolve();
+  }
+  return new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
+}
+
+/* Ensure an #app mount exists */
+function ensureAppMount() {
+  let el = document.getElementById('app');
+  if (!el) {
+    el = document.createElement('main');
+    el.id = 'app';
+    // insert before footer if present, else at end of body
+    const footer = document.querySelector('footer');
+    if (footer && footer.parentNode) {
+      footer.parentNode.insertBefore(el, footer);
+    } else {
+      document.body.appendChild(el);
+    }
+  }
+  return el;
+}
 
 /* ---------------- Scroll restore (Home) ---------------- */
 function restoreHomeScroll() {
@@ -23,7 +48,6 @@ function restoreHomeScroll() {
       }
     }
   } catch {}
-  // Fallback: go to top
   requestAnimationFrame(() => window.scrollTo({ top: 0 }));
 }
 
@@ -35,12 +59,11 @@ function currentRoute() {
 
 /* ---------------- Router ---------------- */
 export async function router(force = true) {
+  ensureAppMount(); // make sure #app exists before any render
   const route = currentRoute();
 
-  // Avoid redundant renders except for Home where we force a repaint
   if (!force && route === lastRoute) return;
 
-  // Route: /post/:id
   const m = route.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
   if (m) {
     lastRoute = route;
@@ -48,33 +71,34 @@ export async function router(force = true) {
     return;
   }
 
-  // Route: /about
   if (route.startsWith('#/about')) {
     lastRoute = route;
     await renderAbout();
     return;
   }
 
-  // Route: Home (default). Always force fresh grid so “Back to posts” never blanks.
+  // Home (default) — always render fresh so Back-to-posts never blanks
   lastRoute = route;
   await renderHome();
   restoreHomeScroll();
 }
 
 /* ---------------- App start ---------------- */
-export function start() {
-  // Initial render (force)
-  router(true);
+export async function start() {
+  await domReady();
+  ensureAppMount();
 
-  // Hash-based navigation — always force repaint so Back works 100%
+  // Initial render
+  await router(true);
+
+  // Hash-based navigation — force repaint so Back works 100%
   window.addEventListener('hashchange', () => router(true), { passive: true });
 
-  // When coming back from bfcache/tab history, repaint
+  // When returning from bfcache, repaint
   window.addEventListener('pageshow', (e) => { if (e.persisted) router(true); });
 
-  // Safety: if a hard reload happens, we’ll keep whatever scroll was last saved by Home
+  // Fallback scroll save on unload (Home already saves on click)
   window.addEventListener('beforeunload', () => {
-    // (Home saves scroll on click; this is just a fallback)
     try {
       if ((location.hash || '#/') === '#/') {
         sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
