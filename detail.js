@@ -121,7 +121,7 @@ function normalizeIndentation(root) {
 
 /* ---------- video helpers (always-poster for Facebook) ---------- */
 
-const ALWAYS_POSTER_HOSTS = /facebook\.com/i;
+const ALWAYS_POSTER_HOSTS = /$^/; // matches nothing — disables always-poster behavior
 const VIDEO_HOST_RE = /(facebook\.com|youtu\.be|youtube\.com|vimeo\.com)/i;
 
 function findFirstVideoUrlFromHTML(html) {
