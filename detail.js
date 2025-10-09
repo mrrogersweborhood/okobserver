@@ -1,5 +1,5 @@
 // detail.js — single post view
-// v2.5.3 — forces blue title, and shows ONLY a bottom “Back to posts” button
+// v2.5.5 — no structural changes except ensuring “Back to posts” works cleanly
 
 import { fetchPostById, getFeaturedImage, getAuthorName } from './api.js';
 import { createEl, ordinalDate } from './shared.js';
@@ -39,7 +39,7 @@ export async function renderPost(id) {
   try {
     const post = await fetchPostById(id);
 
-    // Title (force brand blue via CSS; also keep inline as hard override)
+    // Title (force brand blue)
     const h1 = createEl('h1', { class: 'title' });
     h1.textContent = decodeEntity(post?.title?.rendered || 'Untitled');
     h1.style.color = '#1E90FF';
@@ -52,12 +52,11 @@ export async function renderPost(id) {
     meta.textContent = `${authorName ? `By ${authorName}` : ''}${authorName && dateStr ? ' • ' : ''}${dateStr}`;
     shell.append(meta);
 
-    // Hero image (clickable only if it actually links to something useful)
+    // Hero image (clickable to first video link if present)
     const heroSrc = getFeaturedImage(post);
     if (heroSrc) {
       const img = createEl('img', { class: 'hero', src: heroSrc, alt: '' });
       img.dataset.clickable = 'false';
-      // If content includes a video link we want to open in a new tab, make hero clickable
       try {
         const contentHtml = String(post?.content?.rendered || '');
         const m = contentHtml.match(/https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i);
@@ -70,16 +69,18 @@ export async function renderPost(id) {
       shell.append(img);
     }
 
-    // Post content (clean minimal)
+    // Post content
     const contentDiv = createEl('div', { class: 'content' });
     contentDiv.innerHTML = post?.content?.rendered || '';
-    // Ensure first paragraph has no indentation
     const firstP = contentDiv.querySelector('p');
     if (firstP) firstP.style.textIndent = '0';
     shell.append(contentDiv);
 
-    // ONLY bottom back button
+    // Only bottom “Back to posts” button
     shell.append(renderBackButton());
+
+    // Ensure we start at top on detail view
+    window.scrollTo(0, 0);
 
   } catch (err) {
     console.error('[OkObserver] Post load failed:', err);
