@@ -1,23 +1,36 @@
 // api.js — WordPress REST helpers via Cloudflare Worker proxy
-// v2.5.2
+// v2.5.4 — adds final guard to force Worker on GitHub Pages
 
 function resolveApiBase() {
+  const GH = location.hostname.endsWith('github.io');
+
+  // Prefer the base we locked in main.js or pre-set in index.html
   let base =
     (typeof window !== 'undefined' && window.OKO_API_BASE) ||
     (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('__oko_api_base_lock')) ||
     `${location.origin}/api/wp/v2`;
 
+  // If running on GitHub Pages, FORCE Cloudflare Worker, regardless of above
+  if (GH) {
+    base = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
+  }
+
+  // Ensure absolute and ends with /wp/v2
   if (!/^https?:\/\//i.test(base)) {
     if (base.startsWith('/')) base = `${location.origin}${base}`;
     else base = `https://${base}`;
   }
   if (!/\/wp\/v2$/i.test(base)) base = base.replace(/\/+$/,'') + '/wp/v2';
-  return base.replace(/\/+$/,'');
+
+  base = base.replace(/\/+$/,'');
+  console.info('[OkObserver] API_BASE in api.js:', base);
+  return base;
 }
 
 export const API_BASE = resolveApiBase();
 const PER_PAGE = 6;
 
+// Small fetch with retry + JSON
 async function apiFetch(url, opts = {}, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -110,5 +123,3 @@ export async function fetchAboutPage(slug = 'contact-about-donate', signal) {
   const rows = await apiFetch(url, { signal });
   return Array.isArray(rows) && rows.length ? rows[0] : null;
 }
-
-console.info('[OkObserver] API_BASE in api.js:', API_BASE);

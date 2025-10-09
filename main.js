@@ -1,18 +1,14 @@
 // main.js — entry module
 // Force/lock absolute API base to Cloudflare Worker on GitHub Pages
-// v2.5.2
+// v2.5.4
 
 import { start } from './core.js';
 
 function normalizeToWpV2(base) {
   if (!base) return null;
-  if (/^https?:\/\//i.test(base)) {
-    base = base.replace(/\/+$/,'');
-  } else if (base.startsWith('/')) {
-    base = `${location.origin}${base.replace(/\/+$/,'')}`;
-  } else {
-    base = `https://${base.replace(/\/+$/,'')}`;
-  }
+  if (/^https?:\/\//i.test(base)) base = base.replace(/\/+$/,'');
+  else if (base.startsWith('/')) base = `${location.origin}${base.replace(/\/+$/,'')}`;
+  else base = `https://${base.replace(/\/+$/,'')}`;
   if (!/\/wp\/v2$/i.test(base)) base += '/wp/v2';
   return base;
 }
@@ -20,7 +16,7 @@ function normalizeToWpV2(base) {
 (() => {
   const LOCK_KEY = '__oko_api_base_lock';
 
-  // Wipe any stale lock that pointed to relative /api/wp/v2
+  // Wipe stale lock that pointed to relative /api/wp/v2
   try { sessionStorage.removeItem(LOCK_KEY); } catch {}
 
   // Base from index.html (pre-set) or fallback
