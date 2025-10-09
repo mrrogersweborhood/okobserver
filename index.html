@@ -18,8 +18,16 @@
 
       .brand { display:flex; align-items:center; gap:.75rem; min-height:40px; }
       .brand img.logo { height:34px; width:auto; display:block; }
-      .brand .brand-text { display:flex; flex-direction:column; line-height:1.05; font-weight:700; }
+      .brand .brand-stack { display:flex; flex-direction:column; line-height:1.05; }
+      .brand .brand-text { display:flex; flex-direction:column; font-weight:700; }
       .brand .brand-text .l1, .brand .brand-text .l2 { display:block; font-size:1.0em; }
+      .brand .motto {
+        margin-top:2px;
+        font-size:.88em;
+        font-weight:600;
+        line-height:1.1;
+        white-space:nowrap;
+      }
 
       nav { display:flex; gap:1em; }
       nav a { color:#fff; text-decoration:none; font-weight:500; }
@@ -32,12 +40,12 @@
       .grid .card:hover { transform:translateY(-2px); box-shadow:0 3px 6px rgba(0,0,0,.12); }
       .grid .card img.thumb { display:block; width:100%; height:200px; object-fit:cover; border-radius:6px; cursor:pointer; margin-bottom:.6em; }
       .grid .card .meta { font-size:.9em; color:#555; margin:.3em 0 .8em 0; font-style:italic; display:block; }
-      .grid .card .title a { text-decoration:none; color:var(--brand); font-weight:600; font-size:1.1em; }
+      .grid .card .title a { text-decoration:none; color:#1E90FF; font-weight:600; font-size:1.1em; }
       .grid .card .title a:hover { text-decoration:underline; }
       .grid .card .excerpt { font-size:.95em; line-height:1.5; margin-top:.4em; }
       #loader { text-align:center; color:#555; margin:2em 0; }
 
-      .post-detail h1.title { color:var(--brand)!important; font-size:1.6em; margin-top:.4em; }
+      .post-detail h1.title { color:#1E90FF!important; font-size:1.6em; margin-top:.4em; }
       .post-detail .meta { color:#555; font-style:italic; font-size:.9em; margin-bottom:1.0em; }
       .post-detail img.hero { display:block; width:100%; height:auto; object-fit:contain; border-radius:6px; margin-bottom:1em; cursor:pointer; transition:opacity .2s ease; }
       .post-detail img.hero[data-clickable="true"]:hover { opacity:.9; }
@@ -49,13 +57,19 @@
       .embed iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; }
 
       .about { max-width:800px; margin:2em auto; line-height:1.6; padding:1em; }
-      .about h2 { color:var(--brand); margin-top:1em; }
+      .about h2 { color:#1E90FF; margin-top:1em; }
 
-      .btn { display:inline-block; padding:8px 14px; border-radius:7px; border:1px solid rgba(0,0,0,.08); background:var(--brand); color:#fff; text-decoration:none; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.06); transition:transform .06s ease, box-shadow .06s ease, opacity .2s ease; }
+      .btn { display:inline-block; padding:8px 14px; border-radius:7px; border:1px solid rgba(0,0,0,.08); background:#1E90FF; color:#fff; text-decoration:none; font-weight:600; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.06); transition:transform .06s ease, box-shadow .06s ease, opacity .2s ease; }
       .btn:hover { transform:translateY(-1px); box-shadow:0 2px 4px rgba(0,0,0,.10); }
       .btn:active { transform:translateY(0); }
 
-      @media (max-width:768px){ .brand img.logo{height:30px;} .brand .brand-text .l1,.brand .brand-text .l2{font-size:.95em;} nav{gap:.75em;} .grid{grid-template-columns:1fr;} }
+      @media (max-width:768px){
+        .brand img.logo{height:30px;}
+        .brand .brand-text .l1,.brand .brand-text .l2{font-size:.95em;}
+        .brand .motto{font-size:.82em; white-space:normal;}
+        nav{gap:.75em;}
+        .grid{grid-template-columns:1fr;}
+      }
     </style>
 
     <!-- ✅ Force absolute API base BEFORE modules load; wipe stale lock -->
@@ -72,9 +86,12 @@
       <div class="header-inner">
         <div class="brand">
           <img src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer" class="logo" />
-          <div class="brand-text" aria-label="The Oklahoma Observer">
-            <span class="l1">The Oklahoma</span>
-            <span class="l2">Observer</span>
+          <div class="brand-stack" aria-label="The Oklahoma Observer">
+            <div class="brand-text">
+              <span class="l1">The Oklahoma</span>
+              <span class="l2">Observer</span>
+            </div>
+            <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
           </div>
         </div>
         <nav>
@@ -87,7 +104,7 @@
     <main id="app"><div id="loader">Loading…</div></main>
 
     <footer style="text-align:center; padding:2em 0; font-size:.9em; color:#555;">
-      Unofficial demo client. © 2025 — v2.5.4
+      Unofficial demo client. © 2025 — v2.5.5
     </footer>
 
     <script type="module" src="main.js?v=2.5.4" defer></script>
