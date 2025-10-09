@@ -1,63 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" type="image/png" href="Observer-Logo-2015-08-05.png">
+  <link rel="icon" type="image/png" href="icon.png" />
   <style>
     :root {
       --brand: #1E90FF;
-      --text-color: #222;
-      --muted-text: #555;
-      --bg-light: #f9f9f9;
-      --border-light: #ddd;
+      --text: #111;
+      --muted: #666;
+      --bg: #f7f9fc;
+      --card-bg: #fff;
+      --border: #eee;
     }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
-      padding: 0;
-      background: var(--bg-light);
-      color: var(--text-color);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
     header {
+      background: var(--brand);
+      color: white;
+      padding: 1rem 0 0.5rem;
+      text-align: center;
       position: sticky;
       top: 0;
-      background: var(--brand);
-      color: #fff;
-      text-align: center;
-      padding: 1rem 0 0.5rem 0;
       z-index: 1000;
     }
 
-    header img.logo {
-      width: 180px;
+    header img {
+      max-width: 240px;
       height: auto;
       display: block;
-      margin: 0 auto 0.25rem auto;
+      margin: 0.25rem auto;
     }
 
     header .motto {
       font-size: 0.9rem;
-      color: #e0e0e0;
-      margin-bottom: 0.75rem;
+      font-weight: 500;
+      margin-top: 0.25rem;
     }
 
     nav {
-      background: rgba(255,255,255,0.1);
+      background: #1580e0;
       display: flex;
       justify-content: center;
-      gap: 1rem;
+      gap: 2rem;
       padding: 0.5rem 0;
     }
 
     nav a {
-      color: #fff;
+      color: white;
       text-decoration: none;
-      font-weight: 500;
-      transition: opacity 0.2s;
+      font-weight: 600;
+      transition: opacity 0.2s ease;
     }
 
     nav a:hover {
@@ -65,111 +65,177 @@
     }
 
     main {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 1rem;
+      max-width: 1200px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+      min-height: 60vh;
     }
 
+    footer {
+      text-align: center;
+      color: #777;
+      font-size: 0.8rem;
+      margin: 3rem 0 2rem;
+    }
+
+    /* ---- Card Grid ---- */
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
     }
 
-    /* === Thumbnail Wrapper === */
-    .thumb-wrap {
-      display: block;
-      position: relative;
-      width: 100%;
-      aspect-ratio: 16 / 9;
-      overflow: hidden;
-      border-top-left-radius: 10px;
-      border-top-right-radius: 10px;
-      background-color: #f8f8f8;
-    }
-
-    .thumb {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: center;
-      display: block;
-      transition: transform 0.3s ease, filter 0.3s ease;
-    }
-
-    .thumb-wrap:hover .thumb {
-      transform: scale(1.03);
-      filter: brightness(1.02);
-    }
-
-    /* === Card === */
     .card {
-      background: #fff;
-      border: 1px solid var(--border-light);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 10px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     .card:hover {
       transform: translateY(-3px);
-      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    }
+
+    .thumb-wrap {
+      width: 100%;
+      aspect-ratio: 16/9;
+      overflow: hidden;
+    }
+
+    .thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .card-content {
-      padding: 1rem;
+      padding: 1rem 1.25rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     .card-title {
       font-size: 1.1rem;
+      font-weight: 700;
       color: var(--brand);
       text-decoration: none;
-      font-weight: 600;
+      margin-bottom: 0.25rem;
     }
 
     .card-title:hover {
       text-decoration: underline;
     }
 
-    .meta {
+    .card-meta {
       font-size: 0.85rem;
-      color: var(--muted-text);
-      margin-top: 0.25rem;
+      color: var(--muted);
       margin-bottom: 0.75rem;
     }
 
-    .excerpt {
+    .card-excerpt {
       font-size: 0.95rem;
-      color: var(--text-color);
-      line-height: 1.4;
-      text-align: justify;
+      color: #222;
+      line-height: 1.5;
+      flex: 1;
     }
 
-    footer {
+    /* ---- Post Detail ---- */
+    .post {
+      background: white;
+      border-radius: 10px;
+      padding: 1.5rem 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .post-title {
+      color: var(--brand);
+      font-size: 1.8rem;
+      margin-bottom: 0.25rem;
       text-align: center;
-      font-size: 0.85rem;
-      color: var(--muted-text);
-      padding: 2rem 1rem;
     }
 
-    #loading {
+    .post-meta {
       text-align: center;
-      margin: 2rem;
-      color: #777;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
     }
 
-    @media (max-width: 600px) {
-      header img.logo {
-        width: 140px;
-      }
+    .post-content {
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .post-content p:first-of-type {
+      text-indent: 0 !important;
+      margin-top: 0;
+    }
+
+    .post-content iframe {
+      max-width: 100%;
+      display: block;
+      margin: 1rem auto;
+    }
+
+    /* ---- Post Hero ---- */
+    .post-hero {
+      text-align: center;
+      margin: 1rem 0 2rem 0;
+    }
+    .post-hero img {
+      display: block;
+      width: 100%;
+      height: auto !important;
+      max-height: 80vh;
+      object-fit: contain !important;
+      border-radius: 10px;
+    }
+
+    .video-wrapper {
+      position: relative;
+      padding-top: 56.25%;
+      margin-bottom: 2rem;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 10px;
+    }
+
+    /* ---- Back Button ---- */
+    .back-btn {
+      background: var(--brand);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .back-btn:hover {
+      background: #0f6cd4;
     }
   </style>
 </head>
 
 <body>
   <header>
-    <img class="logo" src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer">
+    <img src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer Logo" />
     <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
     <nav>
       <a href="#/">Posts</a>
@@ -177,14 +243,13 @@
     </nav>
   </header>
 
-  <main id="app">
-    <div style="text-align:center; color:#888; margin-top:2rem;">Loading…</div>
-  </main>
+  <main id="app">Loading…</main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.5.2
+    Unofficial demo client. © 2025 — v2.7.8 <a href="https://okobserver.org" target="_blank">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js?v=2.5.2" defer></script>
+  <!-- Scripts -->
+  <script type="module" src="main.js?v=2.7.8"></script>
 </body>
 </html>

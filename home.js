@@ -1,8 +1,8 @@
-// home.js — OkObserver home (post summary grid) v2.7.8
-// - Uses thumb-wrap wrapper to contain thumbnails (no overflow, uniform 16:9).
-// - Infinite scroll.
-// - Saves and restores scroll position for smooth "Back to posts" flow.
-// - Shows author + date; blue clickable title.
+// home.js — OkObserver post summary grid (v2.7.8)
+// - Uses <a class="thumb-wrap"><img class="thumb">… to contain thumbnails (no overflow).
+// - Infinite scroll with gentle bottom threshold.
+// - Saves/Restores scroll position for smooth “Back to Posts”.
+// - Shows author & date; title is blue and clickable.
 
 import { fetchLeanPostsPage, fetchAuthorsMap, getCartoonCategoryId } from './api.js';
 import { saveScrollForRoute, restoreScrollPosition } from './shared.js';
@@ -26,12 +26,12 @@ export async function renderHome() {
     <div id="loading" style="text-align:center;margin:2rem;color:#777;">Loading…</div>
   `;
 
-  // Reset paging flags
+  // Reset paging flags on fresh render
   currentPage = 1;
   reachedEnd = false;
   isLoading = false;
 
-  // Data that benefits from caching
+  // Preload helpers (cached by sessionStorage or browser)
   try {
     cartoonCategoryId = await getCartoonCategoryId();
   } catch {
@@ -47,14 +47,13 @@ export async function renderHome() {
   // First page
   await loadNextPage();
 
-  // Attach infinite scroll handler once
+  // Attach infinite scroll once
   if (!scrollHandlerBound) {
     window.addEventListener('scroll', onScroll, { passive: true });
     scrollHandlerBound = true;
   }
 
-  // After first paint, try restoring scroll position
-  // (timeout helps ensure layout has content to scroll to)
+  // Try to restore previous scroll (after content lands)
   setTimeout(() => restoreScrollPosition(HOME_ROUTE), 0);
 }
 
@@ -78,8 +77,7 @@ async function loadNextPage() {
     const frag = document.createDocumentFragment();
 
     for (const post of posts) {
-      const card = createPostCard(post);
-      frag.appendChild(card);
+      frag.appendChild(createPostCard(post));
     }
 
     grid.appendChild(frag);
@@ -105,17 +103,18 @@ function createPostCard(post) {
   const card = document.createElement('div');
   card.className = 'card';
 
-  const titleHTML = (post?.title?.rendered ?? '(Untitled)');
-  const dateStr = new Date(post.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const titleHTML = post?.title?.rendered ?? '(Untitled)';
+  const dateStr = new Date(post.date).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric'
+  });
 
-  // Author: prefer authorsMap; fallback to _embedded author name if present
+  // Author preference: authorsMap -> embedded -> site name
   let authorName = authorsMap[post.author];
   if (!authorName) {
-    const embedded = post?._embedded?.author?.[0]?.name;
-    authorName = embedded || 'The Oklahoma Observer';
+    authorName = post?._embedded?.author?.[0]?.name || 'The Oklahoma Observer';
   }
 
-  // Featured image selection (prefer an appropriate size)
+  // Featured image selection with sensible fallback
   let imgUrl = null;
   const fm = post?._embedded?.['wp:featuredmedia']?.[0];
   if (fm?.media_details?.sizes) {
@@ -129,11 +128,10 @@ function createPostCard(post) {
     imgUrl = fm?.source_url || null;
   }
   if (!imgUrl) {
-    // very final fallback; keeps layout stable
-    imgUrl = 'Observer-Logo-2015-08-05.png';
+    imgUrl = 'Observer-Logo-2015-08-05.png'; // stable fallback to avoid layout jumps
   }
 
-  // THUMBNAIL (wrapped for aspect-ratio & overflow control)
+  // THUMBNAIL (wrapped for fixed aspect & overflow control)
   const thumbWrap = document.createElement('a');
   thumbWrap.className = 'thumb-wrap';
   thumbWrap.href = `#/post/${post.id}`;
@@ -143,7 +141,7 @@ function createPostCard(post) {
   img.className = 'thumb';
   img.decoding = 'async';
   img.loading = 'lazy';
-  img.alt = stripHTML(titleHTML);
+  img.alt = textOnly(titleHTML);
   img.src = imgUrl;
 
   thumbWrap.appendChild(img);
@@ -154,16 +152,17 @@ function createPostCard(post) {
   content.className = 'card-content';
   content.innerHTML = `
     <a href="#/post/${post.id}" class="card-title">${titleHTML}</a>
-    <div class="meta">By ${escapeHTML(authorName)} • ${dateStr}</div>
-    <div class="excerpt">${sanitizeExcerpt(post?.excerpt?.rendered || '')}</div>
+    <div class="card-meta">By ${escapeHTML(authorName)} • ${dateStr}</div>
+    <div class="card-excerpt">${sanitizeExcerpt(post?.excerpt?.rendered || '')}</div>
   `;
   card.appendChild(content);
 
   return card;
 }
 
-// Helpers
-function stripHTML(html) {
+// --- helpers ---
+
+function textOnly(html) {
   const div = document.createElement('div');
   div.innerHTML = html || '';
   return (div.textContent || '').trim();
@@ -179,25 +178,24 @@ function escapeHTML(str) {
 }
 
 function sanitizeExcerpt(excerptHTML) {
-  // Allow WP excerpt markup but prevent underlines-as-links leakage:
-  // Keep basic tags <p><em><strong><br> and strip anchors
+  // Allow basic markup but remove anchors so excerpts don’t look underlined/clickable.
   const div = document.createElement('div');
   div.innerHTML = excerptHTML || '';
 
-  // Remove <a> but keep their text content
+  // Replace <a> with <span> preserving inner HTML
   div.querySelectorAll('a').forEach(a => {
     const span = document.createElement('span');
     span.innerHTML = a.innerHTML;
     a.replaceWith(span);
   });
 
-  // Optional: prevent overly-long blockquotes/lists in excerpts (rare)
-  div.querySelectorAll('blockquote, ul, ol').forEach(el => el.remove());
+  // Avoid heavy blocks in the summary
+  div.querySelectorAll('blockquote, ul, ol, iframe').forEach(el => el.remove());
 
   return div.innerHTML;
 }
 
-// Public teardown (in case router wants to detach handlers)
+// Public teardown (in case router unloads the view)
 export function destroyHome() {
   if (scrollHandlerBound) {
     window.removeEventListener('scroll', onScroll);
@@ -205,7 +203,7 @@ export function destroyHome() {
   }
 }
 
-// Public: explicitly restore scroll position for this route
+// Public: explicitly restore scroll for this route
 export function restoreHomeScroll() {
   restoreScrollPosition(HOME_ROUTE);
 }

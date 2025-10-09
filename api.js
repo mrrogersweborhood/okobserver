@@ -1,9 +1,5 @@
 // api.js — OkObserver API helpers (v2.7.8)
-// Ensures `_embed=1` is present so featured images/authors are available.
-// Avoids over-restrictive `_fields` that can strip `_embedded`.
-// Exports: apiFetch, fetchLeanPostsPage, fetchAuthorsMap, getCartoonCategoryId
 
-// Respect the locked base set in main.js. Fallbacks are last-resort.
 const API_BASE = String(
   window.OKO_API_BASE_LOCKED ||
   window.OKO_API_BASE ||
@@ -12,10 +8,8 @@ const API_BASE = String(
 
 console.log('[OkObserver] API_BASE (api.js):', API_BASE);
 
-// Minimal fetch wrapper with WP error surfacing
 export async function apiFetch(url, opt = {}) {
   const res = await fetch(url, {
-    // No-cache hints here—your Worker and SW can still cache.
     method: 'GET',
     credentials: 'omit',
     mode: 'cors',
@@ -28,11 +22,9 @@ export async function apiFetch(url, opt = {}) {
     throw new Error(`API Error ${res.status}${body ? `: ${body}` : ''}`);
   }
 
-  // Most WP endpoints return JSON
   return res.json();
 }
 
-// Find the “cartoon” category id (if present). Safe to fail.
 export async function getCartoonCategoryId() {
   try {
     const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
@@ -47,7 +39,6 @@ export async function getCartoonCategoryId() {
   }
 }
 
-// Build a lightweight id->name map for authors (up to 100; good enough for Observer).
 export async function fetchAuthorsMap() {
   try {
     const url = `${API_BASE}/users?per_page=100&_fields=id,name`;
@@ -60,7 +51,6 @@ export async function fetchAuthorsMap() {
   }
 }
 
-// Core: fetch one page of posts with FULL `_embedded` present.
 export async function fetchLeanPostsPage(page = 1, perPage = 6, cartoonCategoryId = null) {
   const params = new URLSearchParams({
     status: 'publish',
@@ -70,8 +60,6 @@ export async function fetchLeanPostsPage(page = 1, perPage = 6, cartoonCategoryI
     orderby: 'date',
     order: 'desc'
   });
-
-  // IMPORTANT: do NOT add restrictive _fields here; it can strip _embedded on some WP setups.
 
   if (cartoonCategoryId) {
     params.set('categories_exclude', String(cartoonCategoryId));
