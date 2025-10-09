@@ -5,160 +5,170 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer — OkObserver App</title>
   <link rel="icon" type="image/png" href="icon.png" />
+
   <style>
-    :root {
-      --brand: #1E90FF;
-      --bg: #f9f9fb;
-      --text: #111;
-      --card-bg: #fff;
-      --border: #e2e2e2;
-    }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+    :root{
+      --brand:#1E90FF;
+      --bg:#f9f9fb;
+      --text:#111;
+      --card-bg:#fff;
+      --border:#e2e2e2;
+      /* estimated sticky header height for scroll offset */
+      --header-h: 120px;
     }
 
-    /* ===== Header / Nav (unchanged) ===== */
-    header {
-      background: var(--brand);
-      color: white;
-      text-align: center;
-      padding: 1.25rem 0 0.75rem;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
+    html{ scroll-padding-top: var(--header-h); } /* avoid content tucking under sticky header */
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      background:var(--bg);
+      color:var(--text);
     }
-    header img {
-      display: block;
-      margin: 0 auto;
-      height: 64px;
-      width: auto;
+
+    /* ===== Header (sticky) ===== */
+    header{
+      position:sticky;
+      top:0;
+      z-index:1000;
+      background:var(--brand);
+      color:#fff;
+      text-align:center;
+      padding:1.25rem 0 .75rem;
+      box-shadow:0 2px 6px rgba(0,0,0,.08);
     }
-    header .motto {
-      font-size: 0.9rem;
-      font-weight: 500;
-      letter-spacing: 0.3px;
-      margin-top: 0.35rem;
+    header img{
+      display:block;
+      margin:0 auto;
+      height:64px;
+      width:auto;
     }
-    nav {
-      display: flex;
-      justify-content: flex-end;
-      background: var(--brand);
-      gap: 1.5rem;
-      padding: 0.5rem 1rem 1rem;
-      position: sticky;
-      top: 0;
+    header .motto{
+      font-size:.9rem;
+      font-weight:600;
+      letter-spacing:.2px;
+      margin-top:.35rem;
+      opacity:.95;
     }
-    nav a {
-      color: white;
-      font-weight: 500;
-      text-decoration: none;
+
+    /* ===== Top nav (NOT sticky to prevent double-sticky overlap) ===== */
+    nav{
+      display:flex;
+      justify-content:flex-end;
+      gap:1.25rem;
+      background:var(--brand);
+      padding:0 .75rem 1rem;
     }
-    nav a:hover {
-      text-decoration: underline;
+    nav a{
+      color:#fff;
+      font-weight:600;
+      text-decoration:none;
     }
+    nav a:hover{ text-decoration:underline; }
 
     /* ===== App container ===== */
-    main {
-      max-width: 1100px;
-      margin: 1rem auto;
-      padding: 0 1rem;
+    main{
+      max-width:1100px;
+      margin:1rem auto 2rem;
+      padding:0 1rem;
     }
 
-    /* ===== Post summary grid & cards (unchanged) ===== */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
+    /* ===== Post summary grid & cards ===== */
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:1.25rem;              /* uniform gaps between cards */
     }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      overflow: hidden;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    .card{
+      background:var(--card-bg);
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 2px 4px rgba(0,0,0,.05);
+      overflow:hidden;
+      transition:transform .2s ease, box-shadow .2s ease;
     }
-    .card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    .card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 4px 12px rgba(0,0,0,.10);
     }
-    /* Limit image styling to card images so other views aren’t affected */
+
+    /* limit image rules to summary cards only (prevents global spillover) */
     .card .thumb,
-    .card img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-    .card-content {
-      padding: 1rem;
-    }
-    .card-title {
-      color: var(--brand);
-      font-weight: 700;
-      font-size: 1.1rem;
-      margin: 0 0 0.25rem;
-    }
-    .meta {
-      color: #555;
-      font-size: 0.9rem;
-      margin-bottom: 0.5rem;
+    .card img{
+      display:block;
+      width:100%;
+      height:auto;
     }
 
-    .btn {
-      background: var(--brand);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5rem 1.25rem;
-      cursor: pointer;
-      font-size: 1rem;
-      transition: background 0.2s ease;
-    }
-    .btn:hover { background: #1874d2; }
-
-    footer {
-      text-align: center;
-      font-size: 0.9rem;
-      padding: 2rem 0;
-      color: #666;
+    /* consistent inner padding on cards */
+    .card-content{
+      padding:1rem 1.25rem 1.25rem;  /* FIX: more comfortable left/right & bottom */
     }
 
-    /* ===== Poster (scoped ONLY to post-detail pages) =====
-       Your detail renderer wraps content with a .post container.
-       This prevents any impact on the summary grid/cards.
-    */
-    .post .poster-shell {
-      position: relative;
-      overflow: hidden;
-      border-radius: 12px;
-      aspect-ratio: 16/9;
-      background: #eee;
-      margin: 1rem auto;
-      max-width: min(900px, 92vw);
-      transition: box-shadow .2s ease;
+    .card-title{
+      color:var(--brand);
+      font-weight:800;
+      font-size:1.1rem;
+      margin:.1rem 0 .35rem;
+      line-height:1.25;
     }
-    .post .poster-shell:hover {
-      box-shadow: 0 0 10px rgba(0,0,0,0.15);
-    }
-    .post .poster-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: inherit;
-      display: block;
-      transition: opacity .2s ease;
-    }
-    .post .poster-shell:hover .poster-img {
-      opacity: 0.9;
+    .meta{
+      color:#555;
+      font-size:.92rem;
+      margin-bottom:.5rem;
     }
 
-    .meta-author-date {
-      color: #444;
-      margin-bottom: 1rem;
-      font-size: 0.95rem;
+    .btn{
+      background:var(--brand);
+      color:#fff;
+      border:none;
+      border-radius:6px;
+      padding:.55rem 1.2rem;
+      font-size:1rem;
+      cursor:pointer;
+      transition:background .2s;
+    }
+    .btn:hover{ background:#1874d2; }
+
+    footer{
+      text-align:center;
+      font-size:.9rem;
+      padding:2rem 0 3rem;
+      color:#666;
+    }
+
+    /* ===== Post-detail poster (scoped so grid is unaffected) ===== */
+    .post .poster-shell{
+      position:relative;
+      overflow:hidden;
+      border-radius:12px;
+      aspect-ratio:16/9;
+      background:#eee;
+      margin:1rem auto 1.25rem;
+      max-width:min(900px,92vw);
+      transition:box-shadow .2s ease;
+    }
+    .post .poster-shell:hover{ box-shadow:0 0 10px rgba(0,0,0,.15); }
+    .post .poster-img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      border-radius:inherit;
+      display:block;
+      transition:opacity .2s ease;
+    }
+    .post .poster-shell:hover .poster-img{ opacity:.9; }
+
+    /* meta line on detail page */
+    .meta-author-date{
+      color:#444;
+      margin:0 0 1rem;
+      font-size:.95rem;
+    }
+
+    /* small screens polish */
+    @media (max-width:560px){
+      .card-title{ font-size:1.05rem; }
+      .card-content{ padding:.9rem 1rem 1.1rem; }
     }
   </style>
 </head>
@@ -178,10 +188,10 @@
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.6.9<br />
-    <a href="https://okobserver.org" target="_blank">okobserver.org</a>
+    Unofficial demo client. © 2025 — v2.7.0<br/>
+    <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js?v=2.6.9"></script>
+  <script type="module" src="main.js?v=2.7.0"></script>
 </body>
 </html>
