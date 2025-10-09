@@ -1,11 +1,11 @@
 // detail.js — single post view
-// v2.6.2
-// - Always uses a clickable *poster image* for Facebook videos (so you always see something clickable)
-// - Keeps timeout-fallback poster for YouTube/Vimeo if an iframe is blocked/slow
-// - Poster priority: inline <a><img> next to the video → featured image → first inline image → local logo/icon
-// - Strong de-indent for first paragraph (handles inline/class/wrapper shims)
-// - Title stays brand blue, author/date meta intact
-// - Only a bottom “Back to posts” button
+// v2.6.4
+// - Facebook behaves like YT/Vimeo: try real iframe; fallback to poster on fail/slow
+// - Robust poster resolution + preload (never invisible):
+//     inline <a><img> near video → first inline image → featured image → local logo
+// - If a candidate image fails, auto-tries next; if all fail, remove embed (no gap)
+// - Strong de-indent for first paragraph (inline/class/wrapper shims)
+// - Title stays brand blue; author/date meta; only a bottom “Back to posts” button
 
 import { fetchPostById, getFeaturedImage, getAuthorName } from './api.js';
 import { createEl, ordinalDate } from './shared.js';
@@ -119,10 +119,11 @@ function normalizeIndentation(root) {
   }
 }
 
-/* ---------- video helpers (always-poster for Facebook) ---------- */
+/* ---------- video helpers ---------- */
 
-const ALWAYS_POSTER_HOSTS = /$^/; // matches nothing — disables always-poster behavior
 const VIDEO_HOST_RE = /(facebook\.com|youtu\.be|youtube\.com|vimeo\.com)/i;
+// No “always poster”: behave like YT/Vimeo for all hosts now.
+const ALWAYS_POSTER_HOSTS = /$^/; // matches nothing
 
 function findFirstVideoUrlFromHTML(html) {
   if (!html) return null;
@@ -147,6 +148,39 @@ function findFirstInlineImage(root) {
   return img && img.src ? img.src : null;
 }
 
+function preloadImage(src, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    if (!src) return reject(new Error('no src'));
+    const img = new Image();
+    const to = setTimeout(() => {
+      img.onload = img.onerror = null;
+      reject(new Error('poster timeout'));
+    }, timeoutMs);
+    img.onload = () => { clearTimeout(to); resolve(src); };
+    img.onerror = () => { clearTimeout(to); reject(new Error('poster error')); };
+    img.src = src;
+  });
+}
+
+async function resolvePosterSrc({ contentDiv, heroSrc, videoUrl }) {
+  const fallbacks = [
+    () => findInlinePosterForUrl(contentDiv, videoUrl),
+    () => findFirstInlineImage(contentDiv),
+    () => heroSrc || null,
+    () => 'Observer-Logo-2015-08-05.png'
+  ];
+  for (const get of fallbacks) {
+    const candidate = get();
+    try {
+      const ok = await preloadImage(candidate);
+      return ok;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 function makePosterLink(href, posterSrc) {
   const a = createEl('a', { href, class: 'video-poster', target: '_blank', rel: 'noopener' });
   const img = createEl('img', { src: posterSrc, alt: '' });
@@ -164,15 +198,20 @@ function dedupePlayers(container) {
   }
 }
 
-function replaceEmbedWithPoster(embedEl, href, posterSrc) {
+async function replaceEmbedWithPosterAsync(embedEl, href, posterPromise) {
   if (!embedEl) return;
   embedEl.classList.add('failed');
-  embedEl.innerHTML = ''; // collapse padding
-  if (href && posterSrc) {
-    embedEl.replaceWith(makePosterLink(href, posterSrc));
-  } else {
-    embedEl.remove(); // no gap
-  }
+  embedEl.innerHTML = ''; // collapse padding while we resolve poster
+
+  try {
+    const posterSrc = await posterPromise;
+    if (posterSrc) {
+      embedEl.replaceWith(makePosterLink(href, posterSrc));
+      return;
+    }
+  } catch {}
+  // If we get here, no poster worked — remove the block entirely (no white gap)
+  embedEl.remove();
 }
 
 function wireEmbedFallbacks(contentDiv, heroSrc) {
@@ -185,37 +224,32 @@ function wireEmbedFallbacks(contentDiv, heroSrc) {
     const iframe = wrap.querySelector('iframe');
     if (!iframe || !iframe.src || !VIDEO_HOST_RE.test(iframe.src)) continue;
 
-    // Compute best click target & poster
+    // Compute best click target now
     let targetUrl = iframe.src;
-    let posterUrl = findInlinePosterForUrl(contentDiv, targetUrl)
-                  || heroSrc
-                  || findFirstInlineImage(contentDiv)
-                  || 'Observer-Logo-2015-08-05.png';
 
-    // If there’s a nearby anchor that matches the host, prefer its href and image
+    // Nearby anchor hint
     const nearbyA = wrap.previousElementSibling?.matches?.('a[href]') ? wrap.previousElementSibling
                    : wrap.nextElementSibling?.matches?.('a[href]') ? wrap.nextElementSibling
                    : null;
     if (nearbyA && nearbyA.href && VIDEO_HOST_RE.test(nearbyA.href)) {
       targetUrl = nearbyA.href;
-      const img = nearbyA.querySelector('img');
-      if (img && img.src) posterUrl = img.src;
     }
 
-    // **Policy**:
-    // - Facebook: ALWAYS show a poster (prevents “unavailable” blank area)
-    // - Others: keep iframe unless it’s slow/blocked, then swap to poster by timeout
+    // Decide policy: with ALWAYS_POSTER_HOSTS disabled, try to keep the iframe
     if (ALWAYS_POSTER_HOSTS.test(iframe.src)) {
-      replaceEmbedWithPoster(wrap, targetUrl, posterUrl);
+      // (disabled, but keeping branch for clarity)
+      const posterP = resolvePosterSrc({ contentDiv, heroSrc, videoUrl: targetUrl });
+      replaceEmbedWithPosterAsync(wrap, targetUrl, posterP);
       continue;
     }
 
-    // Timeout fallback for YT/Vimeo/etc
+    // Timeout fallback for all hosts
     let done = false;
     const kill = () => {
       if (done) return;
       done = true;
-      replaceEmbedWithPoster(wrap, targetUrl, posterUrl);
+      const posterP = resolvePosterSrc({ contentDiv, heroSrc, videoUrl: targetUrl });
+      replaceEmbedWithPosterAsync(wrap, targetUrl, posterP);
     };
     const timer = setTimeout(kill, 3500);
 
@@ -291,7 +325,7 @@ export async function renderPost(id) {
     // Remove unwanted first-paragraph indentation
     normalizeIndentation(contentDiv);
 
-    // Video: poster fallback wiring (ALWAYS poster for Facebook)
+    // Video fallbacks (preload poster so it never appears invisible)
     wireEmbedFallbacks(contentDiv, heroSrc || null);
 
     shell.append(contentDiv);
