@@ -1,12 +1,9 @@
 // detail.js — single post view
-// v2.5.9
-// - Stronger de-indent:
-//   * clears inline + class-based (computed) left indents on the first text block
-//   * climbs up to 2 wrapper ancestors to neutralize margin/padding/text-indent
-//   * strips leading &nbsp;/&emsp;/thin spaces/& tabs
-//   * removes tiny inline-block "shim" spans
+// v2.6.1
+// - Replaces blocked/slow video iframes with a clickable poster (no white gap)
+// - Deduplicates multiple players (keep the first)
+// - Strong de-indent for first paragraph
 // - Title stays brand blue, author/date meta intact
-// - Hero clickable to first fb/youtube/vimeo link if present
 // - Only a bottom “Back to posts” button
 
 import { fetchPostById, getFeaturedImage, getAuthorName } from './api.js';
@@ -29,11 +26,10 @@ function formatDate(iso) {
   }
 }
 
-/* ---------- indent normalization helpers ---------- */
-
+/* ---------- indent normalization (unchanged from 2.6.0) ---------- */
 const STRIP_LEADING_HTML_SPACES_RE = /^(?:&nbsp;|&ensp;|&emsp;|\s)+/i;
 const STRIP_LEADING_UNICODE_SPACES_RE = /^[\u00A0\u2000-\u200A\u202F\u205F\u3000\t ]+/;
-/** treat small left spacing as indent (<= 3em OR <= 48px) */
+
 function isSmallIndent(v = '') {
   const s = String(v).trim().toLowerCase();
   if (!s) return false;
@@ -46,40 +42,34 @@ function isSmallIndent(v = '') {
   if (unit === 'em' || unit === 'rem') return Math.abs(num) <= 3.0;
   return false;
 }
-
-/** clear inline indent-like styles on element */
+function setImportant(el, prop, value) {
+  try { el.style.setProperty(prop, value, 'important'); } catch { el.style[prop] = value; }
+}
 function clearInlineIndent(el) {
   if (!el || !el.style) return;
-  if (el.style.textIndent && el.style.textIndent !== '0' && el.style.textIndent !== '0px') el.style.textIndent = '0';
-  if (el.style.marginLeft && isSmallIndent(el.style.marginLeft)) el.style.marginLeft = '0';
-  if (el.style.paddingLeft && isSmallIndent(el.style.paddingLeft)) el.style.paddingLeft = '';
+  if (el.style.textIndent && el.style.textIndent !== '0' && el.style.textIndent !== '0px') setImportant(el, 'text-indent', '0');
+  if (el.style.marginLeft && isSmallIndent(el.style.marginLeft)) setImportant(el, 'margin-left', '0');
+  if (el.style.paddingLeft && isSmallIndent(el.style.paddingLeft)) setImportant(el, 'padding-left', '0');
 }
-
-/** neutralize *computed* indent by writing inline zeroes (covers class-based CSS) */
-function clearComputedIndent(el) {
+function clearComputedIndent(el, hard = false) {
   if (!el) return;
   const cs = getComputedStyle(el);
-  // Only zero “indent-like” small values to avoid nuking legit layout
-  if (isSmallIndent(cs.textIndent)) el.style.textIndent = '0';
-  if (isSmallIndent(cs.marginLeft)) el.style.marginLeft = '0';
-  if (isSmallIndent(cs.paddingLeft)) el.style.paddingLeft = '';
+  if (hard) { setImportant(el,'text-indent','0'); setImportant(el,'margin-left','0'); setImportant(el,'padding-left','0'); return; }
+  if (isSmallIndent(cs.textIndent)) setImportant(el, 'text-indent', '0');
+  if (isSmallIndent(cs.marginLeft)) setImportant(el, 'margin-left', '0');
+  if (isSmallIndent(cs.paddingLeft)) setImportant(el, 'padding-left', '0');
 }
-
-/** remove leading entities/spaces and shim spans from a paragraph */
 function cleanParagraphText(p) {
   if (!p) return;
-  // strip leading entities in HTML
   if (p.innerHTML) {
     const cleaned = p.innerHTML.replace(STRIP_LEADING_HTML_SPACES_RE, '');
     if (cleaned !== p.innerHTML) p.innerHTML = cleaned;
   }
-  // strip leading unicode spaces/tabs in text node
   const n = p.firstChild;
   if (n && n.nodeType === Node.TEXT_NODE && n.nodeValue) {
     const trimmed = n.nodeValue.replace(STRIP_LEADING_UNICODE_SPACES_RE, '');
     if (trimmed !== n.nodeValue) n.nodeValue = trimmed;
   }
-  // remove small-width inline-block shim spans
   const spans = p.querySelectorAll('span[style], i[style], em[style]');
   for (const el of spans) {
     const disp = (el.style.display || '').toLowerCase();
@@ -90,61 +80,146 @@ function cleanParagraphText(p) {
     }
   }
 }
-
-/** find the first real text block (p/div/section/article/blockquote) with some text */
 function findFirstTextBlock(root) {
   if (!root) return null;
   const candidates = root.querySelectorAll('p, div, section, article, blockquote');
   for (const el of candidates) {
-    // Skip empty or media-only
     const text = (el.textContent || '').replace(/\s+/g, '');
     if (text.length > 0) return el;
   }
   return null;
 }
-
-/** main normalizer: clears inline & computed left indents on first text block and parents */
 function normalizeIndentation(root) {
   if (!root) return;
+  root.querySelectorAll('p').forEach((p) => { clearInlineIndent(p); cleanParagraphText(p); });
+  root.querySelectorAll('[style]').forEach((el) => { clearInlineIndent(el); });
 
-  // 1) Blanket inline cleanup on all <p> and [style] wrappers
-  root.querySelectorAll('p').forEach((p) => {
-    clearInlineIndent(p);
-    cleanParagraphText(p);
-  });
-  root.querySelectorAll('[style]').forEach((el) => {
-    clearInlineIndent(el);
-  });
-
-  // 2) Target the *first* real text block and neutralize its computed indent
   const firstBlock = findFirstTextBlock(root);
   if (firstBlock) {
+    clearComputedIndent(firstBlock, true);
     clearInlineIndent(firstBlock);
-    clearComputedIndent(firstBlock);
-
-    // Also climb up to 2 ancestors inside the content area and neutralize small computed indents
-    let up = firstBlock.parentElement;
-    let hops = 0;
-    while (up && hops < 2 && root.contains(up)) {
-      clearInlineIndent(up);
-      clearComputedIndent(up);
-      up = up.parentElement;
-      hops++;
+    cleanParagraphText(firstBlock.tagName === 'P' ? firstBlock : null);
+    let up = firstBlock.parentElement, hops = 0;
+    while (up && hops < 3 && root.contains(up)) {
+      clearComputedIndent(up, false); clearInlineIndent(up);
+      up = up.parentElement; hops++;
     }
   }
-
-  // 3) If a lone blockquote is used to indent the first paragraph, neutralize its left offset
-  // (we do not unwrap, we just remove the indent — keeps semantics)
   const bq = root.querySelector('blockquote');
   if (bq) {
-    clearInlineIndent(bq);
-    clearComputedIndent(bq);
-    // Some themes add borders for quote “indent”; suppress if it’s just acting as an indent shim
+    clearInlineIndent(bq); clearComputedIndent(bq, false);
     const cs = getComputedStyle(bq);
     const hasLeftBorder = parseFloat(cs.borderLeftWidth || '0') > 0;
     if (hasLeftBorder && isSmallIndent(cs.marginLeft || '0px')) {
-      bq.style.borderLeft = 'none';
+      setImportant(bq, 'border-left', 'none');
+      setImportant(bq, 'padding-left', '0');
+      setImportant(bq, 'margin-left', '0');
     }
+  }
+}
+
+/* ---------- video helpers ---------- */
+
+const VIDEO_HOST_RE = /(facebook\.com|youtu\.be|youtube\.com|vimeo\.com)/i;
+
+function findFirstVideoUrlFromHTML(html) {
+  if (!html) return null;
+  const m = html.match(/https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i);
+  return m ? m[0] : null;
+}
+
+function findInlinePosterForUrl(root, url) {
+  if (!root || !url) return null;
+  // Common pattern: <a href="video"><img ...></a>
+  const anchors = Array.from(root.querySelectorAll(`a[href]`))
+    .filter(a => a.href && a.href.includes(new URL(url).hostname));
+  for (const a of anchors) {
+    const img = a.querySelector('img');
+    if (img && img.src) return img.src;
+  }
+  return null;
+}
+
+function makePosterLink(href, posterSrc) {
+  const a = createEl('a', { href, class: 'video-poster', target: '_blank', rel: 'noopener' });
+  const img = createEl('img', { src: posterSrc, alt: '' });
+  a.append(img);
+  return a;
+}
+
+function dedupePlayers(container) {
+  const iframes = Array.from(container.querySelectorAll('iframe'))
+    .filter(f => f.src && VIDEO_HOST_RE.test(f.src));
+  if (iframes.length <= 1) return;
+  // Keep first, remove the rest
+  for (let i = 1; i < iframes.length; i++) {
+    const wrap = iframes[i].closest('.embed') || iframes[i];
+    wrap.remove();
+  }
+}
+
+function replaceBlockedEmbed(embedEl, posterHref, posterSrc) {
+  if (!embedEl) return;
+  embedEl.classList.add('failed');
+  embedEl.innerHTML = ''; // collapse padding
+  if (posterHref && posterSrc) {
+    embedEl.replaceWith(makePosterLink(posterHref, posterSrc));
+  } else {
+    embedEl.remove(); // no gap
+  }
+}
+
+function wireEmbedFallbacks(contentDiv, heroSrc) {
+  const embeds = Array.from(contentDiv.querySelectorAll('.embed'));
+  if (!embeds.length) return;
+
+  // Deduplicate first
+  dedupePlayers(contentDiv);
+
+  for (const wrap of embeds) {
+    const iframe = wrap.querySelector('iframe');
+    if (!iframe || !iframe.src || !VIDEO_HOST_RE.test(iframe.src)) continue;
+
+    // Try to find a poster image that matches this host
+    let posterUrl = findInlinePosterForUrl(contentDiv, iframe.src) || heroSrc || null;
+    let targetUrl = iframe.src;
+
+    // If there’s a nearby anchor with a matching host, prefer that as the click target
+    const nearbyA = wrap.previousElementSibling?.matches('a[href]') ? wrap.previousElementSibling
+                   : wrap.nextElementSibling?.matches('a[href]') ? wrap.nextElementSibling
+                   : null;
+    if (nearbyA && nearbyA.href && VIDEO_HOST_RE.test(nearbyA.href)) {
+      targetUrl = nearbyA.href;
+      if (!posterUrl) {
+        const img = nearbyA.querySelector('img');
+        if (img && img.src) posterUrl = img.src;
+      }
+    }
+
+    // Fallback policy:
+    // - If the iframe doesn't load fast, or errors, replace with poster.
+    // - We can't inspect cross-origin content, so rely on events + timeout.
+    let done = false;
+    const kill = () => {
+      if (done) return;
+      done = true;
+      replaceBlockedEmbed(wrap, targetUrl, posterUrl);
+    };
+
+    const timer = setTimeout(kill, 3500); // slow/blocked -> poster
+
+    iframe.addEventListener('load', () => {
+      // If it actually loaded, keep it; clear timer.
+      if (done) return;
+      clearTimeout(timer);
+      // Some providers still render an "unavailable" page; we cannot detect cross-origin.
+      // If you want to force poster for Facebook always, uncomment:
+      // if (/facebook\.com/i.test(iframe.src)) { kill(); }
+    }, { once: true });
+
+    iframe.addEventListener('error', () => {
+      kill();
+    }, { once: true });
   }
 }
 
@@ -192,13 +267,11 @@ export async function renderPost(id) {
       img.dataset.clickable = 'false';
       try {
         const contentHtml = String(post?.content?.rendered || '');
-        const m = contentHtml.match(
-          /https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i
-        );
+        const m = findFirstVideoUrlFromHTML(contentHtml);
         if (m) {
           img.dataset.clickable = 'true';
           img.style.cursor = 'pointer';
-          img.addEventListener('click', () => window.open(m[0], '_blank', 'noopener'));
+          img.addEventListener('click', () => window.open(m, '_blank', 'noopener'));
         }
       } catch {}
       shell.append(img);
@@ -208,15 +281,18 @@ export async function renderPost(id) {
     const contentDiv = createEl('div', { class: 'content' });
     contentDiv.innerHTML = post?.content?.rendered || '';
 
-    // 🚫 Ensure the first paragraph cannot be indented by inline, class, or wrappers
+    // Remove unwanted paragraph indentation
     normalizeIndentation(contentDiv);
+
+    // Wire video fallbacks: replace blocked/slow iframes with poster link, dedupe players
+    wireEmbedFallbacks(contentDiv, heroSrc || null);
 
     shell.append(contentDiv);
 
     // Only bottom “Back to posts” button
     shell.append(renderBackButton());
 
-    // Detail starts at top
+    // Start at top
     window.scrollTo(0, 0);
 
   } catch (err) {
