@@ -1,123 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The Oklahoma Observer</title>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Oklahoma Observer — OkObserver App</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <style>
+    :root {
+      --brand: #1E90FF;
+      --bg: #f9f9fb;
+      --text: #111;
+      --card-bg: #fff;
+      --border: #e2e2e2;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      background: var(--brand);
+      color: white;
+      text-align: center;
+      padding: 1.25rem 0 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    header img {
+      display: block;
+      margin: 0 auto;
+      height: 64px;
+      width: auto;
+    }
+    header .motto {
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      margin-top: 0.35rem;
+    }
+    nav {
+      display: flex;
+      justify-content: flex-end;
+      background: var(--brand);
+      gap: 1.5rem;
+      padding: 0.5rem 1rem 1rem;
+      position: sticky;
+      top: 0;
+    }
+    nav a {
+      color: white;
+      font-weight: 500;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
 
-    <link rel="icon" type="image/png" href="icon.png" />
-    <link rel="apple-touch-icon" href="icon.png" />
+    main {
+      max-width: 1000px;
+      margin: 1rem auto;
+      padding: 0 1rem;
+    }
 
-    <style>
-      :root { --brand:#1E90FF; --bg:#ffffff; --text:#222; --border:#ddd; }
-      body {
-        margin:0;
-        font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-        background:var(--bg);
-        color:var(--text);
-      }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
 
-      header { position:sticky; top:0; z-index:100; background:var(--brand); color:#fff; }
-      .header-inner {
-        display:flex; align-items:center; justify-content:space-between;
-        padding:.6em 1em; gap:1rem; max-width:1200px; margin:0 auto;
-      }
-      .brand { display:flex; flex-direction:column; align-items:center; gap:.3rem; text-align:center; }
-      .brand img.logo { height:38px; width:auto; display:block; }
-      .brand .motto { font-size:.88em; font-weight:600; line-height:1.1; white-space:nowrap; }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .card-content {
+      padding: 1rem;
+    }
+    .card-title {
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin: 0 0 0.25rem;
+    }
+    .meta {
+      color: #555;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
 
-      nav { display:flex; gap:1em; }
-      nav a { color:#fff; text-decoration:none; font-weight:500; }
-      nav a:hover { text-decoration:underline; }
+    .btn {
+      background: var(--brand);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.2s ease;
+    }
+    .btn:hover {
+      background: #1874d2;
+    }
 
-      main { padding:1em; max-width:1200px; margin:0 auto; }
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      padding: 2rem 0;
+      color: #666;
+    }
 
-      .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1.2em; }
-      .grid .card { background:#fff; border:1px solid var(--border); border-radius:8px; padding:1em;
-        box-shadow:0 1px 3px rgba(0,0,0,.08); transition:transform .1s ease, box-shadow .1s ease; }
-      .grid .card:hover { transform:translateY(-2px); box-shadow:0 3px 6px rgba(0,0,0,.12); }
-      .grid .card img.thumb { display:block; width:100%; height:200px; object-fit:cover; border-radius:6px; cursor:pointer; margin-bottom:.6em; }
-      .grid .card .meta { font-size:.9em; color:#555; margin:.3em 0 .8em 0; font-style:italic; display:block; }
-      .grid .card .title a { text-decoration:none; color:#1E90FF; font-weight:600; font-size:1.1em; }
-      .grid .card .title a:hover { text-decoration:underline; }
-      .grid .card .excerpt { font-size:.95em; line-height:1.5; margin-top:.4em; }
-      #loader { text-align:center; color:#555; margin:2em 0; }
+    /* Posters */
+    .poster-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      aspect-ratio: 16/9;
+      background: #eee;
+      margin: 1rem auto;
+      max-width: min(900px, 92vw);
+      transition: box-shadow .2s ease;
+    }
+    .poster-shell:hover {
+      box-shadow: 0 0 10px rgba(0,0,0,0.15);
+    }
+    .poster-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+      transition: opacity .2s ease;
+    }
+    .poster-shell:hover .poster-img {
+      opacity: 0.9;
+    }
 
-      .post-detail h1.title { color:#1E90FF!important; font-size:1.6em; margin-top:.4em; }
-      .post-detail .meta { color:#555; font-style:italic; font-size:.9em; margin-bottom:1.0em; }
-      .post-detail img.hero {
-        display:block; width:100%; height:auto; object-fit:contain; border-radius:6px; margin-bottom:1em;
-        cursor:pointer; transition:opacity .2s ease;
-      }
-      .post-detail img.hero[data-clickable="true"]:hover { opacity:.9; }
-      .post-detail .content { line-height:1.6; }
-      .post-detail p { text-indent:0!important; margin-bottom:1.2em; }
-      .post-detail .content img { display:block; max-width:100%; height:auto; margin:1.2em auto; border-radius:6px; }
+    .meta-author-date {
+      color: #444;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="Observer-Logo-2015-08-05.png" alt="Observer logo" />
+    <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+  </header>
 
-      /* Responsive embed */
-      .embed { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; margin:1em 0; }
-      .embed iframe { position:absolute; top:0; left:0; width:100%; height:100%; border:0; }
-      /* New: collapse failed embeds (no white gap) */
-      .embed.failed { padding-bottom:0; height:auto; }
+  <nav>
+    <a href="#/">Posts</a>
+    <a href="#/about">About</a>
+  </nav>
 
-      /* Poster button for blocked videos */
-      .video-poster {
-        display:block; position:relative; border-radius:6px; overflow:hidden; margin:1em 0; cursor:pointer;
-      }
-      .video-poster img { display:block; width:100%; height:auto; object-fit:cover; }
-      .video-poster::after {
-        content:"▶"; position:absolute; inset:auto auto 12px 12px; font-size:22px;
-        background:rgba(0,0,0,.6); color:#fff; border-radius:50%; width:36px; height:36px;
-        display:grid; place-items:center;
-      }
-      .video-poster:hover img { opacity:.92; }
+  <main id="app">
+    <p>Loading…</p>
+  </main>
 
-      .about { max-width:800px; margin:2em auto; line-height:1.6; padding:1em; }
-      .about h2 { color:#1E90FF; margin-top:1em; }
+  <footer>
+    Unofficial demo client. © 2025 — v2.6.8<br />
+    <a href="https://okobserver.org" target="_blank">okobserver.org</a>
+  </footer>
 
-      .btn {
-        display:inline-block; padding:8px 14px; border-radius:7px; border:1px solid rgba(0,0,0,.08);
-        background:#1E90FF; color:#fff; text-decoration:none; font-weight:600; cursor:pointer;
-        box-shadow:0 1px 2px rgba(0,0,0,.06); transition:transform .06s ease, box-shadow .06s ease, opacity .2s ease;
-      }
-      .btn:hover { transform:translateY(-1px); box-shadow:0 2px 4px rgba(0,0,0,.10); }
-      .btn:active { transform:translateY(0); }
-
-      @media (max-width:768px){
-        .brand img.logo{height:32px;}
-        .brand .motto{font-size:.8em; white-space:normal;}
-        nav{gap:.75em;}
-        .grid{grid-template-columns:1fr;}
-      }
-    </style>
-
-    <script>
-      try { sessionStorage.removeItem('__oko_api_base_lock'); } catch (e) {}
-      window.OKO_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-      console.info('[OkObserver] Pre-lock base set in index.html:', window.OKO_API_BASE);
-    </script>
-  </head>
-
-  <body>
-    <header>
-      <div class="header-inner">
-        <div class="brand">
-          <img src="Observer-Logo-2015-08-05.png" alt="Observer logo" class="logo" />
-          <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
-        </div>
-        <nav>
-          <a href="#/">Posts</a>
-          <a href="#/about">About</a>
-        </nav>
-      </div>
-    </header>
-
-    <main id="app"><div id="loader">Loading…</div></main>
-
-    <footer style="text-align:center; padding:2em 0; font-size:.9em; color:#555;">
-      Unofficial demo client. © 2025 — v2.6.1
-    </footer>
-
-    <script type="module" src="main.js?v=2.6.1" defer></script>
-  </body>
+  <script type="module" src="main.js?v=2.6.8"></script>
+</body>
 </html>
