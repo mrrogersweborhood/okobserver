@@ -1,108 +1,53 @@
-// core.js — app shell + router + scroll restore
-// v2.4.6
+// core.js — simple hash router with scroll restoration
+// v2.5.4
 
-import { renderHome }  from './home.js';
-import { renderPost }  from './detail.js';
+import { renderHome } from './home.js';
+import { renderPost } from './detail.js';
 import { renderAbout } from './about.js';
 
-const SCROLL_KEY = '__oko_scroll__';
-let lastRoute = null;
+let lastScrollPositions = {};
+let currentRoute = '/';
 
-/* ---------------- DOM readiness ---------------- */
-function domReady() {
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    return Promise.resolve();
-  }
-  return new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
+/** Save current scroll position for the given route */
+export function saveScrollForRoute(route) {
+  lastScrollPositions[route] = window.scrollY;
 }
 
-/* Ensure an #app mount exists */
-function ensureAppMount() {
-  let el = document.getElementById('app');
-  if (!el) {
-    el = document.createElement('main');
-    el.id = 'app';
-    // insert before footer if present, else at end of body
-    const footer = document.querySelector('footer');
-    if (footer && footer.parentNode) {
-      footer.parentNode.insertBefore(el, footer);
-    } else {
-      document.body.appendChild(el);
-    }
-  }
-  return el;
+/** Restore scroll position for the given route, if available */
+export function restoreScrollForRoute(route) {
+  const y = lastScrollPositions[route] ?? 0;
+  requestAnimationFrame(() => window.scrollTo(0, y));
 }
 
-/* ---------------- Scroll restore (Home) ---------------- */
-function restoreHomeScroll() {
-  try {
-    const raw = sessionStorage.getItem(SCROLL_KEY);
-    if (raw != null) {
-      const y = parseInt(raw, 10);
-      sessionStorage.removeItem(SCROLL_KEY);
-      if (!Number.isNaN(y)) {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: y, behavior: ('instant' in window) ? 'instant' : 'auto' });
-        });
-        return;
-      }
-    }
-  } catch {}
-  requestAnimationFrame(() => window.scrollTo({ top: 0 }));
-}
+/** Basic router */
+export async function router() {
+  const hash = location.hash || '#/';
+  const route = hash.replace(/^#/, '') || '/';
+  const main = document.getElementById('app');
 
-/* ---------------- Route helpers ---------------- */
-function currentRoute() {
-  const h = location.hash || '#/';
-  return h.startsWith('#/') ? h : '#/';
-}
+  // Before navigating, remember current route’s scroll position
+  if (currentRoute) saveScrollForRoute(currentRoute);
+  currentRoute = route;
 
-/* ---------------- Router ---------------- */
-export async function router(force = true) {
-  ensureAppMount(); // make sure #app exists before any render
-  const route = currentRoute();
+  if (!main) return;
 
-  if (!force && route === lastRoute) return;
-
-  const m = route.match(/^#\/post\/(\d+)(?:[/?].*)?$/);
-  if (m) {
-    lastRoute = route;
-    await renderPost(m[1]);
-    return;
-  }
-
-  if (route.startsWith('#/about')) {
-    lastRoute = route;
+  if (route === '/' || route.startsWith('/page')) {
+    await renderHome();
+    restoreScrollForRoute(route);
+  } else if (route.startsWith('/post/')) {
+    const id = route.split('/post/')[1];
+    if (id) await renderPost(id);
+    window.scrollTo(0, 0); // always start at top for post
+  } else if (route.startsWith('/about')) {
     await renderAbout();
-    return;
+    window.scrollTo(0, 0);
+  } else {
+    main.innerHTML = `<p>Page not found.</p>`;
   }
-
-  // Home (default) — always render fresh so Back-to-posts never blanks
-  lastRoute = route;
-  await renderHome();
-  restoreHomeScroll();
 }
 
-/* ---------------- App start ---------------- */
-export async function start() {
-  await domReady();
-  ensureAppMount();
-
-  // Initial render
-  await router(true);
-
-  // Hash-based navigation — force repaint so Back works 100%
-  window.addEventListener('hashchange', () => router(true), { passive: true });
-
-  // When returning from bfcache, repaint
-  window.addEventListener('pageshow', (e) => { if (e.persisted) router(true); });
-
-  // Fallback scroll save on unload (Home already saves on click)
-  window.addEventListener('beforeunload', () => {
-    try {
-      if ((location.hash || '#/') === '#/') {
-        sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0));
-      }
-    } catch {}
-  });
+/** Start router and listen for hash changes */
+export function start() {
+  window.addEventListener('hashchange', router);
+  router();
 }
