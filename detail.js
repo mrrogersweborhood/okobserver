@@ -1,98 +1,88 @@
-// detail.js — post detail with clickable hero (no duplicate players) + solid Back button
-// v2.4.5
+// detail.js — single post view
+// v2.5.3 — forces blue title, and shows ONLY a bottom “Back to posts” button
 
-import {
-  fetchPostById,
-  getFeaturedImage,
-  resolveFeaturedImage,
-  getAuthorName,
-  fetchAuthorsMap
-} from './api.js';
-import { createEl, decodeEntities, ordinalDate, normalizeFirstParagraph } from './shared.js';
+import { fetchPostById, getFeaturedImage, getAuthorName } from './api.js';
+import { createEl, ordinalDate } from './shared.js';
 
-const app = () => document.getElementById('app');
-
-function detectExternalVideoUrl(html){
-  const a = document.createElement("div");
-  a.innerHTML = html || "";
-  const links = Array.from(a.querySelectorAll("a[href]")).map(e=>e.getAttribute("href"));
-  for (const href of links){
-    if (!href) continue;
-    if (/facebook\.com\/.*\/videos\//i.test(href)) return href;
-    if (/vimeo\.com\/\d+/i.test(href)) return href;
-    if (/youtube\.com\/watch\?v=|youtu\.be\//i.test(href)) return href;
-  }
-  return null;
+function decodeEntity(str = '') {
+  const t = document.createElement('textarea');
+  t.innerHTML = str;
+  return t.value;
 }
 
-function contentHasIframe(html){
-  const a = document.createElement('div'); a.innerHTML = html || '';
-  return !!a.querySelector('iframe');
+function formatDate(iso) {
+  try {
+    const d = new Date(iso);
+    return ordinalDate ? ordinalDate(d) : d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+  } catch { return ''; }
 }
 
-export async function renderPost(id){
-  const host = app();
-  if (!host) return;
-  host.innerHTML = "Loading…";
+function renderBackButton() {
+  const wrap = createEl('div', { style: 'margin-top: 1.25em;' });
+  const btn = createEl('button', { class: 'btn', type: 'button' });
+  btn.textContent = 'Back to posts';
+  btn.addEventListener('click', () => { location.hash = '#/'; });
+  wrap.append(btn);
+  return wrap;
+}
 
-  const post = await fetchPostById(id);
+export async function renderPost(id) {
+  const host = document.getElementById('app') || document.body;
+  host.innerHTML = `
+    <article class="post-detail">
+      <div class="content-wrap"></div>
+    </article>
+  `;
 
-  // Author (embedded or fallback fetch)
-  let author = getAuthorName(post);
-  if (!author || author === 'The Oklahoma Observer'){
-    try{
-      const map = await fetchAuthorsMap([post?.author].filter(Boolean));
-      const alt = map[post?.author];
-      if (alt) author = alt;
-    }catch{}
-  }
+  const shell = host.querySelector('.post-detail .content-wrap');
 
-  const title = decodeEntities(post?.title?.rendered || "");
-  const date = ordinalDate(post?.date);
-  const contentHTML = String(post?.content?.rendered || "");
+  try {
+    const post = await fetchPostById(id);
 
-  const h1 = createEl("h1",{},[title || "Untitled"]);
-  const meta = createEl("div",{class:"meta"}, [`${author} — ${date}`]);
+    // Title (force brand blue via CSS; also keep inline as hard override)
+    const h1 = createEl('h1', { class: 'title' });
+    h1.textContent = decodeEntity(post?.title?.rendered || 'Untitled');
+    h1.style.color = '#1E90FF';
+    shell.append(h1);
 
-  const content = createEl("div",{class:"content", html: contentHTML});
-  normalizeFirstParagraph(content);
+    // Meta line (author + date)
+    const meta = createEl('div', { class: 'meta' });
+    const authorName = getAuthorName(post, /*fallback*/ null);
+    const dateStr = formatDate(post?.date);
+    meta.textContent = `${authorName ? `By ${authorName}` : ''}${authorName && dateStr ? ' • ' : ''}${dateStr}`;
+    shell.append(meta);
 
-  const extVideo = detectExternalVideoUrl(contentHTML);
-  const hasIframe = contentHasIframe(contentHTML);
-
-  // Hero image only when content doesn't already contain an iframe player
-  let hero = null;
-  if (!hasIframe) {
-    const initial = getFeaturedImage(post);
-    hero = createEl("img",{class:"hero", alt:title || "featured image"});
-    hero.style.visibility = "hidden"; hero.setAttribute("aria-hidden","true");
-
-    const reveal = (src)=>{
-      if (!src){ hero.remove(); hero=null; return; }
-      hero.src = src;
-      hero.onload = ()=>{ hero.style.visibility="visible"; hero.removeAttribute("aria-hidden"); };
-      hero.onerror = ()=>{ hero.remove(); hero=null; };
-    };
-    if (initial) reveal(initial); else resolveFeaturedImage(post).then(reveal).catch(()=>{ hero.remove(); hero=null; });
-
-    if (extVideo){
-      hero?.classList.add("hero--clickable");
-      hero && hero.addEventListener("click", ()=>{ window.open(extVideo, "_blank","noopener"); });
-      if (hero) hero.title = "Open video in a new tab";
+    // Hero image (clickable only if it actually links to something useful)
+    const heroSrc = getFeaturedImage(post);
+    if (heroSrc) {
+      const img = createEl('img', { class: 'hero', src: heroSrc, alt: '' });
+      img.dataset.clickable = 'false';
+      // If content includes a video link we want to open in a new tab, make hero clickable
+      try {
+        const contentHtml = String(post?.content?.rendered || '');
+        const m = contentHtml.match(/https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i);
+        if (m) {
+          img.dataset.clickable = 'true';
+          img.style.cursor = 'pointer';
+          img.addEventListener('click', () => window.open(m[0], '_blank', 'noopener'));
+        }
+      } catch {}
+      shell.append(img);
     }
+
+    // Post content (clean minimal)
+    const contentDiv = createEl('div', { class: 'content' });
+    contentDiv.innerHTML = post?.content?.rendered || '';
+    // Ensure first paragraph has no indentation
+    const firstP = contentDiv.querySelector('p');
+    if (firstP) firstP.style.textIndent = '0';
+    shell.append(contentDiv);
+
+    // ONLY bottom back button
+    shell.append(renderBackButton());
+
+  } catch (err) {
+    console.error('[OkObserver] Post load failed:', err);
+    host.innerHTML = `<p>Sorry, this post could not be loaded.</p>`;
   }
-
-  // Back to posts — slight delay so DOM flushes before route change
-  const backBottom = createEl("a",{class:"btn", href:"#/", role:"button"},["Back to posts"]);
-  backBottom.addEventListener("click", (e) => {
-    e.preventDefault();
-    setTimeout(() => { location.hash = "#/"; }, 60);
-  });
-
-  const article = createEl("article",{class:"post"},[
-    h1, meta, ...(hero?[hero]:[]), content, createEl("div",{style:"margin-top:14px"},[backBottom])
-  ]);
-
-  host.innerHTML = "";
-  host.append(article);
 }
