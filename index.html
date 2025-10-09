@@ -13,11 +13,10 @@
       --text:#111;
       --card-bg:#fff;
       --border:#e2e2e2;
-      /* estimated sticky header height for scroll offset */
-      --header-h: 120px;
+      --header-h: 120px; /* sticky header height for scroll offset */
     }
 
-    html{ scroll-padding-top: var(--header-h); } /* avoid content tucking under sticky header */
+    html{ scroll-padding-top: var(--header-h); }
     body{
       margin:0;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -50,7 +49,7 @@
       opacity:.95;
     }
 
-    /* ===== Top nav (NOT sticky to prevent double-sticky overlap) ===== */
+    /* ===== Top nav (not sticky to avoid double overlap) ===== */
     nav{
       display:flex;
       justify-content:flex-end;
@@ -76,12 +75,12 @@
     .grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-      gap:1.25rem;              /* uniform gaps between cards */
+      gap:1.5rem; /* a touch more space between cards */
     }
     .card{
       background:var(--card-bg);
       border:1px solid var(--border);
-      border-radius:12px;
+      border-radius:14px;
       box-shadow:0 2px 4px rgba(0,0,0,.05);
       overflow:hidden;
       transition:transform .2s ease, box-shadow .2s ease;
@@ -91,7 +90,7 @@
       box-shadow:0 4px 12px rgba(0,0,0,.10);
     }
 
-    /* limit image rules to summary cards only (prevents global spillover) */
+    /* only affect summary card images */
     .card .thumb,
     .card img{
       display:block;
@@ -99,22 +98,23 @@
       height:auto;
     }
 
-    /* consistent inner padding on cards */
+    /* ===== Comfortable inner padding (FIX) ===== */
     .card-content{
-      padding:1rem 1.25rem 1.25rem;  /* FIX: more comfortable left/right & bottom */
+      padding:1.1rem 1.6rem 1.35rem;  /* ↑ wider side padding to keep excerpt away from edges */
+      line-height:1.55;               /* easier reading */
     }
 
     .card-title{
       color:var(--brand);
       font-weight:800;
-      font-size:1.1rem;
-      margin:.1rem 0 .35rem;
+      font-size:1.12rem;
+      margin:.15rem 0 .45rem;
       line-height:1.25;
     }
     .meta{
       color:#555;
       font-size:.92rem;
-      margin-bottom:.5rem;
+      margin-bottom:.6rem;
     }
 
     .btn{
@@ -136,7 +136,7 @@
       color:#666;
     }
 
-    /* ===== Post-detail poster (scoped so grid is unaffected) ===== */
+    /* ===== Post-detail poster (scoped) ===== */
     .post .poster-shell{
       position:relative;
       overflow:hidden;
@@ -158,17 +158,16 @@
     }
     .post .poster-shell:hover .poster-img{ opacity:.9; }
 
-    /* meta line on detail page */
     .meta-author-date{
       color:#444;
       margin:0 0 1rem;
       font-size:.95rem;
+      line-height:1.45;
     }
 
-    /* small screens polish */
     @media (max-width:560px){
-      .card-title{ font-size:1.05rem; }
-      .card-content{ padding:.9rem 1rem 1.1rem; }
+      .card-title{ font-size:1.06rem; }
+      .card-content{ padding:1rem 1.4rem 1.2rem; }
     }
   </style>
 </head>
@@ -188,10 +187,10 @@
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.7.0<br/>
+    Unofficial demo client. © 2025 — v2.7.1<br/>
     <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js?v=2.7.0"></script>
+  <script type="module" src="main.js?v=2.7.1"></script>
 </body>
 </html>
