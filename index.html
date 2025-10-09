@@ -76,18 +76,22 @@
       gap:1.75rem;
     }
 
-    /* ===== Frameless Cards ===== */
+    /* ===== Light Framed Cards ===== */
     .card{
-      background:none;
-      border:none;
-      border-radius:0;
-      box-shadow:none;
+      background:#fff;
+      border:1px solid #eee;
+      border-radius:10px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .card:hover{
+      transform:translateY(-2px);
+      box-shadow:0 3px 8px rgba(0,0,0,.06);
     }
 
     .card-content{
-      padding:0 1.75rem 1.5rem;
+      padding:1.1rem 1.6rem 1.35rem;
       line-height:1.6;
-      background:transparent;
     }
 
     .card-title{
@@ -153,7 +157,7 @@
 
     @media (max-width:560px){
       .card-title{ font-size:1.06rem; }
-      .card-content{ padding:0 1.4rem 1.2rem; }
+      .card-content{ padding:1rem 1.4rem 1.2rem; }
     }
   </style>
 </head>
@@ -173,10 +177,10 @@
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.7.2<br/>
+    Unofficial demo client. © 2025 — v2.7.3<br/>
     <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js?v=2.7.2"></script>
+  <script type="module" src="main.js?v=2.7.3"></script>
 </body>
 </html>
