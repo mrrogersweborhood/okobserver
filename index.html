@@ -9,15 +9,20 @@
   <style>
     :root{
       --brand:#1E90FF;
-      --bg:#f9f9fb;
+      --bg:#f6f7fb;
       --text:#111;
       --header-h: 120px;
+      --card-border:#ddd;
+      --shadow: 0 2px 5px rgba(0,0,0,.06);
+      --shadow-hover: 0 4px 10px rgba(0,0,0,.1);
     }
 
     html{ scroll-padding-top: var(--header-h); }
+    *, *::before, *::after{ box-sizing:border-box; }
+
     body{
       margin:0;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
       background:var(--bg);
       color:var(--text);
     }
@@ -45,6 +50,7 @@
       letter-spacing:.2px;
       margin-top:.35rem;
       opacity:.95;
+      white-space:nowrap;
     }
 
     /* ===== Navigation ===== */
@@ -62,31 +68,51 @@
     }
     nav a:hover{ text-decoration:underline; }
 
-    /* ===== Main Container ===== */
+    /* ===== Main ===== */
     main{
-      max-width:1100px;
-      margin:1rem auto 2rem;
+      max-width:1140px;
+      margin:1rem auto 2.25rem;
       padding:0 1rem;
     }
 
     /* ===== Grid ===== */
     .grid{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
       gap:1.75rem;
     }
 
-    /* ===== Original Frame ===== */
+    /* ===== Framed Card (original look) ===== */
     .card{
       background:#fff;
-      border:1px solid #ddd;
+      border:1px solid var(--card-border);
       border-radius:12px;
-      box-shadow:0 2px 5px rgba(0,0,0,.06);
+      box-shadow:var(--shadow);
+      overflow:hidden;                 /* <-- prevents bleed */
       transition:transform .2s ease, box-shadow .2s ease;
     }
     .card:hover{
       transform:translateY(-3px);
-      box-shadow:0 4px 10px rgba(0,0,0,.1);
+      box-shadow:var(--shadow-hover);
+    }
+
+    /* Safe thumbnail wrapper to prevent overflow */
+    .thumb-wrap{
+      display:block;
+      position:relative;
+      width:100%;
+      aspect-ratio:16/9;               /* uniform height */
+      overflow:hidden;                  /* <-- hard clamp */
+      background:#f0f0f0;
+    }
+    .thumb-wrap img.thumb{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+      object-fit:cover;                 /* fill but contained by wrapper */
+      object-position:center center;
     }
 
     .card-content{
@@ -100,33 +126,18 @@
       font-size:1.12rem;
       margin:.25rem 0 .45rem;
       line-height:1.25;
+      text-decoration:none;
+      display:inline-block;
     }
+    .card-title:hover{ text-decoration:underline; }
+
     .meta{
       color:#555;
       font-size:.92rem;
       margin-bottom:.6rem;
     }
 
-    .btn{
-      background:var(--brand);
-      color:#fff;
-      border:none;
-      border-radius:6px;
-      padding:.55rem 1.2rem;
-      font-size:1rem;
-      cursor:pointer;
-      transition:background .2s;
-    }
-    .btn:hover{ background:#1874d2; }
-
-    footer{
-      text-align:center;
-      font-size:.9rem;
-      padding:2rem 0 3rem;
-      color:#666;
-    }
-
-    /* ===== Post-detail poster ===== */
+    /* Post detail hero / poster */
     .post .poster-shell{
       position:relative;
       overflow:hidden;
@@ -155,9 +166,17 @@
       line-height:1.45;
     }
 
+    footer{
+      text-align:center;
+      font-size:.9rem;
+      padding:2rem 0 3rem;
+      color:#666;
+    }
+
     @media (max-width:560px){
       .card-title{ font-size:1.06rem; }
       .card-content{ padding:1rem 1.4rem 1.2rem; }
+      .motto{ font-size:.85rem; }
     }
   </style>
 </head>
@@ -177,10 +196,11 @@
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.7.4<br/>
+    Unofficial demo client. © 2025 — v2.7.6<br/>
     <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
   </footer>
 
-  <script type="module" src="main.js?v=2.7.4"></script>
+  <!-- Your modular entry (do not swap back to app.js) -->
+  <script type="module" src="main.js?v=2.7.6"></script>
 </body>
 </html>
