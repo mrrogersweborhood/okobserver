@@ -1,5 +1,8 @@
 // detail.js — single post view
-// v2.5.5 — no structural changes except ensuring “Back to posts” works cleanly
+// v2.5.7
+// - Force no-indent on paragraphs even if WP injected inline styles
+// - Keep title blue, author/date meta, clickable hero for first video link
+// - Only a bottom “Back to posts” button
 
 import { fetchPostById, getFeaturedImage, getAuthorName } from './api.js';
 import { createEl, ordinalDate } from './shared.js';
@@ -13,8 +16,50 @@ function decodeEntity(str = '') {
 function formatDate(iso) {
   try {
     const d = new Date(iso);
-    return ordinalDate ? ordinalDate(d) : d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
-  } catch { return ''; }
+    return ordinalDate
+      ? ordinalDate(d)
+      : d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Remove any indentation WP might inject:
+ * - text-indent on <p> (inline style)
+ * - leading &nbsp; or whitespace at start of <p> innerHTML
+ * - margin-left/padding-left that imitates indent
+ * Also zero-out text-indent on any styled wrapper that might cause indent.
+ */
+function normalizeIndentation(root) {
+  if (!root) return;
+
+  // 1) Clean paragraphs
+  const paras = root.querySelectorAll('p');
+  for (const p of paras) {
+    // Kill inline indent styles
+    p.style.textIndent = '0';
+    if (p.style.marginLeft) p.style.marginLeft = '0';
+    if (p.style.paddingLeft) p.style.paddingLeft = '';
+
+    // Remove leading non-breaking spaces or normal spaces in the HTML
+    // (safe: only at very start)
+    const html = p.innerHTML;
+    const cleaned = html.replace(/^(?:&nbsp;|\s)+/i, '');
+    if (cleaned !== html) p.innerHTML = cleaned;
+  }
+
+  // 2) Some themes wrap first para in a styled container — zero any text-indent anywhere
+  const styled = root.querySelectorAll('[style]');
+  for (const el of styled) {
+    const ti = el.style.textIndent;
+    if (ti && ti !== '0' && ti !== '0px') el.style.textIndent = '0';
+    if (el.style.marginLeft) el.style.marginLeft = '0';
+    // don’t force padding-left universally (can be layout), but remove obvious indent:
+    if (el.style.paddingLeft && /^([12]em|[12]0px)$/i.test(el.style.paddingLeft.trim())) {
+      el.style.paddingLeft = '';
+    }
+  }
 }
 
 function renderBackButton() {
@@ -59,7 +104,9 @@ export async function renderPost(id) {
       img.dataset.clickable = 'false';
       try {
         const contentHtml = String(post?.content?.rendered || '');
-        const m = contentHtml.match(/https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i);
+        const m = contentHtml.match(
+          /https?:\/\/(?:www\.)?(?:facebook|youtu\.be|youtube|vimeo)\.[^\s"'<)]+/i
+        );
         if (m) {
           img.dataset.clickable = 'true';
           img.style.cursor = 'pointer';
@@ -72,14 +119,16 @@ export async function renderPost(id) {
     // Post content
     const contentDiv = createEl('div', { class: 'content' });
     contentDiv.innerHTML = post?.content?.rendered || '';
-    const firstP = contentDiv.querySelector('p');
-    if (firstP) firstP.style.textIndent = '0';
+
+    // 🚫 Ensure no paragraph indentation survives inline styles or &nbsp;
+    normalizeIndentation(contentDiv);
+
     shell.append(contentDiv);
 
     // Only bottom “Back to posts” button
     shell.append(renderBackButton());
 
-    // Ensure we start at top on detail view
+    // Detail starts at top
     window.scrollTo(0, 0);
 
   } catch (err) {
