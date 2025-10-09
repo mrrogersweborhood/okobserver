@@ -1,125 +1,128 @@
-// api.js — WordPress REST helpers via Cloudflare Worker proxy
-// v2.5.4 — adds final guard to force Worker on GitHub Pages
+// api.js — OkObserver API helpers (v2.7.7)
+// Provides: apiFetch, fetchLeanPostsPage, fetchAuthorsMap, getCartoonCategoryId
+// Notes:
+// - Uses your Cloudflare Worker proxy by default.
+// - Adds light caching in sessionStorage to reduce repeat lookups.
+// - Gracefully handles 404 on categories/users endpoints.
 
-function resolveApiBase() {
-  const GH = location.hostname.endsWith('github.io');
+const DEFAULT_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
+export const API_BASE = (typeof window !== 'undefined' && window.OKO_API_BASE) || DEFAULT_API_BASE;
 
-  // Prefer the base we locked in main.js or pre-set in index.html
-  let base =
-    (typeof window !== 'undefined' && window.OKO_API_BASE) ||
-    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('__oko_api_base_lock')) ||
-    `${location.origin}/api/wp/v2`;
-
-  // If running on GitHub Pages, FORCE Cloudflare Worker, regardless of above
-  if (GH) {
-    base = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-  }
-
-  // Ensure absolute and ends with /wp/v2
-  if (!/^https?:\/\//i.test(base)) {
-    if (base.startsWith('/')) base = `${location.origin}${base}`;
-    else base = `https://${base}`;
-  }
-  if (!/\/wp\/v2$/i.test(base)) base = base.replace(/\/+$/,'') + '/wp/v2';
-
-  base = base.replace(/\/+$/,'');
-  console.info('[OkObserver] API_BASE in api.js:', base);
-  return base;
-}
-
-export const API_BASE = resolveApiBase();
-const PER_PAGE = 6;
-
-// Small fetch with retry + JSON
-async function apiFetch(url, opts = {}, retries = 2) {
-  for (let i = 0; i <= retries; i++) {
+/** Core fetch wrapper (JSON), throws Error on non-2xx. */
+export async function apiFetch(path, opts = {}) {
+  const url = `${API_BASE}${path}`;
+  const res = await fetch(url, {
+    ...opts,
+    // Do not send custom headers that might trigger CORS preflight
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    // Try to surface WP JSON error if present
     try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, ...opts });
-      if (!res.ok) throw new Error(`API Error ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      if (i === retries) throw err;
-      await new Promise(r => setTimeout(r, 350 * (i + 1)));
+      const j = JSON.parse(text);
+      throw new Error(`API Error ${res.status}: ${text}`);
+    } catch {
+      throw new Error(`API Error ${res.status}`);
     }
   }
+  return res.json();
 }
 
-let _cartoonId = null;
-export async function getCartoonCategoryId(signal) {
-  if (_cartoonId !== null) return _cartoonId;
-  try {
-    const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
-    const cats = await apiFetch(url, { signal });
-    const hit = Array.isArray(cats)
-      ? cats.find(c => String(c.slug).toLowerCase() === 'cartoon' || String(c.name).toLowerCase() === 'cartoon')
-      : null;
-    _cartoonId = hit ? hit.id : 0;
-  } catch {
-    console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion');
-    _cartoonId = 0;
+/** Resolve the 'cartoon' category ID once, cache in sessionStorage. */
+export async function getCartoonCategoryId() {
+  const KEY = '__oko_cartoon_cat_id';
+  const cached = sessionStorage.getItem(KEY);
+  if (cached !== null) {
+    const n = Number(cached);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
-  return _cartoonId;
+
+  try {
+    const data = await apiFetch(`/categories?search=cartoon&per_page=100&_fields=id,slug,name`);
+    const hit = Array.isArray(data)
+      ? data.find(c => /cartoon/i.test(c?.slug || '') || /cartoon/i.test(c?.name || ''))
+      : null;
+    const id = hit?.id ?? null;
+    sessionStorage.setItem(KEY, id === null ? '' : String(id));
+    return id;
+  } catch (err) {
+    console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion');
+    sessionStorage.setItem(KEY, ''); // avoid refetch loop
+    return null;
+  }
 }
 
-export async function fetchLeanPostsPage(page = 1, { excludeCartoon = true } = {}, signal) {
-  const excludeId = excludeCartoon ? await getCartoonCategoryId(signal) : 0;
+/**
+ * Fetch a lean page of posts (with author name + featured sizes embedded).
+ * Applies server-side category exclusion when possible, and client-side guard.
+ */
+export async function fetchLeanPostsPage(page = 1, perPage = 6, cartoonCategoryId = null, signal) {
+  // Build fields list carefully (URL-encode ":" in _embedded.wp:featuredmedia)
+  const fields = [
+    'id',
+    'date',
+    'title.rendered',
+    'excerpt.rendered',
+    'author',
+    'featured_media',
+    'categories',
+    '_embedded.author.name',
+    '_embedded.wp:featuredmedia.source_url',
+    '_embedded.wp:featuredmedia.media_details.sizes'
+  ].join(',');
 
   const params = new URLSearchParams({
     status: 'publish',
-    per_page: String(PER_PAGE),
+    per_page: String(perPage),
     page: String(page),
     _embed: '1',
     orderby: 'date',
-    order: 'desc'
+    order: 'desc',
+    _fields: fields
   });
-  if (excludeId) params.set('categories_exclude', String(excludeId));
 
-  const url = `${API_BASE}/posts?${params.toString()}`;
-  const posts = await apiFetch(url, { signal });
-  if (!Array.isArray(posts)) return [];
-  return posts.filter(p => !(excludeId && Array.isArray(p.categories) && p.categories.includes(excludeId)));
-}
-
-export async function fetchPostById(id, signal) {
-  const url = `${API_BASE}/posts/${encodeURIComponent(id)}?_embed=1`;
-  return await apiFetch(url, { signal });
-}
-
-export async function fetchAuthorsMap(ids = [], signal) {
-  const uniq = Array.from(new Set(ids.map(n => Number(n)).filter(Number.isFinite)));
-  if (!uniq.length) return {};
-  const url = `${API_BASE}/users?per_page=100&include=${uniq.join(',')}&_fields=id,name`;
-  const rows = await apiFetch(url, { signal });
-  const map = {};
-  if (Array.isArray(rows)) for (const u of rows) map[u.id] = u.name;
-  return map;
-}
-
-export function getAuthorName(post, fallbackMap) {
-  const embedded = post?._embedded?.author?.[0]?.name;
-  if (embedded) return embedded;
-  const id = post?.author;
-  if (fallbackMap && id != null && fallbackMap[id]) return fallbackMap[id];
-  return 'The Oklahoma Observer';
-}
-
-export function getFeaturedImage(post) {
-  const media = post?._embedded?.['wp:featuredmedia'];
-  if (Array.isArray(media) && media[0]) {
-    return (
-      media[0].media_details?.sizes?.medium?.source_url ||
-      media[0].media_details?.sizes?.large?.source_url ||
-      media[0].source_url ||
-      null
-    );
+  if (cartoonCategoryId) {
+    // Prefer server-side exclusion if we have the ID
+    params.set('categories_exclude', String(cartoonCategoryId));
   }
-  return null;
+
+  const path = `/posts?${params.toString()}`;
+  const posts = await apiFetch(path, { signal });
+
+  // Extra guard: if server couldn't exclude for some reason, filter client-side.
+  if (cartoonCategoryId) {
+    return posts.filter(p => !Array.isArray(p?.categories) || !p.categories.includes(cartoonCategoryId));
+  }
+  return posts;
 }
 
-export async function resolveFeaturedImage(_post) { return null; }
+/**
+ * Fetch authors and return a simple { [id]: name } map.
+ * Cached in sessionStorage to avoid re-fetching on every home render.
+ */
+export async function fetchAuthorsMap() {
+  const KEY = '__oko_authors_map';
+  const cached = sessionStorage.getItem(KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch { /* fall through */ }
+  }
 
-export async function fetchAboutPage(slug = 'contact-about-donate', signal) {
-  const url = `${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`;
-  const rows = await apiFetch(url, { signal });
-  return Array.isArray(rows) && rows.length ? rows[0] : null;
+  try {
+    // Keep this light: only id + name. Proxy handles CORS.
+    // If your site has many authors, bump per_page or iterate pages later.
+    const users = await apiFetch(`/users?per_page=100&_fields=id,name`);
+    const map = Object.create(null);
+    if (Array.isArray(users)) {
+      for (const u of users) {
+        if (u && typeof u.id === 'number' && u.name) map[u.id] = u.name;
+      }
+    }
+    sessionStorage.setItem(KEY, JSON.stringify(map));
+    return map;
+  } catch (err) {
+    console.warn('[OkObserver] authors lookup failed; falling back to embedded names only');
+    const empty = {};
+    sessionStorage.setItem(KEY, JSON.stringify(empty));
+    return empty;
+  }
 }

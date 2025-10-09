@@ -1,206 +1,190 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Oklahoma Observer — OkObserver App</title>
-  <link rel="icon" type="image/png" href="icon.png" />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Oklahoma Observer</title>
+  <link rel="icon" type="image/png" href="Observer-Logo-2015-08-05.png">
   <style>
-    :root{
-      --brand:#1E90FF;
-      --bg:#f6f7fb;
-      --text:#111;
-      --header-h: 120px;
-      --card-border:#ddd;
-      --shadow: 0 2px 5px rgba(0,0,0,.06);
-      --shadow-hover: 0 4px 10px rgba(0,0,0,.1);
+    :root {
+      --brand: #1E90FF;
+      --text-color: #222;
+      --muted-text: #555;
+      --bg-light: #f9f9f9;
+      --border-light: #ddd;
     }
 
-    html{ scroll-padding-top: var(--header-h); }
-    *, *::before, *::after{ box-sizing:border-box; }
-
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      background:var(--bg);
-      color:var(--text);
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-light);
+      color: var(--text-color);
     }
 
-    /* ===== Header ===== */
-    header{
-      position:sticky;
-      top:0;
-      z-index:1000;
-      background:var(--brand);
-      color:#fff;
-      text-align:center;
-      padding:1.25rem 0 .75rem;
-      box-shadow:0 2px 6px rgba(0,0,0,.08);
-    }
-    header img{
-      display:block;
-      margin:0 auto;
-      height:64px;
-      width:auto;
-    }
-    header .motto{
-      font-size:.9rem;
-      font-weight:600;
-      letter-spacing:.2px;
-      margin-top:.35rem;
-      opacity:.95;
-      white-space:nowrap;
+    header {
+      position: sticky;
+      top: 0;
+      background: var(--brand);
+      color: #fff;
+      text-align: center;
+      padding: 1rem 0 0.5rem 0;
+      z-index: 1000;
     }
 
-    /* ===== Navigation ===== */
-    nav{
-      display:flex;
-      justify-content:flex-end;
-      gap:1.25rem;
-      background:var(--brand);
-      padding:0 .75rem 1rem;
-    }
-    nav a{
-      color:#fff;
-      font-weight:600;
-      text-decoration:none;
-    }
-    nav a:hover{ text-decoration:underline; }
-
-    /* ===== Main ===== */
-    main{
-      max-width:1140px;
-      margin:1rem auto 2.25rem;
-      padding:0 1rem;
+    header img.logo {
+      width: 180px;
+      height: auto;
+      display: block;
+      margin: 0 auto 0.25rem auto;
     }
 
-    /* ===== Grid ===== */
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
-      gap:1.75rem;
+    header .motto {
+      font-size: 0.9rem;
+      color: #e0e0e0;
+      margin-bottom: 0.75rem;
     }
 
-    /* ===== Framed Card (original look) ===== */
-    .card{
-      background:#fff;
-      border:1px solid var(--card-border);
-      border-radius:12px;
-      box-shadow:var(--shadow);
-      overflow:hidden;                 /* <-- prevents bleed */
-      transition:transform .2s ease, box-shadow .2s ease;
-    }
-    .card:hover{
-      transform:translateY(-3px);
-      box-shadow:var(--shadow-hover);
+    nav {
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0.5rem 0;
     }
 
-    /* Safe thumbnail wrapper to prevent overflow */
-    .thumb-wrap{
-      display:block;
-      position:relative;
-      width:100%;
-      aspect-ratio:16/9;               /* uniform height */
-      overflow:hidden;                  /* <-- hard clamp */
-      background:#f0f0f0;
-    }
-    .thumb-wrap img.thumb{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      display:block;
-      object-fit:cover;                 /* fill but contained by wrapper */
-      object-position:center center;
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      transition: opacity 0.2s;
     }
 
-    .card-content{
-      padding:1.2rem 1.6rem 1.45rem;
-      line-height:1.6;
+    nav a:hover {
+      opacity: 0.8;
     }
 
-    .card-title{
-      color:var(--brand);
-      font-weight:800;
-      font-size:1.12rem;
-      margin:.25rem 0 .45rem;
-      line-height:1.25;
-      text-decoration:none;
-      display:inline-block;
-    }
-    .card-title:hover{ text-decoration:underline; }
-
-    .meta{
-      color:#555;
-      font-size:.92rem;
-      margin-bottom:.6rem;
+    main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 1rem;
     }
 
-    /* Post detail hero / poster */
-    .post .poster-shell{
-      position:relative;
-      overflow:hidden;
-      border-radius:12px;
-      aspect-ratio:16/9;
-      background:#eee;
-      margin:1rem auto 1.25rem;
-      max-width:min(900px,92vw);
-      transition:box-shadow .2s ease;
-    }
-    .post .poster-shell:hover{ box-shadow:0 0 10px rgba(0,0,0,.15); }
-    .post .poster-img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      border-radius:inherit;
-      display:block;
-      transition:opacity .2s ease;
-    }
-    .post .poster-shell:hover .poster-img{ opacity:.9; }
-
-    .meta-author-date{
-      color:#444;
-      margin:0 0 1rem;
-      font-size:.95rem;
-      line-height:1.45;
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
     }
 
-    footer{
-      text-align:center;
-      font-size:.9rem;
-      padding:2rem 0 3rem;
-      color:#666;
+    /* === Thumbnail Wrapper === */
+    .thumb-wrap {
+      display: block;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+      background-color: #f8f8f8;
     }
 
-    @media (max-width:560px){
-      .card-title{ font-size:1.06rem; }
-      .card-content{ padding:1rem 1.4rem 1.2rem; }
-      .motto{ font-size:.85rem; }
+    .thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+      transition: transform 0.3s ease, filter 0.3s ease;
+    }
+
+    .thumb-wrap:hover .thumb {
+      transform: scale(1.03);
+      filter: brightness(1.02);
+    }
+
+    /* === Card === */
+    .card {
+      background: #fff;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+
+    .card-content {
+      padding: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      color: var(--brand);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .card-title:hover {
+      text-decoration: underline;
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: var(--muted-text);
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .excerpt {
+      font-size: 0.95rem;
+      color: var(--text-color);
+      line-height: 1.4;
+      text-align: justify;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted-text);
+      padding: 2rem 1rem;
+    }
+
+    #loading {
+      text-align: center;
+      margin: 2rem;
+      color: #777;
+    }
+
+    @media (max-width: 600px) {
+      header img.logo {
+        width: 140px;
+      }
     }
   </style>
 </head>
+
 <body>
   <header>
-    <img src="Observer-Logo-2015-08-05.png" alt="Observer logo" />
+    <img class="logo" src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer">
     <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+    <nav>
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+    </nav>
   </header>
 
-  <nav>
-    <a href="#/">Posts</a>
-    <a href="#/about">About</a>
-  </nav>
-
   <main id="app">
-    <p>Loading…</p>
+    <div style="text-align:center; color:#888; margin-top:2rem;">Loading…</div>
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.7.6<br/>
-    <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
+    Unofficial demo client. © 2025 — v2.5.2
   </footer>
 
-  <!-- Your modular entry (do not swap back to app.js) -->
-  <script type="module" src="main.js?v=2.7.6"></script>
+  <script type="module" src="main.js?v=2.5.2" defer></script>
 </body>
 </html>
