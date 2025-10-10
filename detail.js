@@ -1,333 +1,127 @@
-// detail.js  (v2.5.4)
-// Renders a post detail view with a stable "hero": either an iframe (YT/Vimeo) or a clickable poster.
-// Facebook is poster-first by design. If an iframe fails (blocked / timeout), we fall back to poster.
-// This file is self-contained and does not depend on api.js to avoid export drift regressions.
+// detail.js — post detail renderer with hero image / poster fallback
+// v2.5.5
+import { fetchPostById, pickFeaturedImage } from './api.js';
 
-const API_BASE = window.OKO_API_BASE || `${location.origin}/api/wp/v2`;
-const APP_EL_ID = window.OKO_APP_EL_ID || "app";
+const YT = /(?:youtube\.com|youtu\.be)/i;
+const VM = /vimeo\.com/i;
+const FB = /facebook\.com/i;
+const ALWAYS_POSTER_HOSTS = /(facebook\.com)/i; // poster-first for FB (iframes often blocked)
 
-// --- Contracts we do not break ---
-// 1) Detail page shows either a video iframe or a clickable poster at the top.
-// 2) If Facebook link present, show a poster that opens the video in a new tab.
-// 3) If iframe host blocks or times out, show a poster fallback (never blank space).
-// 4) We do not render two players at once; content iframes for the chosen hero host are stripped.
+function decodeHTML(str='') {
+  const d = document.createElement('textarea');
+  d.innerHTML = str; return d.value;
+}
 
-const ALWAYS_POSTER_HOSTS = ["facebook.com", "m.facebook.com", "fb.watch"]; // poster-first
-const IFRAME_HOSTS = ["youtube.com", "youtu.be", "vimeo.com"];             // try iframe, else poster
-const IFRAME_TIMEOUT_MS = 1500;
+function firstMediaLinkFromContent(html='') {
+  // Look for <a href="..."> that points to YT/Vimeo/FB
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const as = Array.from(div.querySelectorAll('a[href]'));
+  const hit = as.find(a => YT.test(a.href) || VM.test(a.href) || FB.test(a.href));
+  return hit?.href || '';
+}
 
-// Public API expected by router
-export async function renderPost(postId) {
-  const root = document.getElementById(APP_EL_ID);
-  if (!root) return console.error("[OkObserver] mount point not found:", APP_EL_ID);
+function posterFromFeaturedOrContent(post) {
+  const hero = pickFeaturedImage(post);
+  if (hero) return hero;
+  // fallback: first <img> inside content
+  const div = document.createElement('div');
+  div.innerHTML = post?.content?.rendered || '';
+  const img = div.querySelector('img[src]');
+  return img?.src || '';
+}
 
-  // Loading shell
-  root.innerHTML = `
-    <section class="post-view">
-      <div class="hero" id="hero"></div>
-      <header class="post-head">
-        <nav class="back-row"><a href="#/" class="btn-back" id="backToPosts">← Back to posts</a></nav>
-        <h1 id="post-title" class="post-title"></h1>
-        <div class="post-meta" id="post-meta"></div>
-      </header>
-      <article class="post-body" id="post-body"></article>
-    </section>
+function heroPosterBlock({poster, clickUrl}) {
+  if (!poster) return '';
+  const clickAttr = clickUrl ? ` data-click="${encodeURIComponent(clickUrl)}"` : '';
+  return `
+    <div class="hero-wrap">
+      <img class="hero${clickUrl ? ' is-clickable' : ''}" src="${poster}" alt=""${clickAttr} />
+    </div>
+  `;
+}
+
+function bindHeroClick(container) {
+  const img = container.querySelector('.hero.is-clickable');
+  if (img) {
+    img.addEventListener('click', (e)=>{
+      const target = img.getAttribute('data-click');
+      if (target) {
+        const url = decodeURIComponent(target);
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  }
+}
+
+export async function renderPost(id) {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  // Skeleton
+  app.innerHTML = `
+    <div class="post-wrap">
+      <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
+      <article class="post">
+        <div class="hero-slot"></div>
+        <h1 class="post-title"></h1>
+        <div class="meta"></div>
+        <div class="post-content"></div>
+      </article>
+    </div>
   `;
 
-  const heroEl  = document.getElementById("hero");
-  const titleEl = document.getElementById("post-title");
-  const metaEl  = document.getElementById("post-meta");
-  const bodyEl  = document.getElementById("post-body");
+  const heroSlot = app.querySelector('.hero-slot');
+  const titleEl  = app.querySelector('.post-title');
+  const metaEl   = app.querySelector('.meta');
+  const bodyEl   = app.querySelector('.post-content');
 
   try {
-    const post = await fetchJson(`${API_BASE}/posts/${postId}?_embed=1`);
+    const post = await fetchPostById(id);
+    const title = decodeHTML(post?.title?.rendered || '');
+    const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+    const when = new Date(post?.date || Date.now());
+    const niceDate = when.toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
 
-    const titleHtml = post?.title?.rendered || "";
-    const date = post?.date ? new Date(post.date) : null;
-    const authorName =
-      post?._embedded?.author?.[0]?.name ||
-      post?.yoast_head_json?.author || "—";
+    // Title + meta
+    titleEl.textContent = title;
+    metaEl.textContent  = `${author} — ${niceDate}`;
 
-    titleEl.innerHTML = titleHtml;
-    metaEl.textContent = [
-      authorName || "",
-      date ? " — " + date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : ""
-    ].join("");
+    // Hero: prefer poster when FB; else render poster if iframe likely blocked or absent
+    const mediaLink = firstMediaLinkFromContent(post?.content?.rendered || '');
+    const poster = posterFromFeaturedOrContent(post);
 
-    // Prepare hero inputs
-    const contentHtml = post?.content?.rendered || "";
-    const featuredUrl = pickFeaturedImage(post);
-    const videoUrl = pickFirstVideoUrl(contentHtml);
-
-    // Build hero (iframe or poster)
-    await renderHero({ heroEl, videoUrl, featuredUrl, contentHtml, postId });
-
-    // Strip duplicate embeds for the chosen source to avoid two players
-    const contentSansDup = stripEmbedIframes(contentHtml, videoUrl);
-    bodyEl.innerHTML = contentSansDup;
-
-    // Back to posts just routes #/
-    const back = document.getElementById("backToPosts");
-    if (back) back.addEventListener("click", () => {
-      // let router handle it; nothing special here
-    });
-
-  } catch (err) {
-    console.error("[OkObserver] post load failed:", err);
-    heroEl.innerHTML = "";
-    titleEl.textContent = "Post not found";
-    metaEl.textContent = "";
-    bodyEl.innerHTML = `<p>Sorry, we couldn't load this post.</p>`;
-  }
-}
-
-// ---------- Helpers ----------
-
-async function fetchJson(url, opts = {}) {
-  const r = await fetch(url, opts);
-  if (!r.ok) {
-    const t = await safeText(r);
-    throw new Error(`API Error ${r.status}: ${t?.slice(0, 200)}`);
-  }
-  return r.json();
-}
-
-async function safeText(r) {
-  try { return await r.text(); } catch { return ""; }
-}
-
-function pickFeaturedImage(post) {
-  const m = post?._embedded?.["wp:featuredmedia"]?.[0];
-  if (!m) return null;
-  const sizes = m?.media_details?.sizes || {};
-  return (
-    sizes?.large?.source_url ||
-    sizes?.medium_large?.source_url ||
-    sizes?.full?.source_url ||
-    m?.source_url ||
-    null
-  );
-}
-
-// Extract first video URL from content (FB, Vimeo, YouTube)
-function pickFirstVideoUrl(html) {
-  if (!html) return null;
-  const a = document.createElement("div");
-  a.innerHTML = html;
-
-  // any <a> that looks like video
-  const candidates = [...a.querySelectorAll("a[href]")].map(el => el.getAttribute("href"));
-
-  const byHost = (hostList) => candidates.find(href => {
-    try {
-      const u = new URL(href, location.href);
-      return hostList.some(h => u.hostname.includes(h));
-    } catch { return false; }
-  });
-
-  // prefer explicit video anchors first
-  let href = byHost([...ALWAYS_POSTER_HOSTS, ...IFRAME_HOSTS]);
-  if (href) return href;
-
-  // iframes embedded
-  const ifr = a.querySelector("iframe[src]");
-  if (ifr) return ifr.getAttribute("src");
-
-  return null;
-}
-
-async function renderHero({ heroEl, videoUrl, featuredUrl, contentHtml, postId }) {
-  // If we have a Facebook link → poster-first
-  if (isHost(videoUrl, ALWAYS_POSTER_HOSTS)) {
-    const poster = await pickPoster({ featuredUrl, contentHtml });
-    if (poster) {
-      heroEl.innerHTML = posterMarkup(videoUrl, poster);
+    let heroHTML = '';
+    if (mediaLink && ALWAYS_POSTER_HOSTS.test(mediaLink)) {
+      // Facebook: show poster clickable to open new tab
+      heroHTML = heroPosterBlock({poster, clickUrl: mediaLink});
     } else {
-      heroEl.innerHTML = ""; // nothing to show
+      // Non-FB: if we have a featured image, show it; if we also have a media link,
+      // make the image clickable to open the video
+      heroHTML = heroPosterBlock({poster, clickUrl: mediaLink || ''});
     }
-    console.info(`[OkObserver] poster-first (FB) for post ${postId}`);
-    return;
+    heroSlot.innerHTML = heroHTML;
+    bindHeroClick(app);
+
+    // Body (safety tweaks: remove first-paragraph text-indent; media responsiveness)
+    const contentHTML = (post?.content?.rendered || '')
+      .replace(/text-indent:\s*2em/gi, 'text-indent:0')  // kill inline indent hacks from WP
+      .replace(/<iframe /gi, '<iframe loading="lazy" ')
+      .replace(/<img /gi, '<img loading="lazy" style="max-width:100%;height:auto" ');
+
+    bodyEl.innerHTML = contentHTML;
+
+  } catch (e) {
+    console.error('[OkObserver] detail load failed:', e);
+    const status = (e && typeof e === 'object' && 'status' in e) ? e.status : 0;
+    app.innerHTML = `
+      <div class="post-wrap">
+        <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
+        <article class="post">
+          <h1 class="post-title">Post not found</h1>
+          <p>Sorry, we couldn't load this post.${status ? ` <small>(status ${status})</small>` : ''}</p>
+        </article>
+      </div>
+    `;
   }
-
-  // If we have a YT/Vimeo link → try iframe with timeout, then poster
-  if (isHost(videoUrl, IFRAME_HOSTS)) {
-    const iframeHtml = iframeMarkup(videoUrl);
-    const poster = await pickPoster({ featuredUrl, contentHtml });
-    try {
-      const ok = await loadIframeWithTimeout(iframeHtml, IFRAME_TIMEOUT_MS);
-      if (ok) {
-        heroEl.innerHTML = iframeHtml;
-        return;
-      }
-      // timeout → fallback
-      if (poster) {
-        heroEl.innerHTML = posterMarkup(videoUrl, poster);
-        console.info(`[OkObserver] iframe timeout, poster fallback for post ${postId}`);
-        return;
-      }
-    } catch {
-      // fetch/render error → fallback
-      if (poster) {
-        heroEl.innerHTML = posterMarkup(videoUrl, poster);
-        console.info(`[OkObserver] iframe error, poster fallback for post ${postId}`);
-        return;
-      }
-    }
-  }
-
-  // No video → show featured if present
-  if (featuredUrl) {
-    heroEl.innerHTML = `
-      <figure class="hero-poster no-video">
-        <img src="${escapeHtml(featUrlHighRes(featuredUrl))}" alt="Featured image"/>
-      </figure>`;
-    return;
-  }
-
-  // Nothing at all
-  heroEl.innerHTML = "";
-}
-
-function isHost(href, hostList) {
-  if (!href) return false;
-  try {
-    const u = new URL(href, location.href);
-    return hostList.some(h => u.hostname.includes(h));
-  } catch { return false; }
-}
-
-function youtubeEmbed(url) {
-  try {
-    const u = new URL(url, location.href);
-    if (u.hostname.includes("youtu.be")) {
-      return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      // already /embed/?
-      if (u.pathname.includes("/embed/")) return u.href;
-    }
-  } catch {}
-  return null;
-}
-
-function vimeoEmbed(url) {
-  try {
-    const u = new URL(url, location.href);
-    if (u.hostname.includes("vimeo.com")) {
-      const id = u.pathname.split("/").filter(Boolean).pop();
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-      if (u.hostname.startsWith("player.")) return u.href;
-    }
-  } catch {}
-  return null;
-}
-
-function iframeMarkup(url) {
-  const yt = youtubeEmbed(url);
-  if (yt) return `
-    <div class="hero-iframe-wrap">
-      <iframe src="${yt}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>
-    </div>`;
-
-  const vm = vimeoEmbed(url);
-  if (vm) return `
-    <div class="hero-iframe-wrap">
-      <iframe src="${vm}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
-    </div>`;
-
-  // Unrecognized → return empty (caller will poster-fallback if possible)
-  return "";
-}
-
-function posterMarkup(url, posterSrc) {
-  const safePoster = escapeHtml(posterSrc);
-  const safeUrl = escapeHtml(url || "#");
-  return `
-    <a class="hero-poster" href="${safeUrl}" target="_blank" rel="noopener">
-      <img src="${safePoster}" alt="Open video in a new tab"/>
-      <span class="hero-play">▶</span>
-    </a>`;
-}
-
-// Ensure the iframe can actually paint; resolve true on load, false on timeout
-function loadIframeWithTimeout(iframeHtml, timeoutMs) {
-  return new Promise((resolve) => {
-    if (!iframeHtml) return resolve(false);
-    // create off-DOM test container
-    const test = document.createElement("div");
-    test.style.position = "absolute";
-    test.style.left = "-10000px";
-    test.style.top = "-10000px";
-    test.innerHTML = iframeHtml;
-    document.body.appendChild(test);
-    const ifr = test.querySelector("iframe");
-    let done = false;
-    const finish = (ok) => {
-      if (done) return;
-      done = true;
-      test.remove();
-      resolve(ok);
-    };
-    if (!ifr) return finish(false);
-    const t = setTimeout(() => finish(false), timeoutMs);
-    ifr.addEventListener("load", () => {
-      clearTimeout(t);
-      finish(true);
-    });
-    // onerror is not reliable for cross-origin iframes; rely on timeout instead
-  });
-}
-
-async function pickPoster({ featuredUrl, contentHtml }) {
-  // Prefer featured image if present
-  if (featuredUrl) return featUrlHighRes(featuredUrl);
-
-  // Else, find first <img> from content
-  if (contentHtml) {
-    const d = document.createElement("div");
-    d.innerHTML = contentHtml;
-    const img = d.querySelector("img[src]");
-    if (img) return img.getAttribute("src");
-  }
-  return null;
-}
-
-function stripEmbedIframes(html, heroUrl) {
-  if (!html || !heroUrl) return html;
-  try {
-    const u = new URL(heroUrl, location.href);
-    const host = u.hostname;
-    const d = document.createElement("div");
-    d.innerHTML = html;
-    [...d.querySelectorAll("iframe[src]")].forEach(ifr => {
-      try {
-        const ih = new URL(ifr.getAttribute("src"), location.href).hostname;
-        if (ih.includes("youtube.com") && host.includes("youtube.com")) ifr.remove();
-        if (ih.includes("player.vimeo.com") && host.includes("vimeo.com")) ifr.remove();
-        if (ih.includes("facebook.com") && host.includes("facebook.com")) ifr.remove();
-      } catch {}
-    });
-    return d.innerHTML;
-  } catch {
-    return html;
-  }
-}
-
-function featUrlHighRes(src) {
-  // simple upgrade for common WP "-150x150" etc
-  try {
-    const u = new URL(src, location.href);
-    const m = u.pathname.match(/-\d+x\d+(\.\w+)$/);
-    if (m) u.pathname = u.pathname.replace(/-\d+x\d+(\.\w+)$/, "$1");
-    return u.href;
-  } catch { return src; }
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/"/g, "&quot;");
 }
