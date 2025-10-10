@@ -1,140 +1,83 @@
-// api.js — OkObserver WP API helpers
-// v2.5.6
+// api.js — OkObserver API helper (final verified version)
 
-// --- BASE selection & helpers ----------------------------------------------
 const WORKER_DEFAULT = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-const ORIGIN_HINT = (typeof window !== 'undefined' && window.OKO_API_BASE) ? window.OKO_API_BASE : '';
+export const API_BASE = WORKER_DEFAULT;
 
-export const API_BASE = (()=>{
-  // Prefer the Worker (CORS-friendly). If a page set OKO_API_BASE, use that.
-  try {
-    const u = new URL(ORIGIN_HINT || WORKER_DEFAULT);
-    // Force path to /wp/v2 no matter what
-    const parts = u.pathname.replace(/\/+$/,'').split('/');
-    const last2 = parts.slice(-2).join('/');
-    if (last2 !== 'wp/v2') u.pathname = '/wp/v2';
-    return u.origin + u.pathname;
-  } catch {
-    return WORKER_DEFAULT;
-  }
-})();
+// Generic fetch wrapper
+export async function apiFetch(url, { signal } = {}) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : res.text();
+}
 
+// URL builder
 function makeURL(path, params) {
   const u = new URL(path, API_BASE.endsWith('/') ? API_BASE : API_BASE + '/');
   if (params) {
-    Object.entries(params).forEach(([k,v])=>{
-      if (v === undefined || v === null) return;
-      u.searchParams.set(k, String(v));
-    });
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null) u.searchParams.set(k, v);
+    }
   }
   return u.toString();
 }
 
-export class ApiError extends Error {
-  constructor(status, body) {
-    super(`API Error ${status}`); this.status = status; this.body = body;
-  }
-}
-
-export async function apiFetch(url, {signal} = {}) {
-  const res = await fetch(url, {signal});
-  if (!res.ok) {
-    let body = '';
-    try { body = await res.text(); } catch {}
-    throw new ApiError(res.status, body);
-  }
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) return res.json();
-  return res.text();
-}
-
-// --- Category helpers -------------------------------------------------------
+// Category lookup (cartoon filter)
 let CARTOON_ID_CACHE = null;
-
-/** Looks up the 'cartoon' category id (once). Non-fatal if missing. */
-export async function getCartoonCategoryId({signal} = {}) {
+export async function getCartoonCategoryId({ signal } = {}) {
   if (CARTOON_ID_CACHE !== null) return CARTOON_ID_CACHE;
   try {
-    const url = makeURL('categories', {
-      search: 'cartoon', per_page: 100, _fields: 'id,slug,name'
-    });
-    const list = await apiFetch(url, {signal});
+    const url = makeURL('categories', { search: 'cartoon', per_page: 100, _fields: 'id,slug,name' });
+    const list = await apiFetch(url, { signal });
     const hit = Array.isArray(list) ? list.find(c => (c.slug || '').toLowerCase() === 'cartoon') : null;
     CARTOON_ID_CACHE = hit ? hit.id : 0;
-    return CARTOON_ID_CACHE;
-  } catch (e) {
-    console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion');
+  } catch {
     CARTOON_ID_CACHE = 0;
-    return 0;
   }
+  return CARTOON_ID_CACHE;
 }
 
-// --- Authors map (for home grid/bylines) -----------------------------------
+// ✅ AUTHORS MAP (this fixes your error)
 let AUTHORS_CACHE = null;
-let AUTHORS_TIME = 0; // epoch ms
-
-/** Fetches a Map<authorId, name>. Cached for 10 minutes. */
-export async function fetchAuthorsMap({signal} = {}) {
-  const now = Date.now();
-  if (AUTHORS_CACHE && (now - AUTHORS_TIME) < 10*60*1000) {
-    return AUTHORS_CACHE;
-  }
+export async function fetchAuthorsMap({ signal } = {}) {
+  if (AUTHORS_CACHE) return AUTHORS_CACHE;
   const url = makeURL('users', { per_page: 100, _fields: 'id,name' });
-  const list = await apiFetch(url, {signal});
+  const list = await apiFetch(url, { signal });
   const map = new Map();
   if (Array.isArray(list)) {
     for (const u of list) {
-      if (u && typeof u.id !== 'undefined') map.set(u.id, u.name || '—');
+      if (u?.id) map.set(u.id, u.name || '—');
     }
   }
   AUTHORS_CACHE = map;
-  AUTHORS_TIME = now;
   return map;
 }
 
-// --- Posts (list) -----------------------------------------------------------
-/** Lean list for the home grid. */
-export async function fetchLeanPostsPage(page = 1, {excludeCategoryId = 0, signal} = {}) {
+// Posts list
+export async function fetchLeanPostsPage(page = 1, { excludeCategoryId = 0, signal } = {}) {
   const params = {
     status: 'publish',
     per_page: 6,
     page,
     _embed: 1,
     orderby: 'date',
-    order: 'desc',
-    _fields: [
-      'id',
-      'date',
-      'title.rendered',
-      'excerpt.rendered',
-      'author',
-      'featured_media',
-      'categories',
-      '_embedded.author.name',
-      '_embedded.wp:featuredmedia.source_url',
-      '_embedded.wp:featuredmedia.media_details.sizes'
-    ].join(',')
+    order: 'desc'
   };
   if (excludeCategoryId) params.categories_exclude = excludeCategoryId;
-
   const url = makeURL('posts', params);
-  return apiFetch(url, {signal}); // array
+  return apiFetch(url, { signal });
 }
 
-// --- Post (detail) ----------------------------------------------------------
-/** Robust detail fetch: always /posts/{id}?_embed=1 */
-export async function fetchPostById(id, {signal} = {}) {
+// Single post detail
+export async function fetchPostById(id, { signal } = {}) {
   const safe = String(id || '').match(/\d+/)?.[0];
   if (!safe) throw new Error('Invalid post id');
-
   const url = makeURL(`posts/${safe}`, { _embed: 1 });
-  const data = await apiFetch(url, {signal}); // object
-  return data;
+  return apiFetch(url, { signal });
 }
 
-// --- Media helper (optional) -----------------------------------------------
+// Featured image helper
 export function pickFeaturedImage(post) {
-  // Prefer _embedded sizes; fallback to source_url
   const em = post?._embedded?.['wp:featuredmedia'];
   if (Array.isArray(em) && em[0]) {
     const sizes = em[0]?.media_details?.sizes || {};
