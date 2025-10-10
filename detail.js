@@ -1,12 +1,22 @@
-/* detail.js — OkObserver post detail view (resilient, no syntax errors)
+/* detail.js — OkObserver post detail view (robust multi-type fetch + diagnostics)
    Exports: renderPost(idOrSlug)
-   - Smart fetch: posts -> pages; by ID or slug
-   - Renders hero (featured image or first content image)
-   - Hero is clickable if a YouTube/Vimeo/Facebook link is found
-   - Post-render cleanup hides empty embeds/iframes to avoid big white gaps
+   Tries, in order:
+     posts (id) → pages (id) → posts (slug) → pages (slug)
+     → media/attachments (id)
+     → known custom post types (id then slug)
+   Renders hero (featured image or first content image). If a YouTube/Vimeo/Facebook
+   link is present, hero is clickable and opens the video in a new tab.
+   Adds a diagnostics block when nothing is found (lists all endpoints tried).
 */
 
 const API_BASE = (window && window.OKO_API_BASE) || `${location.origin}/api/wp/v2`;
+
+// Add any site-specific custom post types here (REST base names)
+const CUSTOM_TYPES = [
+  // e.g. "news", "article", "press", "story"
+];
+
+const tried = []; // collects attempted URLs for debugging/diagnostics
 
 // ---------------- Utilities ----------------
 
@@ -20,14 +30,14 @@ function esc(str = "") {
 function ordinalDate(iso) {
   try {
     const d = new Date(iso);
-    const day = d.getDate();
+    const n = d.getDate();
     const sfx =
-      (n) =>
-        n % 10 === 1 && n % 100 !== 11
+      (x) =>
+        x % 10 === 1 && x % 100 !== 11
           ? "st"
-          : n % 10 === 2 && n % 100 !== 12
+          : x % 10 === 2 && x % 100 !== 12
           ? "nd"
-          : n % 10 === 3 && n % 100 !== 13
+          : x % 10 === 3 && x % 100 !== 13
           ? "rd"
           : "th";
     const base = d.toLocaleString(undefined, {
@@ -35,7 +45,7 @@ function ordinalDate(iso) {
       day: "numeric",
       year: "numeric",
     });
-    return base.replace(String(day), `${day}${sfx(day)}`);
+    return base.replace(String(n), `${n}${sfx(n)}`);
   } catch {
     return iso;
   }
@@ -124,10 +134,12 @@ function cleanupEmptyEmbeds(container) {
 // ---------------- Fetch helpers ----------------
 
 async function fetchJson(url) {
+  tried.push(url);
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) {
     const err = new Error(`API ${res.status}`);
     err.status = res.status;
+    err.url = url;
     throw err;
   }
   return res.json();
@@ -140,56 +152,130 @@ async function tryPageById(id) {
   return fetchJson(`${API_BASE}/pages/${encodeURIComponent(id)}?_embed=1`);
 }
 async function tryPostBySlug(slug) {
-  const arr = await fetchJson(`${API_BASE}/posts?slug=${encodeURIComponent(slug)}&_embed=1`);
-  return first(arr) || null;
+  return first(
+    await fetchJson(`${API_BASE}/posts?slug=${encodeURIComponent(slug)}&_embed=1`)
+  );
 }
 async function tryPageBySlug(slug) {
-  const arr = await fetchJson(`${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`);
-  return first(arr) || null;
+  return first(
+    await fetchJson(`${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`)
+  );
+}
+async function tryMediaById(id) {
+  // attachments (images, pdfs, etc.)
+  return fetchJson(`${API_BASE}/media/${encodeURIComponent(id)}?_embed=1`);
+}
+
+async function tryCustomById(type, id) {
+  return fetchJson(`${API_BASE}/${type}/${encodeURIComponent(id)}?_embed=1`);
+}
+async function tryCustomBySlug(type, slug) {
+  return first(
+    await fetchJson(`${API_BASE}/${type}?slug=${encodeURIComponent(slug)}&_embed=1`)
+  );
+}
+
+function normalizeMediaToPost(media) {
+  // Render an attachment like a quasi-post
+  const caption = media?.caption?.rendered || "";
+  const desc = media?.description?.rendered || "";
+  const contentHTML = caption || desc || "";
+  return {
+    id: media?.id,
+    date: media?.date || media?.date_gmt || new Date().toISOString(),
+    title: { rendered: media?.title?.rendered || media?.alt_text || "Attachment" },
+    content: { rendered: contentHTML },
+    _embedded: {
+      "wp:featuredmedia": [
+        {
+          source_url: media?.source_url,
+          media_details: media?.media_details || {},
+        },
+      ],
+      author: [{ name: media?.author || "Oklahoma Observer" }],
+    },
+  };
 }
 
 async function fetchSmart(idOrSlug) {
+  // Reset diagnostics list for each call
+  tried.length = 0;
+
   if (isNumeric(idOrSlug)) {
+    // by ID: posts -> pages -> media -> custom types
     try {
       return await tryPostById(idOrSlug);
-    } catch (e) {
-      if (e.status !== 404) throw e;
+    } catch (e1) {
+      if (e1.status !== 404) throw e1;
+    }
+    try {
+      return await tryPageById(idOrSlug);
+    } catch (e2) {
+      if (e2.status !== 404) throw e2;
+    }
+    try {
+      const media = await tryMediaById(idOrSlug);
+      return normalizeMediaToPost(media);
+    } catch (e3) {
+      if (e3.status !== 404) throw e3;
+    }
+    for (const type of CUSTOM_TYPES) {
       try {
-        return await tryPageById(idOrSlug);
-      } catch (e2) {
-        if (e2.status !== 404) throw e2;
-        return null;
+        return await tryCustomById(type, idOrSlug);
+      } catch (e4) {
+        if (e4.status !== 404) throw e4;
       }
     }
+    return null;
   }
 
+  // by slug: posts -> pages -> custom types
   const slug = String(idOrSlug || "").trim();
-  let hit = await tryPostBySlug(slug).catch((e) => {
-    if (e.status !== 404) throw e;
-    return null;
-  });
-  if (hit) return hit;
-
-  hit = await tryPageBySlug(slug).catch((e) => {
-    if (e.status !== 404) throw e;
-    return null;
-  });
-  return hit || null;
+  try {
+    const p = await tryPostBySlug(slug);
+    if (p) return p;
+  } catch (e5) {
+    if (e5.status !== 404) throw e5;
+  }
+  try {
+    const pg = await tryPageBySlug(slug);
+    if (pg) return pg;
+  } catch (e6) {
+    if (e6.status !== 404) throw e6;
+  }
+  for (const type of CUSTOM_TYPES) {
+    try {
+      const hit = await tryCustomBySlug(type, slug);
+      if (hit) return hit;
+    } catch (e7) {
+      if (e7.status !== 404) throw e7;
+    }
+  }
+  return null;
 }
 
 // ---------------- Rendering ----------------
 
-function render404(message = "Post not found") {
+function render404(idOrSlug) {
   const app = document.getElementById("app");
   if (!app) return;
+
+  const list = tried
+    .map((u) => `<li><code>${esc(u.replace(location.origin, ""))}</code></li>`)
+    .join("");
+
   app.innerHTML = `
     <div class="post-wrap">
       <div class="back-row">
         <a href="#/" class="back-btn">← Back to posts</a>
       </div>
       <div class="post">
-        <h1 class="post-title">${esc(message)}</h1>
-        <p>Sorry, we couldn't load this post.</p>
+        <h1 class="post-title">Post not found</h1>
+        <p>Sorry, we couldn't load this post <strong>${esc(String(idOrSlug))}</strong>.</p>
+        <details class="notfound-diagnostics">
+          <summary>Diagnostics (endpoints tried)</summary>
+          <ul class="mono">${list || "<li>(none)</li>"}</ul>
+        </details>
       </div>
     </div>
   `;
@@ -209,7 +295,7 @@ export async function renderPost(idOrSlug) {
   }
 
   if (!post) {
-    render404("Post not found");
+    render404(idOrSlug);
     return;
   }
 
@@ -217,7 +303,8 @@ export async function renderPost(idOrSlug) {
   const author = post?._embedded?.author?.[0]?.name || "Oklahoma Observer";
   const date = ordinalDate(post?.date);
 
-  let heroSrc = pickFeaturedFromEmbed(post) || extractFirstImageFromHTML(post?.content?.rendered);
+  let heroSrc =
+    pickFeaturedFromEmbed(post) || extractFirstImageFromHTML(post?.content?.rendered);
   const playable = findPlayableLink(post?.content?.rendered || "") || null;
 
   const heroHTML = heroSrc
