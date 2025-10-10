@@ -1,5 +1,5 @@
 // api.js — OkObserver WP API helpers
-// v2.5.5
+// v2.5.6
 
 // --- BASE selection & helpers ----------------------------------------------
 const WORKER_DEFAULT = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
@@ -69,6 +69,29 @@ export async function getCartoonCategoryId({signal} = {}) {
   }
 }
 
+// --- Authors map (for home grid/bylines) -----------------------------------
+let AUTHORS_CACHE = null;
+let AUTHORS_TIME = 0; // epoch ms
+
+/** Fetches a Map<authorId, name>. Cached for 10 minutes. */
+export async function fetchAuthorsMap({signal} = {}) {
+  const now = Date.now();
+  if (AUTHORS_CACHE && (now - AUTHORS_TIME) < 10*60*1000) {
+    return AUTHORS_CACHE;
+  }
+  const url = makeURL('users', { per_page: 100, _fields: 'id,name' });
+  const list = await apiFetch(url, {signal});
+  const map = new Map();
+  if (Array.isArray(list)) {
+    for (const u of list) {
+      if (u && typeof u.id !== 'undefined') map.set(u.id, u.name || '—');
+    }
+  }
+  AUTHORS_CACHE = map;
+  AUTHORS_TIME = now;
+  return map;
+}
+
 // --- Posts (list) -----------------------------------------------------------
 /** Lean list for the home grid. */
 export async function fetchLeanPostsPage(page = 1, {excludeCategoryId = 0, signal} = {}) {
@@ -115,7 +138,6 @@ export function pickFeaturedImage(post) {
   const em = post?._embedded?.['wp:featuredmedia'];
   if (Array.isArray(em) && em[0]) {
     const sizes = em[0]?.media_details?.sizes || {};
-    // try common sizes in descending preference
     const order = ['large', 'medium_large', 'medium', 'full', 'thumbnail'];
     for (const k of order) {
       const s = sizes[k];
