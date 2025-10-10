@@ -2,174 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>OkObserver App</title>
   <meta name="color-scheme" content="light only" />
-
-  <!-- Basic reset & layout -->
-  <style>
-    :root{
-      --blue:#1e88ff;
-      --blue-dark:#1672d6;
-      --text:#111;
-      --muted:#555;
-      --card-border:#e9e9e9;
-      --shadow:0 1px 2px rgba(0,0,0,.06);
-      --page-max:1180px;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0}
-    body{
-      font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background:#fff;
-    }
-
-    /* Header */
-    .site-header{
-      background:var(--blue);
-      color:#fff;
-    }
-    .site-header .bar{
-      max-width:var(--page-max);
-      margin:0 auto;
-      padding:14px 16px;
-      display:flex;
-      align-items:center;
-      gap:16px;
-    }
-    .logo-wrap{
-      display:flex; align-items:center; gap:12px;
-      min-height:48px;
-    }
-    .logo-img{
-      display:block; width:auto; height:44px; object-fit:contain;
-    }
-    .brand-block{display:flex; flex-direction:column}
-    .brand-title{
-      font-weight:800; letter-spacing:.2px; font-size:28px; line-height:1.05; margin:0;
-      white-space:nowrap;
-    }
-    .brand-motto{
-      margin:6px 0 0 0; font-size:14px; opacity:.95; line-height:1.2;
-      white-space:nowrap;
-    }
-
-    nav.primary{
-      margin-left:auto; display:flex; gap:10px;
-    }
-    nav.primary a{
-      appearance:none; border:0; outline:0; text-decoration:none;
-      background:rgba(255,255,255,.12); color:#fff;
-      padding:8px 14px; border-radius:8px; font-weight:600;
-    }
-    nav.primary a:hover{ background:rgba(255,255,255,.18) }
-
-    /* Page frame */
-    .app-shell{
-      max-width:var(--page-max);
-      margin:22px auto 56px;
-      padding:0 16px;
-    }
-
-    /* Card look (home list) — lightweight frame as requested */
-    .card{
-      border:1px solid var(--card-border);
-      border-radius:12px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      background:#fff;
-    }
-    .thumb-wrap{
-      position:relative; width:100%;
-      padding-top:56.25%; /* 16:9 reserved slot */
-      overflow:hidden; background:#f6f8fb;
-    }
-    .thumb-wrap img.thumb{
-      position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-      display:block;
-    }
-    .card-body{ padding:14px 16px }
-    .meta{ color:var(--muted); font-size:14px }
-
-    /* Content area spacing (detail) */
-    .post-shell{
-      max-width:880px; margin:0 auto;
-    }
-    .post-hero{
-      margin:18px 0 8px;
-      border-radius:12px; overflow:hidden;
-    }
-    .post-hero img{ width:100%; height:auto; display:block }
-    .post-title{
-      font-size:36px; margin:10px 0 6px; line-height:1.15;
-      color:#1971e5;
-    }
-    .byline{ color:var(--muted); margin-bottom:10px }
-
-    /* Inline content breathing (also helps video posters) */
-    .entry{ margin:18px 0 60px }
-    .entry > *{ margin-left: 4px; margin-right: 4px }
-    .entry p{ margin: 0 4px 1em }
-    .entry img{ max-width:100%; height:auto; display:block; margin:10px auto }
-
-    /* Back link */
-    .back-row{ margin:10px 0 18px }
-    .back-btn{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:8px;
-      background:#eef5ff; color:#125cc0; text-decoration:none; font-weight:600;
-    }
-
-    /* App footer note */
-    .footer-note{
-      text-align:center; color:#6a6a6a; margin:56px 0 30px;
-      font-size:14px;
-    }
-
-    /* Utility */
-    .hidden{ display:none !important }
-  </style>
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="./Observer-logo[1].png">
+  <link rel="apple-touch-icon" href="./Observer-logo[1].png">
+  <script type="module" src="./main.js?v=2.5.x"></script>
 </head>
 <body>
-
-  <header class="site-header" aria-label="Site header">
+  <header class="site-header">
     <div class="bar">
       <div class="logo-wrap">
-        <!-- If this image 404s, CSS still keeps layout; text brand remains -->
-        <img
-          class="logo-img"
-          src="ObserverLogoBlue.png"
-          alt=""
-          onerror="this.classList.add('hidden')"
-          fetchpriority="high"
-          decoding="async"
-        />
+        <img class="logo-img" src="./Observer-logo[1].png" alt="The Oklahoma Observer logo" />
         <div class="brand-block">
-          <h1 class="brand-title">The Oklahoma Observer</h1>
           <div class="brand-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
         </div>
       </div>
-
-      <nav class="primary" aria-label="Primary">
+      <nav class="primary">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
       </nav>
     </div>
   </header>
-
-  <!-- Main app outlet -->
-  <main id="app" class="app-shell" role="main" aria-live="polite"></main>
-
-  <div class="footer-note">
-    Unofficial demo client. © 2025 — <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
-  </div>
-
-  <!-- Entry script -->
-  <script type="module" src="./main.js?v=2.5.x"></script>
-  <noscript>JavaScript is required to use this app.</noscript>
+  <main id="app" class="app-shell"></main>
 </body>
 </html>
