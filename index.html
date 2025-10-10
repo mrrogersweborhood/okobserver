@@ -5,215 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer App</title>
-
+  <link rel="icon" href="https://okobserver.org/wp-content/uploads/2020/10/favicon.ico">
   <style>
-    :root {
-      --brand: #1e90ff;
-      --text-dark: #111;
-      --text-light: #555;
-      --bg: #f5f7fb;
-      --radius: 10px;
-      --shadow: 0 1px 3px rgba(0,0,0,.06);
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: "Segoe UI", Roboto, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text-dark);
-    }
-
-    header {
-      background: var(--brand);
-      color: #fff;
-      text-align: center;
-      padding: 1rem 0 0.5rem;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
-
-    header img.logo {
-      height: 48px;
-      width: auto;
-      display: block;
-      margin: 0 auto 0.25rem;
-    }
-
-    nav {
-      display: flex;
-      justify-content: center;
-      gap: 1.5rem;
-      background: rgba(255,255,255,0.1);
-      padding: 0.5rem 0;
-    }
-
-    nav a {
-      color: #fff;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    nav a:hover {
-      text-decoration: underline;
-    }
-
-    main#app {
-      padding: 1.5rem;
-      min-height: calc(100vh - 160px);
-    }
-
-    footer {
-      text-align: center;
-      font-size: 0.9rem;
-      color: var(--text-light);
-      padding: 2rem 0;
-    }
-
-    footer a {
-      color: var(--brand);
-      text-decoration: none;
-    }
-
-    /* Content frame */
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      background: #fff;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 1.25rem;
-    }
-
-    /* Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 18px;
-    }
-
-    .card {
-      border: 1px solid #eee;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .thumb-wrap {
-      width: 100%;
-      aspect-ratio: 16/9;
-      background: #f0f0f0;
-      overflow: hidden;
-    }
-
-    .thumb-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .card-body {
-      padding: 12px 14px 16px;
-    }
-
-    .title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: #0b63d1;
-      margin: 0 0 6px;
-    }
-    .title a { color: #0b63d1; text-decoration: none; }
-    .title a:hover { text-decoration: underline; }
-
-    .meta {
-      font-size: 0.9rem;
-      color: var(--text-light);
-      margin-bottom: 10px;
-    }
-
-    .excerpt {
-      line-height: 1.45;
-      color: #222;
-    }
-
-    .content img, .content iframe, .content video {
-      max-width: 100%;
-      height: auto;
-    }
-
-    .back {
-      margin-bottom: 12px;
-    }
-
-    .btn {
-      appearance: none;
-      border: 1px solid #ddd;
-      background: #fff;
-      border-radius: 8px;
-      padding: 0.6rem 1rem;
-      cursor: pointer;
-      transition: background 0.2s ease;
-    }
-    .btn:hover { background: #f7f7f7; }
+    :root { --brand:#1e90ff; --text-dark:#111; --text-light:#555; --bg:#f5f7fb; --radius:10px; --shadow:0 1px 3px rgba(0,0,0,.06); }
+    html,body{ margin:0; padding:0; font-family:"Segoe UI", Roboto, Arial, sans-serif; background:var(--bg); color:var(--text-dark) }
+    header{ background:var(--brand); color:#fff; text-align:center; padding:1rem 0 .5rem; position:sticky; top:0; z-index:50 }
+    header img.logo{ height:48px; width:auto; display:block; margin:0 auto .25rem }
+    nav{ display:flex; justify-content:center; gap:1.5rem; background:rgba(255,255,255,.1); padding:.5rem 0 }
+    nav a{ color:#fff; text-decoration:none; font-weight:600 }
+    nav a:hover{ text-decoration:underline }
+    main#app{ padding:1.5rem; min-height:calc(100vh - 160px) }
+    footer{ text-align:center; font-size:.9rem; color:var(--text-light); padding:2rem 0 }
+    footer a{ color:var(--brand); text-decoration:none }
+    .container{ max-width:1100px; margin:0 auto; background:#fff; border-radius:var(--radius); box-shadow:var(--shadow); padding:1.25rem }
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px }
+    .card{ border:1px solid #eee; border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; background:#fff; display:flex; flex-direction:column }
+    .thumb-wrap{ width:100%; aspect-ratio:16/9; background:#f0f0f0; overflow:hidden }
+    .thumb-wrap img{ width:100%; height:100%; object-fit:cover; display:block }
+    .card-body{ padding:12px 14px 16px }
+    .title{ font-size:1.1rem; font-weight:700; color:#0b63d1; margin:0 0 6px }
+    .title a{ color:#0b63d1; text-decoration:none }
+    .title a:hover{ text-decoration:underline }
+    .meta{ font-size:.9rem; color:var(--text-light); margin-bottom:10px }
+    .excerpt{ line-height:1.45; color:#222 }
+    .content img, .content iframe, .content video{ max-width:100%; height:auto }
+    .back{ margin-bottom:12px }
+    .btn{ appearance:none; border:1px solid #ddd; background:#fff; border-radius:8px; padding:.6rem 1rem; cursor:pointer; transition:background .2s ease }
+    .btn:hover{ background:#f7f7f7 }
   </style>
 </head>
-
 <body>
   <header>
-    <img class="logo" src="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogoBlue.png" alt="The Oklahoma Observer logo" />
+    <img class="logo" src="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogo.png" alt="The Oklahoma Observer logo" />
     <div>To Comfort The Afflicted And Afflict The Comfortable</div>
-    <nav>
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
+    <nav><a href="#/">Posts</a><a href="#/about">About</a></nav>
   </header>
-
-  <main id="app">Loading…</main>
-
-  <footer>
-    Unofficial demo client © 2025 — <a href="https://okobserver.org" target="_blank">okobserver.org</a>
-  </footer>
-
+  <main id="app">Loading...</main>
+  <footer>Unofficial demo client © 2025 - <a href="https://okobserver.org" target="_blank">okobserver.org</a></footer>
   <script type="module">
     import { renderHome } from "./home.js";
     import { renderPost } from "./detail.js";
-
-    async function router() {
+    async function router(){
       const hash = location.hash || "#/";
       const parts = hash.split("/");
       const route = parts[1] || "";
       const id = parts[2];
-
-      if (!route) {
-        await renderHome();
-      } else if (route === "post" && id) {
-        await renderPost({ params: { id } });
-      } else if (route === "about") {
-        document.getElementById("app").innerHTML = \`
-          <section class="container">
-            <h1>About The Oklahoma Observer</h1>
-            <p><em>To Comfort The Afflicted And Afflict The Comfortable</em> — The Oklahoma Observer has chronicled
-            state politics, policy, and civic life since its founding by Frosty and Helen Troy in 1969. Today, editor
-            Arnold Hamilton carries on that independent spirit with reporting and commentary that challenge Oklahoma’s
-            power brokers and elevate the voices of those they overlook.</p>
-            <p>Learn more or subscribe at <a href="https://okobserver.org" target="_blank">okobserver.org</a>.</p>
-          </section>
-        \`;
+      if(!route){ await renderHome(); }
+      else if(route==="post" && id){ await renderPost({ params:{ id } }); }
+      else if(route==="about"){
+        document.getElementById("app").innerHTML = `<section class="container"><h1>About The Oklahoma Observer</h1><p><em>To Comfort The Afflicted And Afflict The Comfortable</em> - The Oklahoma Observer has chronicled state politics, policy, and civic life since its founding by Frosty and Helen Troy in 1969. Today, editor Arnold Hamilton carries on that independent spirit with reporting and commentary that challenge Oklahoma's power brokers and elevate the voices of those they overlook.</p><p>Learn more or subscribe at <a href="https://okobserver.org" target="_blank">okobserver.org</a>.</p></section>`;
       } else {
-        document.getElementById("app").innerHTML = \`
-          <section class="container">
-            <h1>Page not found</h1>
-            <p>Sorry, we couldn’t locate that page.</p>
-          </section>
-        \`;
+        document.getElementById("app").innerHTML = `<section class="container"><h1>Page not found</h1><p>Sorry, we couldn't locate that page.</p></section>`;
       }
     }
-
     window.addEventListener("hashchange", router);
     window.addEventListener("DOMContentLoaded", router);
   </script>
