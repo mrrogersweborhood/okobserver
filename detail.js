@@ -1,4 +1,4 @@
-/* detail.js — OkObserver post detail view (resilient)
+/* detail.js — OkObserver post detail view (resilient, no syntax errors)
    Exports: renderPost(idOrSlug)
    - Smart fetch: posts -> pages; by ID or slug
    - Renders hero (featured image or first content image)
@@ -22,10 +22,19 @@ function ordinalDate(iso) {
     const d = new Date(iso);
     const day = d.getDate();
     const sfx =
-      (n) => (n % 10 === 1 && n % 100 !== 11 ? "st" :
-              n % 10 === 2 && n % 100 !== 12 ? "nd" :
-              n % 10 === 3 && n % 100 !== 13 ? "rd" : "th");
-    const base = d.toLocaleString(undefined, { month: "long", day: "numeric", year: "numeric" });
+      (n) =>
+        n % 10 === 1 && n % 100 !== 11
+          ? "st"
+          : n % 10 === 2 && n % 100 !== 12
+          ? "nd"
+          : n % 10 === 3 && n % 100 !== 13
+          ? "rd"
+          : "th";
+    const base = d.toLocaleString(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
     return base.replace(String(day), `${day}${sfx(day)}`);
   } catch {
     return iso;
@@ -69,7 +78,9 @@ function findPlayableLink(html) {
   const text = (doc.body && doc.body.textContent) || "";
   const rxUrl = /(https?:\/\/[^\s"'<>]+)/g;
   const matches = text.match(rxUrl) || [];
-  return matches.find((u) => /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u)) || null;
+  return matches.find((u) =>
+    /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u)
+  ) || null;
 }
 
 function sanitizeHTML(html) {
@@ -138,7 +149,6 @@ async function tryPageBySlug(slug) {
 }
 
 async function fetchSmart(idOrSlug) {
-  // Numeric: posts/{id} -> pages/{id}
   if (isNumeric(idOrSlug)) {
     try {
       return await tryPostById(idOrSlug);
@@ -153,7 +163,6 @@ async function fetchSmart(idOrSlug) {
     }
   }
 
-  // Slug: posts?slug= -> pages?slug=
   const slug = String(idOrSlug || "").trim();
   let hit = await tryPostBySlug(slug).catch((e) => {
     if (e.status !== 404) throw e;
@@ -226,7 +235,7 @@ export async function renderPost(idOrSlug) {
       <article class="post">
         ${heroHTML}
         <h1 class="post-title">${title}</h1>
-        <div class="meta">${esc(author)} — ${esc(date))}</div>
+        <div class="meta">${esc(author)} — ${esc(date)}</div>
         <div class="post-content content">
           ${sanitizeHTML(post?.content?.rendered || "")}
         </div>
@@ -238,7 +247,9 @@ export async function renderPost(idOrSlug) {
     const img = app.querySelector(".hero-wrap .hero.is-clickable");
     if (img) {
       img.addEventListener("click", () => {
-        try { window.open(playable, "_blank", "noopener,noreferrer"); } catch {}
+        try {
+          window.open(playable, "_blank", "noopener,noreferrer");
+        } catch {}
       });
     }
   }
