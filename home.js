@@ -1,74 +1,76 @@
-// home.js — OkObserver post summary grid (v2.7.8)
-// - Uses <a class="thumb-wrap"><img class="thumb">… to contain thumbnails (no overflow).
-// - Infinite scroll with gentle bottom threshold.
-// - Saves/Restores scroll position for smooth “Back to Posts”.
-// - Shows author & date; title is blue and clickable.
+// home.js — OkObserver post summary grid
+// v2.5.4
+//
+// Responsibilities:
+// - Render paginated post grid with infinite scroll
+// - Show featured image (thumb), title (blue link), author, date, excerpt
+// - Robust to missing featured media (falls back to site logo image)
+// - Keep DOM/CSS structure aligned with index.html (.grid, .card, .thumb-wrap, .card-content)
+//
+// No scroll memory here — router (core.js) handles saving/restoring route scroll.
 
 import { fetchLeanPostsPage, fetchAuthorsMap, getCartoonCategoryId } from './api.js';
-import { saveScrollForRoute, restoreScrollPosition } from './shared.js';
 
-const HOME_ROUTE = '#/';
 const PER_PAGE = 6;
 
-let currentPage = 1;
-let isLoading = false;
-let reachedEnd = false;
-let authorsMap = {};
-let cartoonCategoryId = null;
-let scrollHandlerBound = false;
+let state = {
+  page: 1,
+  loading: false,
+  end: false,
+  authors: {},
+  cartoonCatId: null,
+  scrollHandlerAttached: false
+};
 
 export async function renderHome() {
   const app = document.getElementById('app');
   if (!app) return;
 
+  // Fresh container
   app.innerHTML = `
     <div class="grid" id="post-grid" aria-live="polite"></div>
-    <div id="loading" style="text-align:center;margin:2rem;color:#777;">Loading…</div>
+    <div id="home-loading" style="text-align:center;margin:1.5rem;color:#777">Loading…</div>
   `;
 
-  // Reset paging flags on fresh render
-  currentPage = 1;
-  reachedEnd = false;
-  isLoading = false;
+  // Reset state for a fresh home render
+  state.page = 1;
+  state.loading = false;
+  state.end = false;
 
-  // Preload helpers (cached by sessionStorage or browser)
-  try {
-    cartoonCategoryId = await getCartoonCategoryId();
-  } catch {
-    cartoonCategoryId = null;
-  }
+  // Warm lookups (cached in sessionStorage by api.js where possible)
+  try { state.cartoonCatId = await getCartoonCategoryId(); } catch { state.cartoonCatId = null; }
+  try { state.authors = await fetchAuthorsMap(); } catch { state.authors = {}; }
 
-  try {
-    authorsMap = await fetchAuthorsMap();
-  } catch {
-    authorsMap = {};
-  }
-
-  // First page
+  // First page load
   await loadNextPage();
 
   // Attach infinite scroll once
-  if (!scrollHandlerBound) {
+  if (!state.scrollHandlerAttached) {
     window.addEventListener('scroll', onScroll, { passive: true });
-    scrollHandlerBound = true;
+    state.scrollHandlerAttached = true;
   }
+}
 
-  // Try to restore previous scroll (after content lands)
-  setTimeout(() => restoreScrollPosition(HOME_ROUTE), 0);
+function onScroll() {
+  // Near-bottom threshold
+  const threshold = document.body.offsetHeight - window.innerHeight - 320;
+  if (window.scrollY >= threshold) {
+    loadNextPage();
+  }
 }
 
 async function loadNextPage() {
-  if (isLoading || reachedEnd) return;
-  isLoading = true;
+  if (state.loading || state.end) return;
 
-  const loading = document.getElementById('loading');
+  const loading = document.getElementById('home-loading');
   if (loading) loading.textContent = 'Loading…';
+  state.loading = true;
 
   try {
-    const posts = await fetchLeanPostsPage(currentPage, PER_PAGE, cartoonCategoryId);
+    const posts = await fetchLeanPostsPage(state.page, PER_PAGE, state.cartoonCatId);
 
     if (!Array.isArray(posts) || posts.length === 0) {
-      reachedEnd = true;
+      state.end = true;
       if (loading) loading.textContent = 'No more posts.';
       return;
     }
@@ -77,61 +79,40 @@ async function loadNextPage() {
     const frag = document.createDocumentFragment();
 
     for (const post of posts) {
-      frag.appendChild(createPostCard(post));
+      frag.appendChild(renderCard(post));
     }
 
     grid.appendChild(frag);
-    currentPage += 1;
+    state.page += 1;
     if (loading) loading.textContent = '';
   } catch (err) {
     console.error('[OkObserver] Home load failed:', err);
     if (loading) loading.textContent = 'Error loading posts.';
   } finally {
-    isLoading = false;
+    state.loading = false;
   }
 }
 
-function onScroll() {
-  const nearBottom = window.scrollY + window.innerHeight >= (document.body.offsetHeight - 320);
-  if (nearBottom) loadNextPage();
-
-  // Continuously save scroll position for this route
-  saveScrollForRoute(HOME_ROUTE);
-}
-
-function createPostCard(post) {
-  const card = document.createElement('div');
+function renderCard(post) {
+  const card = document.createElement('article');
   card.className = 'card';
 
-  const titleHTML = post?.title?.rendered ?? '(Untitled)';
-  const dateStr = new Date(post.date).toLocaleDateString('en-US', {
-    month: 'long', day: 'numeric', year: 'numeric'
-  });
+  // Title (HTML from WP)
+  const titleHTML = post?.title?.rendered || '(Untitled)';
 
-  // Author preference: authorsMap -> embedded -> site name
-  let authorName = authorsMap[post.author];
+  // Date
+  const dateStr = formatDate(post?.date);
+
+  // Author: prefer authors map → embedded → fallback name
+  let authorName = state.authors[post?.author];
   if (!authorName) {
     authorName = post?._embedded?.author?.[0]?.name || 'The Oklahoma Observer';
   }
 
-  // Featured image selection with sensible fallback
-  let imgUrl = null;
-  const fm = post?._embedded?.['wp:featuredmedia']?.[0];
-  if (fm?.media_details?.sizes) {
-    const sizes = fm.media_details.sizes;
-    imgUrl = sizes?.medium?.source_url
-          || sizes?.medium_large?.source_url
-          || sizes?.large?.source_url
-          || fm?.source_url
-          || null;
-  } else {
-    imgUrl = fm?.source_url || null;
-  }
-  if (!imgUrl) {
-    imgUrl = 'Observer-Logo-2015-08-05.png'; // stable fallback to avoid layout jumps
-  }
+  // Featured image (choose a reasonable size; fallback to shipped logo)
+  const imgUrl = pickThumb(post) || 'Observer-Logo-2015-08-05.png';
 
-  // THUMBNAIL (wrapped for fixed aspect & overflow control)
+  // Thumb (wrapped for aspect-ratio + containment)
   const thumbWrap = document.createElement('a');
   thumbWrap.className = 'thumb-wrap';
   thumbWrap.href = `#/post/${post.id}`;
@@ -147,20 +128,39 @@ function createPostCard(post) {
   thumbWrap.appendChild(img);
   card.appendChild(thumbWrap);
 
-  // CARD BODY
-  const content = document.createElement('div');
-  content.className = 'card-content';
-  content.innerHTML = `
-    <a href="#/post/${post.id}" class="card-title">${titleHTML}</a>
-    <div class="card-meta">By ${escapeHTML(authorName)} • ${dateStr}</div>
-    <div class="card-excerpt">${sanitizeExcerpt(post?.excerpt?.rendered || '')}</div>
+  // Body
+  const body = document.createElement('div');
+  body.className = 'card-content';
+  body.innerHTML = `
+    <h2><a class="card-title" href="#/post/${post.id}">${titleHTML}</a></h2>
+    <p class="meta">By ${escapeHTML(authorName)} • ${escapeHTML(dateStr)}</p>
+    <p class="excerpt">${sanitizeExcerpt(post?.excerpt?.rendered || '')}</p>
   `;
-  card.appendChild(content);
+  card.appendChild(body);
 
   return card;
 }
 
-// --- helpers ---
+// ---------- helpers ----------
+
+function pickThumb(post) {
+  const media = post?._embedded?.['wp:featuredmedia']?.[0];
+  if (!media) return null;
+  const sizes = media?.media_details?.sizes || {};
+  return (
+    sizes?.medium_large?.source_url ||
+    sizes?.large?.source_url ||
+    sizes?.medium?.source_url ||
+    media?.source_url ||
+    null
+  );
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
 
 function textOnly(html) {
   const div = document.createElement('div');
@@ -178,32 +178,19 @@ function escapeHTML(str) {
 }
 
 function sanitizeExcerpt(excerptHTML) {
-  // Allow basic markup but remove anchors so excerpts don’t look underlined/clickable.
+  // Keep basic formatting, remove anchors so the excerpt isn't full of fake links
   const div = document.createElement('div');
   div.innerHTML = excerptHTML || '';
 
-  // Replace <a> with <span> preserving inner HTML
+  // Replace <a> with <span> while preserving inner content
   div.querySelectorAll('a').forEach(a => {
     const span = document.createElement('span');
     span.innerHTML = a.innerHTML;
     a.replaceWith(span);
   });
 
-  // Avoid heavy blocks in the summary
-  div.querySelectorAll('blockquote, ul, ol, iframe').forEach(el => el.remove());
+  // Strip problematic heavy blocks from summaries
+  div.querySelectorAll('iframe, blockquote, ul, ol').forEach(el => el.remove());
 
   return div.innerHTML;
-}
-
-// Public teardown (in case router unloads the view)
-export function destroyHome() {
-  if (scrollHandlerBound) {
-    window.removeEventListener('scroll', onScroll);
-    scrollHandlerBound = false;
-  }
-}
-
-// Public: explicitly restore scroll for this route
-export function restoreHomeScroll() {
-  restoreScrollPosition(HOME_ROUTE);
 }

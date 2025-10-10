@@ -1,49 +1,63 @@
-// main.js — OkObserver entry (v2.7.8)
-// Bootstraps routing, locks API base, and starts the app.
+// main.js — OkObserver app entry
+// v2.5.4
 
 import { start } from './core.js';
 
-// ---- Lock API base to your Cloudflare Worker proxy ----
-(function lockApiBase(){
-  // If already locked elsewhere, don’t overwrite.
-  if (!window.OKO_API_BASE_LOCKED) {
-    // Set this to your Worker’s /wp/v2 root (no trailing slash)
-    window.OKO_API_BASE_LOCKED = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-  }
-  console.log('[OkObserver] API base (locked):', window.OKO_API_BASE_LOCKED);
+// -------- Version banner --------
+const VERSION = 'v2.5.4';
+console.log('[OkObserver] Entry loaded:', VERSION);
+
+// -------- API base locking --------
+// On GitHub Pages, we must use the Cloudflare Worker proxy (CORS-safe).
+// Elsewhere (e.g., local dev), you may point at a relative /api/ path or the same proxy.
+(function configureApiBase() {
+  const isGitHubPages = location.hostname.endsWith('github.io');
+  const workerBase = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
+  const relativeBase = `${location.origin}/api/wp/v2`;
+
+  // Prefer Worker on GH Pages, otherwise allow relative (or override via hash flag).
+  let base = isGitHubPages ? workerBase : relativeBase;
+
+  // Optional override for debugging: add #useWorker or #useRelative to the URL.
+  const hash = location.hash || '';
+  if (hash.includes('useWorker')) base = workerBase;
+  if (hash.includes('useRelative')) base = relativeBase;
+
+  // Freeze a global that other modules can read
+  Object.defineProperty(window, 'OKO_API_BASE', {
+    value: base,
+    writable: false,
+    configurable: false,
+    enumerable: true
+  });
+
+  console.log('[OkObserver] API base (locked):', window.OKO_API_BASE);
 })();
 
-// ---- Hard-reload detection: clear per-route scroll cache on true reload ----
-(function hardReloadPurge(){
+// -------- One-shot bootstrap --------
+(async function boot() {
+  if (window.__okBooted) return;
+  window.__okBooted = true;
+
   try {
-    const nav = performance.getEntriesByType?.('navigation')?.[0];
-    const isReload = nav && (nav.type === 'reload');
-    if (isReload) {
-      Object.keys(sessionStorage).forEach(k => {
-        if (k.startsWith('__scroll_')) sessionStorage.removeItem(k);
-      });
+    // Ensure DOM is ready before we try to render into #app
+    if (document.readyState === 'loading') {
+      await new Promise((resolve) =>
+        document.addEventListener('DOMContentLoaded', resolve, { once: true })
+      );
     }
-  } catch {}
+    await start(); // exported from core.js
+  } catch (err) {
+    console.error('OkObserver failed to start', err);
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = `
+        <div style="padding:1rem;color:#b00020">
+          <strong>App script did not execute.</strong>
+          Check Network → main.js (200), then hard-reload.<br/>
+          <small>${String(err)}</small>
+        </div>
+      `;
+    }
+  }
 })();
-
-// ---- Global click handler for simple in-page nav fallbacks (defensive) ----
-document.addEventListener('click', (e) => {
-  const a = e.target.closest('a[href^="#/"]');
-  if (!a) return;
-  // allow default hash navigation; router listens to hashchange
-}, { passive: true });
-
-// ---- Start the app ----
-try {
-  console.log('[OkObserver] Entry loaded: v2.7.8');
-  start();
-} catch (err) {
-  console.error('OkObserver failed to start', err);
-  const app = document.getElementById('app');
-  if (app) app.innerHTML = `
-    <div style="max-width:720px;margin:2rem auto;padding:1rem;border:1px solid #f3caca;background:#fff5f5;color:#8a1f1f;border-radius:8px;">
-      <strong>App script did not execute.</strong><br/>
-      Check Network → <code>main.js</code> (200), hard-reload, and confirm modules are loading.
-    </div>
-  `;
-}
