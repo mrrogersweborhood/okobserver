@@ -1,14 +1,14 @@
-/* detail.js — OkObserver post detail view
-   - Exports: renderPost(id)
-   - Fetches a single post with _embed=1
-   - Renders a hero (featured image or first content image)
-   - Makes hero clickable when a video link is discoverable
-   - Post-render cleanup hides empty iframes/embeds to avoid large white gaps
+/* detail.js — OkObserver post detail view (resilient)
+   Exports: renderPost(idOrSlug)
+   - Smart fetch: posts -> pages; by ID or slug
+   - Renders hero (featured image or first content image)
+   - Hero is clickable if a YouTube/Vimeo/Facebook link is found
+   - Post-render cleanup hides empty embeds/iframes to avoid big white gaps
 */
 
 const API_BASE = (window && window.OKO_API_BASE) || `${location.origin}/api/wp/v2`;
 
-// ---- Utilities -------------------------------------------------------------
+// ---------------- Utilities ----------------
 
 function esc(str = "") {
   return String(str)
@@ -21,40 +21,36 @@ function ordinalDate(iso) {
   try {
     const d = new Date(iso);
     const day = d.getDate();
-    const sfx = (n) =>
-      n % 10 === 1 && n % 100 !== 11 ? "st" :
-      n % 10 === 2 && n % 100 !== 12 ? "nd" :
-      n % 10 === 3 && n % 100 !== 13 ? "rd" : "th";
-    const fmt = d.toLocaleString(undefined, { month: "long", day: "numeric", year: "numeric" });
-    // toLocale will not include suffix, so re-insert it
-    // e.g., "September 12, 2025" -> "September 12th, 2025"
-    return fmt.replace(String(day), `${day}${sfx(day)}`);
+    const sfx =
+      (n) => (n % 10 === 1 && n % 100 !== 11 ? "st" :
+              n % 10 === 2 && n % 100 !== 12 ? "nd" :
+              n % 10 === 3 && n % 100 !== 13 ? "rd" : "th");
+    const base = d.toLocaleString(undefined, { month: "long", day: "numeric", year: "numeric" });
+    return base.replace(String(day), `${day}${sfx(day)}`);
   } catch {
     return iso;
   }
 }
 
-function first(arr) { return Array.isArray(arr) && arr.length ? arr[0] : null; }
+const first = (arr) => (Array.isArray(arr) && arr.length ? arr[0] : null);
+const isNumeric = (v) => /^\d+$/.test(String(v || "").trim());
 
 function pickFeaturedFromEmbed(post) {
-  const m = post?._embedded?.["wp:featuredmedia"];
-  const media = first(m);
+  const media = first(post?._embedded?.["wp:featuredmedia"]);
   if (!media) return null;
-
-  // Try a good size from media_details.sizes; otherwise use source_url
   const sizes = media?.media_details?.sizes || {};
-  const preferred =
+  return (
     sizes?.large?.source_url ||
     sizes?.medium_large?.source_url ||
     sizes?.full?.source_url ||
     media?.source_url ||
-    null;
-  return preferred || null;
+    null
+  );
 }
 
 function extractFirstImageFromHTML(html) {
   try {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    const doc = new DOMParser().parseFromString(html || "", "text/html");
     const img = doc.querySelector("img[src]");
     return img ? img.getAttribute("src") : null;
   } catch {
@@ -63,26 +59,21 @@ function extractFirstImageFromHTML(html) {
 }
 
 function findPlayableLink(html) {
-  // Prefer explicit anchors; fall back to obvious video hosts in plain URLs.
-  const rxUrl = /(https?:\/\/[^\s"'<>]+)/g;
-  const doc = new DOMParser().parseFromString(html, "text/html");
-
-  // Look for anchors pointing to known video hosts
-  const a = [...doc.querySelectorAll('a[href]')].find(el => {
-    const u = el.getAttribute('href');
-    return /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/gi.test(u || "");
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  const a = [...doc.querySelectorAll("a[href]")].find((el) => {
+    const u = el.getAttribute("href") || "";
+    return /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u);
   });
   if (a) return a.href;
 
-  // Otherwise scan text for a raw URL
-  const text = doc.body?.textContent || "";
+  const text = (doc.body && doc.body.textContent) || "";
+  const rxUrl = /(https?:\/\/[^\s"'<>]+)/g;
   const matches = text.match(rxUrl) || [];
-  return matches.find(u => /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u)) || null;
+  return matches.find((u) => /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u)) || null;
 }
 
 function sanitizeHTML(html) {
-  // Strip scripts only — keep iframes/images/etc (WordPress already sanitized)
-  return String(html).replace(/<script[\s\S]*?<\/script>/gi, "");
+  return String(html || "").replace(/<script[\s\S]*?<\/script>/gi, "");
 }
 
 function hideNode(node) {
@@ -93,32 +84,25 @@ function hideNode(node) {
   node.style.padding = "0";
 }
 
-// After the DOM is painted, hide empty iframes/embeds to kill white gaps
 function cleanupEmptyEmbeds(container) {
   if (!container) return;
 
-  // 1) Hide any hero-wrap with no children or zero height
   const hero = container.querySelector(".hero-wrap");
-  if (hero && (hero.children.length === 0 || hero.clientHeight < 10)) {
-    hideNode(hero);
-  }
+  if (hero && (hero.children.length === 0 || hero.clientHeight < 10)) hideNode(hero);
 
-  // 2) If a .embed wrapper exists, hide it when its iframe is collapsed
-  container.querySelectorAll(".embed, .embed .frame").forEach(wrap => {
+  container.querySelectorAll(".embed, .embed .frame").forEach((wrap) => {
     const iframe = wrap.querySelector("iframe");
     if (!iframe) {
       if (!wrap.textContent.trim()) hideNode(wrap);
       return;
     }
-    // Defer check a tick to allow layout
     setTimeout(() => {
       const h = iframe.clientHeight || parseInt(getComputedStyle(iframe).height, 10) || 0;
       if (h < 40) hideNode(wrap.closest(".embed") || wrap);
     }, 250);
   });
 
-  // 3) Generic iframes that paint zero height
-  container.querySelectorAll("iframe").forEach(fr => {
+  container.querySelectorAll("iframe").forEach((fr) => {
     setTimeout(() => {
       const h = fr.clientHeight || parseInt(getComputedStyle(fr).height, 10) || 0;
       if (h < 40) hideNode(fr);
@@ -126,14 +110,65 @@ function cleanupEmptyEmbeds(container) {
   });
 }
 
-// ---- Rendering -------------------------------------------------------------
+// ---------------- Fetch helpers ----------------
 
-async function fetchPost(id) {
-  const url = `${API_BASE}/posts/${encodeURIComponent(id)}?_embed=1`;
+async function fetchJson(url) {
   const res = await fetch(url, { credentials: "omit" });
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`API ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
+
+async function tryPostById(id) {
+  return fetchJson(`${API_BASE}/posts/${encodeURIComponent(id)}?_embed=1`);
+}
+async function tryPageById(id) {
+  return fetchJson(`${API_BASE}/pages/${encodeURIComponent(id)}?_embed=1`);
+}
+async function tryPostBySlug(slug) {
+  const arr = await fetchJson(`${API_BASE}/posts?slug=${encodeURIComponent(slug)}&_embed=1`);
+  return first(arr) || null;
+}
+async function tryPageBySlug(slug) {
+  const arr = await fetchJson(`${API_BASE}/pages?slug=${encodeURIComponent(slug)}&_embed=1`);
+  return first(arr) || null;
+}
+
+async function fetchSmart(idOrSlug) {
+  // Numeric: posts/{id} -> pages/{id}
+  if (isNumeric(idOrSlug)) {
+    try {
+      return await tryPostById(idOrSlug);
+    } catch (e) {
+      if (e.status !== 404) throw e;
+      try {
+        return await tryPageById(idOrSlug);
+      } catch (e2) {
+        if (e2.status !== 404) throw e2;
+        return null;
+      }
+    }
+  }
+
+  // Slug: posts?slug= -> pages?slug=
+  const slug = String(idOrSlug || "").trim();
+  let hit = await tryPostBySlug(slug).catch((e) => {
+    if (e.status !== 404) throw e;
+    return null;
+  });
+  if (hit) return hit;
+
+  hit = await tryPageBySlug(slug).catch((e) => {
+    if (e.status !== 404) throw e;
+    return null;
+  });
+  return hit || null;
+}
+
+// ---------------- Rendering ----------------
 
 function render404(message = "Post not found") {
   const app = document.getElementById("app");
@@ -151,17 +186,20 @@ function render404(message = "Post not found") {
   `;
 }
 
-export async function renderPost(id) {
+export async function renderPost(idOrSlug) {
   const app = document.getElementById("app");
   if (!app) return;
 
   app.innerHTML = `<div class="post-wrap"><div class="post">Loading…</div></div>`;
 
-  let post;
+  let post = null;
   try {
-    post = await fetchPost(id);
+    post = await fetchSmart(idOrSlug);
   } catch (err) {
     console.error("[OkObserver] detail fetch failed:", err);
+  }
+
+  if (!post) {
     render404("Post not found");
     return;
   }
@@ -170,11 +208,7 @@ export async function renderPost(id) {
   const author = post?._embedded?.author?.[0]?.name || "Oklahoma Observer";
   const date = ordinalDate(post?.date);
 
-  // Hero source selection
-  let heroSrc = pickFeaturedFromEmbed(post);
-  if (!heroSrc) heroSrc = extractFirstImageFromHTML(post?.content?.rendered || "");
-
-  // Find a playable link (YouTube/Vimeo/Facebook) to open on hero click
+  let heroSrc = pickFeaturedFromEmbed(post) || extractFirstImageFromHTML(post?.content?.rendered);
   const playable = findPlayableLink(post?.content?.rendered || "") || null;
 
   const heroHTML = heroSrc
@@ -184,17 +218,15 @@ export async function renderPost(id) {
       </div>`
     : `<div class="hero-wrap"></div>`;
 
-  const html = `
+  app.innerHTML = `
     <div class="post-wrap">
       <div class="back-row">
         <a href="#/" class="back-btn">← Back to posts</a>
       </div>
-
       <article class="post">
         ${heroHTML}
         <h1 class="post-title">${title}</h1>
-        <div class="meta">${esc(author)} — ${esc(date)}</div>
-
+        <div class="meta">${esc(author)} — ${esc(date))}</div>
         <div class="post-content content">
           ${sanitizeHTML(post?.content?.rendered || "")}
         </div>
@@ -202,9 +234,6 @@ export async function renderPost(id) {
     </div>
   `;
 
-  app.innerHTML = html;
-
-  // Add hero click → open playable link in new tab (if we found one)
   if (playable) {
     const img = app.querySelector(".hero-wrap .hero.is-clickable");
     if (img) {
@@ -214,8 +243,6 @@ export async function renderPost(id) {
     }
   }
 
-  // Final tidy: remove empty hero/embeds to prevent large blank regions
-  // Run twice (immediately and after a small delay) for slow-loading embeds
   cleanupEmptyEmbeds(app);
   setTimeout(() => cleanupEmptyEmbeds(app), 600);
 }
