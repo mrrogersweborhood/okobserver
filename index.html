@@ -1,172 +1,138 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta http-equiv="x-ua-compatible" content="ie=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OkObserver App</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>OkObserver App</title>
 
-  <!-- Favicon (working) -->
-  <link rel="icon" href="https://okobserver.org/wp-content/uploads/2020/10/favicon.ico" />
+    <!-- Prevent old caches from serving stale JS -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
 
-  <style>
-    :root{
-      --brand:#198cf0;          /* header blue */
-      --brand-ink:#ffffff;      /* header text */
-      --ink:#1f2937;            /* body text */
-      --card:#ffffff;
-      --bg:#f4f6f8;
-      --shadow:0 2px 8px rgba(0,0,0,.06);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
-      color:var(--ink);
-      background:var(--bg);
-    }
+    <!-- Favicon / Touch Icon (avoid 404s by pointing to a known-good image) -->
+    <link
+      rel="icon"
+      href="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogoBlue.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogoBlue.png"
+    />
 
-    /* ===== App shell ===== */
-    .site{
-      display:flex;
-      flex-direction:column;
-      min-height:100%;
-    }
+    <!-- App styles (keep your existing files/paths) -->
+    <link rel="stylesheet" href="./styles.css?v=2.5.8" />
+    <link rel="stylesheet" href="./app.css?v=2.5.8" />
 
-    /* ===== Header ===== */
-    .header{
-      background:var(--brand);
-      color:var(--brand-ink);
-      box-shadow:var(--shadow);
-    }
+    <style>
+      /* Tiny, safe header helpers (doesn't touch cards, grids, etc.) */
+      header.site-header {
+        background: #1884e0;
+        color: #fff;
+      }
+      .site-header .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px 20px 8px;
+      }
+      .brand {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 14px;
+      }
+      .brand img.logo {
+        height: 56px;
+        width: auto;
+        display: block;
+      }
+      .brand .title-wrap {
+        line-height: 1.1;
+      }
+      .brand .motto {
+        margin-top: 6px;
+        font-size: 14px;
+        opacity: 0.95;
+        white-space: nowrap;        /* keep on one line as requested */
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      nav.primary {
+        background: rgba(0, 0, 0, 0.08);
+      }
+      nav.primary .nav-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 10px 20px;
+        display: flex;
+        gap: 18px;
+      }
+      nav.primary a {
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      /* Keep main container name EXACTLY "app" so router can mount */
+      main#app {
+        min-height: 60vh;
+      }
+      footer.site-footer {
+        border-top: 1px solid #e9eef3;
+        padding: 28px 20px;
+        color: #5b6b7a;
+        background: #fff;
+      }
+      footer .container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
 
-    /* Top bar: logo + motto */
-    .brandbar{
-      display:flex;
-      align-items:center;
-      justify-content:center;    /* logo is centered; change to space-between for left align + actions */
-      gap:16px;
-      min-height:88px;           /* reserves space so layout doesn’t jump while image loads */
-      padding:14px 16px;
-    }
-    .brandbar .logo{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      height:60px;               /* visual target height for logo image area */
-    }
-    .brandbar .logo img{
-      display:block;
-      height:60px;               /* fixed height for consistency */
-      width:auto;
-      max-width:100%;
-      object-fit:contain;
-      image-rendering:auto;
-    }
-    /* If logo fails to load, hide the alt text so we don’t get big words in the header */
-    .brandbar .logo img:not([src]), 
-    .brandbar .logo img[src=""]{
-      visibility:hidden;
-    }
-
-    .brandbar .motto{
-      white-space:nowrap;         /* single line */
-      font-weight:600;
-      letter-spacing:.1px;
-      font-size:15px;
-      opacity:.95;
-      text-align:center;
-    }
-
-    /* Nav bar */
-    .nav{
-      display:flex;
-      gap:24px;
-      align-items:center;
-      justify-content:center;
-      padding:10px 12px;
-      border-top:1px solid rgba(255,255,255,.15);
-      background:linear-gradient(0deg, rgba(0,0,0,.06), rgba(0,0,0,0));
-    }
-    .nav a{
-      color:var(--brand-ink);
-      text-decoration:none;
-      font-weight:700;
-      padding:6px 10px;
-      border-radius:8px;
-      transition:background .15s ease;
-    }
-    .nav a:hover,
-    .nav a:focus-visible{
-      background:rgba(255,255,255,.14);
-      outline:none;
-    }
-
-    /* ===== Main area ===== */
-    main{
-      width:100%;
-      max-width:1100px;
-      margin:18px auto 48px;
-      padding:0 16px 24px;
-    }
-
-    /* App “mount” nodes (router will inject into these) */
-    #app-root{min-height:40vh}
-    .hidden{display:none !important}
-
-    /* Basic card look (unchanged semantics) */
-    .card{
-      background:var(--card);
-      border-radius:12px;
-      box-shadow:var(--shadow);
-    }
-
-    /* Utility link color for titles (keeps your blue) */
-    a.title-link{
-      color:#1e66ff;
-      text-decoration:none;
-    }
-    a.title-link:hover{text-decoration:underline}
-  </style>
-</head>
-<body>
-  <div class="site">
-    <header class="header" role="banner">
-      <div class="brandbar">
-        <div class="logo" aria-label="The Oklahoma Observer">
-          <!-- Use a working absolute URL to avoid 404 and header collapse -->
+  <body>
+    <!-- Header -->
+    <header class="site-header" role="banner">
+      <div class="container">
+        <div class="brand" aria-label="The Oklahoma Observer">
           <img
-            src="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogo.png"
+            class="logo"
+            src="https://okobserver.org/wp-content/uploads/2020/10/ObserverLogoBlue.png"
             alt="The Oklahoma Observer"
-            width="360"
-            height="60"
             decoding="async"
             fetchpriority="high"
           />
+          <div class="title-wrap">
+            <h1 class="sr-only">The Oklahoma Observer</h1>
+            <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+          </div>
         </div>
-        <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </div>
 
-      <nav class="nav" aria-label="Primary">
-        <a href="#/" data-link>Posts</a>
-        <a href="#/about" data-link>About</a>
+      <nav class="primary" aria-label="Primary">
+        <div class="nav-wrap">
+          <a href="#/">Posts</a>
+          <a href="#/about">About</a>
+        </div>
       </nav>
     </header>
 
-    <main id="app-root" role="main">
-      <!-- The router will render into here -->
-      <noscript>This app requires JavaScript.</noscript>
-    </main>
+    <!-- 🔵 IMPORTANT: this id must be exactly "app" (the router looks for it) -->
+    <main id="app" role="main" aria-live="polite"></main>
 
-    <footer style="text-align:center;color:#607085;margin:24px 0 40px;font-size:13px">
-      <span>Unofficial demo client. © 2025 — <span id="app-version">v2.x</span></span>
-      &nbsp;•&nbsp;
-      <a href="https://okobserver.org" target="_blank" rel="noopener" style="color:#1e66ff;text-decoration:none">okobserver.org</a>
+    <!-- Footer -->
+    <footer class="site-footer" role="contentinfo">
+      <div class="container">
+        <small>
+          Unofficial demo client. © 2025 —
+          <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a>
+        </small>
+      </div>
     </footer>
-  </div>
 
-  <!-- App entry (your versioned ES module). Keep your current file name/version. -->
-  <script type="module" src="./main.js?v=2.5.7"></script>
-</body>
+    <!-- Your app entry (keep your existing module files/paths) -->
+    <script type="module" src="./main.js?v=2.5.8"></script>
+  </body>
 </html>
