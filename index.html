@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OkObserver</title>
   <link rel="icon" href="Observer-Logo-2015-08-05.png" type="image/png">
+
   <style>
     :root {
       --brand: #1E90FF;
@@ -45,7 +46,7 @@
 
     main { max-width: 1200px; margin: 1.5rem auto; padding: 0 1rem; }
 
-    /* === Post grid and cards (summary page) === */
+    /* === Post grid (summary page) === */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -66,7 +67,6 @@
     }
     .card:hover { transform: translateY(-2px); box-shadow: 0 3px 6px rgba(0,0,0,.06); }
 
-    /* clickable image on summary cards */
     .thumb-link {
       display: block;
       border-radius: 8px;
@@ -96,7 +96,6 @@
     .card h2.title { font-size: 1.1rem; margin-bottom: 0.25rem; line-height: 1.3; }
     .card h2.title a { color: var(--brand); text-decoration: none; font-weight: 600; }
     .card h2.title a:hover { text-decoration: underline; }
-
     .meta { font-size: 0.9rem; color: #666; margin-bottom: 0.5rem; }
 
     .card .excerpt {
@@ -104,7 +103,7 @@
       padding-left: 0.25rem; padding-right: 0.25rem;
     }
 
-    /* === Detail page (comfortable frame + NO CROPPING for hero) === */
+    /* === Detail page === */
     .post-wrap { max-width: 860px; margin: 0 auto; padding: 0 1rem; }
     .post {
       background: #fff;
@@ -113,6 +112,7 @@
       box-shadow: 0 1px 2px rgba(0,0,0,.04);
       padding: 1.25rem 1.25rem 1.5rem;
     }
+
     .back-row { margin: 0 0 0.75rem 0; }
     .back-btn {
       display: inline-block; padding: 0.5rem 1rem; background: var(--brand);
@@ -128,7 +128,7 @@
     }
     .post .meta { color: #666; font-size: 0.95rem; margin-bottom: 0.9rem; }
 
-    /* HERO — no cropping: natural aspect, full width */
+    /* HERO – fix large blank space when empty */
     .hero-wrap {
       width: 100%;
       border-radius: 12px;
@@ -139,10 +139,13 @@
       align-items: center;
       justify-content: center;
     }
+    .hero-wrap:empty {
+      display: none !important;
+    }
     .hero-wrap .hero {
       width: 100%;
       height: auto;
-      object-fit: contain; /* keep entire image visible */
+      object-fit: contain;
       display: block;
       border: 0;
       transition: filter 0.2s ease;
@@ -150,11 +153,29 @@
     .hero-wrap .hero.is-clickable { cursor: pointer; }
     .hero-wrap .hero.is-clickable:hover { filter: brightness(0.9); }
 
+    /* Collapse any empty embeds that produce white space */
+    .post .hero:empty,
+    .post .embed:empty,
+    .post .embed .frame:empty {
+      display: none !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .post .content figure { margin: 0 0 1rem 0; }
+    .post .content img,
+    .post .content video,
+    .post .content iframe {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 1rem auto;
+      border-radius: 8px;
+    }
+
     .post-content { line-height: 1.65; font-size: 1rem; color: #222; }
     .post-content p:first-of-type { text-indent: 0 !important; margin-top: 0; }
-    .post-content img, .post-content iframe {
-      max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px;
-    }
     .post-content a { color: var(--brand); text-decoration: underline; }
 
     footer { text-align: center; color: #666; font-size: 0.9rem; padding: 2rem 0; }
@@ -167,6 +188,7 @@
     }
   </style>
 </head>
+
 <body>
   <header>
     <img class="logo" src="Observer-Logo-2015-08-05.png" alt="The Oklahoma Observer">
@@ -182,9 +204,9 @@
   </main>
 
   <footer>
-    Unofficial demo client. © 2025 — v2.5.6
+    Unofficial demo client. © 2025 — v2.5.7
   </footer>
 
-  <script type="module" src="main.js?v=2.5.6"></script>
+  <script type="module" src="main.js?v=2.5.7"></script>
 </body>
 </html>

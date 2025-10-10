@@ -1,117 +1,221 @@
-// detail.js — post detail renderer with hero image / poster fallback
-// v2.5.5 (visual classes aligned with index.html for spacing/frame)
+/* detail.js — OkObserver post detail view
+   - Exports: renderPost(id)
+   - Fetches a single post with _embed=1
+   - Renders a hero (featured image or first content image)
+   - Makes hero clickable when a video link is discoverable
+   - Post-render cleanup hides empty iframes/embeds to avoid large white gaps
+*/
 
-import { fetchPostById, pickFeaturedImage } from './api.js';
+const API_BASE = (window && window.OKO_API_BASE) || `${location.origin}/api/wp/v2`;
 
-const YT = /(?:youtube\.com|youtu\.be)/i;
-const VM = /vimeo\.com/i;
-const FB = /facebook\.com/i;
-const ALWAYS_POSTER_HOSTS = /(facebook\.com)/i; // poster-first for FB
+// ---- Utilities -------------------------------------------------------------
 
-function decodeHTML(str='') {
-  const d = document.createElement('textarea');
-  d.innerHTML = str; return d.value;
+function esc(str = "") {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function firstMediaLinkFromContent(html='') {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  const as = Array.from(div.querySelectorAll('a[href]'));
-  const hit = as.find(a => YT.test(a.href) || VM.test(a.href) || FB.test(a.href));
-  return hit?.href || '';
+function ordinalDate(iso) {
+  try {
+    const d = new Date(iso);
+    const day = d.getDate();
+    const sfx = (n) =>
+      n % 10 === 1 && n % 100 !== 11 ? "st" :
+      n % 10 === 2 && n % 100 !== 12 ? "nd" :
+      n % 10 === 3 && n % 100 !== 13 ? "rd" : "th";
+    const fmt = d.toLocaleString(undefined, { month: "long", day: "numeric", year: "numeric" });
+    // toLocale will not include suffix, so re-insert it
+    // e.g., "September 12, 2025" -> "September 12th, 2025"
+    return fmt.replace(String(day), `${day}${sfx(day)}`);
+  } catch {
+    return iso;
+  }
 }
 
-function posterFromFeaturedOrContent(post) {
-  const hero = pickFeaturedImage(post);
-  if (hero) return hero;
-  const div = document.createElement('div');
-  div.innerHTML = post?.content?.rendered || '';
-  const img = div.querySelector('img[src]');
-  return img?.src || '';
+function first(arr) { return Array.isArray(arr) && arr.length ? arr[0] : null; }
+
+function pickFeaturedFromEmbed(post) {
+  const m = post?._embedded?.["wp:featuredmedia"];
+  const media = first(m);
+  if (!media) return null;
+
+  // Try a good size from media_details.sizes; otherwise use source_url
+  const sizes = media?.media_details?.sizes || {};
+  const preferred =
+    sizes?.large?.source_url ||
+    sizes?.medium_large?.source_url ||
+    sizes?.full?.source_url ||
+    media?.source_url ||
+    null;
+  return preferred || null;
 }
 
-function heroPosterBlock({poster, clickUrl}) {
-  if (!poster) return '';
-  const clickAttr = clickUrl ? ` data-click="${encodeURIComponent(clickUrl)}"` : '';
-  return `
-    <div class="hero-wrap">
-      <img class="hero${clickUrl ? ' is-clickable' : ''}" src="${poster}" alt=""${clickAttr} />
+function extractFirstImageFromHTML(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const img = doc.querySelector("img[src]");
+    return img ? img.getAttribute("src") : null;
+  } catch {
+    return null;
+  }
+}
+
+function findPlayableLink(html) {
+  // Prefer explicit anchors; fall back to obvious video hosts in plain URLs.
+  const rxUrl = /(https?:\/\/[^\s"'<>]+)/g;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  // Look for anchors pointing to known video hosts
+  const a = [...doc.querySelectorAll('a[href]')].find(el => {
+    const u = el.getAttribute('href');
+    return /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/gi.test(u || "");
+  });
+  if (a) return a.href;
+
+  // Otherwise scan text for a raw URL
+  const text = doc.body?.textContent || "";
+  const matches = text.match(rxUrl) || [];
+  return matches.find(u => /youtube\.com|youtu\.be|vimeo\.com|facebook\.com\/.+\/videos/i.test(u)) || null;
+}
+
+function sanitizeHTML(html) {
+  // Strip scripts only — keep iframes/images/etc (WordPress already sanitized)
+  return String(html).replace(/<script[\s\S]*?<\/script>/gi, "");
+}
+
+function hideNode(node) {
+  if (!node) return;
+  node.style.display = "none";
+  node.style.minHeight = "0";
+  node.style.margin = "0";
+  node.style.padding = "0";
+}
+
+// After the DOM is painted, hide empty iframes/embeds to kill white gaps
+function cleanupEmptyEmbeds(container) {
+  if (!container) return;
+
+  // 1) Hide any hero-wrap with no children or zero height
+  const hero = container.querySelector(".hero-wrap");
+  if (hero && (hero.children.length === 0 || hero.clientHeight < 10)) {
+    hideNode(hero);
+  }
+
+  // 2) If a .embed wrapper exists, hide it when its iframe is collapsed
+  container.querySelectorAll(".embed, .embed .frame").forEach(wrap => {
+    const iframe = wrap.querySelector("iframe");
+    if (!iframe) {
+      if (!wrap.textContent.trim()) hideNode(wrap);
+      return;
+    }
+    // Defer check a tick to allow layout
+    setTimeout(() => {
+      const h = iframe.clientHeight || parseInt(getComputedStyle(iframe).height, 10) || 0;
+      if (h < 40) hideNode(wrap.closest(".embed") || wrap);
+    }, 250);
+  });
+
+  // 3) Generic iframes that paint zero height
+  container.querySelectorAll("iframe").forEach(fr => {
+    setTimeout(() => {
+      const h = fr.clientHeight || parseInt(getComputedStyle(fr).height, 10) || 0;
+      if (h < 40) hideNode(fr);
+    }, 250);
+  });
+}
+
+// ---- Rendering -------------------------------------------------------------
+
+async function fetchPost(id) {
+  const url = `${API_BASE}/posts/${encodeURIComponent(id)}?_embed=1`;
+  const res = await fetch(url, { credentials: "omit" });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  return res.json();
+}
+
+function render404(message = "Post not found") {
+  const app = document.getElementById("app");
+  if (!app) return;
+  app.innerHTML = `
+    <div class="post-wrap">
+      <div class="back-row">
+        <a href="#/" class="back-btn">← Back to posts</a>
+      </div>
+      <div class="post">
+        <h1 class="post-title">${esc(message)}</h1>
+        <p>Sorry, we couldn't load this post.</p>
+      </div>
     </div>
   `;
 }
 
-function bindHeroClick(container) {
-  const img = container.querySelector('.hero.is-clickable');
-  if (img) {
-    img.addEventListener('click', ()=>{
-      const target = img.getAttribute('data-click');
-      if (target) window.open(decodeURIComponent(target), '_blank', 'noopener');
-    });
-  }
-}
-
 export async function renderPost(id) {
-  const app = document.getElementById('app');
+  const app = document.getElementById("app");
   if (!app) return;
 
-  // Skeleton with framed layout classes matching index.css
-  app.innerHTML = `
+  app.innerHTML = `<div class="post-wrap"><div class="post">Loading…</div></div>`;
+
+  let post;
+  try {
+    post = await fetchPost(id);
+  } catch (err) {
+    console.error("[OkObserver] detail fetch failed:", err);
+    render404("Post not found");
+    return;
+  }
+
+  const title = post?.title?.rendered || "Untitled";
+  const author = post?._embedded?.author?.[0]?.name || "Oklahoma Observer";
+  const date = ordinalDate(post?.date);
+
+  // Hero source selection
+  let heroSrc = pickFeaturedFromEmbed(post);
+  if (!heroSrc) heroSrc = extractFirstImageFromHTML(post?.content?.rendered || "");
+
+  // Find a playable link (YouTube/Vimeo/Facebook) to open on hero click
+  const playable = findPlayableLink(post?.content?.rendered || "") || null;
+
+  const heroHTML = heroSrc
+    ? `
+      <div class="hero-wrap">
+        <img class="hero ${playable ? "is-clickable" : ""}" src="${esc(heroSrc)}" alt="">
+      </div>`
+    : `<div class="hero-wrap"></div>`;
+
+  const html = `
     <div class="post-wrap">
+      <div class="back-row">
+        <a href="#/" class="back-btn">← Back to posts</a>
+      </div>
+
       <article class="post">
-        <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
-        <div class="hero-slot"></div>
-        <h1 class="post-title"></h1>
-        <div class="meta"></div>
-        <div class="post-content"></div>
+        ${heroHTML}
+        <h1 class="post-title">${title}</h1>
+        <div class="meta">${esc(author)} — ${esc(date)}</div>
+
+        <div class="post-content content">
+          ${sanitizeHTML(post?.content?.rendered || "")}
+        </div>
       </article>
     </div>
   `;
 
-  const heroSlot = app.querySelector('.hero-slot');
-  const titleEl  = app.querySelector('.post-title');
-  const metaEl   = app.querySelector('.meta');
-  const bodyEl   = app.querySelector('.post-content');
+  app.innerHTML = html;
 
-  try {
-    const post = await fetchPostById(id);
-    const title = decodeHTML(post?.title?.rendered || '');
-    const author = post?._embedded?.author?.[0]?.name || 'The Oklahoma Observer';
-    const when = new Date(post?.date || Date.now());
-    const niceDate = when.toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
-
-    titleEl.textContent = title;
-    metaEl.textContent  = `${author} — ${niceDate}`;
-
-    const mediaLink = firstMediaLinkFromContent(post?.content?.rendered || '');
-    const poster = posterFromFeaturedOrContent(post);
-
-    let heroHTML = '';
-    if (mediaLink && ALWAYS_POSTER_HOSTS.test(mediaLink)) {
-      heroHTML = heroPosterBlock({poster, clickUrl: mediaLink});
-    } else {
-      heroHTML = heroPosterBlock({poster, clickUrl: mediaLink || ''});
+  // Add hero click → open playable link in new tab (if we found one)
+  if (playable) {
+    const img = app.querySelector(".hero-wrap .hero.is-clickable");
+    if (img) {
+      img.addEventListener("click", () => {
+        try { window.open(playable, "_blank", "noopener,noreferrer"); } catch {}
+      });
     }
-    heroSlot.innerHTML = heroHTML;
-    bindHeroClick(app);
-
-    // Body content: remove any inline first-paragraph indentation, make media responsive
-    const contentHTML = (post?.content?.rendered || '')
-      .replace(/text-indent:\s*2em/gi, 'text-indent:0')
-      .replace(/<iframe /gi, '<iframe loading="lazy" ')
-      .replace(/<img /gi, '<img loading="lazy" style="max-width:100%;height:auto" ');
-    bodyEl.innerHTML = contentHTML;
-
-  } catch (e) {
-    console.error('[OkObserver] detail load failed:', e);
-    const status = (e && typeof e === 'object' && 'status' in e) ? e.status : 0;
-    app.innerHTML = `
-      <div class="post-wrap">
-        <article class="post">
-          <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
-          <h1 class="post-title">Post not found</h1>
-          <p>Sorry, we couldn't load this post.${status ? ` <small>(status ${status})</small>` : ''}</p>
-        </article>
-      </div>
-    `;
   }
+
+  // Final tidy: remove empty hero/embeds to prevent large blank regions
+  // Run twice (immediately and after a small delay) for slow-loading embeds
+  cleanupEmptyEmbeds(app);
+  setTimeout(() => cleanupEmptyEmbeds(app), 600);
 }
