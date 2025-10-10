@@ -1,11 +1,12 @@
 // detail.js — post detail renderer with hero image / poster fallback
-// v2.5.5
+// v2.5.5 (visual classes aligned with index.html for spacing/frame)
+
 import { fetchPostById, pickFeaturedImage } from './api.js';
 
 const YT = /(?:youtube\.com|youtu\.be)/i;
 const VM = /vimeo\.com/i;
 const FB = /facebook\.com/i;
-const ALWAYS_POSTER_HOSTS = /(facebook\.com)/i; // poster-first for FB (iframes often blocked)
+const ALWAYS_POSTER_HOSTS = /(facebook\.com)/i; // poster-first for FB
 
 function decodeHTML(str='') {
   const d = document.createElement('textarea');
@@ -13,7 +14,6 @@ function decodeHTML(str='') {
 }
 
 function firstMediaLinkFromContent(html='') {
-  // Look for <a href="..."> that points to YT/Vimeo/FB
   const div = document.createElement('div');
   div.innerHTML = html;
   const as = Array.from(div.querySelectorAll('a[href]'));
@@ -24,7 +24,6 @@ function firstMediaLinkFromContent(html='') {
 function posterFromFeaturedOrContent(post) {
   const hero = pickFeaturedImage(post);
   if (hero) return hero;
-  // fallback: first <img> inside content
   const div = document.createElement('div');
   div.innerHTML = post?.content?.rendered || '';
   const img = div.querySelector('img[src]');
@@ -44,12 +43,9 @@ function heroPosterBlock({poster, clickUrl}) {
 function bindHeroClick(container) {
   const img = container.querySelector('.hero.is-clickable');
   if (img) {
-    img.addEventListener('click', (e)=>{
+    img.addEventListener('click', ()=>{
       const target = img.getAttribute('data-click');
-      if (target) {
-        const url = decodeURIComponent(target);
-        window.open(url, '_blank', 'noopener');
-      }
+      if (target) window.open(decodeURIComponent(target), '_blank', 'noopener');
     });
   }
 }
@@ -58,11 +54,11 @@ export async function renderPost(id) {
   const app = document.getElementById('app');
   if (!app) return;
 
-  // Skeleton
+  // Skeleton with framed layout classes matching index.css
   app.innerHTML = `
     <div class="post-wrap">
-      <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
       <article class="post">
+        <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
         <div class="hero-slot"></div>
         <h1 class="post-title"></h1>
         <div class="meta"></div>
@@ -79,36 +75,30 @@ export async function renderPost(id) {
   try {
     const post = await fetchPostById(id);
     const title = decodeHTML(post?.title?.rendered || '');
-    const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+    const author = post?._embedded?.author?.[0]?.name || 'The Oklahoma Observer';
     const when = new Date(post?.date || Date.now());
     const niceDate = when.toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
 
-    // Title + meta
     titleEl.textContent = title;
     metaEl.textContent  = `${author} — ${niceDate}`;
 
-    // Hero: prefer poster when FB; else render poster if iframe likely blocked or absent
     const mediaLink = firstMediaLinkFromContent(post?.content?.rendered || '');
     const poster = posterFromFeaturedOrContent(post);
 
     let heroHTML = '';
     if (mediaLink && ALWAYS_POSTER_HOSTS.test(mediaLink)) {
-      // Facebook: show poster clickable to open new tab
       heroHTML = heroPosterBlock({poster, clickUrl: mediaLink});
     } else {
-      // Non-FB: if we have a featured image, show it; if we also have a media link,
-      // make the image clickable to open the video
       heroHTML = heroPosterBlock({poster, clickUrl: mediaLink || ''});
     }
     heroSlot.innerHTML = heroHTML;
     bindHeroClick(app);
 
-    // Body (safety tweaks: remove first-paragraph text-indent; media responsiveness)
+    // Body content: remove any inline first-paragraph indentation, make media responsive
     const contentHTML = (post?.content?.rendered || '')
-      .replace(/text-indent:\s*2em/gi, 'text-indent:0')  // kill inline indent hacks from WP
+      .replace(/text-indent:\s*2em/gi, 'text-indent:0')
       .replace(/<iframe /gi, '<iframe loading="lazy" ')
       .replace(/<img /gi, '<img loading="lazy" style="max-width:100%;height:auto" ');
-
     bodyEl.innerHTML = contentHTML;
 
   } catch (e) {
@@ -116,8 +106,8 @@ export async function renderPost(id) {
     const status = (e && typeof e === 'object' && 'status' in e) ? e.status : 0;
     app.innerHTML = `
       <div class="post-wrap">
-        <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
         <article class="post">
+          <div class="back-row"><a class="back-btn" href="#/">← Back to posts</a></div>
           <h1 class="post-title">Post not found</h1>
           <p>Sorry, we couldn't load this post.${status ? ` <small>(status ${status})</small>` : ''}</p>
         </article>
