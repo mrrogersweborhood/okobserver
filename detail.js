@@ -1,22 +1,24 @@
-/* detail.js — OkObserver post detail view (robust multi-type fetch + diagnostics)
+/* detail.js — OkObserver post detail view (robust multi-type fetch + diagnostics, open by default)
    Exports: renderPost(idOrSlug)
-   Tries, in order:
-     posts (id) → pages (id) → posts (slug) → pages (slug)
-     → media/attachments (id)
-     → known custom post types (id then slug)
-   Renders hero (featured image or first content image). If a YouTube/Vimeo/Facebook
-   link is present, hero is clickable and opens the video in a new tab.
-   Adds a diagnostics block when nothing is found (lists all endpoints tried).
 */
 
 const API_BASE = (window && window.OKO_API_BASE) || `${location.origin}/api/wp/v2`;
 
-// Add any site-specific custom post types here (REST base names)
+// Add/adjust site-specific custom post types here (REST base names).
+// If you know your CPT slug(s), include them. Keep only what you need.
 const CUSTOM_TYPES = [
-  // e.g. "news", "article", "press", "story"
+  "news",
+  "article",
+  "press",
+  "story",
+  "document",
+  "newsletter",
+  "issue",
+  "event",
+  "tribe_events"
 ];
 
-const tried = []; // collects attempted URLs for debugging/diagnostics
+const tried = []; // collects attempted URLs for on-page diagnostics
 
 // ---------------- Utilities ----------------
 
@@ -162,7 +164,6 @@ async function tryPageBySlug(slug) {
   );
 }
 async function tryMediaById(id) {
-  // attachments (images, pdfs, etc.)
   return fetchJson(`${API_BASE}/media/${encodeURIComponent(id)}?_embed=1`);
 }
 
@@ -176,7 +177,6 @@ async function tryCustomBySlug(type, slug) {
 }
 
 function normalizeMediaToPost(media) {
-  // Render an attachment like a quasi-post
   const caption = media?.caption?.rendered || "";
   const desc = media?.description?.rendered || "";
   const contentHTML = caption || desc || "";
@@ -198,11 +198,9 @@ function normalizeMediaToPost(media) {
 }
 
 async function fetchSmart(idOrSlug) {
-  // Reset diagnostics list for each call
   tried.length = 0;
 
   if (isNumeric(idOrSlug)) {
-    // by ID: posts -> pages -> media -> custom types
     try {
       return await tryPostById(idOrSlug);
     } catch (e1) {
@@ -229,7 +227,6 @@ async function fetchSmart(idOrSlug) {
     return null;
   }
 
-  // by slug: posts -> pages -> custom types
   const slug = String(idOrSlug || "").trim();
   try {
     const p = await tryPostBySlug(slug);
@@ -272,7 +269,7 @@ function render404(idOrSlug) {
       <div class="post">
         <h1 class="post-title">Post not found</h1>
         <p>Sorry, we couldn't load this post <strong>${esc(String(idOrSlug))}</strong>.</p>
-        <details class="notfound-diagnostics">
+        <details class="notfound-diagnostics" open>
           <summary>Diagnostics (endpoints tried)</summary>
           <ul class="mono">${list || "<li>(none)</li>"}</ul>
         </details>
@@ -328,7 +325,7 @@ export async function renderPost(idOrSlug) {
         </div>
       </article>
     </div>
-  `;
+  ";
 
   if (playable) {
     const img = app.querySelector(".hero-wrap .hero.is-clickable");
