@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Oklahoma Observer</title>
 
-    <link rel="icon" type="image/x-icon" href="./favicon2[1].ico" />
+    <link rel="icon" type="image/x-icon" href="./icon.png" />
     <meta name="theme-color" content="#1E90FF" />
 
     <link
@@ -57,5 +57,12 @@
         document.querySelector(".nav").classList.toggle("open");
       });
     </script>
+  
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(console.warn);
+      }
+    </script>
+    
   </body>
 </html>

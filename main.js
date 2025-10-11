@@ -31,6 +31,14 @@ console.log('[OkObserver] Entry loaded:', VERSION);
     enumerable: true
   });
 
+  // Legacy compatibility: expose the same base as window.API_BASE for modules that read it
+  Object.defineProperty(window, 'API_BASE', {
+    value: window.OKO_API_BASE,
+    writable: false,
+    configurable: false,
+    enumerable: true
+  });
+
   console.log('[OkObserver] API base (locked):', window.OKO_API_BASE);
 })();
 
