@@ -112,7 +112,7 @@ export function start() {
     return;
   }
 
-  const run = () => { router().catch((e) => console.error(e)); };
+  function run(){ try { router().catch(function(e){ console.error(e); }); } catch(e){ console.error(e); } };
   window.addEventListener("hashchange", run);
   run();
 }
