@@ -65,15 +65,15 @@ export function restoreScrollPosition() {
 /* ------------------------------------------------------------------ */
 
 async function renderHome(into) {
-  const mod = await import("./home.js");
+  const mod = await import("./home.js?v=2.6.1");
   await mod.renderHome(into);
 }
 async function renderAbout(into) {
-  const mod = await import("./about.js");
+  const mod = await import("./about.js?v=2.6.1");
   await mod.renderAbout(into);
 }
 async function renderPost(into, id) {
-  const mod = await import("./detail.js");
+  const mod = await import("./detail.js?v=2.6.1");
   await mod.renderPost(into, id);
 }
 
