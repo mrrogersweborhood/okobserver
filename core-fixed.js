@@ -71,15 +71,15 @@ export function restoreScrollPosition() {
  * These are left as dynamic imports to avoid bundling assumptions here.
  */
 async function renderHome(into) {
-  const { renderHome } = await import("./home.js");
+  const { renderHome } = await import("./home.v263.js");
   await renderHome(into);
 }
 async function renderAbout(into) {
-  const { renderAbout } = await import("./about.js");
+  const { renderAbout } = await import("./about.v263.js");
   await renderAbout(into);
 }
 async function renderPost(into, id) {
-  const { renderPost } = await import("./detail.js");
+  const { renderPost } = await import("./detail.v263.js");
   await renderPost(into, id);
 }
 

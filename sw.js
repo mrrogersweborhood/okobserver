@@ -1,5 +1,5 @@
 // sw.js — cache API JSON + images for instant repeat loads
-const VERSION = "v8";
+const VERSION = "v7";
 const API_CACHE = `api-${VERSION}`;
 const IMG_CACHE = `img-${VERSION}`;
 

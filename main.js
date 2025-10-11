@@ -1,7 +1,7 @@
 // main.js — OkObserver app entry
 // v2.5.4
 
-import { start } from './core-fixed.js?v=2.6.2';
+import { start } from './core-fixed.js';
 
 // -------- Version banner --------
 const VERSION = 'v2.5.4';
