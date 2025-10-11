@@ -11,13 +11,13 @@
  * Adds a null guard to avoid "reading 'className' of null".
  */
 export function el(nodeOrTag, props = {}, ...children) {
-  const node =
-    typeof nodeOrTag === "string" ? document.createElement(nodeOrTag) : nodeOrTag;
+  const node = (typeof nodeOrTag === "string")
+    ? document.createElement(nodeOrTag)
+    : nodeOrTag;
 
-  if (!node) {
-    throw new Error("el(): received null/undefined node");
-  }
+  if (!node) throw new Error("el(): received null/undefined node");
 
+  props = props || {};
   // common props
   if (props.className) node.className = props.className;
   if (props.id) node.id = props.id;
@@ -48,12 +48,10 @@ export function el(nodeOrTag, props = {}, ...children) {
   return node;
 }
 
-/* Optional scroll helpers (no-ops if you already have your own) */
+/* Optional scroll helpers */
 const _scrollKey = "okobs:lastScroll";
 export function saveScrollForRoute() {
-  try {
-    sessionStorage.setItem(_scrollKey, String(window.scrollY || 0));
-  } catch {}
+  try { sessionStorage.setItem(_scrollKey, String(window.scrollY || 0)); } catch {}
 }
 export function restoreScrollPosition() {
   try {
@@ -66,28 +64,24 @@ export function restoreScrollPosition() {
 /* Router                                                             */
 /* ------------------------------------------------------------------ */
 
-/**
- * Your existing renderers. If they live in other modules, keep those imports.
- * These are left as dynamic imports to avoid bundling assumptions here.
- */
 async function renderHome(into) {
-  const { renderHome } = await import("./home.js");
-  await renderHome(into);
+  const mod = await import("./home.js");
+  await mod.renderHome(into);
 }
 async function renderAbout(into) {
-  const { renderAbout } = await import("./about.js");
-  await renderAbout(into);
+  const mod = await import("./about.js");
+  await mod.renderAbout(into);
 }
 async function renderPost(into, id) {
-  const { renderPost } = await import("./detail.js");
-  await renderPost(into, id);
+  const mod = await import("./detail.js");
+  await mod.renderPost(into, id);
 }
 
 export async function router() {
   const app = document.getElementById("app");
   if (!app) {
     console.error("[OkObserver] app container not found");
-    return; // ✅ graceful exit instead of crashing
+    return;
   }
 
   const hash = (window.location.hash || "#/").replace(/^#/, "");
@@ -96,7 +90,6 @@ export async function router() {
   // Clear current view
   app.innerHTML = "";
 
-  // Very small route map
   if (!path || path === "") {
     await renderHome(app);
   } else if (path === "about") {
@@ -104,7 +97,6 @@ export async function router() {
   } else if (path === "post" && rawId) {
     await renderPost(app, rawId);
   } else {
-    // Fallback: unknown route -> home
     await renderHome(app);
   }
 }
@@ -117,10 +109,10 @@ export function start() {
   const app = document.getElementById("app");
   if (!app) {
     console.error("[OkObserver] app container not found");
-    return; // ✅ prevents "reading 'className' of null" in renderers
+    return;
   }
 
-  const run = () => router().catch((e) => console.error(e));
+  const run = () => { router().catch((e) => console.error(e)); };
   window.addEventListener("hashchange", run);
   run();
 }
