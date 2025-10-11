@@ -1,27 +1,8 @@
-// core-fixed.js — clean router/bootstrap (no query strings; versioned page modules)
+// core-fixed.js — minimal, robust router with static imports
 
-/* ------------------------------------------------------------------ */
-/* Dynamic renderers                                                  */
-/* ------------------------------------------------------------------ */
-
-async function renderHome(into) {
-  const mod = await import("./home.v263.js");
-  await mod.renderHome(into);
-}
-
-async function renderAbout(into) {
-  const mod = await import("./about.v263.js");
-  await mod.renderAbout(into);
-}
-
-async function renderPost(into, id) {
-  const mod = await import("./detail.v263.js");
-  await mod.renderPost(into, id);
-}
-
-/* ------------------------------------------------------------------ */
-/* Router                                                             */
-/* ------------------------------------------------------------------ */
+import renderHome from "./home.v263.js";
+import renderAbout from "./about.v263.js";
+import renderPost from "./detail.v263.js";
 
 export async function router() {
   const app = document.getElementById("app");
@@ -49,3 +30,31 @@ export async function router() {
       await renderHome(app);
     }
   } catch (err) {
+    console.error("[OkObserver] router error:", err);
+    app.innerHTML = `<div style="padding:1rem;color:#b00020">
+      <strong>Something went wrong.</strong><br/>
+      <small>${String(err)}</small>
+    </div>`;
+  }
+}
+
+export function start() {
+  const app = document.getElementById("app");
+  if (!app) {
+    console.error("[OkObserver] app container not found");
+    return;
+  }
+  function run() {
+    try { router().catch(e => console.error(e)); }
+    catch (e) { console.error(e); }
+  }
+  window.addEventListener("hashchange", run);
+  run();
+}
+
+// Auto-start on DOM ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", start, { once: true });
+} else {
+  start();
+}
