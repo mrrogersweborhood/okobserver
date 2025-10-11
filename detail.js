@@ -16,8 +16,6 @@ function restoreScroll() {
 
 // Tiny DOM helpers
 function el(tag, opts = {}, children = []) {
-  // null-safe options/children
-  opts = opts || {}; if (children == null) children = [];
   const node = document.createElement(tag);
   if (opts.className) node.className = opts.className;
   if (opts.attrs) Object.entries(opts.attrs).forEach(([k,v]) => node.setAttribute(k, v));

@@ -1,7 +1,7 @@
 // main.js — OkObserver app entry
 // v2.5.4
 
-import { start } from './core.js?v=2.6.1';
+import { start } from './core-fixed.js?v=2.6.2';
 
 // -------- Version banner --------
 const VERSION = 'v2.5.4';
@@ -26,14 +26,6 @@ console.log('[OkObserver] Entry loaded:', VERSION);
   // Freeze a global that other modules can read
   Object.defineProperty(window, 'OKO_API_BASE', {
     value: base,
-    writable: false,
-    configurable: false,
-    enumerable: true
-  });
-
-  // Legacy compatibility: expose the same base as window.API_BASE for modules that read it
-  Object.defineProperty(window, 'API_BASE', {
-    value: window.OKO_API_BASE,
     writable: false,
     configurable: false,
     enumerable: true

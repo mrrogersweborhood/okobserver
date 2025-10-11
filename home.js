@@ -5,7 +5,7 @@
 -------------------------- */
 
 // We prefer to consume a global API base that main.js logs as “API base (locked)”
-const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || 'api/wp/v2';
+const API_BASE = (window && window.API_BASE) || 'api/wp/v2';
 
 // Route keys for scroll restoration (simple + robust)
 const ROUTE_KEY = 'route:/';
@@ -21,9 +21,6 @@ function stripHtml(html) {
 
 // Small helper: create element with classes/attrs
 function el(tag, opts = {}, children = []) {
-  
-  // null-safe options/children
-  opts = opts || {}; if (children == null) children = [];
   const node = document.createElement(tag);
   if (opts.className) node.className = opts.className;
   if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => node.setAttribute(k, v));
@@ -36,50 +33,12 @@ function el(tag, opts = {}, children = []) {
   return node;
 }
 
-/* Ensure image URLs are HTTPS and not protocol-less */
-function normalizeUrl(u){
-  try{
-    if(!u) return '';
-    u = String(u).trim();
-    if(u.startsWith('//')) return 'https:' + u;
-    return u.replace(/^http:\/\//, 'https://');
-  }catch(_){ return u || ''; }
-
-/* Extract first image URL from HTML snippets */
-function firstImageFrom(html){
-  try{
-    if(!html) return '';
-    const root = document.createElement('div');
-    root.innerHTML = html;
-    const img = root.querySelector('img');
-    if(!img) return '';
-    const pick = img.getAttribute('src') || img.getAttribute('data-src') ||
-                 img.getAttribute('data-lazy-src') || img.getAttribute('data-original') ||
-                 img.getAttribute('data-orig-file') || '';
-    if (pick) return normalizeUrl(pick);
-    const srcset = img.getAttribute('srcset') || '';
-    if (srcset){
-      const first = srcset.split(',')[0].trim().split(' ')[0];
-      if (first) return normalizeUrl(first);
-    }
-  }catch(_){}
-  return '';
-}
-}
-
 /* -------------------------
    API helpers (resilient)
 -------------------------- */
 
 async function apiFetchJson(url) {
   const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  return { json: data, headers: res.headers };
-});
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
@@ -105,25 +64,14 @@ async function getCartoonCategoryId() {
 }
 
 // Pull one page of lean posts (with embed to get author + featured media)
-async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
+async function fetchPostsPage(page = 1, perPage = 6, excludeCartoon = true) {
   let categoriesExclude = '';
   if (excludeCartoon) {
     const catId = await getCartoonCategoryId();
     if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
   }
-
-  const url =
-    `${API_BASE}/posts?status=publish&per_page=${perPage}&page=${page}` +
-    `&_embed=1&orderby=date&order=desc` +
-    categoriesExclude;
-
-  const { json, headers } = await apiFetchJson(url);
-  const totalPages = parseInt(headers.get('X-WP-TotalPages') || '0', 10) || 0;
-  return { posts: json, totalPages };
-}`;
-  }
   const fields =
-    'id,date,title.rendered,excerpt.rendered,content.rendered,author,featured_media,categories,' +
+    'id,date,title.rendered,excerpt.rendered,author,featured_media,categories,' +
     '_embedded.author.name,_embedded.wp:featuredmedia.source_url,' +
     '_embedded.wp:featuredmedia.media_details.sizes';
 
@@ -149,8 +97,8 @@ function selectThumb(post) {
         sizes.medium_large?.source_url ||
         sizes.large?.source_url ||
         sizes.medium?.source_url ||
-        normalizeUrl(media[0].source_url);
-      if (preferred) return normalizeUrl(preferred);
+        media[0].source_url;
+      if (preferred) return preferred;
     }
   } catch (_) {}
   return ''; // no image
@@ -216,65 +164,40 @@ function restoreScroll() {
 -------------------------- */
 
 export async function renderHome(container) {
+  // Default container — main#app
   const host = container || document.getElementById('app');
   if (!host) {
     console.error('[OkObserver] app container not found');
     return;
   }
 
+  // Basic structure
   host.innerHTML = '';
   const section = el('section');
   const h1 = el('h1', null, 'Latest Posts');
   const grid = el('div', { className: 'grid' });
-  const sentinel = el('div', { className: 'hidden', attrs: { 'data-sentinel': '1' } });
 
   section.appendChild(h1);
   section.appendChild(grid);
   host.appendChild(section);
-  host.appendChild(sentinel);
 
-  let currentPage = 1;
-  let totalPages = 1;
-  let loading = false;
-
-  async function loadPage(page) {
-    if (loading) return;
-    loading = true;
-    try {
-      const { posts, totalPages: tp } = await fetchPostsPage(page, 9, true);
-      if (tp) totalPages = tp;
-      if (Array.isArray(posts)) posts.forEach(p => grid.appendChild(renderCard(p)));
-    } catch (err) {
-      console.error('[OkObserver] Home load failed:', err);
-      const fail = el('div', { className: 'card-body' }, String(err.message || err));
-      host.appendChild(fail);
-    } finally {
-      loading = false;
-    }
+  // Load & render
+  try {
+    await loadFirstPage(grid);
+  } catch (err) {
+    console.error('[OkObserver] Home load failed:', err);
+    const fail = el('div', { className: 'card-body' }, String(err.message || err));
+    host.appendChild(fail);
   }
 
-  await loadPage(1);
+  // Restore previous scroll (if returning from a detail view)
+  restoreScroll();
 
-  const io = new IntersectionObserver(async (entries) => {
-    const e = entries[0];
-    if (!e || !e.isIntersecting) return;
-    if (loading) return;
-    if (currentPage >= totalPages) return;
-    currentPage += 1;
-    await loadPage(currentPage);
-  }, { rootMargin: '600px 0px 600px 0px' });
-
-  io.observe(sentinel);
-
-  try {
-    const y = parseInt(sessionStorage.getItem('route:/:scrollY') || '0', 10);
-    if (!Number.isNaN(y)) window.scrollTo(0, y);
-  } catch (_) {}
-
-  window.removeEventListener('beforeunload', () => {});
-  window.addEventListener('beforeunload', () => {
-    try { sessionStorage.setItem('route:/:scrollY', String(window.scrollY || 0)); } catch (_) {}
-  }, { once: true });
+  // Save scroll position before navigating away
+  // (core/router should call this too, but this is a safe double-guard)
+  window.removeEventListener('beforeunload', saveScroll);
+  window.addEventListener('beforeunload', saveScroll, { once: true });
 }
 
+// Default export for setups that expect it
 export default renderHome;
