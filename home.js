@@ -5,7 +5,7 @@
 -------------------------- */
 
 // We prefer to consume a global API base that main.js logs as “API base (locked)”
-const API_BASE = (window && window.API_BASE) || 'api/wp/v2';
+const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || 'api/wp/v2';
 
 // Route keys for scroll restoration (simple + robust)
 const ROUTE_KEY = 'route:/';
@@ -21,6 +21,7 @@ function stripHtml(html) {
 
 // Small helper: create element with classes/attrs
 function el(tag, opts = {}, children = []) {
+  
   // null-safe options/children
   opts = opts || {}; if (children == null) children = [];
   const node = document.createElement(tag);
@@ -33,6 +34,16 @@ function el(tag, opts = {}, children = []) {
     else node.appendChild(c);
   });
   return node;
+}
+
+/* Ensure image URLs are HTTPS and not protocol-less */
+function normalizeUrl(u){
+  try{
+    if(!u) return '';
+    u = String(u).trim();
+    if(u.startsWith('//')) return 'https:' + u;
+    return u.replace(/^http:\/\//, 'https://');
+  }catch(_){ return u || ''; }
 }
 
 /* -------------------------
@@ -99,8 +110,8 @@ function selectThumb(post) {
         sizes.medium_large?.source_url ||
         sizes.large?.source_url ||
         sizes.medium?.source_url ||
-        media[0].source_url;
-      if (preferred) return preferred;
+        normalizeUrl(media[0].source_url);
+      if (preferred) return normalizeUrl(preferred);
     }
   } catch (_) {}
   return ''; // no image
