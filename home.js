@@ -77,6 +77,13 @@ async function apiFetchJson(url) {
     const text = await res.text().catch(() => '');
     throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
   }
+  const data = await res.json();
+  return { json: data, headers: res.headers };
+});
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
+  }
   return res.json();
 }
 
@@ -98,11 +105,22 @@ async function getCartoonCategoryId() {
 }
 
 // Pull one page of lean posts (with embed to get author + featured media)
-async function fetchPostsPage(page = 1, perPage = 6, excludeCartoon = true) {
+async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
   let categoriesExclude = '';
   if (excludeCartoon) {
     const catId = await getCartoonCategoryId();
     if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
+  }
+
+  const url =
+    `${API_BASE}/posts?status=publish&per_page=${perPage}&page=${page}` +
+    `&_embed=1&orderby=date&order=desc` +
+    categoriesExclude;
+
+  const { json, headers } = await apiFetchJson(url);
+  const totalPages = parseInt(headers.get('X-WP-TotalPages') || '0', 10) || 0;
+  return { posts: json, totalPages };
+}`;
   }
   const fields =
     'id,date,title.rendered,excerpt.rendered,content.rendered,author,featured_media,categories,' +
@@ -198,40 +216,65 @@ function restoreScroll() {
 -------------------------- */
 
 export async function renderHome(container) {
-  // Default container — main#app
   const host = container || document.getElementById('app');
   if (!host) {
     console.error('[OkObserver] app container not found');
     return;
   }
 
-  // Basic structure
   host.innerHTML = '';
   const section = el('section');
   const h1 = el('h1', null, 'Latest Posts');
   const grid = el('div', { className: 'grid' });
+  const sentinel = el('div', { className: 'hidden', attrs: { 'data-sentinel': '1' } });
 
   section.appendChild(h1);
   section.appendChild(grid);
   host.appendChild(section);
+  host.appendChild(sentinel);
 
-  // Load & render
-  try {
-    await loadFirstPage(grid);
-  } catch (err) {
-    console.error('[OkObserver] Home load failed:', err);
-    const fail = el('div', { className: 'card-body' }, String(err.message || err));
-    host.appendChild(fail);
+  let currentPage = 1;
+  let totalPages = 1;
+  let loading = false;
+
+  async function loadPage(page) {
+    if (loading) return;
+    loading = true;
+    try {
+      const { posts, totalPages: tp } = await fetchPostsPage(page, 9, true);
+      if (tp) totalPages = tp;
+      if (Array.isArray(posts)) posts.forEach(p => grid.appendChild(renderCard(p)));
+    } catch (err) {
+      console.error('[OkObserver] Home load failed:', err);
+      const fail = el('div', { className: 'card-body' }, String(err.message || err));
+      host.appendChild(fail);
+    } finally {
+      loading = false;
+    }
   }
 
-  // Restore previous scroll (if returning from a detail view)
-  restoreScroll();
+  await loadPage(1);
 
-  // Save scroll position before navigating away
-  // (core/router should call this too, but this is a safe double-guard)
-  window.removeEventListener('beforeunload', saveScroll);
-  window.addEventListener('beforeunload', saveScroll, { once: true });
+  const io = new IntersectionObserver(async (entries) => {
+    const e = entries[0];
+    if (!e || !e.isIntersecting) return;
+    if (loading) return;
+    if (currentPage >= totalPages) return;
+    currentPage += 1;
+    await loadPage(currentPage);
+  }, { rootMargin: '600px 0px 600px 0px' });
+
+  io.observe(sentinel);
+
+  try {
+    const y = parseInt(sessionStorage.getItem('route:/:scrollY') || '0', 10);
+    if (!Number.isNaN(y)) window.scrollTo(0, y);
+  } catch (_) {}
+
+  window.removeEventListener('beforeunload', () => {});
+  window.addEventListener('beforeunload', () => {
+    try { sessionStorage.setItem('route:/:scrollY', String(window.scrollY || 0)); } catch (_) {}
+  }, { once: true });
 }
 
-// Default export for setups that expect it
 export default renderHome;
