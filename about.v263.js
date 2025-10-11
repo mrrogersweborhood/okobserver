@@ -1,19 +1,20 @@
-// about.js — OkObserver simple About page
-// v2.5.4
-export function renderAbout() {
-  const app = document.getElementById('app');
-  if (!app) return;
+export async function renderAbout(container) {
+  const host = container || document.getElementById("app");
+  if (!host) {
+    console.error("[OkObserver] about container not found");
+    return;
+  }
 
-  app.innerHTML = `
-    <article class="post" style="max-width:800px;margin:0 auto;background:#fff;border-radius:10px;padding:1.5rem 2rem;box-shadow:0 1px 2px rgba(0,0,0,.05)">
-      <h1 class="post-title" style="text-align:center;color:#1E90FF;margin-top:0">About</h1>
-      <div class="post-content">
-        <p><strong>The Oklahoma Observer</strong> is dedicated to vigorous, independent journalism — to comfort the afflicted and afflict the comfortable.</p>
-        <p>Visit <a href="https://okobserver.org" target="_blank" rel="noopener">okobserver.org</a> to learn more.</p>
-      </div>
-      <div style="text-align:center;margin-top:2rem;">
-        <a class="back-btn" href="#/" style="background:#1E90FF;color:#fff;border:none;padding:.6rem 1.2rem;border-radius:8px;text-decoration:none;display:inline-block">← Back to posts</a>
-      </div>
-    </article>
+  host.innerHTML = `
+    <section class="about">
+      <h1>About The Oklahoma Observer</h1>
+      <p><strong>The Oklahoma Observer</strong> has been a proud voice for progressive Oklahoma since 1969, founded by Frosty Troy and Helen Troy.</p>
+      <p>Today, under editor Arnold Hamilton, the Observer continues its mission:</p>
+      <blockquote>To Comfort the Afflicted and Afflict the Comfortable.</blockquote>
+      <p>We provide independent analysis, commentary, and investigative reporting on Oklahoma politics, policy, and public life.</p>
+      <p><a href="https://okobserver.org" target="_blank" rel="noopener">Visit okobserver.org</a></p>
+    </section>
   `;
 }
+
+export default renderAbout;
