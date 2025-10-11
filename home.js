@@ -44,6 +44,27 @@ function normalizeUrl(u){
     if(u.startsWith('//')) return 'https:' + u;
     return u.replace(/^http:\/\//, 'https://');
   }catch(_){ return u || ''; }
+
+/* Extract first image URL from HTML snippets */
+function firstImageFrom(html){
+  try{
+    if(!html) return '';
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const img = root.querySelector('img');
+    if(!img) return '';
+    const pick = img.getAttribute('src') || img.getAttribute('data-src') ||
+                 img.getAttribute('data-lazy-src') || img.getAttribute('data-original') ||
+                 img.getAttribute('data-orig-file') || '';
+    if (pick) return normalizeUrl(pick);
+    const srcset = img.getAttribute('srcset') || '';
+    if (srcset){
+      const first = srcset.split(',')[0].trim().split(' ')[0];
+      if (first) return normalizeUrl(first);
+    }
+  }catch(_){}
+  return '';
+}
 }
 
 /* -------------------------
@@ -84,7 +105,7 @@ async function fetchPostsPage(page = 1, perPage = 6, excludeCartoon = true) {
     if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
   }
   const fields =
-    'id,date,title.rendered,excerpt.rendered,author,featured_media,categories,' +
+    'id,date,title.rendered,excerpt.rendered,content.rendered,author,featured_media,categories,' +
     '_embedded.author.name,_embedded.wp:featuredmedia.source_url,' +
     '_embedded.wp:featuredmedia.media_details.sizes';
 
