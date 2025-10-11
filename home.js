@@ -1,17 +1,15 @@
-// OkObserver — Home view (safe, self-contained, non-breaking)
+// OkObserver — Home view (robust, with thumbnails + infinite scroll)
 
 /* -------------------------
-   Light dependencies / fallbacks
+   Config / API base
 -------------------------- */
 
-// We prefer to consume a global API base that main.js logs as “API base (locked)”
-const API_BASE = (window && window.API_BASE) || 'api/wp/v2';
+const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || 'api/wp/v2';
 
-// Route keys for scroll restoration (simple + robust)
-const ROUTE_KEY = 'route:/';
-const SCROLL_KEY = `${ROUTE_KEY}:scrollY`;
+/* -------------------------
+   Utilities
+-------------------------- */
 
-// Small helper: HTML -> plain text
 function stripHtml(html) {
   if (!html) return '';
   const el = document.createElement('div');
@@ -19,8 +17,9 @@ function stripHtml(html) {
   return el.textContent || el.innerText || '';
 }
 
-// Small helper: create element with classes/attrs
 function el(tag, opts = {}, children = []) {
+  // null-safe
+  opts = opts || {}; if (children == null) children = [];
   const node = document.createElement(tag);
   if (opts.className) node.className = opts.className;
   if (opts.attrs) Object.entries(opts.attrs).forEach(([k, v]) => node.setAttribute(k, v));
@@ -33,8 +32,37 @@ function el(tag, opts = {}, children = []) {
   return node;
 }
 
+function normalizeUrl(u){
+  try{
+    if(!u) return '';
+    u = String(u).trim();
+    if(u.startsWith('//')) return 'https:' + u;
+    return u.replace(/^http:\/\//, 'https://');
+  }catch(_){ return u || ''; }
+}
+
+function firstImageFrom(html){
+  try{
+    if(!html) return '';
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const img = root.querySelector('img');
+    if(!img) return '';
+    const pick = img.getAttribute('src') || img.getAttribute('data-src') ||
+                 img.getAttribute('data-lazy-src') || img.getAttribute('data-original') ||
+                 img.getAttribute('data-orig-file') || '';
+    if (pick) return normalizeUrl(pick);
+    const srcset = img.getAttribute('srcset') || '';
+    if (srcset){
+      const first = srcset.split(',')[0].trim().split(' ')[0];
+      if (first) return normalizeUrl(first);
+    }
+  }catch(_){}
+  return '';
+}
+
 /* -------------------------
-   API helpers (resilient)
+   API helpers
 -------------------------- */
 
 async function apiFetchJson(url) {
@@ -43,44 +71,38 @@ async function apiFetchJson(url) {
     const text = await res.text().catch(() => '');
     throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
   }
-  return res.json();
+  const data = await res.json();
+  return { json: data, headers: res.headers };
 }
 
-// Look up “cartoon” category id; if not available, we continue without exclusion.
 let cachedCartoonCatId = null;
 async function getCartoonCategoryId() {
   if (cachedCartoonCatId !== null) return cachedCartoonCatId;
   try {
     const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
-    const data = await apiFetchJson(url);
-    const hit = Array.isArray(data) ? data.find(c => /cartoon/i.test(c.slug) || /cartoon/i.test(c.name)) : null;
+    const { json } = await apiFetchJson(url);
+    const hit = Array.isArray(json) ? json.find(c => /cartoon/i.test(c.slug) || /cartoon/i.test(c.name)) : null;
     cachedCartoonCatId = hit ? hit.id : 0;
   } catch (_) {
-    // 404 or disabled categories endpoint: proceed without exclusion.
     cachedCartoonCatId = 0;
-    console.warn('[OkObserver] cartoon category lookup failed; proceeding without exclusion');
   }
   return cachedCartoonCatId;
 }
 
-// Pull one page of lean posts (with embed to get author + featured media)
-async function fetchPostsPage(page = 1, perPage = 6, excludeCartoon = true) {
+async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
   let categoriesExclude = '';
   if (excludeCartoon) {
     const catId = await getCartoonCategoryId();
     if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
   }
-  const fields =
-    'id,date,title.rendered,excerpt.rendered,author,featured_media,categories,' +
-    '_embedded.author.name,_embedded.wp:featuredmedia.source_url,' +
-    '_embedded.wp:featuredmedia.media_details.sizes';
-
   const url =
     `${API_BASE}/posts?status=publish&per_page=${perPage}&page=${page}` +
-    `&_embed=1&orderby=date&order=desc&_fields=${encodeURIComponent(fields)}` +
+    `&_embed=1&orderby=date&order=desc` +
     categoriesExclude;
 
-  return apiFetchJson(url);
+  const { json, headers } = await apiFetchJson(url);
+  const totalPages = parseInt(headers.get('X-WP-TotalPages') || '0', 10) || 0;
+  return { posts: json, totalPages };
 }
 
 /* -------------------------
@@ -91,17 +113,22 @@ function selectThumb(post) {
   try {
     const media = post?._embedded?.['wp:featuredmedia'];
     if (media && media[0]) {
-      // Prefer a medium/large-ish size if available
       const sizes = media[0]?.media_details?.sizes || {};
-      const preferred =
-        sizes.medium_large?.source_url ||
-        sizes.large?.source_url ||
-        sizes.medium?.source_url ||
-        media[0].source_url;
-      if (preferred) return preferred;
+      const order = ['medium_large','large','medium','post-thumbnail','thumbnail','full'];
+      for (const k of order) {
+        const u = sizes[k]?.source_url;
+        if (u) return normalizeUrl(u);
+      }
+      if (media[0].source_url) return normalizeUrl(media[0].source_url);
     }
   } catch (_) {}
-  return ''; // no image
+
+  const fromContent = firstImageFrom(post?.content?.rendered || '');
+  if (fromContent) return fromContent;
+  const fromExcerpt = firstImageFrom(post?.excerpt?.rendered || '');
+  if (fromExcerpt) return fromExcerpt;
+
+  return '';
 }
 
 function renderCard(post) {
@@ -112,7 +139,6 @@ function renderCard(post) {
 
   const card = el('article', { className: 'card' });
 
-  // Thumbnail area — wrapped for aspect ratio containment
   const imgUrl = selectThumb(post);
   if (imgUrl) {
     const wrap = el('a', {
@@ -124,7 +150,6 @@ function renderCard(post) {
     card.appendChild(wrap);
   }
 
-  // Body
   const body = el('div', { className: 'card-body' }, [
     el('h2', null, el('a', { attrs: { href } }, title)),
     el('div', { className: 'meta' }, byline),
@@ -136,68 +161,59 @@ function renderCard(post) {
 }
 
 /* -------------------------
-   Paging / Infinite load (optional)
--------------------------- */
-
-async function loadFirstPage(gridEl) {
-  const posts = await fetchPostsPage(1, 6, true);
-  if (!Array.isArray(posts)) return;
-  posts.forEach(p => gridEl.appendChild(renderCard(p)));
-}
-
-/* -------------------------
-   Scroll save/restore
--------------------------- */
-
-function saveScroll() {
-  try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0)); } catch (_) {}
-}
-function restoreScroll() {
-  try {
-    const y = parseInt(sessionStorage.getItem(SCROLL_KEY) || '0', 10);
-    if (!Number.isNaN(y)) window.scrollTo(0, y);
-  } catch (_) {}
-}
-
-/* -------------------------
-   Public entry
+   Home view with infinite scroll
 -------------------------- */
 
 export async function renderHome(container) {
-  // Default container — main#app
   const host = container || document.getElementById('app');
   if (!host) {
     console.error('[OkObserver] app container not found');
     return;
   }
 
-  // Basic structure
   host.innerHTML = '';
   const section = el('section');
   const h1 = el('h1', null, 'Latest Posts');
   const grid = el('div', { className: 'grid' });
+  const sentinel = el('div', { className: 'hidden', attrs: { 'data-sentinel': '1' } });
 
   section.appendChild(h1);
   section.appendChild(grid);
   host.appendChild(section);
+  host.appendChild(sentinel);
 
-  // Load & render
-  try {
-    await loadFirstPage(grid);
-  } catch (err) {
-    console.error('[OkObserver] Home load failed:', err);
-    const fail = el('div', { className: 'card-body' }, String(err.message || err));
-    host.appendChild(fail);
+  let currentPage = 1;
+  let totalPages = 1;
+  let loading = false;
+
+  async function loadPage(page) {
+    if (loading) return;
+    loading = true;
+    try {
+      const { posts, totalPages: tp } = await fetchPostsPage(page, 9, true);
+      if (tp) totalPages = tp;
+      if (Array.isArray(posts)) posts.forEach(p => grid.appendChild(renderCard(p)));
+    } catch (err) {
+      console.error('[OkObserver] Home load failed:', err);
+      const fail = el('div', { className: 'card-body' }, String(err.message || err));
+      host.appendChild(fail);
+    } finally {
+      loading = false;
+    }
   }
 
-  // Restore previous scroll (if returning from a detail view)
-  restoreScroll();
+  await loadPage(1);
 
-  // Save scroll position before navigating away
-  // (core/router should call this too, but this is a safe double-guard)
-  window.removeEventListener('beforeunload', saveScroll);
-  window.addEventListener('beforeunload', saveScroll, { once: true });
+  const io = new IntersectionObserver(async (entries) => {
+    const e = entries[0];
+    if (!e || !e.isIntersecting) return;
+    if (loading) return;
+    if (currentPage >= totalPages) return;
+    currentPage += 1;
+    await loadPage(currentPage);
+  }, { rootMargin: '600px 0px 600px 0px' });
+
+  io.observe(sentinel);
 }
 
-// Default export for setups that expect it
 export default renderHome;
