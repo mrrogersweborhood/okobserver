@@ -3,16 +3,16 @@
 /* -------------------------
    Config / API base
 -------------------------- */
-const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || 'api/wp/v2';
+const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || "api/wp/v2";
 
 /* -------------------------
    Utilities
 -------------------------- */
 function stripHtml(html) {
-  if (!html) return '';
-  const el = document.createElement('div');
+  if (!html) return "";
+  const el = document.createElement("div");
   el.innerHTML = html;
-  return el.textContent || el.innerText || '';
+  return el.textContent || el.innerText || "";
 }
 
 // Null-safe element helper
@@ -30,42 +30,46 @@ function el(tag, opts = {}, children = []) {
   return node;
 }
 
-function normalizeUrl(u){
-  try{
-    if(!u) return '';
+function normalizeUrl(u) {
+  try {
+    if (!u) return "";
     u = String(u).trim();
-    if(u.startsWith('//')) return 'https:' + u;
-    return u.replace(/^http:\/\//, 'https://');
-  }catch(_){ return u || ''; }
+    if (u.startsWith("//")) return "https:" + u;
+    return u.replace(/^http:\/\//, "https://");
+  } catch (_) { return u || ""; }
 }
 
-function firstImageFrom(html){
-  try{
-    if(!html) return '';
-    const root = document.createElement('div');
+function firstImageFrom(html) {
+  try {
+    if (!html) return "";
+    const root = document.createElement("div");
     root.innerHTML = html;
-    const img = root.querySelector('img');
-    if(!img) return '';
-    const pick = img.getAttribute('src') || img.getAttribute('data-src') ||
-                 img.getAttribute('data-lazy-src') || img.getAttribute('data-original') ||
-                 img.getAttribute('data-orig-file') || '';
+    const img = root.querySelector("img");
+    if (!img) return "";
+    const pick =
+      img.getAttribute("src") ||
+      img.getAttribute("data-src") ||
+      img.getAttribute("data-lazy-src") ||
+      img.getAttribute("data-original") ||
+      img.getAttribute("data-orig-file") ||
+      "";
     if (pick) return normalizeUrl(pick);
-    const srcset = img.getAttribute('srcset') || '';
-    if (srcset){
-      const first = srcset.split(',')[0].trim().split(' ')[0];
+    const srcset = img.getAttribute("srcset") || "";
+    if (srcset) {
+      const first = srcset.split(",")[0].trim().split(" ")[0];
       if (first) return normalizeUrl(first);
     }
-  }catch(_){}
-  return '';
+  } catch (_) {}
+  return "";
 }
 
 /* -------------------------
    API helpers
 -------------------------- */
 async function apiFetchJson(url) {
-  const res = await fetch(url, { credentials: 'omit' });
+  const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
+    const text = await res.text().catch(() => "");
     throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
   }
   const data = await res.json();
@@ -87,7 +91,7 @@ async function getCartoonCategoryId() {
 }
 
 async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
-  let categoriesExclude = '';
+  let categoriesExclude = "";
   if (excludeCartoon) {
     const catId = await getCartoonCategoryId();
     if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
@@ -98,7 +102,7 @@ async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
     categoriesExclude;
 
   const { json, headers } = await apiFetchJson(url);
-  const totalPages = parseInt(headers.get('X-WP-TotalPages') || '0', 10) || 0;
+  const totalPages = parseInt(headers.get("X-WP-TotalPages") || "0", 10) || 0;
   return { posts: json, totalPages };
 }
 
@@ -107,10 +111,10 @@ async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
 -------------------------- */
 function selectThumb(post) {
   try {
-    const media = post?._embedded?.['wp:featuredmedia'];
+    const media = post?._embedded?.["wp:featuredmedia"];
     if (media && media[0]) {
       const sizes = media[0]?.media_details?.sizes || {};
-      const order = ['medium_large','large','medium','post-thumbnail','thumbnail','full'];
+      const order = ["medium_large", "large", "medium", "post-thumbnail", "thumbnail", "full"];
       for (const k of order) {
         const u = sizes[k]?.source_url;
         if (u) return normalizeUrl(u);
@@ -118,33 +122,33 @@ function selectThumb(post) {
       if (media[0].source_url) return normalizeUrl(media[0].source_url);
     }
   } catch (_) {}
-  const fromContent = firstImageFrom(post?.content?.rendered || '');
+  const fromContent = firstImageFrom(post?.content?.rendered || "");
   if (fromContent) return fromContent;
-  const fromExcerpt = firstImageFrom(post?.excerpt?.rendered || '');
+  const fromExcerpt = firstImageFrom(post?.excerpt?.rendered || "");
   if (fromExcerpt) return fromExcerpt;
-  return '';
+  return "";
 }
 
 function renderCard(post) {
   const href = `#/post/${post.id}`;
-  const title = stripHtml(post?.title?.rendered) || 'Untitled';
-  const byline = `By ${post?._embedded?.author?.[0]?.name || 'Oklahoma Observer'} • ${new Date(post.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`;
+  const title = stripHtml(post?.title?.rendered) || "Untitled";
+  const byline = `By ${post?._embedded?.author?.[0]?.name || "Oklahoma Observer"} • ${new Date(post.date).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`;
   const excerpt = stripHtml(post?.excerpt?.rendered).trim();
 
-  const card = el('article', { className: 'card' });
+  const card = el("article", { className: "card" });
 
   const imgUrl = selectThumb(post);
   if (imgUrl) {
-    const wrap = el('a', { className: 'thumb-wrap', attrs: { href, 'aria-label': `Open post: ${title}` } });
-    const img = el('img', { className: 'thumb', attrs: { src: imgUrl, alt: '' } });
+    const wrap = el("a", { className: "thumb-wrap", attrs: { href, "aria-label": `Open post: ${title}` } });
+    const img = el("img", { className: "thumb", attrs: { src: imgUrl, alt: "" } });
     wrap.appendChild(img);
     card.appendChild(wrap);
   }
 
-  const body = el('div', { className: 'card-body' }, [
-    el('h2', { className: 'title' }, el('a', { attrs: { href } }, title)),
-    el('div', { className: 'meta' }, byline),
-    el('div', { className: 'excerpt' }, excerpt)
+  const body = el("div", { className: "card-body" }, [
+    el("h2", { className: "title" }, el("a", { attrs: { href } }, title)),
+    el("div", { className: "meta" }, byline),
+    el("div", { className: "excerpt" }, excerpt)
   ]);
 
   card.appendChild(body);
@@ -155,14 +159,14 @@ function renderCard(post) {
    Home view with infinite scroll
 -------------------------- */
 export async function renderHome(container) {
-  const host = container || document.getElementById('app');
-  if (!host) { console.error('[OkObserver] app container not found'); return; }
+  const host = container || document.getElementById("app");
+  if (!host) { console.error("[OkObserver] app container not found"); return; }
 
-  host.innerHTML = '';
-  const section = el('section');
-  const h1 = el('h1', null, 'Latest Posts');
-  const grid = el('div', { className: 'grid' });
-  const sentinel = el('div', { className: 'hidden', attrs: { 'data-sentinel': '1' } });
+  host.innerHTML = "";
+  const section = el("section");
+  const h1 = el("h1", null, "Latest Posts");
+  const grid = el("div", { className: "grid" });
+  const sentinel = el("div", { className: "hidden", attrs: { "data-sentinel": "1" } });
 
   section.appendChild(h1);
   section.appendChild(grid);
@@ -179,8 +183,8 @@ export async function renderHome(container) {
       if (tp) totalPages = tp;
       if (Array.isArray(posts)) posts.forEach(p => grid.appendChild(renderCard(p)));
     } catch (err) {
-      console.error('[OkObserver] Home load failed:', err);
-      host.appendChild(el('div', { className: 'card-body' }, String(err.message || err)));
+      console.error("[OkObserver] Home load failed:", err);
+      host.appendChild(el("div", { className: "card-body" }, String(err.message || err)));
     } finally {
       loading = false;
     }
@@ -193,7 +197,7 @@ export async function renderHome(container) {
     if (!e || !e.isIntersecting || loading || currentPage >= totalPages) return;
     currentPage += 1;
     await loadPage(currentPage);
-  }, { rootMargin: '600px 0px 600px 0px' });
+  }, { rootMargin: "600px 0px 600px 0px" });
 
   io.observe(sentinel);
 }

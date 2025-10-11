@@ -1,9 +1,12 @@
-// core-fixed.js — minimal, robust router with static imports
+// core-fixed.js — minimal, robust router with static imports (no query strings)
 
 import renderHome from "./home.v263.js";
 import renderAbout from "./about.v263.js";
 import renderPost from "./detail.v263.js";
 
+/* ------------------------------------------------------------------ */
+/* Router                                                             */
+/* ------------------------------------------------------------------ */
 export async function router() {
   const app = document.getElementById("app");
   if (!app) {
@@ -16,7 +19,7 @@ export async function router() {
   const path = parts[0] || "";
   const id = parts[1];
 
-  // Clear current view
+  // Clear current view so we can render the route
   app.innerHTML = "";
 
   try {
@@ -32,27 +35,32 @@ export async function router() {
   } catch (err) {
     console.error("[OkObserver] router error:", err);
     app.innerHTML = `<div style="padding:1rem;color:#b00020">
-      <strong>Something went wrong.</strong><br/>
+      <strong>Something went wrong loading this page.</strong><br/>
       <small>${String(err)}</small>
     </div>`;
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Start                                                              */
+/* ------------------------------------------------------------------ */
 export function start() {
   const app = document.getElementById("app");
   if (!app) {
     console.error("[OkObserver] app container not found");
     return;
   }
+
   function run() {
-    try { router().catch(e => console.error(e)); }
+    try { router().catch((e) => console.error(e)); }
     catch (e) { console.error(e); }
   }
+
   window.addEventListener("hashchange", run);
   run();
 }
 
-// Auto-start on DOM ready
+/* Auto-start on DOM ready */
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", start, { once: true });
 } else {
