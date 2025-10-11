@@ -8,7 +8,6 @@
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* Reset */
 * { box-sizing: border-box; }
 html, body {
   margin: 0;
@@ -18,7 +17,6 @@ html, body {
   background: #fff;
 }
 
-/* Header */
 .site-header {
   background: var(--brand);
   color: #fff;
@@ -121,10 +119,8 @@ html, body {
   margin-bottom: 18px;
 }
 
-/* Utility */
 .hidden { display: none !important; }
 
-/* Responsive tweaks */
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
