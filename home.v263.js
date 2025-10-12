@@ -1,4 +1,4 @@
-// Home view — filters out "Cartoon" category and shows date in meta line
+// Home view — blue titles, date in meta, excludes "Cartoon", WITH infinite scroll
 
 const API_BASE = window.OKO_API_BASE;
 
@@ -18,11 +18,8 @@ async function apiFetchJson(url) {
 
 /* ---------- category helpers ---------- */
 let CARTOON_CAT_ID = null;
-
 async function getCartoonCategoryId() {
   if (CARTOON_CAT_ID !== null) return CARTOON_CAT_ID;
-
-  // Look up categories that resemble "cartoon" by slug or name.
   const url = `${API_BASE}/categories?per_page=100&search=cartoon&_fields=id,slug,name`;
   try {
     const { json: cats } = await apiFetchJson(url);
@@ -31,55 +28,101 @@ async function getCartoonCategoryId() {
       : null;
     CARTOON_CAT_ID = hit ? hit.id : 0;
   } catch (_) {
-    CARTOON_CAT_ID = 0; // if lookup fails, don't exclude (fail-open)
+    CARTOON_CAT_ID = 0; // fail-open if lookup fails
   }
   return CARTOON_CAT_ID;
 }
 
 /* ---------- data ---------- */
-async function fetchPosts(page = 1) {
+async function fetchPosts(page = 1, perPage = 9) {
   const cartoonId = await getCartoonCategoryId();
   const exclude = cartoonId ? `&categories_exclude=${encodeURIComponent(cartoonId)}` : "";
-
   const url =
-    `${API_BASE}/posts?status=publish&per_page=9&page=${page}` +
+    `${API_BASE}/posts?status=publish&per_page=${perPage}&page=${page}` +
     `&_embed=1&orderby=date&order=desc${exclude}`;
-
   return apiFetchJson(url);
 }
 
-/* ---------- view ---------- */
+/* ---------- rendering ---------- */
+function renderCard(p) {
+  const title = stripHtml(p?.title?.rendered);
+  const excerpt = stripHtml(p?.excerpt?.rendered);
+  const link = `#/post/${p.id}`;
+  const img = p?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+  const author = p?._embedded?.author?.[0]?.name || "Oklahoma Observer";
+  const dateStr = new Date(p.date).toLocaleDateString(undefined, {
+    year: "numeric", month: "long", day: "numeric"
+  });
+
+  const article = document.createElement("article");
+  article.className = "card";
+  article.innerHTML = `
+    <a href="${link}" class="thumb-wrap">
+      ${img ? `<img class="thumb" src="${img}" alt="">` : ""}
+    </a>
+    <div class="card-body">
+      <h2 class="title"><a href="${link}">${title}</a></h2>
+      <div class="meta">By ${author} • ${dateStr}</div>
+      <div class="excerpt">${excerpt}</div>
+    </div>`;
+  return article;
+}
+
+/* ---------- view (with infinite scroll) ---------- */
 export default async function renderHome(container) {
   const host = container || document.getElementById("app");
-  host.innerHTML = `<h1>Latest Posts</h1><div class="grid"></div>`;
+  host.innerHTML = `
+    <h1>Latest Posts</h1>
+    <div class="grid"></div>
+    <div id="scroll-sentinel" style="height:1px;"></div>
+  `;
   const grid = host.querySelector(".grid");
+  const sentinel = host.querySelector("#scroll-sentinel");
 
-  try {
-    const { json: posts } = await fetchPosts(1);
+  let page = 1;
+  let totalPages = Infinity;     // unknown until first response
+  let loading = false;
 
-    posts.forEach((p) => {
-      const title = stripHtml(p?.title?.rendered);
-      const excerpt = stripHtml(p?.excerpt?.rendered);
-      const link = `#/post/${p.id}`;
-      const img = p?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
-      const author = p?._embedded?.author?.[0]?.name || "Oklahoma Observer";
-      const dateStr = new Date(p.date).toLocaleDateString(undefined, {
-        year: "numeric", month: "long", day: "numeric"
-      });
-
-      grid.innerHTML += `
-        <article class="card">
-          <a href="${link}" class="thumb-wrap">
-            ${img ? `<img class="thumb" src="${img}" alt="">` : ""}
-          </a>
-          <div class="card-body">
-            <h2 class="title"><a href="${link}">${title}</a></h2>
-            <div class="meta">By ${author} • ${dateStr}</div>
-            <div class="excerpt">${excerpt}</div>
-          </div>
-        </article>`;
-    });
-  } catch (err) {
-    grid.innerHTML = `<p>Failed to fetch posts: ${err}</p>`;
+  async function loadPage(n) {
+    if (loading) return;
+    if (n > totalPages) return;
+    loading = true;
+    try {
+      const { json, headers } = await fetchPosts(n, 9);
+      const tp = parseInt(headers.get("X-WP-TotalPages") || "0", 10);
+      if (tp) totalPages = tp;
+      if (Array.isArray(json)) {
+        const frag = document.createDocumentFragment();
+        json.forEach(p => frag.appendChild(renderCard(p)));
+        grid.appendChild(frag);
+      }
+    } catch (err) {
+      console.error("[Home] load failed", err);
+      // Render a non-blocking error tile (keeps scroll working)
+      const div = document.createElement("div");
+      div.className = "card-body";
+      div.textContent = `Failed to fetch posts: ${err.message || err}`;
+      grid.appendChild(div);
+    } finally {
+      loading = false;
+    }
   }
+
+  // initial page
+  await loadPage(page);
+
+  // Infinite scroll via IntersectionObserver
+  const io = new IntersectionObserver(async (entries) => {
+    const entry = entries[0];
+    if (!entry || !entry.isIntersecting) return;
+    if (loading) return;
+    if (page >= totalPages) {
+      io.disconnect();
+      return;
+    }
+    page += 1;
+    await loadPage(page);
+  }, { root: null, rootMargin: "800px 0px 800px 0px", threshold: 0 });
+
+  io.observe(sentinel);
 }
