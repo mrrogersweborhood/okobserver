@@ -1,23 +1,18 @@
-// core-fixed.js (ASCII-only, compact)
-
+// core-fixed.js
 async function importAny(path){
   const mod = await import(path);
   const f = mod && (mod.default || mod.renderHome || mod.home || mod.main);
   if (typeof f === "function") return f;
   throw new Error("Module " + path + " did not export a render function");
 }
-
 export async function router(){
   const app=document.getElementById("app");
   if(!app) return;
-
   const hash=(window.location.hash||"#/").replace(/^#/,"");
   const parts=hash.split("/").filter(Boolean);
   const route=parts[0]||"";
   const id=parts[1];
-
   app.innerHTML="";
-
   try{
     if(!route){
       const renderHome=await importAny("./home.v263.js?v=263");
@@ -35,11 +30,10 @@ export async function router(){
     await renderHome(app);
   }catch(err){
     console.error("[Router error]",err);
-    var msg=""; try{ msg = (err && err.message) ? String(err.message) : String(err); }catch(_){ msg="Unknown error"; }
+    const msg=(err&&err.message)?String(err.message):String(err);
     app.innerHTML="<div style='padding:1rem;color:#b00020'><strong>Page error:</strong> "+msg+"</div>";
   }
 }
-
 export function start(){
   const run=()=>router().catch(e=>console.error(e));
   window.addEventListener("hashchange",run);

@@ -7,102 +7,22 @@
   <title>The Oklahoma Observer</title>
   <link rel="icon" type="image/png" href="./icon.png" />
   <link rel="stylesheet" href="./styles.css" />
-
   <style>
-    :root {
-      --brand: #1E90FF;
-      --background: #ffffff;
-      --text: #111;
-      --muted: #666;
-      --border: #e0e0e0;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      background: var(--background);
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    header {
-      background: var(--brand);
-      color: white;
-      padding: 0.75rem 1rem;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-
-    .header-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .logo {
-      height: 50px;
-      object-fit: contain;
-    }
-
-    nav {
-      display: flex;
-      gap: 1rem;
-    }
-
-    .nav-link {
-      color: white;
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 1rem;
-    }
-
-    .nav-link:hover {
-      text-decoration: underline;
-    }
-
-    main {
-      flex: 1;
-      padding: 2rem 1rem;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 4rem;
-      font-size: 1.2rem;
-      color: var(--muted);
-    }
-
-    footer {
-      border-top: 1px solid var(--border);
-      text-align: center;
-      padding: 1rem;
-      font-size: 0.9rem;
-      color: var(--muted);
-      background: #fafafa;
-    }
-
-    @media (max-width: 600px) {
-      .header-inner {
-        flex-direction: column;
-      }
-      nav {
-        margin-top: 0.5rem;
-      }
-    }
+    :root { --brand:#1E90FF; --background:#ffffff; --text:#111; --muted:#666; --border:#e0e0e0; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin:0; background:var(--background); color:var(--text); display:flex; flex-direction:column; min-height:100vh; }
+    header { background: var(--brand); color:white; padding:.75rem 1rem; position:sticky; top:0; z-index:1000; }
+    .header-inner { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; }
+    .logo { height:50px; object-fit:contain; }
+    nav { display:flex; gap:1rem; }
+    .nav-link { color:white; text-decoration:none; font-weight:500; font-size:1rem; }
+    .nav-link:hover { text-decoration:underline; }
+    main { flex:1; padding:2rem 1rem; max-width:1200px; margin:0 auto; width:100%; box-sizing:border-box; }
+    .loading { text-align:center; padding:4rem; font-size:1.2rem; color:var(--muted); }
+    footer { border-top:1px solid var(--border); text-align:center; padding:1rem; font-size:.9rem; color:var(--muted); background:#fafafa; }
+    @media (max-width:600px){ .header-inner{flex-direction:column;} nav{margin-top:.5rem;} }
   </style>
 </head>
-
 <body>
-  <!-- Header -->
   <header>
     <div class="header-inner">
       <img src="./ObserverLogoBlue.png" alt="The Oklahoma Observer" class="logo" />
@@ -112,18 +32,8 @@
       </nav>
     </div>
   </header>
-
-  <!-- Main App Root -->
-  <main id="app">
-    <div class="loading">Loading…</div>
-  </main>
-
-  <!-- Footer -->
-  <footer>
-    <p>© <span id="year"></span> The Oklahoma Observer. All Rights Reserved.</p>
-  </footer>
-
-  <!-- Core Application Entry -->
+  <main id="app"><div class="loading">Loading…</div></main>
+  <footer><p>© <span id="year"></span> The Oklahoma Observer. All Rights Reserved.</p></footer>
   <script type="module" src="./main.js?v=2.6.3"></script>
 </body>
 </html>
