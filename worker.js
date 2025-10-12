@@ -1,96 +1,73 @@
-// worker.js — OkObserver WP proxy @ Cloudflare Workers (workers.dev edition)
-// - Proxies a SAFE subset of WP REST endpoints from okobserver.org
-// - Adds CORS: *  (so your GitHub Pages app can fetch without errors)
-// - Caches at the Cloudflare edge for 60s with SWR 120s (snappier loads)
+// worker.js — OkObserver CORS proxy for WordPress REST API
+// Supports BOTH /wp-json/wp/v2/* and /wp/v2/*
+// Adds CORS and preserves WP pagination headers.
 
-const UPSTREAM_ORIGIN = "https://okobserver.org";
-const WP_PREFIX = "/wp-json/wp/v2";
+const ORIGIN = "https://okobserver.org"; // your WordPress site
 
-// Only allow endpoints your app uses
-const ALLOW = new Set([
-  "/posts",
-  "/media",
-  "/categories",
-  "/pages",
-  "/users",
-]);
-
-function isAllowedPath(pathname) {
-  // Expect incoming path like: /wp/v2/<endpoint>
-  const parts = pathname.split("/").filter(Boolean); // ["wp","v2","posts"]
-  if (parts.length < 3) return false;
-  if (parts[0] !== "wp" || parts[1] !== "v2") return false;
-  const endpoint = `/${parts[2]}`; // "/posts"
-  return ALLOW.has(endpoint);
-}
-
-function buildUpstreamURL(reqUrl) {
-  const url = new URL(reqUrl);
-  // Convert /wp/v2/... -> /wp-json/wp/v2/...
-  const upstream = new URL(UPSTREAM_ORIGIN);
-  upstream.pathname = `${WP_PREFIX}${url.pathname.replace(/^\/wp\/v2/, "")}`;
-  upstream.search = url.search; // keep query string
-  return upstream.toString();
-}
-
-function corsHeaders(origin = "*") {
+function cors(req) {
+  const origin = req.headers.get("Origin") || "*";
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400",
   };
 }
 
-async function handleOptions() {
-  // Preflight or bare OPTIONS
-  return new Response(null, { status: 204, headers: corsHeaders("*") });
+function upstreamUrl(reqUrl) {
+  const url = new URL(reqUrl);
+  const isCanonical = url.pathname.startsWith("/wp-json/wp/v2/");
+  const isShort = url.pathname.startsWith("/wp/v2/");
+  if (!isCanonical && !isShort) return null;
+
+  const target = new URL(ORIGIN);
+  target.pathname = isCanonical ? url.pathname : "/wp-json" + url.pathname; // /wp/v2 -> /wp-json/wp/v2
+  target.search = url.search;
+  return target.toString();
+}
+
+async function proxyGET(request, targetURL) {
+  const resp = await fetch(targetURL, {
+    headers: { "user-agent": request.headers.get("user-agent") || "" },
+    cf: { cacheEverything: false },
+  });
+
+  const out = new Response(resp.body, resp);
+  // CORS
+  const c = cors(request);
+  for (const k in c) out.headers.set(k, c[k]);
+  // WP pagination headers
+  ["X-WP-Total", "X-WP-TotalPages", "Link"].forEach(h => {
+    const v = resp.headers.get(h);
+    if (v) out.headers.set(h, v);
+  });
+  return out;
 }
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
 
-    // Allow only /wp/v2/* on workers.dev
-    if (!url.pathname.startsWith("/wp/v2/") || !isAllowedPath(url.pathname)) {
-      return new Response("Not found", { status: 404 });
-    }
-
+    // CORS preflight
     if (request.method === "OPTIONS") {
-      return handleOptions();
+      return new Response(null, { status: 204, headers: cors(request) });
     }
 
-    const upstreamUrl = buildUpstreamURL(url.toString());
-
-    // Edge cache for 60s; SWR for 120s
-    const fetchInit = {
-      method: "GET",
-      headers: { "Accept": "application/json" }, // avoid client cache headers → fewer preflights
-      redirect: "follow",
-      cf: {
-        cacheTtl: 60,
-        cacheEverything: true,
-      },
-    };
-
-    let res;
-    try {
-      res = await fetch(upstreamUrl, fetchInit);
-    } catch (e) {
-      return new Response(`Upstream fetch failed: ${e?.message || e}`, {
-        status: 502,
-        headers: { ...corsHeaders("*"), "Content-Type": "text/plain; charset=utf-8" },
+    // Health
+    if (url.pathname === "/__health") {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json", ...cors(request) },
       });
     }
 
-    const h = new Headers(res.headers);
-    h.delete("Set-Cookie");
-    h.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+    // Proxy routes
+    const target = upstreamUrl(request.url);
+    if (target && request.method === "GET") {
+      return proxyGET(request, target);
+    }
 
-    const withCors = corsHeaders("*");
-    for (const [k, v] of Object.entries(withCors)) h.set(k, v);
-
-    return new Response(res.body, { status: res.status, headers: h });
+    return new Response("Not Found", { status: 404, headers: cors(request) });
   },
 };
