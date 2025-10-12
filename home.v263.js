@@ -17,32 +17,26 @@ async function apiFetchJson(url) {
 }
 
 /* ---------- category helpers ---------- */
-
-// Cache the cartoon category id so we fetch it only once
 let CARTOON_CAT_ID = null;
 
 async function getCartoonCategoryId() {
   if (CARTOON_CAT_ID !== null) return CARTOON_CAT_ID;
 
-  // Look up categories that resemble "cartoon"
-  // Try both slug & name to be safe.
+  // Look up categories that resemble "cartoon" by slug or name.
   const url = `${API_BASE}/categories?per_page=100&search=cartoon&_fields=id,slug,name`;
   try {
     const { json: cats } = await apiFetchJson(url);
     const hit = Array.isArray(cats)
-      ? cats.find(
-          (c) => /cartoon/i.test(c?.slug || "") || /cartoon/i.test(c?.name || "")
-        )
+      ? cats.find(c => /cartoon/i.test(c?.slug || "") || /cartoon/i.test(c?.name || ""))
       : null;
     CARTOON_CAT_ID = hit ? hit.id : 0;
   } catch (_) {
-    CARTOON_CAT_ID = 0; // fail open (no filtering) if lookup fails
+    CARTOON_CAT_ID = 0; // if lookup fails, don't exclude (fail-open)
   }
   return CARTOON_CAT_ID;
 }
 
 /* ---------- data ---------- */
-
 async function fetchPosts(page = 1) {
   const cartoonId = await getCartoonCategoryId();
   const exclude = cartoonId ? `&categories_exclude=${encodeURIComponent(cartoonId)}` : "";
@@ -55,7 +49,6 @@ async function fetchPosts(page = 1) {
 }
 
 /* ---------- view ---------- */
-
 export default async function renderHome(container) {
   const host = container || document.getElementById("app");
   host.innerHTML = `<h1>Latest Posts</h1><div class="grid"></div>`;
@@ -71,9 +64,7 @@ export default async function renderHome(container) {
       const img = p?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
       const author = p?._embedded?.author?.[0]?.name || "Oklahoma Observer";
       const dateStr = new Date(p.date).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+        year: "numeric", month: "long", day: "numeric"
       });
 
       grid.innerHTML += `
