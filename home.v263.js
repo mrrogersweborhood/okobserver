@@ -1,190 +1,29 @@
-// OkObserver — Home view (robust, with thumbnails + infinite scroll)
-
-const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || "api/wp/v2";
-
-function stripHtml(html) {
-  if (!html) return "";
-  const el = document.createElement("div");
-  el.innerHTML = html;
-  return el.textContent || el.innerText || "";
-}
-
-// Null-safe element helper
-function el(tag, opts = {}, children = []) {
-  opts = opts || {};
-  if (children == null) children = [];
-  const node = document.createElement(tag);
-  if (opts.className) node.className = opts.className;
-  if (opts.attrs) for (const [k, v] of Object.entries(opts.attrs)) if (v != null) node.setAttribute(k, v);
-  if (!Array.isArray(children)) children = [children];
-  for (const c of children) {
-    if (c == null) continue;
-    node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+// Home view with thumbnails + basic load
+const API_BASE = window.OKO_API_BASE;
+function stripHtml(html){const d=document.createElement("div"); d.innerHTML=html||""; return d.textContent||"";}
+async function apiFetchJson(url){const res=await fetch(url); if(!res.ok) throw new Error(`API Error ${res.status}`); const json=await res.json(); return {json, headers: res.headers};}
+async function fetchPosts(page=1){const url=`${API_BASE}/posts?status=publish&per_page=9&page=${page}&_embed=1&orderby=date&order=desc`; return apiFetchJson(url);}
+export default async function renderHome(container){
+  const host=container||document.getElementById("app");
+  host.innerHTML=`<h1>Latest Posts</h1><div class="grid"></div>`;
+  const grid=host.querySelector(".grid");
+  try{
+    const {json:posts}=await fetchPosts(1);
+    posts.forEach(p=>{
+      const title=stripHtml(p?.title?.rendered);
+      const excerpt=stripHtml(p?.excerpt?.rendered);
+      const link=`#/post/${p.id}`;
+      const img=(p?._embedded?.["wp:featuredmedia"]?.[0]?.source_url)||"";
+      grid.innerHTML += `<article class="card">
+        <a href="${link}" class="thumb-wrap">${img?`<img class="thumb" src="${img}" alt="">`:""}</a>
+        <div class="card-body">
+          <h2 class="title"><a href="${link}">${title}</a></h2>
+          <div class="meta">By ${p?._embedded?.author?.[0]?.name||"Oklahoma Observer"}</div>
+          <div class="excerpt">${excerpt}</div>
+        </div>
+      </article>`;
+    });
+  }catch(err){
+    grid.innerHTML = `<p>Failed to fetch posts: ${err}</p>`;
   }
-  return node;
 }
-
-function normalizeUrl(u) {
-  try {
-    if (!u) return "";
-    u = String(u).trim();
-    if (u.startsWith("//")) return "https:" + u;
-    return u.replace(/^http:\/\//, "https://");
-  } catch (_) { return u || ""; }
-}
-
-function firstImageFrom(html) {
-  try {
-    if (!html) return "";
-    const root = document.createElement("div");
-    root.innerHTML = html;
-    const img = root.querySelector("img");
-    if (!img) return "";
-    const pick =
-      img.getAttribute("src") ||
-      img.getAttribute("data-src") ||
-      img.getAttribute("data-lazy-src") ||
-      img.getAttribute("data-original") ||
-      img.getAttribute("data-orig-file") ||
-      "";
-    if (pick) return normalizeUrl(pick);
-    const srcset = img.getAttribute("srcset") || "";
-    if (srcset) {
-      const first = srcset.split(",")[0].trim().split(" ")[0];
-      if (first) return normalizeUrl(first);
-    }
-  } catch (_) {}
-  return "";
-}
-
-async function apiFetchJson(url) {
-  const res = await fetch(url, { credentials: "omit" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API Error ${res.status}: ${text.slice(0, 200)}`);
-  }
-  const data = await res.json();
-  return { json: data, headers: res.headers };
-}
-
-let cachedCartoonCatId = null;
-async function getCartoonCategoryId() {
-  if (cachedCartoonCatId !== null) return cachedCartoonCatId;
-  try {
-    const url = `${API_BASE}/categories?search=cartoon&per_page=100&_fields=id,slug,name`;
-    const { json } = await apiFetchJson(url);
-    const hit = Array.isArray(json) ? json.find(c => /cartoon/i.test(c.slug) || /cartoon/i.test(c.name)) : null;
-    cachedCartoonCatId = hit ? hit.id : 0;
-  } catch (_) {
-    cachedCartoonCatId = 0;
-  }
-  return cachedCartoonCatId;
-}
-
-async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
-  let categoriesExclude = "";
-  if (excludeCartoon) {
-    const catId = await getCartoonCategoryId();
-    if (catId) categoriesExclude = `&categories_exclude=${encodeURIComponent(catId)}`;
-  }
-  const url =
-    `${API_BASE}/posts?status=publish&per_page=${perPage}&page=${page}` +
-    `&_embed=1&orderby=date&order=desc` +
-    categoriesExclude;
-
-  const { json, headers } = await apiFetchJson(url);
-  const totalPages = parseInt(headers.get("X-WP-TotalPages") || "0", 10) || 0;
-  return { posts: json, totalPages };
-}
-
-function selectThumb(post) {
-  try {
-    const media = post?._embedded?.["wp:featuredmedia"];
-    if (media && media[0]) {
-      const sizes = media[0]?.media_details?.sizes || {};
-      const order = ["medium_large", "large", "medium", "post-thumbnail", "thumbnail", "full"];
-      for (const k of order) {
-        const u = sizes[k]?.source_url;
-        if (u) return normalizeUrl(u);
-      }
-      if (media[0].source_url) return normalizeUrl(media[0].source_url);
-    }
-  } catch (_) {}
-  const fromContent = firstImageFrom(post?.content?.rendered || "");
-  if (fromContent) return fromContent;
-  const fromExcerpt = firstImageFrom(post?.excerpt?.rendered || "");
-  if (fromExcerpt) return fromExcerpt;
-  return "";
-}
-
-function renderCard(post) {
-  const href = `#/post/${post.id}`;
-  const title = stripHtml(post?.title?.rendered) || "Untitled";
-  const byline = `By ${post?._embedded?.author?.[0]?.name || "Oklahoma Observer"} • ${new Date(post.date).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}`;
-  const excerpt = stripHtml(post?.excerpt?.rendered).trim();
-
-  const card = el("article", { className: "card" });
-
-  const imgUrl = selectThumb(post);
-  if (imgUrl) {
-    const wrap = el("a", { className: "thumb-wrap", attrs: { href, "aria-label": `Open post: ${title}` } });
-    const img = el("img", { className: "thumb", attrs: { src: imgUrl, alt: "" } });
-    wrap.appendChild(img);
-    card.appendChild(wrap);
-  }
-
-  const body = el("div", { className: "card-body" }, [
-    el("h2", { className: "title" }, el("a", { attrs: { href } }, title)),
-    el("div", { className: "meta" }, byline),
-    el("div", { className: "excerpt" }, excerpt)
-  ]);
-
-  card.appendChild(body);
-  return card;
-}
-
-export async function renderHome(container) {
-  const host = container || document.getElementById("app");
-  if (!host) { console.error("[OkObserver] app container not found"); return; }
-
-  host.innerHTML = "";
-  const section = el("section");
-  const h1 = el("h1", null, "Latest Posts");
-  const grid = el("div", { className: "grid" });
-  const sentinel = el("div", { className: "hidden", attrs: { "data-sentinel": "1" } });
-
-  section.appendChild(h1);
-  section.appendChild(grid);
-  host.appendChild(section);
-  host.appendChild(sentinel);
-
-  let currentPage = 1, totalPages = 1, loading = false;
-
-  async function loadPage(page) {
-    if (loading) return;
-    loading = true;
-    try {
-      const { posts, totalPages: tp } = await fetchPostsPage(page, 9, true);
-      if (tp) totalPages = tp;
-      if (Array.isArray(posts)) posts.forEach(p => grid.appendChild(renderCard(p)));
-    } catch (err) {
-      console.error("[OkObserver] Home load failed:", err);
-      host.appendChild(el("div", { className: "card-body" }, String(err.message || err)));
-    } finally {
-      loading = false;
-    }
-  }
-
-  await loadPage(1);
-
-  const io = new IntersectionObserver(async (entries) => {
-    const e = entries[0];
-    if (!e || !e.isIntersecting || loading || currentPage >= totalPages) return;
-    currentPage += 1;
-    await loadPage(currentPage);
-  }, { rootMargin: "600px 0px 600px 0px" });
-
-  io.observe(sentinel);
-}
-
-export default renderHome;
