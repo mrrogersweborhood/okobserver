@@ -4,9 +4,6 @@ import renderHome from "./home.v263.js";
 import renderAbout from "./about.v263.js";
 import renderPost from "./detail.v263.js";
 
-/* ------------------------------------------------------------------ */
-/* Router                                                             */
-/* ------------------------------------------------------------------ */
 export async function router() {
   const app = document.getElementById("app");
   if (!app) {
@@ -41,9 +38,6 @@ export async function router() {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Start                                                              */
-/* ------------------------------------------------------------------ */
 export function start() {
   const app = document.getElementById("app");
   if (!app) {
@@ -60,7 +54,6 @@ export function start() {
   run();
 }
 
-/* Auto-start on DOM ready */
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", start, { once: true });
 } else {

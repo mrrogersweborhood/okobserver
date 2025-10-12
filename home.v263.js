@@ -1,13 +1,7 @@
 // OkObserver — Home view (robust, with thumbnails + infinite scroll)
 
-/* -------------------------
-   Config / API base
--------------------------- */
 const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || "api/wp/v2";
 
-/* -------------------------
-   Utilities
--------------------------- */
 function stripHtml(html) {
   if (!html) return "";
   const el = document.createElement("div");
@@ -63,9 +57,6 @@ function firstImageFrom(html) {
   return "";
 }
 
-/* -------------------------
-   API helpers
--------------------------- */
 async function apiFetchJson(url) {
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) {
@@ -106,9 +97,6 @@ async function fetchPostsPage(page = 1, perPage = 9, excludeCartoon = true) {
   return { posts: json, totalPages };
 }
 
-/* -------------------------
-   Card rendering
--------------------------- */
 function selectThumb(post) {
   try {
     const media = post?._embedded?.["wp:featuredmedia"];
@@ -155,9 +143,6 @@ function renderCard(post) {
   return card;
 }
 
-/* -------------------------
-   Home view with infinite scroll
--------------------------- */
 export async function renderHome(container) {
   const host = container || document.getElementById("app");
   if (!host) { console.error("[OkObserver] app container not found"); return; }

@@ -1,6 +1,3 @@
 name = "okobserver-proxy"
-main = "worker.js"
-compatibility_date = "2024-09-01"
-
-# Using workers.dev (no custom routes needed); wrangler will give you a URL like:
-# https://okobserver-proxy.<your-account>.workers.dev
+main = "src/index.js"
+compatibility_date = "2024-04-02"

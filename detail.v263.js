@@ -1,6 +1,5 @@
 // detail.v263.js — Post detail page (default export included)
 
-/* Utilities */
 function el(tag, opts = {}, children = []) {
   opts = opts || {};
   if (children == null) children = [];
@@ -27,16 +26,13 @@ function selectHero(post) {
     if (media && media[0]) {
       const sizes = media[0]?.media_details?.sizes || {};
       const order = ["large", "medium_large", "medium", "post-thumbnail", "full"];
-      for (const k of order) {
-        const u = sizes[k]?.source_url; if (u) return normalizeUrl(u);
-      }
+      for (const k of order) { const u = sizes[k]?.source_url; if (u) return normalizeUrl(u); }
       if (media[0].source_url) return normalizeUrl(media[0].source_url);
     }
   } catch(_){}
   return "";
 }
 
-/* Data */
 const API_BASE = (window && (window.API_BASE || window.OKO_API_BASE)) || "api/wp/v2";
 async function apiFetchJson(url) {
   const res = await fetch(url, { credentials: "omit" });
@@ -51,7 +47,6 @@ async function fetchPost(id) {
   return apiFetchJson(url);
 }
 
-/* Render */
 export async function renderPost(container, id) {
   const host = container || document.getElementById("app");
   if (!host) { console.error("[OkObserver] post container not found"); return; }
@@ -68,9 +63,8 @@ export async function renderPost(container, id) {
   host.append(header, heroWrap, bodyEl);
 
   let post = null;
-  try {
-    post = await fetchPost(id);
-  } catch (err) {
+  try { post = await fetchPost(id); }
+  catch (err) {
     titleEl.textContent = "Post not found";
     metaEl.textContent = `Sorry, we couldn't load this post (${id}).`;
     console.error("[OkObserver] Post load failed:", err);
