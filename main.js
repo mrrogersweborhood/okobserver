@@ -1,10 +1,11 @@
-// main.js — OkObserver v2.6.3 (API path fix)
-console.log("[OkObserver] Entry loaded: v2.6.3");
+// main.js — OkObserver v2.6.3 (modular, minimal)
 
-// Use the canonical WP REST base (adjust only this line if needed)
+// Cloudflare Worker proxy base (canonical WP REST path)
 window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
+console.log("[OkObserver] Entry loaded: v2.6.3");
 console.log("[OkObserver] API base (locked):", window.OKO_API_BASE);
 
+// Boot the router from core (which loads home/detail/about modules)
 import { start } from "./core-fixed.js?v=263";
 
 document.addEventListener("DOMContentLoaded", () => {
