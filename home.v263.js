@@ -83,7 +83,7 @@ async function renderHome(container) {
   const sentinel = host.querySelector("#scroll-sentinel");
 
   let page = 1;
-  let totalPages = Number.POSITIVE_INFINITY; // unknown until first response
+  let totalPages = Number.POSITIVE_INFINITY;
   let loading = false;
 
   async function loadPage(n) {
@@ -113,7 +113,7 @@ async function renderHome(container) {
   // initial load
   await loadPage(page);
 
-  // Detect the scroll container
+  // Detect scroll container
   const cs = getComputedStyle(host);
   const scrollsWithinHost = cs.overflowY === "auto" || cs.overflowY === "scroll";
   const ioRoot = scrollsWithinHost ? host : null;
@@ -135,7 +135,7 @@ async function renderHome(container) {
     io.observe(sentinel);
   }
 
-  // Scroll fallback (throttled)
+  // Scroll fallback
   let ticking = false;
   function onScroll() {
     if (ticking) return;
@@ -156,5 +156,5 @@ async function renderHome(container) {
   (ioRoot || window).addEventListener("scroll", onScroll, { passive: true });
 }
 
-// ✅ default export so `import renderHome from "./home.v263.js"` works
+// ✅ default export
 export default renderHome;
