@@ -1,1 +1,79 @@
-placeholder
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="The Oklahoma Observer – To Comfort the Afflicted and Afflict the Comfortable" />
+  <title>The Oklahoma Observer</title>
+  <link rel="icon" href="./icon.png" />
+  <style>
+    :root{
+      --brand:#1E90FF;--brand-hover:#0047b3;--text-dark:#111;--text-light:#fff;
+      --max-width:1200px;--card-bg:#fff;--border:#ddd;
+    }
+    body{margin:0;font-family:"Segoe UI",Roboto,sans-serif;color:var(--text-dark);background:#fafafa}
+    header.header{position:sticky;top:0;z-index:100;background:var(--brand);color:var(--text-light);box-shadow:0 2px 6px rgba(0,0,0,.15)}
+    .header-inner{max-width:var(--max-width);margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem}
+    .logo-link img.logo{height:60px;width:auto}
+    .nav{display:flex;gap:1.25rem}
+    .nav-link{color:var(--text-light);text-decoration:none;font-weight:500;font-size:1rem;transition:opacity .2s}
+    .nav-link:hover{opacity:.8}
+    main#app{max-width:var(--max-width);margin:1.5rem auto;padding:0 1rem;display:block}
+    h1{font-size:1.75rem;margin-bottom:1rem;border-bottom:2px solid var(--brand);padding-bottom:.25rem}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.25rem;width:100%}
+    .card{background:var(--card-bg);border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+    .card:hover{transform:translateY(-4px);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+    .thumb-wrap{width:100%;display:block;aspect-ratio:16/9;overflow:hidden}
+    .thumb{width:100%;height:100%;object-fit:cover;display:block}
+    .card-body{padding:1rem;flex:1;display:flex;flex-direction:column}
+    .title a{color:var(--brand);font-weight:600;text-decoration:none;transition:color .2s}
+    .title a:hover{color:var(--brand-hover)}
+    .card .title a{color:var(--brand)!important}
+    .card .title a:hover{color:var(--brand-hover)!important}
+    .meta{color:#555;font-size:.9rem;margin:.25rem 0 .5rem}
+    .excerpt{flex:1;font-size:.95rem;line-height:1.4}
+    .video-poster{max-width:960px;margin:0 auto 1rem}
+    .video-poster img,.hero{border-radius:8px}
+    footer.footer{text-align:center;padding:1.5rem;color:#777;font-size:.9rem;border-top:1px solid var(--border);margin-top:2rem}
+    .spinner{border:4px solid #f3f3f3;border-top:4px solid var(--brand);border-radius:50%;width:36px;height:36px;animation:spin 1s linear infinite;margin:1rem auto}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    @media (max-width:600px){.logo-link img.logo{height:48px}.nav-link{font-size:.95rem}.grid{grid-template-columns:1fr}}
+    /* content whitespace fixes */
+    .content-sanitized>*:first-child{margin-top:0!important}
+    .content-sanitized p,.content-sanitized div,.content-sanitized figure{margin-top:clamp(0rem,1vh,1rem)}
+    .content-sanitized{margin-bottom:0!important}
+    .hero{margin-bottom:1rem}.video-poster{margin-bottom:1rem}
+  </style>
+</head>
+<body>
+  <header id="header" class="header">
+    <div class="header-inner">
+      <a href="#/" class="logo-link">
+        <img src="./ObserverLogoBlue.png" alt="The Oklahoma Observer logo" class="logo" />
+      </a>
+      <nav class="nav">
+        <a href="#/" class="nav-link">Posts</a>
+        <a href="#/about" class="nav-link">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app">
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Loading...</p>
+  </main>
+
+  <footer id="footer" class="footer">
+    <p>© <span id="year"></span> The Oklahoma Observer. All Rights Reserved.</p>
+  </footer>
+
+  <script>
+    // Cloudflare Worker API base for CORS-safe WP JSON
+    window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev";
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+
+  <!-- Load the app entry as an ES module -->
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
