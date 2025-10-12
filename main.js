@@ -1,12 +1,33 @@
-// main.js — OkObserver v2.6.3 (final, stable)
-window.OKO_API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
-console.log("[OkObserver] Entry loaded: v2.6.3");
-console.log("[OkObserver] API base (locked):", window.OKO_API_BASE);
+// main.js — OkObserver v2.6.4
+// Initializes the app and hooks up navigation
 
-import { start } from "./core-fixed.js?v=263";
+import { router } from "./core-fixed.js?v=263";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const yearSpan = document.getElementById("year");
-  if (yearSpan) yearSpan.textContent = new Date().getFullYear();
-  start();
+console.log("[OkObserver] Bootstrapping main.js v2.6.4");
+
+window.addEventListener("DOMContentLoaded", () => {
+  const app = document.getElementById("app");
+  if (!app) {
+    console.error("[OkObserver] Missing #app container");
+    return;
+  }
+
+  // Initialize navigation
+  const nav = document.getElementById("nav");
+  if (nav) {
+    nav.addEventListener("click", e => {
+      if (e.target.tagName === "A") {
+        e.preventDefault();
+        const href = e.target.getAttribute("href");
+        if (href.startsWith("#")) {
+          window.location.hash = href;
+        } else {
+          window.open(href, "_blank");
+        }
+      }
+    });
+  }
+
+  // Kick off first route render
+  router();
 });
