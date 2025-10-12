@@ -1,13 +1,6 @@
-// detail.v263.js — single post with VIDEO POSTER (image linking to video via modal)
-// - Finds video URL (YouTube/Vimeo) in content/Yoast
-// - Shows poster image (featured or OG) with play button
-// - Clicking poster opens a modal lightbox with the video
-// - Includes author + date meta and full content
-// - Exports default
+// detail.v263.js — video poster without autoplay & no layout glitch
 
 const API_BASE = window.OKO_API_BASE;
-
-/* ---------------- helpers ---------------- */
 
 function stripHtml(html) {
   const d = document.createElement("div");
@@ -16,28 +9,23 @@ function stripHtml(html) {
 }
 
 function pickPoster(post) {
-  // Prefer featured media, else Yoast OG image, else empty
-  const featured =
-    post?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
-  const og =
-    post?.yoast_head_json?.og_image?.[0]?.url || "";
+  const featured = post?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
+  const og = post?.yoast_head_json?.og_image?.[0]?.url || "";
   return featured || og || "";
 }
 
 function extractVideoUrlFromContent(html) {
   if (!html) return "";
 
-  // 1) Look for iframes (YouTube/Vimeo)
   const div = document.createElement("div");
   div.innerHTML = html;
 
-  const ifr = div.querySelector("iframe[src]");
-  if (ifr && /youtube\.com|youtu\.be|player\.vimeo\.com|vimeo\.com/i.test(ifr.src)) {
-    return ifr.src;
+  const iframe = div.querySelector("iframe[src]");
+  if (iframe && /youtube\.com|youtu\.be|vimeo\.com/i.test(iframe.src)) {
+    return iframe.src;
   }
 
-  // 2) Look for anchor links to YouTube/Vimeo
-  const a = Array.from(div.querySelectorAll("a[href]")).find((el) =>
+  const a = Array.from(div.querySelectorAll("a[href]")).find(el =>
     /youtube\.com|youtu\.be|vimeo\.com/i.test(el.href)
   );
   if (a) return a.href;
@@ -47,28 +35,14 @@ function extractVideoUrlFromContent(html) {
 
 function normalizeVideoUrlForEmbed(url) {
   if (!url) return "";
-
-  // YouTube patterns
-  // https://www.youtube.com/watch?v=ID => https://www.youtube.com/embed/ID
-  // https://youtu.be/ID => https://www.youtube.com/embed/ID
   const ytWatch = url.match(/youtube\.com\/watch\?v=([^&]+)/i);
-  if (ytWatch) return `https://www.youtube.com/embed/${ytWatch[1]}?rel=0`;
-
+  if (ytWatch) return `https://www.youtube.com/embed/${ytWatch[1]}}`;
   const ytShort = url.match(/youtu\.be\/([^?&]+)/i);
-  if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}?rel=0`;
-
-  // Already an embed or /embed/ URL
+  if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}}`;
   if (/youtube\.com\/embed\//i.test(url)) return url;
-
-  // Vimeo patterns
-  // https://vimeo.com/ID => https://player.vimeo.com/video/ID
   const vimeo = url.match(/vimeo\.com\/(\d+)/i);
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-
-  // Already player URL
   if (/player\.vimeo\.com\/video\//i.test(url)) return url;
-
-  // Fallback: return original
   return url;
 }
 
@@ -78,8 +52,6 @@ async function fetchPost(id) {
   return res.json();
 }
 
-/* ---------------- view ---------------- */
-
 export default async function renderPost(container, id) {
   const host = container || document.getElementById("app");
   host.innerHTML = `<p>Loading post…</p>`;
@@ -87,16 +59,15 @@ export default async function renderPost(container, id) {
   try {
     const post = await fetchPost(id);
 
-    // — title/content
     const titleHtml = post?.title?.rendered || "Untitled";
-    const contentHtml = post?.content?.rendered || "<p>No content.</p>";
+    const contentHtml = post?.content?.rendered || "";
+    const contentClean = contentHtml.trim();
 
-    // — author + date
-    const author =
-      stripHtml(post?._embedded?.author?.[0]?.name ||
-        post?.yoast_head_json?.author ||
-        "Oklahoma Observer");
-
+    const author = stripHtml(
+      post?._embedded?.author?.[0]?.name ||
+      post?.yoast_head_json?.author ||
+      "Oklahoma Observer"
+    );
     const dateStr = post?.date
       ? new Date(post.date).toLocaleDateString(undefined, {
           year: "numeric",
@@ -105,73 +76,59 @@ export default async function renderPost(container, id) {
         })
       : "";
 
-    // — poster + video URL
     const posterUrl = pickPoster(post);
-    const videoUrlRaw =
-      extractVideoUrlFromContent(post?.content?.rendered) ||
-      post?.yoast_head_json?.og_video?.url ||
-      post?.yoast_head_json?.og_video ||
-      ""; // sometimes og_video is string or object
+    const videoRaw = extractVideoUrlFromContent(post?.content?.rendered);
+    const videoEmbedUrl = normalizeVideoUrlForEmbed(videoRaw);
 
-    const videoEmbedUrl = normalizeVideoUrlForEmbed(
-      typeof videoUrlRaw === "string" ? videoUrlRaw : (videoUrlRaw || "")
-    );
-
-    // — build HTML
+    // Build the DOM
     host.innerHTML = `
-      <article class="post">
+      <article class="post" style="margin-bottom: 0;">
         <p><a href="#/" class="btn">← Back</a></p>
         <h1 class="post-title">${titleHtml}</h1>
-
-        <div class="post-meta-line" style="display:block; color:#555; margin:.25rem 0 1rem; font-size:.95rem;">
+        <div class="post-meta-line" style="margin:.25rem 0 1rem; color:#555; font-size:.95rem;">
           ${author ? `By <span class="post-author">${author}</span>` : ""}
           ${author && dateStr ? " — " : ""}
-          ${dateStr ? `<time datetime="${post?.date}">${dateStr}</time>` : ""}
+          ${dateStr ? `<time datetime="${post.date}">${dateStr}</time>` : ""}
         </div>
-
         ${
           posterUrl && videoEmbedUrl
-            ? `
-          <a href="#" id="videoPosterLink" aria-label="Play video">
-            <div class="video-poster" style="position:relative; display:block; max-width:100%; margin:0 auto 1rem;">
-              <img src="${posterUrl}" alt="" style="width:100%; height:auto; display:block; border-radius:8px;">
-              <div class="play-overlay" style="
-                position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-                background:linear-gradient(to bottom, rgba(0,0,0,.05), rgba(0,0,0,.35));
-              ">
-                <div style="
-                  width:76px; height:76px; border-radius:50%; background:rgba(30,144,255,.95);
-                  display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,.25);
-                ">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-                    <path d="M8 5v14l11-7z"></path>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </a>
-          `
+            ? `<a href="#" id="videoPosterLink" aria-label="Play video" style="display:block; margin-bottom:1rem;">
+                 <div class="video-poster" style="position:relative; display:block;">
+                   <img src="${posterUrl}" alt="" style="width:100%; height:auto; border-radius:8px;">
+                   <div class="play-overlay" style="
+                     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+                     background:rgba(0,0,0,0.2);
+                   ">
+                     <div style="
+                       width:76px; height:76px; border-radius:50%;
+                       background:rgba(30,144,255,0.95);
+                       display:flex; align-items:center; justify-content:center;
+                       box-shadow:0 10px 30px rgba(0,0,0,0.25);
+                     ">
+                       <svg width="36" height="36" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+                         <path d="M8 5v14l11-7z"></path>
+                       </svg>
+                     </div>
+                   </div>
+                 </div>
+               </a>`
             : posterUrl
-            ? `<img src="${posterUrl}" class="hero" alt="" style="max-width:100%;height:auto;display:block;margin:0 auto 1rem;border-radius:8px;">`
+            ? `<img src="${posterUrl}" class="hero" alt="" style="width:100%;height:auto;display:block;margin-bottom:1rem;border-radius:8px;">`
             : ""
         }
-
-        <div class="content">${contentHtml}</div>
+        <div class="content">${contentClean}</div>
       </article>
-
-      <!-- Modal Lightbox (hidden by default) -->
-      <div id="videoModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); z-index:9999;">
-        <div style="position:relative; width:min(960px, 92vw); aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden;">
+      <div id="videoModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); z-index:9999;">
+        <div style="position:relative; width:min(960px,92vw); aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden;">
           <button id="videoClose" aria-label="Close video" style="
             position:absolute; top:8px; right:8px; z-index:2;
-            background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer;
+            background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer;
           ">✕</button>
-          <iframe id="videoFrame" src="" title="Video player" allow="autoplay; fullscreen" allowfullscreen style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
+          <iframe id="videoFrame" src="" title="Video player" allowfullscreen style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
         </div>
       </div>
     `;
 
-    // — wire up the modal only if we found a video
     if (videoEmbedUrl) {
       const posterLink = document.getElementById("videoPosterLink");
       const modal = document.getElementById("videoModal");
@@ -180,7 +137,7 @@ export default async function renderPost(container, id) {
 
       function openModal(e) {
         if (e) e.preventDefault();
-        frame.src = appendAutoplay(videoEmbedUrl);
+        frame.src = videoEmbedUrl;
         modal.style.display = "flex";
         document.body.style.overflow = "hidden";
       }
@@ -188,15 +145,6 @@ export default async function renderPost(container, id) {
         modal.style.display = "none";
         frame.src = "";
         document.body.style.overflow = "";
-      }
-      function appendAutoplay(url) {
-        try {
-          const u = new URL(url);
-          if (!u.searchParams.has("autoplay")) u.searchParams.set("autoplay", "1");
-          return u.toString();
-        } catch {
-          return url;
-        }
       }
 
       if (posterLink) posterLink.addEventListener("click", openModal);
@@ -212,6 +160,6 @@ export default async function renderPost(container, id) {
     }
   } catch (err) {
     console.error("[Detail] load failed", err);
-    host.innerHTML = `<p style="color:#b00020">Failed to load post: ${err && err.message ? err.message : err}</p>`;
+    host.innerHTML = `<p style="color:#b00020">Failed to load post: ${err.message || err}</p>`;
   }
 }
