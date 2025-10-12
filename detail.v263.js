@@ -1,80 +1,151 @@
-// detail.v263.js — poster + clean content (no autoplay) and no big gap above text
-const API_BASE = window.OKO_API_BASE;
+// detail.v263.js — OkObserver v2.6.4
+// Handles displaying a single post (article or video)
 
-/* helpers */
-function stripHtml(html){const d=document.createElement("div");d.innerHTML=html||"";return d.textContent||"";}
-function pickPoster(post){const featured=post?._embedded?.["wp:featuredmedia"]?.[0]?.source_url||"";const og=post?.yoast_head_json?.og_image?.[0]?.url||"";return featured||og||"";}
-function extractVideoUrlFromContent(html){if(!html)return"";const div=document.createElement("div");div.innerHTML=html;const ifr=div.querySelector("iframe[src]");if(ifr&&/youtube\.com|youtu\.be|vimeo\.com/i.test(ifr.src))return ifr.src;const a=Array.from(div.querySelectorAll("a[href]")).find(el=>/youtube\.com|youtu\.be|vimeo\.com/i.test(el.href));return a?a.href:"";}
-function normalizeVideoUrlForEmbed(url){if(!url)return"";const ytWatch=url.match(/youtube\.com\/watch\?v=([^&]+)/i);if(ytWatch)return`https://www.youtube.com/embed/${ytWatch[1]}`;const ytShort=url.match(/youtu\.be\/([^?&]+)/i);if(ytShort)return`https://www.youtube.com/embed/${ytShort[1]}`;if(/youtube\.com\/embed\//i.test(url))return url;const vimeo=url.match(/vimeo\.com\/(\d+)/i);if(vimeo)return`https://player.vimeo.com/video/${vimeo[1]}`;if(/player\.vimeo\.com\/video\//i.test(url))return url;return url;}
-function sanitizeContent(html){if(!html)return"";let out=html.replace(/<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>/gi,"").replace(/<div>(?:\s|&nbsp;|<br\s*\/?>)*<\/div>/gi,"").replace(/<figure[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/figure>/gi,"");out=out.replace(/(?:<br\s*\/?>\s*){2,}/gi,"<br>");const tmp=document.createElement("div");tmp.innerHTML=out;while(tmp.firstChild&&tmp.firstChild.nodeType===3&&!tmp.firstChild.nodeValue.trim()){tmp.removeChild(tmp.firstChild);}const firstEl=tmp.querySelector("p,h1,h2,h3,h4,h5,h6,figure,div,ul,ol,blockquote");if(firstEl){const style=(firstEl.getAttribute("style")||"").replace(/margin-top\s*:\s*[^;]+;?/i,"");firstEl.setAttribute("style",style+"; margin-top: 0 !important;");}return tmp.innerHTML.trim();}
-async function fetchPost(id){const res=await fetch(`${API_BASE}/posts/${id}?_embed=1`);if(!res.ok)throw new Error(`Post not found (${res.status})`);return res.json();}
+import { fetchWithRetry } from "./core-fixed.js?v=263";
 
-/* view */
-export default async function renderPost(container,id){
-  const host=container||document.getElementById("app");
-  host.innerHTML=`<p>Loading post…</p>`;
-  try{
-    const post=await fetchPost(id);
-    const titleHtml=post?.title?.rendered||"Untitled";
-    const contentHtml=sanitizeContent(post?.content?.rendered||"<p>No content.</p>");
-    const author=stripHtml(post?._embedded?.author?.[0]?.name||post?.yoast_head_json?.author||"Oklahoma Observer");
-    const dateStr=post?.date?new Date(post.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"}):"";
-    const posterUrl=pickPoster(post);
-    const videoUrlRaw=extractVideoUrlFromContent(post?.content?.rendered)||post?.yoast_head_json?.og_video?.url||post?.yoast_head_json?.og_video||"";
-    const videoEmbedUrl=normalizeVideoUrlForEmbed(typeof videoUrlRaw==="string"?videoUrlRaw:(videoUrlRaw||""));
-
-    host.innerHTML = `
-      <article class="post" style="margin-bottom:0;">
-        <p><a href="#/" class="btn">← Back</a></p>
-        <h1 class="post-title" style="margin-bottom:.5rem;">${titleHtml}</h1>
-        <div class="post-meta-line" style="display:block; color:#555; margin:.25rem 0 1rem; font-size:.95rem;">
-          ${author ? \`By <span class="post-author">\${author}</span>\` : ""}
-          ${author && dateStr ? " — " : ""}
-          ${dateStr ? \`<time datetime="${post?.date}">\${dateStr}</time>\` : ""}
-        </div>
-        ${
-          posterUrl && videoEmbedUrl
-            ? `
-          <a href="#" id="videoPosterLink" aria-label="Play video">
-            <div class="video-poster" style="position:relative; display:block;">
-              <img src="${posterUrl}" alt="" style="width:100%; height:auto; display:block;">
-              <div class="play-overlay" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(to bottom, rgba(0,0,0,.05), rgba(0,0,0,.35));">
-                <div style="width:76px; height:76px; border-radius:50%; background:rgba(30,144,255,.95); display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px rgba(0,0,0,.25);">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
-                </div>
-              </div>
-            </div>
-          </a>`
-            : posterUrl
-            ? `<img src="${posterUrl}" class="hero" alt="" style="max-width:100%;height:auto;display:block;margin:0 auto 1rem;">`
-            : ""
-        }
-        <div class="content content-sanitized">${contentHtml}</div>
-      </article>
-      <div id="videoModal" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.75); z-index:9999;">
-        <div style="position:relative; width:min(960px, 92vw); aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden;">
-          <button id="videoClose" aria-label="Close video" style="position:absolute; top:8px; right:8px; z-index:2; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer;">✕</button>
-          <iframe id="videoFrame" src="" title="Video player" allow="fullscreen" allowfullscreen style="position:absolute; inset:0; width:100%; height:100%; border:0;"></iframe>
-        </div>
+export default async function renderPost(app, id) {
+  try {
+    app.innerHTML = `
+      <div class="loading" style="text-align:center; margin:2em;">
+        Loading...
       </div>
     `;
 
-    if (videoEmbedUrl) {
-      const posterLink=document.getElementById("videoPosterLink");
-      const modal=document.getElementById("videoModal");
-      const frame=document.getElementById("videoFrame");
-      const closeBtn=document.getElementById("videoClose");
+    const apiBase =
+      window.OKO_API_BASE ||
+      "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
 
-      function openModal(e){ if(e) e.preventDefault(); frame.src = videoEmbedUrl; modal.style.display="flex"; document.body.style.overflow="hidden"; }
-      function closeModal(){ modal.style.display="none"; frame.src=""; document.body.style.overflow=""; }
+    const url = `${apiBase}/posts/${id}?_embed`;
+    console.log("[Post fetch]", url);
 
-      posterLink?.addEventListener("click", openModal);
-      closeBtn?.addEventListener("click", closeModal);
-      modal?.addEventListener("click", (e)=>{ if(e.target===modal) closeModal(); });
-      document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeModal(); });
+    const post = await fetchWithRetry(url);
+    if (!post || !post.title) throw new Error("Post not found");
+
+    const title = post.title.rendered || "Untitled";
+    const content = post.content?.rendered || "";
+    const date = new Date(post.date).toLocaleDateString();
+    const author =
+      post._embedded?.author?.[0]?.name || "Oklahoma Observer";
+
+    // Featured image (poster)
+    let featuredHTML = "";
+    if (post._embedded && post._embedded["wp:featuredmedia"]) {
+      const media = post._embedded["wp:featuredmedia"][0];
+      const src = media?.source_url;
+      if (src) {
+        featuredHTML = `
+          <div class="featured-wrapper">
+            <img class="featured-image" src="${src}" alt="${title}" loading="lazy" />
+          </div>
+        `;
+      }
     }
-  }catch(err){
-    console.error("[Detail] load failed", err);
-    host.innerHTML = `<p style="color:#b00020">Failed to load post: ${err && err.message ? err.message : err}</p>`;
+
+    // Fix for empty video poster / iframe embeds
+    const hasVideo =
+      content.includes("<iframe") ||
+      content.includes("<video") ||
+      content.includes("youtube.com");
+
+    const cleanContent = content
+      .replace(/<p>\s*<\/p>/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    app.innerHTML = `
+      <article class="post-detail">
+        <a href="#/" class="back-link">← Back</a>
+        <h1 class="post-title">${title}</h1>
+        <p class="post-meta">
+          By <span class="post-author">${author}</span> —
+          <time>${date}</time>
+        </p>
+
+        ${
+          hasVideo
+            ? `<div class="video-container">${cleanContent}</div>`
+            : featuredHTML
+        }
+
+        <div class="post-content">
+          ${
+            hasVideo
+              ? ""
+              : cleanContent
+          }
+        </div>
+      </article>
+    `;
+
+    // Style adjustments to fix white space and responsive video
+    const style = document.createElement("style");
+    style.textContent = `
+      .post-detail {
+        max-width: 800px;
+        margin: 2em auto;
+        padding: 0 1em;
+        line-height: 1.6;
+      }
+      .post-detail h1 {
+        font-size: 1.8em;
+        margin-bottom: 0.2em;
+      }
+      .post-meta {
+        font-size: 0.9em;
+        color: #666;
+        margin-bottom: 1em;
+      }
+      .back-link {
+        display: inline-block;
+        margin-bottom: 1em;
+        text-decoration: none;
+        color: var(--brand, #1e90ff);
+      }
+      .featured-wrapper {
+        display: flex;
+        justify-content: center;
+        margin: 1.5em 0;
+      }
+      .featured-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+      .video-container {
+        position: relative;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        margin: 1.5em 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .video-container iframe,
+      .video-container video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      .post-content {
+        margin-top: 1.5em;
+        word-wrap: break-word;
+      }
+      .post-content img {
+        max-width: 100%;
+        border-radius: 8px;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (err) {
+    console.error("[Post render error]", err);
+    app.innerHTML = `
+      <p style="color:red; text-align:center; margin-top:2em;">
+        Page error: ${err.message}
+      </p>
+    `;
   }
 }

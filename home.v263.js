@@ -1,143 +1,129 @@
-// Home view — blue titles, date, excludes 'Cartoon', robust infinite scroll
-const API_BASE = window.OKO_API_BASE;
+// home.v263.js — OkObserver v2.6.4
+// Handles fetching and rendering posts with safe error handling
 
-// Small utility
-function stripHtml(html){
-  const d=document.createElement("div"); d.innerHTML=html||"";
-  return d.textContent||"";
-}
+import { fetchWithRetry } from "./core-fixed.js?v=263";
 
-// Fetch that retries with alternate base if a 404 is returned.
-// This handles Worker route differences (/wp-json/wp/v2 vs /wp/v2).
-async function apiFetchJson(url){
-  const r = await fetch(url);
-  if (r.ok) return { json: await r.json(), headers: r.headers };
+// ---------- SAFE FETCH JSON ----------
+async function apiFetchJson(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`API Error ${res.status}`);
 
-  if (r.status === 404) {
-    // Try alternate base
-    const altBase = API_BASE.includes("/wp-json/wp/v2")
-      ? API_BASE.replace("/wp-json/wp/v2", "/wp/v2")
-      : API_BASE.replace("/wp/v2", "/wp-json/wp/v2");
-
-    const altUrl = url.replace(API_BASE.replace(/\/$/,""), altBase.replace(/\/$/,""));
-    const r2 = await fetch(altUrl);
-    if (r2.ok) return { json: await r2.json(), headers: r2.headers };
-  }
-  throw new Error("API Error " + r.status);
-}
-
-let CARTOON_CAT_ID = null;
-
-async function getCartoonCategoryId(){
-  if (CARTOON_CAT_ID !== null) return CARTOON_CAT_ID;
-
-  const url = API_BASE.replace(/\/$/,'') +
-    "/categories?per_page=100&search=cartoon&_fields=id,slug,name";
-
-  try{
-    const { json: cats } = await apiFetchJson(url);
-    const hit = Array.isArray(cats)
-      ? cats.find(c => /cartoon/i.test(c?.slug||"") || /cartoon/i.test(c?.name||""))
-      : null;
-    CARTOON_CAT_ID = hit ? hit.id : 0;
-  }catch{
-    CARTOON_CAT_ID = 0;
-  }
-  return CARTOON_CAT_ID;
-}
-
-async function fetchPosts(page=1, perPage=9){
-  const cartoonId = await getCartoonCategoryId();
-  const exclude = cartoonId ? ("&categories_exclude=" + encodeURIComponent(cartoonId)) : "";
-  const base = API_BASE.replace(/\/$/,'') + "/posts";
-  const url  = base + "?status=publish&per_page=" + perPage +
-               "&page=" + page + "&_embed=1&orderby=date&order=desc" + exclude;
-  return apiFetchJson(url);
-}
-
-function renderCard(p){
-  const title   = stripHtml(p?.title?.rendered);
-  const excerpt = stripHtml(p?.excerpt?.rendered);
-  const link    = "#/post/" + p.id;
-  const img     = p?._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
-  const author  = p?._embedded?.author?.[0]?.name || "Oklahoma Observer";
-  const dateStr = new Date(p.date).toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
-
-  const el = document.createElement("article");
-  el.className = "card";
-  el.innerHTML =
-    '<a href="'+link+'" class="thumb-wrap">' +
-      (img ? ('<img class="thumb" src="'+img+'" alt="">') : "") +
-    '</a>' +
-    '<div class="card-body">' +
-      '<h2 class="title"><a href="'+link+'">'+title+'</a></h2>' +
-      '<div class="meta">By '+author+' • '+dateStr+'</div>' +
-      '<div class="excerpt">'+excerpt+'</div>' +
-    '</div>';
-  return el;
-}
-
-export default async function renderHome(container){
-  const host = container || document.getElementById("app");
-  if (!host){ console.error("[Home] #app container missing"); return; }
-
-  host.innerHTML = '<h1>Latest Posts</h1><div class="grid"></div><div id="scroll-sentinel" style="height:1px;"></div>';
-
-  const grid = host.querySelector(".grid");
-  const sentinel = host.querySelector("#scroll-sentinel");
-  let page = 1, totalPages = Infinity, loading = false;
-
-  async function loadPage(n){
-    if (loading || n > totalPages) return;
-    loading = true;
-    try{
-      const { json, headers } = await fetchPosts(n, 9);
-      const tp = parseInt(headers.get("X-WP-TotalPages") || "0", 10);
-      if (tp) totalPages = tp;
-      if (Array.isArray(json)){
-        const frag = document.createDocumentFragment();
-        json.forEach(p => frag.appendChild(renderCard(p)));
-        grid.appendChild(frag);
-      }
-    }catch(err){
-      console.error("[Home] load failed", err);
-      const div = document.createElement("div");
-      div.className = "card-body";
-      div.textContent = 'Failed to fetch posts: ' + (err.message || err);
-      grid.appendChild(div);
-    }finally{
-      loading = false;
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("[Parse error]", text.slice(0, 200));
+      throw new Error("Invalid JSON in response");
+    }
+  } catch (err) {
+    console.error("[Router error]", err);
+    const app = document.getElementById("app");
+    if (app) {
+      app.innerHTML = `<p style="color:red; text-align:center; margin-top:2em;">
+        Page error: ${err.message}
+      </p>`;
     }
   }
+}
 
-  await loadPage(page);
+// ---------- FETCH POSTS PAGE ----------
+export async function renderHome(app) {
+  try {
+    app.innerHTML = `
+      <section class="post-list">
+        <h2 class="section-title">Latest Posts</h2>
+        <div id="post-grid" class="post-grid"></div>
+        <div id="loading" class="loading">Loading...</div>
+      </section>
+    `;
 
-  const cs = getComputedStyle(host);
-  const ioRoot = (cs.overflowY === "auto" || cs.overflowY === "scroll") ? host : null;
+    let page = 1;
+    let loading = false;
+    const grid = document.getElementById("post-grid");
+    const loadingDiv = document.getElementById("loading");
 
-  let io = null;
-  if ("IntersectionObserver" in window){
-    io = new IntersectionObserver(async entries => {
-      const e = entries[0];
-      if (!e || !e.isIntersecting || loading) return;
-      if (page >= totalPages){ io && io.disconnect(); return; }
-      page += 1; await loadPage(page);
-    }, { root: ioRoot, rootMargin: "800px 0px 800px 0px", threshold: 0 });
-    io.observe(sentinel);
-  }
+    async function fetchPostsPage(pageNum) {
+      const apiBase = window.OKO_API_BASE || "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
+      const url = `${apiBase}/posts?status=publish&_embed&per_page=9&page=${pageNum}`;
+      console.log("[Fetching posts]", url);
+      const posts = await apiFetchJson(url);
+      if (!posts || !Array.isArray(posts)) throw new Error("Invalid posts response");
 
-  let ticking = false;
-  (ioRoot || window).addEventListener("scroll", () => {
-    if (ticking) return; ticking = true;
-    requestAnimationFrame(async () => {
-      const c  = ioRoot || document.documentElement;
-      const top = (ioRoot ? c.scrollTop : window.scrollY) || 0;
-      const h   = (ioRoot ? c.clientHeight : window.innerHeight);
-      const sh  = (ioRoot ? c.scrollHeight : document.documentElement.scrollHeight);
-      if (!loading && page < totalPages && top + h + 1000 >= sh){
-        page += 1; await loadPage(page);
+      // Filter out "cartoon" or "cartoons" categories
+      const filtered = posts.filter(
+        p =>
+          !p.categories ||
+          !p.categories.some(
+            c =>
+              typeof c === "string" &&
+              c.toLowerCase().includes("cartoon")
+          )
+      );
+
+      renderPosts(filtered);
+      return filtered.length;
+    }
+
+    function renderPosts(posts) {
+      if (!posts || posts.length === 0) return;
+      for (const post of posts) {
+        const title = post.title?.rendered || "Untitled";
+        const date = new Date(post.date).toLocaleDateString();
+        const link = `#/post/${post.id}`;
+
+        let img = "";
+        if (post._embedded && post._embedded["wp:featuredmedia"]) {
+          const media = post._embedded["wp:featuredmedia"][0];
+          img = `<img src="${media.source_url}" alt="${title}" loading="lazy"/>`;
+        }
+
+        const el = document.createElement("article");
+        el.className = "post-card";
+        el.innerHTML = `
+          <a href="${link}" class="post-link">
+            <div class="post-thumb">${img}</div>
+            <h3 class="post-title">${title}</h3>
+            <time class="post-date">${date}</time>
+          </a>
+        `;
+        grid.appendChild(el);
       }
-      ticking = false;
+    }
+
+    // Initial load
+    const firstCount = await fetchPostsPage(page);
+    if (firstCount === 0) {
+      grid.innerHTML = "<p>No posts found.</p>";
+      return;
+    }
+
+    // Infinite scroll
+    const observer = new IntersectionObserver(async entries => {
+      if (entries[0].isIntersecting && !loading) {
+        loading = true;
+        page++;
+        loadingDiv.textContent = "Loading more...";
+        try {
+          const count = await fetchPostsPage(page);
+          if (count < 9) {
+            observer.disconnect();
+            loadingDiv.textContent = "All posts loaded.";
+          }
+        } catch (e) {
+          console.error("[Infinite scroll error]", e);
+          loadingDiv.textContent = "Error loading posts.";
+          observer.disconnect();
+        }
+        loading = false;
+      }
     });
-  }, { passive: true });
+
+    observer.observe(loadingDiv);
+  } catch (err) {
+    console.error("[Home load failed]", err);
+    app.innerHTML = `<p style="color:red; text-align:center; margin-top:2em;">
+      Failed to fetch posts: ${err.message}
+    </p>`;
+  }
 }
