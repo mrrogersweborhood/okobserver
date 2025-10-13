@@ -1,6 +1,6 @@
-/* override.css — surgical fixes that won't break your theme */
+/* override.css — OkObserver layout & detail polish */
 
-/* Header: keep it visible & styled even if base CSS is missing bits */
+/* Header */
 #site-header,
 header#site-header,
 header.site-header,
@@ -12,7 +12,6 @@ header {
   color: #fff;
 }
 
-/* Logo sizing guard */
 #site-header .brand img,
 header .brand img,
 header img[alt*="Oklahoma Observer"] {
@@ -22,7 +21,6 @@ header img[alt*="Oklahoma Observer"] {
   display: block;
 }
 
-/* Nav links readable on blue header */
 .site-nav a,
 header nav a {
   color: #fff !important;
@@ -38,8 +36,7 @@ main#app, #app {
   padding: 1.25rem;
 }
 
-/* === GRID: force 4 columns on desktop === */
-/* Match both class names we've seen in your app */
+/* === Grid (4 columns) === */
 .post-grid,
 .posts-grid,
 #post-grid,
@@ -50,7 +47,6 @@ main#app, #app {
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: 1rem;
 }
-
 @media (min-width: 640px) {
   .post-grid,
   .posts-grid,
@@ -72,7 +68,7 @@ main#app, #app {
   }
 }
 
-/* Card shell safety */
+/* Card look */
 .post-card,
 #app .card,
 #app article {
@@ -83,7 +79,7 @@ main#app, #app {
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-/* Thumbnail images: keep aspect and avoid tall cartoon blowups */
+/* Image / thumb */
 .post-thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -102,23 +98,36 @@ main#app, #app {
   background: #eee;
 }
 
-/* Title color stays brand blue */
-.post-title,
-.post-title a,
-#app h2 a,
-#app .card a.title {
+/* Title + Excerpt alignment fix */
+.post-card .post-title,
+#app .card .post-title,
+#app article .post-title {
+  margin: 0.75rem 1rem 0.25rem 1rem; /* add same left/right padding as excerpt */
   color: #1e90ff !important;
   text-decoration: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
 }
+.post-card .post-title a { color: inherit; text-decoration: none; }
 
-/* Post meta/excerpt readability */
-.post-date,
-.post-byline,
-.post-excerpt {
+.post-card .post-excerpt,
+#app .card .post-excerpt {
+  margin: 0 1rem 1rem 1rem; /* indent excerpt same as title */
   color: #444;
+  line-height: 1.55;
+  font-size: 0.95rem;
 }
 
-/* Video container protection */
+/* Meta */
+.post-date,
+.post-byline {
+  margin: 0 1rem 0.5rem 1rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+/* Video container */
 .video-container {
   position: relative;
   width: 100%;
@@ -136,7 +145,7 @@ main#app, #app {
   border: 0;
 }
 
-/* Footer baseline */
+/* Footer */
 #site-footer, footer {
   text-align: center;
   color: #777;
@@ -144,11 +153,7 @@ main#app, #app {
   padding: 2rem 1rem;
 }
 
-/* ===========================
-   Post Detail — soften boundary
-   =========================== */
-
-/* Soft card look around article without harsh borders */
+/* === Post Detail Soft Style === */
 .post-detail {
   background: #fff;
   border-radius: 14px;
@@ -156,24 +161,14 @@ main#app, #app {
   padding: 1.25rem;
   margin: 1.25rem auto;
 }
-
-/* Add breathing room between sections */
 .post-detail .post-title { margin-top: 0.25rem; }
 .post-detail .post-meta { margin-bottom: 1rem; color: #6b7280; }
-
-/* Featured media edges softened */
-.featured-wrapper {
-  margin: 1rem 0 1.25rem;
-}
+.featured-wrapper { margin: 1rem 0 1.25rem; }
 .featured-image {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0,0,0,.08);
 }
-
-/* Body text rhythm */
-.post-content {
-  line-height: 1.7;
-}
+.post-content { line-height: 1.7; }
 .post-content p { margin: 0.85rem 0; }
 .post-content img {
   border-radius: 12px;
@@ -184,6 +179,4 @@ main#app, #app {
   border-top: 1px solid #e5e7eb;
   margin: 1.25rem 0;
 }
-
-/* Back button spacing */
 .post-detail .back-link { margin: 0.75rem 0; }
