@@ -4,58 +4,161 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="./icon.png" />
+  <meta name="description" content="The Oklahoma Observer – Comforting the afflicted and afflicting the comfortable since 1969." />
+  <link rel="icon" type="image/png" href="./icon.png" />
   <style>
-    :root { --brand: #1e90ff; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#fff; color:#000; }
-    header { background: var(--brand); color:#fff; padding: 12px 16px; display:flex; align-items:center; justify-content:space-between; }
-    header img { height:40px; }
-    nav a { color:#fff; text-decoration:none; margin-left:18px; font-weight:600; }
-    nav a:hover { text-decoration: underline; }
-    #app { min-height:70vh; padding: 16px; }
-    .section-title { font-size: 1.6em; border-bottom: 3px solid var(--brand); display:inline-block; padding-bottom:6px; margin: 0 0 16px 0; }
-
-    /* Grid */
-    .post-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px; }
-    @media (min-width: 1280px) { .post-grid { grid-template-columns: repeat(4, 1fr); } }
-
-    .post-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; }
-    /* Always-fit thumbnails: maintain aspect, prevent overflow */
-    .post-thumb { width:100%; aspect-ratio: 16 / 9; background:#f2f2f2; overflow:hidden; }
-    .post-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-    .post-card .post-title { font-size:1.05em; margin:10px 12px 6px; color:#1155cc; }
-    .post-card .post-date { display:block; color:#666; font-size:.85em; margin: 0 12px 12px; }
-    .loading { text-align:center; color:#666; padding: 12px 0; }
-
-    footer { text-align:center; font-size:.9em; padding:16px; border-top:1px solid #ddd; color:#555; }
-
-    /* Detail page */
-    .post-detail { max-width: 800px; margin: 2em auto; padding: 0 1em; line-height: 1.6; }
-    .post-detail h1 { font-size: 1.8em; margin-bottom: .2em; }
-    .post-meta { font-size: .9em; color:#666; margin-bottom: 1em; }
-    .back-link { display:inline-block; margin:1em 0; text-decoration:none; color: var(--brand, #1e90ff); }
-    .featured-wrapper { display:flex; justify-content:center; margin: 1.5em 0; }
-    .featured-image { max-width:100%; height:auto; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.15); }
-    .video-container { position:relative; padding-bottom:56.25%; height:0; overflow:hidden; margin:1.5em 0; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.1); }
-    .video-container iframe, .video-container video { position:absolute; top:0; left:0; width:100%; height:100%; border:0; }
-    .post-content { margin-top:1.5em; word-wrap:break-word; }
-    .post-content img { max-width:100%; border-radius:8px; }
+    :root {
+      --brand: #1e90ff;
+      --text: #222;
+      --bg: #fff;
+      --border: #ddd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: var(--brand);
+      color: #fff;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    header img {
+      height: 40px;
+      object-fit: contain;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 500;
+      margin-left: 1rem;
+      transition: opacity 0.2s ease;
+    }
+    nav a:hover { opacity: 0.8; }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #777;
+      padding: 2rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    h1, h2, h3, h4 { color: var(--text); margin-top: 0; }
+    a { color: var(--brand); }
+    .posts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+    @media (min-width: 992px) {
+      .posts-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .post-card {
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .post-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+    .post-card img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      background: #eee;
+    }
+    .post-content {
+      padding: 1rem;
+      flex: 1;
+    }
+    .post-title {
+      font-size: 1.1rem;
+      margin: 0 0 0.5rem;
+    }
+    .post-meta {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .post-detail {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .featured-wrapper {
+      position: relative;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .featured-image {
+      max-width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+    iframe, video {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      aspect-ratio: 16/9;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--brand);
+      color: #fff;
+      padding: .6rem 1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0,0,0,.12);
+      margin: 1rem 0;
+    }
+    .back-link:hover { opacity: 0.9; }
   </style>
 </head>
 <body>
   <header>
     <img src="./ObserverLogoBlue.png" alt="The Oklahoma Observer" />
-    <nav id="nav">
+    <nav>
       <a href="#/">Posts</a>
       <a href="#/about">About</a>
     </nav>
   </header>
 
-  <main id="app">Loading...</main>
+  <main id="app">
+    <p style="text-align:center; margin-top:2rem;">Loading...</p>
+  </main>
 
-  <footer>© <span id="year"></span> The Oklahoma Observer. All Rights Reserved.</footer>
+  <footer>
+    © <span id="year"></span> The Oklahoma Observer. All Rights Reserved.
+  </footer>
 
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+
+  <!-- Main App Logic -->
   <script type="module" src="./main.js?v=2.6.4"></script>
-  <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+
+  <!-- Permanent scroll memory helper (safe & isolated) -->
+  <script src="./scroll-restore.js?v=1"></script>
 </body>
 </html>
