@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer</title>
+  <meta name="description" content="The Oklahoma Observer – Comforting the afflicted and afflicting the comfortable since 1969." />
 
-  <!-- Icons / Favicons -->
-  <link rel="icon" href="./icon.png" type="image/png" />
+  <!-- ✅ CSS Stylesheet (with cache-busting to force browsers to reload new styles) -->
+  <link rel="stylesheet" href="./styles.css?v=patch1" />
 
-  <!-- Your site stylesheet (leave as-is) -->
-  <link rel="stylesheet" href="./styles.css" />
+  <!-- Site Icon -->
+  <link rel="icon" type="image/png" href="./icon.png" />
 </head>
+
 <body>
   <header id="site-header">
     <div class="brand">
@@ -31,13 +33,14 @@
   </footer>
 
   <script>
+    // Display current year in footer
     document.getElementById("year").textContent = new Date().getFullYear();
   </script>
 
-  <!-- Your app entry (keep your current version/hash as-is) -->
+  <!-- ✅ Main App entry point (keep your existing versioned main.js filename) -->
   <script type="module" src="./main.js?v=2.6.4"></script>
 
-  <!-- Safe, isolated scroll memory helper -->
+  <!-- ✅ Safe scroll memory helper -->
   <script src="./scroll-restore.js?v=1"></script>
 </body>
 </html>

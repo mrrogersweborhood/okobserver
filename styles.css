@@ -14,3 +14,118 @@ h1{font-size:1.75rem;margin-bottom:1rem;border-bottom:2px solid var(--brand);pad
 .excerpt{flex:1;font-size:.95rem;line-height:1.4}
 .video-poster{max-width:960px;margin:0 auto 1rem}.video-poster img,.hero{border-radius:8px}
 .content-sanitized>*:first-child{margin-top:0!important}.content-sanitized p,.content-sanitized div,.content-sanitized figure{margin-top:clamp(0rem,1vh,1rem)}.content-sanitized{margin-bottom:0!important}.hero{margin-bottom:1rem}
+/* ==== OKObserver emergency patch (do not remove) ==== */
+
+/* Header safety */
+#site-header,
+header.site-header,
+header.topbar,
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #1e90ff; /* brand blue */
+  color: #fff;
+}
+
+/* Brand/logo image */
+#site-header .brand img,
+header .brand img,
+header img[alt*="Oklahoma Observer"] {
+  height: 40px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Nav links */
+.site-nav a,
+header nav a {
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 1rem;
+}
+
+/* Main container breathing room */
+main#app, #app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* Force posts grid back */
+.posts-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  display: grid !important;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .posts-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 992px) {
+  .posts-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Card shell */
+.post-card,
+#app .card,
+#app article {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* Featured/thumb images in cards — prevent giant cartoon blowups */
+.post-card img,
+#app .card img,
+#app article img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;         /* tame tall cartoons */
+  object-fit: cover;
+  background: #eee;
+}
+
+/* Titles stay blue */
+.post-title a,
+#app h2 a,
+#app .card a.title {
+  color: #1e90ff !important;
+  text-decoration: none;
+}
+
+/* Detail featured wrapper safeguard */
+.featured-wrapper img,
+.featured-wrapper iframe,
+.featured-image {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+/* Footer baseline */
+#site-footer, footer {
+  text-align: center;
+  color: #777;
+  border-top: 1px solid #e5e7eb;
+  padding: 2rem 1rem;
+}
+/* ==== end emergency patch ==== */
+
