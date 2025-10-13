@@ -1,0 +1,145 @@
+/* override.css — surgical fixes that won't break your theme */
+
+/* Header: keep it visible & styled even if base CSS is missing bits */
+#site-header,
+header#site-header,
+header.site-header,
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #1e90ff;
+  color: #fff;
+}
+
+/* Logo sizing guard */
+#site-header .brand img,
+header .brand img,
+header img[alt*="Oklahoma Observer"] {
+  height: 40px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Nav links readable on blue header */
+.site-nav a,
+header nav a {
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 1rem;
+}
+
+/* Main container width */
+main#app, #app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+/* === GRID: force 4 columns on desktop === */
+/* Match both class names we've seen in your app */
+.post-grid,
+.posts-grid,
+#post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  display: grid !important;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .post-grid,
+  .posts-grid,
+  #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 992px) {
+  .post-grid,
+  .posts-grid,
+  #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Card shell safety */
+.post-card,
+#app .card,
+#app article {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* Thumbnail images: keep aspect and avoid tall cartoon blowups */
+.post-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #f2f2f2;
+  overflow: hidden;
+}
+.post-thumb img,
+.post-card img,
+#app .card img,
+#app article img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  background: #eee;
+}
+
+/* Title color stays brand blue */
+.post-title,
+.post-title a,
+#app h2 a,
+#app .card a.title {
+  color: #1e90ff !important;
+  text-decoration: none;
+}
+
+/* Post meta/excerpt readability */
+.post-date,
+.post-byline,
+.post-excerpt {
+  color: #444;
+}
+
+/* Video container protection */
+.video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0000000d;
+}
+.video-container iframe,
+.video-container video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Footer baseline */
+#site-footer, footer {
+  text-align: center;
+  color: #777;
+  border-top: 1px solid #e5e7eb;
+  padding: 2rem 1rem;
+}
