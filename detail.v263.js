@@ -1,40 +1,21 @@
-// detail.v263.js — OkObserver v2.6.4+
-// Restores verbose video handling with POSTER ➜ click-to-play overlay.
-// Keeps: author/date, featured image fallback, cleaned content, bottom Back button.
+// detail.v263.js — OkObserver v2.6.4 stable
+// Handles posts with video, including cases where only a Vimeo/YouTube link exists.
 
 export default async function renderPost(app, id) {
   try {
-    app.innerHTML = `<div class="loading" style="text-align:center; margin:2em;">Loading...</div>`;
+    app.innerHTML = `<div style="text-align:center;margin:2em;">Loading...</div>`;
 
     const apiBase =
       window.OKO_API_BASE ||
       "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
     const url = `${apiBase}/posts/${id}?_embed=1`;
-    console.log("[Post fetch]", url);
+    console.log("[OkObserver] Fetching post:", url);
 
-    // ---------- utils ----------
-    async function apiFetchJson(u) {
-      const res = await fetch(u, { credentials: "omit" });
-      if (!res.ok) throw new Error(`API Error ${res.status}`);
-      const txt = await res.text();
-      try {
-        return JSON.parse(txt);
-      } catch {
-        console.error("[Parse error sample]", txt.slice(0, 300));
-        throw new Error("Invalid JSON in response");
-      }
-    }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`API Error ${res.status}`);
+    const post = await res.json();
 
-    const stripHtml = (html) => {
-      const el = document.createElement("div");
-      el.innerHTML = html || "";
-      return el.textContent || el.innerText || "";
-    };
-
-    const post = await apiFetchJson(url);
-    if (!post || !post.title) throw new Error("Post not found");
-
-    const title = post.title.rendered || "Untitled";
+    const title = post.title?.rendered || "Untitled";
     const contentRaw = post.content?.rendered || "";
     const author = post?._embedded?.author?.[0]?.name || "Oklahoma Observer";
     const date = post.date
@@ -45,148 +26,122 @@ export default async function renderPost(app, id) {
         })
       : "";
 
-    // --- Featured media (poster) ---
     const media = post?._embedded?.["wp:featuredmedia"]?.[0];
     const posterUrl = media?.source_url || "";
 
-    // --- Video detection in content ---
-    // We treat any iframe/video or common providers as "has video".
-    const hasIframe = /<iframe[\s\S]*?>/i.test(contentRaw);
-    const hasVideoTag = /<video[\s\S]*?>/i.test(contentRaw);
-    const looksYouTube = /youtube\.com|youtu\.be/i.test(contentRaw);
-    const looksVimeo = /vimeo\.com/i.test(contentRaw);
-    const looksMp4 = /\.mp4(\?|")/i.test(contentRaw);
-    const hasVideo = hasIframe || hasVideoTag || looksYouTube || looksVimeo || looksMp4;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(contentRaw, "text/html");
 
-    // Clean up empty paragraphs & excessive whitespace for the text body
-    const cleanedBody = contentRaw
-      .replace(/<p>\s*<\/p>/g, "")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    const iframeEl = doc.querySelector("iframe");
+    const videoEl = doc.querySelector("video");
 
-    // Helper: build the playable embed block extracted from content
-    // We prefer the first iframe/video in the content; fall back to raw content if needed.
-    function extractFirstPlayer(html) {
-      const temp = document.createElement("div");
-      temp.innerHTML = html;
+    const YT_RE = /(youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_\-]+)/i;
+    const VIMEO_RE = /vimeo\.com\/(\d+)/i;
+    const MP4_RE = /\.mp4(\?|$)/i;
 
-      const iframe = temp.querySelector("iframe");
-      if (iframe) {
-        // Strip potentially unsafe attributes
-        iframe.removeAttribute("width");
-        iframe.removeAttribute("height");
-        iframe.setAttribute("allowfullscreen", "true");
-        return iframe.outerHTML;
+    const anchors = doc.querySelectorAll("a[href]");
+    let firstPlayableHref = null;
+    for (const a of anchors) {
+      const href = a.getAttribute("href");
+      if (YT_RE.test(href) || VIMEO_RE.test(href) || MP4_RE.test(href)) {
+        firstPlayableHref = href;
+        break;
       }
-
-      const video = temp.querySelector("video");
-      if (video) {
-        video.setAttribute("controls", "");
-        video.removeAttribute("width");
-        video.removeAttribute("height");
-        return video.outerHTML;
-      }
-
-      // If no direct player, sometimes providers inject a div wrapper. In that case return original.
-      return html;
     }
 
-    // UI: Poster overlay that swaps to player on click (no autoplay by default)
-    function posterOverlayHTML() {
-      const safeTitle = stripHtml(title);
-      const posterImg = posterUrl
-        ? `<img class="featured-image" src="${posterUrl}" alt="${safeTitle}" loading="eager" />`
-        : `<div style="background:#eee;height:56vw;max-height:450px;border-radius:8px;"></div>`;
+    const hasVideo = Boolean(iframeEl || videoEl || firstPlayableHref);
 
-      return `
-        <div class="featured-wrapper" id="video-poster-wrap" style="position:relative; cursor:pointer;">
-          ${posterImg}
-          <button
-            id="play-btn"
-            aria-label="Play video"
-            style="
-              position:absolute; inset:0; margin:auto; width:74px; height:74px; border-radius:50%;
-              border:none; background:rgba(30,144,255,.95); color:#fff; box-shadow:0 8px 24px rgba(0,0,0,.25);
-              display:flex; align-items:center; justify-content:center; transition:transform .12s ease; "
-            onmouseover="this.style.transform='scale(1.05)';"
-            onmouseout="this.style.transform='scale(1.0)';"
-          >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M8 5v14l11-7z"></path>
-            </svg>
-          </button>
-        </div>
-      `;
+    function toEmbedUrl(href) {
+      if (YT_RE.test(href)) {
+        const m = href.match(YT_RE);
+        return `https://www.youtube-nocookie.com/embed/${m[2]}?rel=0`;
+      }
+      if (VIMEO_RE.test(href)) {
+        const m = href.match(VIMEO_RE);
+        return `https://player.vimeo.com/video/${m[1]}`;
+      }
+      if (MP4_RE.test(href)) {
+        return href;
+      }
+      return null;
     }
 
-    // Build the initial article markup (poster first if video; else just featured image + content)
+    function buildPlayerHTML() {
+      if (iframeEl) return iframeEl.outerHTML;
+      if (videoEl) return videoEl.outerHTML;
+      if (firstPlayableHref) {
+        const src = toEmbedUrl(firstPlayableHref);
+        if (!src) return "";
+        if (MP4_RE.test(src))
+          return `<video src="${src}" controls playsinline></video>`;
+        return `<iframe src="${src}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+      }
+      return "";
+    }
+
+    const cleanBody = contentRaw
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<video[\s\S]*?<\/video>/gi, "");
+
+    const backBtn = `<a href="#/" class="back-link" style="
+      display:inline-flex;align-items:center;gap:.5rem;
+      background:var(--brand,#1e90ff);color:#fff;
+      padding:.6rem 1rem;border-radius:8px;
+      text-decoration:none;font-weight:600;
+      box-shadow:0 2px 6px rgba(0,0,0,.12);">← Back to Posts</a>`;
+
     app.innerHTML = `
       <article class="post-detail">
-        <a href="#/" class="back-link">← Back to Posts</a>
-
+        ${backBtn}
         <h1 class="post-title">${title}</h1>
         <p class="post-meta">By <span class="post-author">${author}</span> — <time>${date}</time></p>
 
-        ${hasVideo ? posterOverlayHTML() : (posterUrl ? `
-          <div class="featured-wrapper">
-            <img class="featured-image" src="${posterUrl}" alt="${stripHtml(title)}" loading="eager"/>
-          </div>` : ""
-        )}
+        ${
+          hasVideo
+            ? `<div class="featured-wrapper" id="video-poster-wrap" style="position:relative;cursor:pointer;">
+                <img class="featured-image" src="${posterUrl}" alt="${title}" loading="eager"/>
+                <button id="play-btn" aria-label="Play video" style="
+                  position:absolute;inset:0;margin:auto;width:74px;height:74px;border:none;
+                  border-radius:50%;background:rgba(30,144,255,.9);color:#fff;
+                  box-shadow:0 8px 24px rgba(0,0,0,.25);
+                  display:flex;align-items:center;justify-content:center;">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+              </div>
+              <div id="player-slot" class="video-container" style="display:none;"></div>`
+            : posterUrl
+            ? `<div class="featured-wrapper"><img class="featured-image" src="${posterUrl}" alt="${title}" loading="eager"/></div>`
+            : ""
+        }
 
-        <div id="player-slot" class="video-container" style="display:none;"></div>
-
-        <div id="post-body" class="post-content">
-          ${hasVideo ? cleanedBody.replace(/<iframe[\s\S]*?<\/iframe>/gi, "").replace(/<video[\s\S]*?<\/video>/gi,"") : cleanedBody}
-        </div>
-
-        <div style="margin-top:2rem;">
-          <a href="#/" class="back-link" style="
-            display:inline-flex; align-items:center; gap:.5rem;
-            background: var(--brand, #1e90ff); color:#fff; padding:.6rem 1rem;
-            border-radius:8px; text-decoration:none; font-weight:600;
-            box-shadow:0 2px 6px rgba(0,0,0,.12);">
-            ← Back to Posts
-          </a>
-        </div>
+        <div class="post-content">${cleanBody}</div>
+        <div style="margin-top:2rem;">${backBtn}</div>
       </article>
     `;
 
-    // Wire up click-to-play only if video exists
     if (hasVideo) {
       const wrap = app.querySelector("#video-poster-wrap");
-      const playerSlot = app.querySelector("#player-slot");
-      const bodyEl = app.querySelector("#post-body");
+      const slot = app.querySelector("#player-slot");
+      const playBtn = app.querySelector("#play-btn");
 
-      const mountPlayer = () => {
-        const embedHTML = extractFirstPlayer(contentRaw);
-        // swap in player
-        playerSlot.innerHTML = embedHTML;
-        playerSlot.style.display = "block";
-
-        // keep the aspect ratio container wrapping if it is an iframe
-        if (playerSlot.querySelector("iframe") && !playerSlot.classList.contains("video-container")) {
-          playerSlot.classList.add("video-container");
-        }
-
-        // remove poster
-        if (wrap) wrap.remove();
-
-        // Optional: scroll a bit to keep player in view (if the header pushes content down)
-        setTimeout(() => {
-          playerSlot.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 50);
+      const showPlayer = () => {
+        const html = buildPlayerHTML();
+        if (!html) return;
+        slot.innerHTML = html;
+        slot.style.display = "block";
+        wrap.remove();
+        setTimeout(() => slot.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
       };
 
-      if (wrap) wrap.addEventListener("click", mountPlayer);
-      const playBtn = app.querySelector("#play-btn");
-      if (playBtn) playBtn.addEventListener("click", (e) => {
+      wrap?.addEventListener("click", showPlayer);
+      playBtn?.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        mountPlayer();
+        showPlayer();
       });
     }
   } catch (err) {
-    console.error("[Post render error]", err);
-    app.innerHTML = `<p style="color:red; text-align:center; margin-top:2em;">Page error: ${err.message}</p>`;
+    console.error("[Detail render error]", err);
+    app.innerHTML = `<p style="color:red;text-align:center;margin-top:2em;">Page error: ${err.message}</p>`;
   }
 }
