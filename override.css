@@ -123,7 +123,7 @@ main#app, #app {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   background: #0000000d;
 }
@@ -143,3 +143,47 @@ main#app, #app {
   border-top: 1px solid #e5e7eb;
   padding: 2rem 1rem;
 }
+
+/* ===========================
+   Post Detail — soften boundary
+   =========================== */
+
+/* Soft card look around article without harsh borders */
+.post-detail {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.06);
+  padding: 1.25rem;
+  margin: 1.25rem auto;
+}
+
+/* Add breathing room between sections */
+.post-detail .post-title { margin-top: 0.25rem; }
+.post-detail .post-meta { margin-bottom: 1rem; color: #6b7280; }
+
+/* Featured media edges softened */
+.featured-wrapper {
+  margin: 1rem 0 1.25rem;
+}
+.featured-image {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+
+/* Body text rhythm */
+.post-content {
+  line-height: 1.7;
+}
+.post-content p { margin: 0.85rem 0; }
+.post-content img {
+  border-radius: 12px;
+  box-shadow: 0 1px 8px rgba(0,0,0,.06);
+}
+.post-content hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.25rem 0;
+}
+
+/* Back button spacing */
+.post-detail .back-link { margin: 0.75rem 0; }
