@@ -73,3 +73,82 @@ img{max-width:100%;height:auto;display:block}
 
 header.site-header{position:sticky;top:0;z-index:10;background:#1d7be0;color:#fff;}
 /* (Your existing header styles remain) */
+/* === Detail page fixes (safe to append) === */
+
+/* Constrain article width & spacing */
+.post-detail,
+.post-detail article,
+.post-detail .container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Back to Posts link spacing */
+.post-detail .oko-back {
+  display: inline-block;
+  margin: 16px 0 8px;
+}
+
+/* Meta strip sits ABOVE image, never overlays */
+.post-detail .oko-meta {
+  position: relative;       /* remove any sticky/absolute leftovers */
+  z-index: 1;
+  margin: 0 0 8px;          /* give breathing room */
+  padding: 8px 0;
+  background: transparent;  /* kill the blue block background */
+  color: var(--muted-700, #555);
+  font-size: 0.95rem;
+}
+
+/* Hero image sizing & rounding */
+.post-detail .oko-hero,
+.post-detail .oko-hero figure {
+  margin: 0;
+  padding: 0;
+}
+
+.post-detail .oko-hero img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;             /* keep aspect ratio */
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* First paragraph shouldn’t indent weirdly */
+.post-detail article p:first-of-type {
+  margin-top: 16px;
+  text-indent: 0 !important;
+}
+
+/* Card edges on detail should be soft, not “hard borders” */
+.post-detail .oko-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.04);
+}
+
+/* Keep embeds (iframe/video) responsive and rounded */
+.post-detail .oko-embed,
+.post-detail iframe,
+.post-detail video {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 12px;
+  display: block;
+  overflow: hidden;
+}
+
+/* Optional: tone down any leftover blue bars inside detail cards */
+.post-detail .oko-strip {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
