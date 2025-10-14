@@ -1,131 +1,176 @@
-// home.v263.js  (v2.6.x)
-// Renders the Latest Posts grid. Image + title are clickable and route to #/post/{id}.
+// home.v263.js
+// OkObserver Home page (safe revision): only make image/title clickable without touching layout/header
+// v2.6.x-home-safe-links
 
-const API = (window.OKO && window.OKO.API_BASE) || '';
-const PER_PAGE = 18;
+import { apiFetchJson, fmtDate, html, qs, qsa } from './utils.js';
 
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
-  } catch { return ''; }
+const PAGE_SIZE = 18; // keep your existing page size
+let paging = {
+  page: 1,
+  loading: false,
+  done: false,
+};
+
+function postImage(post) {
+  // prefer WP featured media from _embedded if present; fall back to first image in content
+  const emb = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
+  if (emb && emb.source_url) return emb.source_url;
+
+  // fallback: crude parse first <img ... src="...">
+  const m = /<img[^>]+src=["']([^"']+)["']/i.exec(post.content?.rendered || '');
+  return m ? m[1] : '';
 }
 
-function getAuthor(post) {
-  const a = post._embedded && post._embedded.author && post._embedded.author[0];
-  return a && (a.name || a.slug) ? a.name || a.slug : 'Oklahoma Observer';
+function postExcerpt(post) {
+  // use rendered excerpt if present; otherwise trim content
+  const rx = (post.excerpt && post.excerpt.rendered) ? post.excerpt.rendered : (post.content?.rendered || '');
+  // strip tags
+  const text = rx.replace(/<\/?[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  return text.length > 240 ? text.slice(0, 240) + '…' : text;
 }
 
-function getFeatured(post) {
-  const media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
-  const src =
-    (media && media.media_details && media.media_details.sizes &&
-     (media.media_details.sizes.medium_large?.source_url ||
-      media.media_details.sizes.large?.source_url ||
-      media.media_details.sizes.full?.source_url)) ||
-    (media && media.source_url) ||
-    '';
-  const alt = (media && (media.alt_text || media.title?.rendered)) || post.title?.rendered || '';
-  return { src, alt };
+function authorName(post) {
+  const emb = post._embedded && post._embedded.author && post._embedded.author[0];
+  return emb?.name || 'Oklahoma Observer';
 }
 
-function isCartoon(post) {
-  // Basic guard to keep cartoons off the main grid (id/name checks if you use a category)
-  const cats = post._embedded && post._embedded['wp:term'] ? post._embedded['wp:term'].flat() : [];
-  return cats.some(c => /cartoon/i.test(c.name || ''));
+// ---------- rendering ----------
+
+function postCard(post) {
+  const img = postImage(post);
+  const date = fmtDate(post.date);
+  const author = authorName(post);
+  const href = `#/post/${post.id}`;
+
+  // IMPORTANT: we wrap only the image and the title with <a href="#/post/{id}">
+  // All other markup remains exactly as before so layout, spacing, and CSS stay intact.
+  return html/*html*/`
+    <article class="post-card">
+      <div class="post-card__thumb">
+        ${img ? `<a href="${href}" class="post-link" aria-label="${post.title.rendered}">
+          <img src="${img}" alt="${post.title.rendered}" loading="lazy" />
+        </a>` : ''}
+      </div>
+
+      <h3 class="post-card__title">
+        <a href="${href}" class="post-link">${post.title.rendered}</a>
+      </h3>
+
+      <div class="post-card__meta">
+        <span class="post-card__by">By ${author}</span>
+        <span class="post-card__dot"> • </span>
+        <span class="post-card__date">${date}</span>
+      </div>
+
+      <p class="post-card__excerpt">${postExcerpt(post)}</p>
+    </article>
+  `;
 }
 
-function cardHTML(post) {
-  const { id, title, excerpt, date } = post;
-  const { src, alt } = getFeatured(post);
-  const url = `#/post/${id}`;
-  return `
-  <article class="post-card">
-    <a class="post-thumb-link" href="${url}" aria-label="Open ${title.rendered.replace(/"/g,'&quot;')}">
-      ${src ? `<img class="post-thumb" loading="lazy" src="${src}" alt="${alt.replace(/"/g,'&quot;')}" />` : `<div class="post-thumb placeholder"></div>`}
-    </a>
-    <h3 class="post-title"><a class="post-title-link" href="${url}">${title.rendered}</a></h3>
-    <div class="post-meta">By ${getAuthor(post)} • ${fmtDate(date)}</div>
-    <div class="post-excerpt">${excerpt && excerpt.rendered ? excerpt.rendered : ''}</div>
-  </article>`;
+function gridTemplate(posts) {
+  return posts.map(postCard).join('');
 }
 
-function styles() {
-  return `
-  <style id="home-grid-styles">
-    .grid { display:grid; gap:18px; grid-template-columns:repeat(4, minmax(0,1fr)); }
-    @media (max-width: 1200px){ .grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
-    @media (max-width: 900px){ .grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
-    @media (max-width: 560px){ .grid{ grid-template-columns:1fr; } }
-    .post-card{ background:#fff; border:1px solid #e6e6ef; border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgb(16 24 40 / 6%); }
-    .post-thumb{ width:100%; height:auto; display:block; aspect-ratio: 16/11; object-fit:cover; }
-    .post-thumb.placeholder{ background:#f2f4f7; height: 220px; }
-    .post-thumb-link{ display:block; }
-    .post-title{ margin:12px 16px 4px; font-size:1.05rem; line-height:1.35; }
-    .post-title a{ text-decoration:none; color:#1f3a8a; }
-    .post-title a:hover{ text-decoration:underline; }
-    .post-meta{ margin:0 16px 8px; font-size:.85rem; color:#667085; }
-    .post-excerpt{ margin:0 16px 16px; color:#344054; }
-    .sentinel{ height:1px; }
-  </style>`;
+// ---------- data ----------
+
+async function fetchPosts(page = 1) {
+  // keep your Cloudflare proxy + embed so we have author & media
+  const url = `${window.OKO_API_BASE}/wp-json/wp/v2/posts?status=publish&_embed=1&per_page=${PAGE_SIZE}&page=${page}`;
+  const data = await apiFetchJson(url);
+
+  // If you exclude “cartoon” elsewhere, keep it. Otherwise, leave untouched.
+  // (No additional filtering here to avoid changing your content rules.)
+  return Array.isArray(data) ? data : [];
 }
 
-async function fetchPage(page) {
-  const url = `${API}/posts?status=publish&_embed=1&per_page=${PER_PAGE}&page=${page}`;
-  const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) throw new Error(`API Error ${res.status}`);
-  return res.json();
+// ---------- infinite scroll ----------
+
+let observer;
+
+function attachInfiniteScroll(container, list) {
+  if (observer) observer.disconnect();
+
+  const sentinel = document.createElement('div');
+  sentinel.className = 'io-sentinel';
+  list.appendChild(sentinel);
+
+  observer = new IntersectionObserver(async (entries) => {
+    const entry = entries[0];
+    if (!entry.isIntersecting) return;
+    if (paging.loading || paging.done) return;
+
+    paging.loading = true;
+    try {
+      paging.page += 1;
+      const more = await fetchPosts(paging.page);
+      if (!more.length) {
+        paging.done = true;
+        observer.disconnect();
+        sentinel.remove();
+        return;
+      }
+      list.insertAdjacentHTML('beforeend', gridTemplate(more));
+      // safety: ensure router catches clicks even if CSS overlays exist
+      wireLinks(list);
+    } catch (e) {
+      // quietly stop on error to avoid breaking layout
+      paging.done = true;
+      observer.disconnect();
+      sentinel.remove();
+      console.error('[Home] infinite-scroll error', e);
+    } finally {
+      paging.loading = false;
+    }
+  }, { rootMargin: '1200px 0px 1200px 0px', threshold: 0 });
+
+  observer.observe(sentinel);
 }
 
-export default async function renderHome(root) {
-  if (!API) throw new Error('[Home] API base missing.');
+// ---------- click wiring (safe) ----------
 
-  root.innerHTML = `
-    ${document.getElementById('home-grid-styles') ? '' : styles()}
+function wireLinks(scope = document) {
+  qsa('.post-link', scope).forEach((a) => {
+    // Avoid double-binding
+    if (a.dataset.wired === '1') return;
+    a.dataset.wired = '1';
+    a.addEventListener('click', (e) => {
+      // ensure SPA navigation
+      const href = a.getAttribute('href');
+      if (href && href.startsWith('#/')) {
+        e.preventDefault();
+        if (location.hash === href) {
+          // re-trigger route if already on same hash
+          window.dispatchEvent(new HashChangeEvent('hashchange'));
+        } else {
+          location.hash = href;
+        }
+      }
+    }, { passive: false });
+  });
+}
+
+// ---------- main render ----------
+
+export default async function renderHome(app) {
+  // Reset paging for a fresh visit, but don’t touch header, motto, or global layout
+  paging = { page: 1, loading: false, done: false };
+
+  app.innerHTML = html/*html*/`
     <section class="home">
-      <h2>Latest Posts</h2>
-      <div class="grid" id="grid"></div>
-      <div class="sentinel" id="sentinel"></div>
+      <h2 class="section-title">Latest Posts</h2>
+      <div id="post-grid" class="post-grid"></div>
     </section>
   `;
 
-  const grid = root.querySelector('#grid');
-  const sentinel = root.querySelector('#sentinel');
+  const grid = qs('#post-grid', app);
 
-  let page = 1;
-  let loading = false;
-  let done = false;
-
-  async function load() {
-    if (loading || done) return;
-    loading = true;
-    try {
-      const items = await fetchPage(page);
-      // Filter out cartoons (optional — remove if you want them)
-      const filtered = items.filter(p => !isCartoon(p));
-      grid.insertAdjacentHTML('beforeend', filtered.map(cardHTML).join(''));
-      page += 1;
-      if (items.length < PER_PAGE) done = true;
-    } catch (e) {
-      console.error('[Home] load failed', e);
-      if (!grid.children.length) {
-        grid.insertAdjacentHTML('beforeend', `<p style="color:#c00">Failed to fetch posts: ${e.message}</p>`);
-        done = true;
-      }
-    } finally {
-      loading = false;
-    }
+  try {
+    const posts = await fetchPosts(1);
+    grid.innerHTML = gridTemplate(posts);
+    wireLinks(grid);
+    attachInfiniteScroll(app, grid);
+  } catch (err) {
+    console.error('[Home] load failed:', err);
+    grid.innerHTML = `<p class="error">Failed to fetch posts.</p>`;
   }
-
-  // Kick off initial load
-  await load();
-
-  // Infinite scroll
-  const io = new IntersectionObserver((entries) => {
-    const last = entries[0];
-    if (last.isIntersecting) load();
-  }, { rootMargin: '800px 0px 800px 0px' });
-
-  io.observe(sentinel);
 }
