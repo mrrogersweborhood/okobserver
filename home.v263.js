@@ -1,243 +1,117 @@
-// home.v263.js  —  OkObserver Home (v2.6.x compatible)
-//
-// Exports both named `home` and default for loader compatibility.
-// No external utils import—self-contained (apiFetch, prettyDate, etc).
+// home.v263.js — Latest Posts grid with robust URL building (standalone)
 
-/* -------------------------------- Utilities ------------------------------- */
+// --- tiny helpers embedded here ---
+const API_BASE = (window.OKO_API_BASE || "").replace(/\/+$/, ""); // drop trailing '/'
 
-const API_BASE = (() => {
-  if (typeof window !== "undefined" && window.OKO_API_BASE && window.OKO_API_BASE.trim()) {
-    return window.OKO_API_BASE.trim().replace(/\/+$/,'');
-  }
-  // Also allow meta fallback if someone loaded this file standalone
-  const meta = typeof document !== "undefined" && document.querySelector('meta[name="oko-api-base"]');
-  const fromMeta = meta ? (meta.getAttribute('content') || '').trim() : '';
-  return (fromMeta || 'https://okobserver-proxy.bob-b5c.workers.dev').replace(/\/+$/,'');
-})();
-
-/** Small fetch with retry (JSON only) */
-async function apiFetchJson(url, { tries = 2, signal } = {}) {
-  let lastErr;
-  for (let i = 0; i < tries; i++) {
-    try {
-      const r = await fetch(url, { signal, headers: { 'Accept': 'application/json' } });
-      if (!r.ok) throw new Error(`API ${r.status}`);
-      return await r.json();
-    } catch (e) {
-      lastErr = e;
-      await new Promise(res => setTimeout(res, 250 * (i + 1)));
-    }
-  }
-  throw lastErr || new Error('API error');
+function joinUrl(base, path) {
+  const b = (base || "").replace(/\/+$/, "");
+  const p = (path || "").replace(/^\/+/, "");
+  return `${b}/${p}`;
 }
 
-const prettyDate = (iso) => {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-  } catch { return iso; }
-};
-
-const stripHtml = (html) => {
-  const t = document.createElement('div');
-  t.innerHTML = html || '';
-  return t.textContent || t.innerText || '';
-};
-
-const getFeaturedSrc = (post) => {
-  // With _embed, image url lives at: _embedded['wp:featuredmedia'][0].source_url
-  const em = post && post._embedded && post._embedded['wp:featuredmedia'];
-  return (em && em[0] && em[0].source_url) || '';
-};
-
-const isCartoonish = (post) => {
-  // Filter out “cartoon(s)” in categories or tags (slug or name)
-  const terms = [];
-  const embed = post && post._embedded || {};
-  (embed['wp:term'] || []).forEach(arr => arr.forEach(t => terms.push(t)));
-  const hay = terms
-    .map(t => (t?.slug || t?.name || '').toLowerCase())
-    .join(' ');
-  return /\bcartoon(s)?\b/.test(hay);
-};
-
-/* ------------------------------- Rendering -------------------------------- */
-
-function homeGridStylesOnce() {
-  // Add minimal grid CSS only once (keeps your styles.css as source of truth;
-  // this guarantees 4-col on wide even if CSS cache lags).
-  if (document.getElementById('oko-home-inline-grid')) return;
-  const css = `
-  .oko-home-grid {
-    display:grid; gap:16px; grid-template-columns:repeat(1,minmax(0,1fr));
-  }
-  @media (min-width: 680px){ .oko-home-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-  @media (min-width: 980px){ .oko-home-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-  @media (min-width: 1260px){ .oko-home-grid { grid-template-columns: repeat(4,minmax(0,1fr)); } }
-  .oko-card { background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); overflow:hidden; border:1px solid rgba(0,0,0,.06); }
-  .oko-card a { text-decoration:none; color:inherit; }
-  .oko-card-img { width:100%; height: 210px; object-fit: cover; display:block; background:#f3f3f3; }
-  .oko-card-body { padding:12px 14px; }
-  .oko-title { font-weight:700; line-height:1.25; margin:6px 0 8px; color:#1c3faa; }
-  .oko-title:hover { text-decoration:underline; }
-  .oko-meta { font-size:.85rem; color:#6b7280; margin-bottom:8px; }
-  .oko-excerpt { color:#333; font-size:.95rem; }
-  .oko-sentinel { height: 1px; }
-  `;
-  const tag = document.createElement('style');
-  tag.id = 'oko-home-inline-grid';
-  tag.textContent = css;
-  document.head.appendChild(tag);
+function qs(params = {}) {
+  const u = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    if (Array.isArray(v)) v.forEach(val => u.append(k, val));
+    else u.append(k, v);
+  });
+  const s = u.toString();
+  return s ? `?${s}` : "";
 }
 
-function cardHTML(post) {
-  const img = getFeaturedSrc(post);
-  const title = stripHtml(post.title?.rendered);
-  const date = prettyDate(post.date);
-  const byline = stripHtml(post._embedded?.author?.[0]?.name || 'Oklahoma Observer');
-  const excerpt = stripHtml(post.excerpt?.rendered).trim();
-  const url = `./#/post/${post.id}`;
+async function apiFetchJson(pathOrUrl, params) {
+  const url = pathOrUrl.startsWith("http")
+    ? pathOrUrl + qs(params)
+    : joinUrl(API_BASE, pathOrUrl) + qs(params);
+
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+function prettyDate(iso) {
+  try { return new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }); }
+  catch { return iso; }
+}
+// --- end helpers ---
+
+const APP = document.getElementById("app");
+
+function postTile(p) {
+  const media = p._embedded?.["wp:featuredmedia"]?.[0];
+  const src = media?.media_details?.sizes?.medium_large?.source_url || media?.source_url || "";
+  const title = p.title?.rendered || "(Untitled)";
+  const author = p._embedded?.author?.[0]?.name || "";
+  const date = prettyDate(p.date || p.date_gmt);
 
   return `
-  <article class="oko-card">
-    <a href="${url}" data-nav="post" data-id="${post.id}">
-      ${img ? `<img class="oko-card-img" src="${img}" alt="${title}">` : `<div class="oko-card-img" role="img" aria-label="${title}"></div>`}
+  <article class="post-card">
+    <a class="thumb" href="#/post/${p.id}" aria-label="${title}">
+      ${src ? `<img loading="lazy" src="${src}" alt="">` : ""}
     </a>
-    <div class="oko-card-body">
-      <div class="oko-meta">By ${byline} — ${date}</div>
-      <h3 class="oko-title">
-        <a href="${url}" data-nav="post" data-id="${post.id}">${title}</a>
-      </h3>
-      ${excerpt ? `<p class="oko-excerpt">${excerpt}</p>` : ``}
-    </div>
+    <h3 class="post-card__title"><a href="#/post/${p.id}">${title}</a></h3>
+    <div class="post-card__meta">By ${author} — ${date}</div>
+    ${p.excerpt?.rendered ? `<div class="post-card__excerpt">${p.excerpt.rendered}</div>` : ""}
   </article>`;
 }
 
-/* ------------------------------- Home page -------------------------------- */
+async function fetchPage(page) {
+  // Base, known-good query to your WP API
+  return apiFetchJson("posts", {
+    status: "publish",
+    _embed: 1,
+    per_page: 18,
+    page
+  });
+}
 
-export async function home(app) {
-  homeGridStylesOnce();
-
-  // Skeleton
-  app.innerHTML = `
-    <section class="container" style="max-width:1200px;margin:0 auto;padding:20px 16px;">
-      <h2 style="font-size:1.6rem;font-weight:800;margin:4px 0 14px;">Latest Posts</h2>
-      <div id="oko-home-grid" class="oko-home-grid"></div>
-      <div id="oko-sentinel" class="oko-sentinel"></div>
-      <div id="oko-status" style="text-align:center;color:#6b7280;font-size:.95rem;padding:10px 0;"></div>
+export default async function renderHome() {
+  if (!API_BASE) throw new Error("[Home] API base missing.");
+  APP.innerHTML = `
+    <section class="home">
+      <h2 class="section-title">Latest Posts</h2>
+      <div id="grid" class="grid"></div>
+      <div id="sentinel" class="sentinel" aria-hidden="true"></div>
     </section>
   `;
 
-  const grid = app.querySelector('#oko-home-grid');
-  const status = app.querySelector('#oko-status');
-  const sentinel = app.querySelector('#oko-sentinel');
+  const grid = document.getElementById("grid");
+  const sentinel = document.getElementById("sentinel");
 
-  // Basic state
-  const state = {
-    page: 1,
-    perPage: 18,
-    loading: false,
-    done: false,
-    seen: new Set()
-  };
+  let page = 1;
+  let done = false;
+  let loading = false;
 
-  // Preserve scroll position across in-app navigation
-  // (core router should not wipe scroll; this is a safety net)
-  if (sessionStorage.getItem('oko-scroll-home')) {
-    requestAnimationFrame(() => {
-      const y = parseInt(sessionStorage.getItem('oko-scroll-home') || '0', 10);
-      window.scrollTo(0, isNaN(y) ? 0 : y);
-    });
-  }
-  const saveScroll = () => sessionStorage.setItem('oko-scroll-home', String(window.scrollY || 0));
-
-  // Click delegation for tiles (image or title)
-  grid.addEventListener('click', (e) => {
-    const a = e.target.closest('a[data-nav="post"]');
-    if (!a) return;
-    e.preventDefault();
-    saveScroll();
-    const id = a.getAttribute('data-id');
-    window.location.hash = `#/post/${id}`;
-  });
-
-  async function loadPage() {
-    if (state.loading || state.done) return;
-    state.loading = true;
-    status.textContent = 'Loading…';
-
-    const endpoint = `${API_BASE}/wp-json/wp/v2/posts?status=publish&_embed=1&per_page=${state.perPage}&page=${state.page}&order=desc`;
-    let posts = [];
+  async function load() {
+    if (done || loading) return;
+    loading = true;
     try {
-      posts = await apiFetchJson(endpoint, { tries: 2 });
-    } catch (err) {
-      console.error('[Home] load failed:', err);
-      status.textContent = 'Failed to fetch posts.';
-      state.loading = false;
-      return;
-    }
-
-    // Filter out cartoons and duplicates, then render
-    const items = posts
-      .filter(p => !isCartoonish(p))
-      .filter(p => {
-        if (state.seen.has(p.id)) return false;
-        state.seen.add(p.id);
-        return true;
-      });
-
-    if (items.length === 0 && posts.length === 0) {
-      state.done = true;
-      status.textContent = 'No more posts.';
-      state.loading = false;
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    items.forEach(p => {
-      const div = document.createElement('div');
-      div.innerHTML = cardHTML(p);
-      frag.appendChild(div.firstElementChild);
-    });
-    grid.appendChild(frag);
-
-    status.textContent = '';
-    state.loading = false;
-
-    // If we got fewer than requested (after filter), still try next page
-    if (posts.length < state.perPage) {
-      state.page += 1;
-      if (posts.length === 0) {
-        state.done = true;
-        status.textContent = 'No more posts.';
+      const posts = await fetchPage(page);
+      if (!Array.isArray(posts) || posts.length === 0) {
+        done = true;
+        sentinel.remove();
+        return;
       }
-    } else {
-      state.page += 1;
+      grid.insertAdjacentHTML("beforeend", posts.map(postTile).join(""));
+      page += 1;
+    } catch (err) {
+      console.error("[Home] load failed:", err);
+      grid.insertAdjacentHTML("beforeend",
+        `<p class="error">Failed to fetch posts: ${err.message || err}</p>`);
+      done = true;
+      sentinel.remove();
+    } finally {
+      loading = false;
     }
   }
 
-  // IntersectionObserver for infinite scroll
-  const io = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        loadPage();
-      }
-    }
-  }, { rootMargin: '800px 0px 800px 0px' });
+  // initial page
+  await load();
 
+  // infinite scroll
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => e.isIntersecting && load());
+  }, { rootMargin: "800px 0px 800px 0px" });
   io.observe(sentinel);
-
-  // Housekeeping on teardown when router swaps views
-  const cleanup = () => {
-    try { io.disconnect(); } catch {}
-    window.removeEventListener('scroll', saveScroll, { passive: true });
-  };
-  window.addEventListener('scroll', saveScroll, { passive: true });
-  app.__oko_destroy = cleanup;
-
-  // Prime first page
-  loadPage();
 }
-
-/* Default export for loaders that call mod.default(app) */
-export default home;
