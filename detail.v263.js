@@ -1,56 +1,91 @@
-// detail.v263.js v2.65
-import { fetchWithRetry, fmtDate, stripTags } from './utils.js';
-const API = window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+/* detail.v263.js — full file */
 
-function cleanWpArtifacts(scope) {
-  scope.querySelectorAll('.mceTemp, .wp-block:empty, .wp-block-image:empty, .wp-block-video:empty').forEach(n => n.remove());
+const API = window.OKO?.API;
+if (!API) {
+  throw new Error("[Detail] API base missing.");
 }
 
-function upgradeVimeo(scope) {
-  scope.querySelectorAll('a[href*="vimeo.com/"]').forEach(a => {
-    const m = (a.getAttribute('href') || '').match(/vimeo\.com\/(\d+)/);
-    if (m) {
-      const id = m[1];
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://player.vimeo.com/video/${id}?title=0&byline=0&portrait=0`;
-      iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-      iframe.allowFullscreen = true;
-      iframe.style.width = '100%';
-      iframe.style.aspectRatio = '16/9';
-      a.replaceWith(iframe);
-    }
-  });
+function prettyDate(iso) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
-export default async function renderPost(root, id) {
-  root.innerHTML = `
-    <section class="container container--detail">
-      <a href="#/" class="back-link">← Back to Posts</a>
-      <article id="post" class="post-detail">
-        <h1 class="post-title">Loading…</h1>
-        <div class="meta"></div>
-        <div class="content"></div>
-      </article>
+function sanitizeFirstParagraphIndent(container) {
+  // Remove leading &nbsp; and stray <br> that cause indents on some posts
+  const p = container.querySelector(".post-content p");
+  if (!p) return;
+  p.innerHTML = p.innerHTML
+    .replace(/^(&nbsp;|\s|<br\s*\/?>)+/i, "")
+    .trimStart();
+}
+
+function getFeatured(embedded) {
+  const m = embedded?.["wp:featuredmedia"];
+  if (Array.isArray(m) && m[0]?.source_url) return m[0].source_url;
+  return null;
+}
+
+export async function detail(appEl, id) {
+  appEl.innerHTML = `
+    <section class="wrap">
+      <div class="backline top">
+        <a class="back" href="#/" aria-label="Back to Posts">← Back to Posts</a>
+      </div>
+      <article id="post" class="post"></article>
+      <div class="backline bottom">
+        <a class="back" href="#/" aria-label="Back to Posts">← Back to Posts</a>
+      </div>
     </section>
   `;
 
-  const el = root.querySelector('#post');
-  const titleEl = el.querySelector('.post-title');
-  const metaEl = el.querySelector('.meta');
-  const contentEl = el.querySelector('.content');
+  const host = appEl.querySelector("#post");
 
+  const url = `${API}/wp-json/wp/v2/posts/${id}?_embed=1`;
+  let post;
   try {
-    const post = await fetchWithRetry(`${API}/posts/${id}?_embed=1`);
-    titleEl.innerHTML = post?.title?.rendered || '';
-    const by = post?._embedded?.author?.[0]?.name || '';
-    const date = fmtDate(post?.date);
-    metaEl.innerHTML = `${by ? `By ${by}` : ''}${date ? ` — <time>${date}</time>` : ''}`;
-    contentEl.innerHTML = post?.content?.rendered || post?.excerpt?.rendered || '';
+    const r = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    post = await r.json();
   } catch (e) {
-    el.innerHTML = `<p class="page-error">Page error: ${stripTags(e.message || e)}</p>`;
+    console.error("[Detail] fetch failed:", e);
+    host.innerHTML = `<p class="error">Page error: could not load this post.</p>`;
     return;
   }
 
-  cleanWpArtifacts(el);
-  upgradeVimeo(el);
+  const title = post.title?.rendered || "(untitled)";
+  const author =
+    post._embedded?.author?.[0]?.name ||
+    post._embedded?.author?.[0]?.slug ||
+    "—";
+  const date = prettyDate(post.date);
+  const featured = getFeatured(post._embedded);
+
+  // WordPress content is trusted from your own site; render as-is (with safe CSS)
+  const content = post.content?.rendered || "";
+
+  host.innerHTML = `
+    <header class="post-header">
+      <h1 class="post-title">${title}</h1>
+      <div class="byline">By ${author} — ${date}</div>
+      ${featured ? `<figure class="featured"><img src="${featured}" alt=""></figure>` : ""}
+    </header>
+    <div class="post-content">${content}</div>
+  `;
+
+  // Fix quirky first paragraph indentation
+  sanitizeFirstParagraphIndent(host);
+
+  // Ensure images/embeds are fluid
+  for (const img of host.querySelectorAll(".post-content img")) {
+    img.loading = img.loading || "lazy";
+    img.decoding = img.decoding || "async";
+  }
 }
