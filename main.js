@@ -1,56 +1,78 @@
-// OkObserver main bootstrap v2.6.x (stable)
+// main.js — OkObserver entry (v2.6.x)
+// Sets the API base, wires a tiny router, and lazy-loads route modules.
 
-// ---- CONFIG --------------------------------------------------------------
-const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2'; // Cloudflare Worker
+(() => {
+  // ---------- 1) API base (Cloudflare Worker) ----------
+  // CHANGE THIS ONLY if your Worker URL is different.
+  const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
 
-// Place config before routing so other modules can read it
-window.OKO = Object.assign(window.OKO || {}, {
-  VERSION: '2.6.x',
-  API_BASE,
-  SITE_TITLE: 'The Oklahoma Observer'
-});
+  // Expose for all route modules
+  window.OKO_API_BASE = API_BASE;
 
-console.log('[OkObserver] main.js v2.6.x booting');
+  // ---------- 2) Simple logger ----------
+  const log = (...a) => console.log('[OkObserver]', ...a);
+  const errorLog = (...a) => console.error('[OkObserver]', ...a);
 
-// ---- SIMPLE ROUTER ------------------------------------------------------
-async function loadModule(path) {
-  const mod = await import(path);
-  if (typeof mod.default !== 'function') {
-    throw new TypeError('mod.default is not a function');
+  // ---------- 3) App root ----------
+  const app = document.getElementById('app');
+  if (!app) {
+    document.body.innerHTML = '<main id="app"></main>';
   }
-  return mod.default;
-}
 
-async function render(route, id) {
-  try {
-    let renderFn;
-    if (!route || route === '') {
-      renderFn = await loadModule('./home.v263.js?v=265');
-    } else if (route === 'about') {
-      renderFn = await loadModule('./about.v263.js?v=265');
-    } else if (route === 'post') {
-      renderFn = await loadModule('./detail.v263.js?v=265');
-    } else {
-      renderFn = await loadModule('./home.v263.js?v=265');
+  // ---------- 4) Router ----------
+  const routes = {
+    '': () => import(`./home.v263.js?v=265`).then(m => m.default),
+    'posts': () => import(`./home.v263.js?v=265`).then(m => m.default),
+    'about': () => import(`./about.v263.js?v=265`).then(m => m.default),
+    'post': () => import(`./detail.v263.js?v=265`).then(m => m.default),
+  };
+
+  function parseHash() {
+    // #/post/123   => ["post","123"]
+    // #/about      => ["about"]
+    // "" or "#/"   => [""]
+    const h = (location.hash || '').replace(/^#\/?/, '');
+    const parts = h.split('/').filter(Boolean);
+    return parts;
+  }
+
+  async function render() {
+    try {
+      const parts = parseHash();
+      const key = (parts[0] || '').toLowerCase();
+
+      // pick route
+      let load;
+      if (!key || key === 'posts') load = routes[''];
+      else if (routes[key]) load = routes[key];
+      else load = routes['']; // fallback to home
+
+      const mod = await load();
+      // route handlers are default exported functions
+      // home: fn(app)
+      // about: fn(app)
+      // detail: fn(app, id)
+      if (key === 'post') {
+        const id = parts[1];
+        await mod(document.getElementById('app'), id);
+      } else {
+        await mod(document.getElementById('app'));
+      }
+    } catch (e) {
+      errorLog('router error:', e);
+      const el = document.getElementById('app');
+      if (el) {
+        el.innerHTML = `
+          <section class="page-error">
+            <p>Page error: ${e?.message || e}</p>
+          </section>
+        `;
+      }
     }
-    await renderFn(document.getElementById('app'), id || null);
-  } catch (err) {
-    console.error('[Router error]', err);
-    const el = document.getElementById('app');
-    if (el) el.innerHTML = `<p style="color:#c00">Page error: ${String(err.message || err)}</p>`;
   }
-}
 
-function parseHash() {
-  const raw = (location.hash || '').replace(/^#\/?/, '');
-  const parts = raw.split('/');
-  return { route: parts[0] || '', id: parts[1] || '' };
-}
-
-async function start() {
-  const { route, id } = parseHash();
-  await render(route, id);
-}
-
-window.addEventListener('hashchange', start, { passive: true });
-start();
+  // ---------- 5) Start ----------
+  log('main.js v2.6.x booting');
+  window.addEventListener('hashchange', render);
+  window.addEventListener('DOMContentLoaded', render);
+})();
