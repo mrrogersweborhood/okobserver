@@ -1,9 +1,4 @@
-/* detail.v263.js — full file */
-
-const API = window.OKO?.API;
-if (!API) {
-  throw new Error("[Detail] API base missing.");
-}
+/* detail.v263.js — import-safe version (no API read at module top) */
 
 function prettyDate(iso) {
   try {
@@ -19,7 +14,6 @@ function prettyDate(iso) {
 }
 
 function sanitizeFirstParagraphIndent(container) {
-  // Remove leading &nbsp; and stray <br> that cause indents on some posts
   const p = container.querySelector(".post-content p");
   if (!p) return;
   p.innerHTML = p.innerHTML
@@ -33,7 +27,36 @@ function getFeatured(embedded) {
   return null;
 }
 
+function resolveAPI() {
+  // 1) window.OKO.API (preferred, set by main.js)
+  let api = (window.OKO && window.OKO.API) || "";
+
+  // 2) <meta name="oko-api" content="...">
+  if (!api) {
+    const m = document.querySelector('meta[name="oko-api"]');
+    if (m && m.content) api = m.content.trim();
+  }
+
+  // 3) localStorage (optional fallback)
+  if (!api) {
+    const s = localStorage.getItem("oko_api");
+    if (s) api = s.trim();
+  }
+
+  return api || "";
+}
+
 export async function detail(appEl, id) {
+  const API = resolveAPI();
+  if (!API) {
+    appEl.innerHTML = `
+      <section class="wrap">
+        <p class="error">Page error: API base missing.</p>
+      </section>`;
+    console.error("[Detail] API base missing.");
+    return;
+  }
+
   appEl.innerHTML = `
     <section class="wrap">
       <div class="backline top">
@@ -67,8 +90,6 @@ export async function detail(appEl, id) {
     "—";
   const date = prettyDate(post.date);
   const featured = getFeatured(post._embedded);
-
-  // WordPress content is trusted from your own site; render as-is (with safe CSS)
   const content = post.content?.rendered || "";
 
   host.innerHTML = `
@@ -80,10 +101,8 @@ export async function detail(appEl, id) {
     <div class="post-content">${content}</div>
   `;
 
-  // Fix quirky first paragraph indentation
   sanitizeFirstParagraphIndent(host);
 
-  // Ensure images/embeds are fluid
   for (const img of host.querySelectorAll(".post-content img")) {
     img.loading = img.loading || "lazy";
     img.decoding = img.decoding || "async";
