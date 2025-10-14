@@ -41,5 +41,31 @@
 
   <!-- Optional but safe scroll memory helper (only if you kept it) -->
   <script src="./scroll-restore.js?v=1"></script>
+<script>
+/**
+ * OkObserver — WordPress Empty Block Cleanup
+ * Removes leftover empty DIVs, figures, or embed wrappers (gray boxes)
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const selectors = [
+    '.mceTemp',
+    'div.mceTemp',
+    '.wp-block:empty',
+    'figure:empty',
+    '.wp-block-image:empty',
+    '.wp-block-video:empty',
+    '.wp-block-embed__wrapper:empty',
+    '.wp-block-embed:has(> iframe[src=""])',
+    '.wp-block-embed:has(> a[href=""])',
+    '.wp-block-embed[style*="padding-bottom:56.25%"]:empty'
+  ];
+
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => {
+      el.remove();
+    });
+  });
+});
+</script>
 </body>
 </html>
