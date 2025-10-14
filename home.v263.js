@@ -1,136 +1,131 @@
-/* home.v263.js — full file */
+// home.v263.js  (v2.6.x)
+// Renders the Latest Posts grid. Image + title are clickable and route to #/post/{id}.
 
-const API = window.OKO?.API;
-if (!API) {
-  throw new Error("[Home] API base missing.");
-}
+const API = (window.OKO && window.OKO.API_BASE) || '';
+const PER_PAGE = 18;
 
-function prettyDate(iso) {
+function fmtDate(iso) {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString(undefined, {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric', month: 'long', day: 'numeric'
     });
-  } catch {
-    return iso;
-  }
+  } catch { return ''; }
 }
 
-function isCartoon(embedded) {
-  // Defensive: check both tags & categories for a slug match we don't want
-  const terms = [
-    ...(embedded?.["wp:term"]?.flat?.() ?? []),
-    ...(embedded?.["wp:term"]?.flat?.() ?? []),
-  ].flat();
-  if (!terms || !terms.length) return false;
-  return terms.some(t => {
-    const slug = (t?.slug || "").toLowerCase();
-    return slug === "cartoon" || slug === "cartoons";
-  });
+function getAuthor(post) {
+  const a = post._embedded && post._embedded.author && post._embedded.author[0];
+  return a && (a.name || a.slug) ? a.name || a.slug : 'Oklahoma Observer';
 }
 
-function getFeatured(embedded) {
-  const m = embedded?.["wp:featuredmedia"];
-  if (Array.isArray(m) && m[0]?.source_url) return m[0].source_url;
-  return null;
+function getFeatured(post) {
+  const media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
+  const src =
+    (media && media.media_details && media.media_details.sizes &&
+     (media.media_details.sizes.medium_large?.source_url ||
+      media.media_details.sizes.large?.source_url ||
+      media.media_details.sizes.full?.source_url)) ||
+    (media && media.source_url) ||
+    '';
+  const alt = (media && (media.alt_text || media.title?.rendered)) || post.title?.rendered || '';
+  return { src, alt };
 }
 
-function postCardHTML(p) {
-  const img = getFeatured(p._embedded);
-  const author =
-    p._embedded?.author?.[0]?.name ||
-    p._embedded?.author?.[0]?.slug ||
-    "—";
-  const date = prettyDate(p.date);
-  const title = p.title?.rendered || "(untitled)";
-  const excerpt = (p.excerpt?.rendered || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "");
+function isCartoon(post) {
+  // Basic guard to keep cartoons off the main grid (id/name checks if you use a category)
+  const cats = post._embedded && post._embedded['wp:term'] ? post._embedded['wp:term'].flat() : [];
+  return cats.some(c => /cartoon/i.test(c.name || ''));
+}
+
+function cardHTML(post) {
+  const { id, title, excerpt, date } = post;
+  const { src, alt } = getFeatured(post);
+  const url = `#/post/${id}`;
   return `
-    <article class="card">
-      <a class="card-link" href="#/post/${p.id}" aria-label="${title.replace(/"/g,'&quot;')}">
-        <div class="thumb">${img ? `<img src="${img}" alt="">` : ""}</div>
-        <h3 class="card-title">${title}</h3>
-      </a>
-      <div class="meta">By ${author} — ${date}</div>
-      <div class="excerpt">${excerpt}</div>
-    </article>
-  `;
+  <article class="post-card">
+    <a class="post-thumb-link" href="${url}" aria-label="Open ${title.rendered.replace(/"/g,'&quot;')}">
+      ${src ? `<img class="post-thumb" loading="lazy" src="${src}" alt="${alt.replace(/"/g,'&quot;')}" />` : `<div class="post-thumb placeholder"></div>`}
+    </a>
+    <h3 class="post-title"><a class="post-title-link" href="${url}">${title.rendered}</a></h3>
+    <div class="post-meta">By ${getAuthor(post)} • ${fmtDate(date)}</div>
+    <div class="post-excerpt">${excerpt && excerpt.rendered ? excerpt.rendered : ''}</div>
+  </article>`;
 }
 
-export async function home(appEl) {
-  appEl.innerHTML = `
-    <section class="wrap">
-      <h1 class="page-title">Latest Posts</h1>
-      <div id="grid" class="grid"></div>
-      <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+function styles() {
+  return `
+  <style id="home-grid-styles">
+    .grid { display:grid; gap:18px; grid-template-columns:repeat(4, minmax(0,1fr)); }
+    @media (max-width: 1200px){ .grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+    @media (max-width: 900px){ .grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px){ .grid{ grid-template-columns:1fr; } }
+    .post-card{ background:#fff; border:1px solid #e6e6ef; border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgb(16 24 40 / 6%); }
+    .post-thumb{ width:100%; height:auto; display:block; aspect-ratio: 16/11; object-fit:cover; }
+    .post-thumb.placeholder{ background:#f2f4f7; height: 220px; }
+    .post-thumb-link{ display:block; }
+    .post-title{ margin:12px 16px 4px; font-size:1.05rem; line-height:1.35; }
+    .post-title a{ text-decoration:none; color:#1f3a8a; }
+    .post-title a:hover{ text-decoration:underline; }
+    .post-meta{ margin:0 16px 8px; font-size:.85rem; color:#667085; }
+    .post-excerpt{ margin:0 16px 16px; color:#344054; }
+    .sentinel{ height:1px; }
+  </style>`;
+}
+
+async function fetchPage(page) {
+  const url = `${API}/posts?status=publish&_embed=1&per_page=${PER_PAGE}&page=${page}`;
+  const res = await fetch(url, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
+  return res.json();
+}
+
+export default async function renderHome(root) {
+  if (!API) throw new Error('[Home] API base missing.');
+
+  root.innerHTML = `
+    ${document.getElementById('home-grid-styles') ? '' : styles()}
+    <section class="home">
+      <h2>Latest Posts</h2>
+      <div class="grid" id="grid"></div>
+      <div class="sentinel" id="sentinel"></div>
     </section>
   `;
 
-  const grid = appEl.querySelector("#grid");
-  const sentinel = appEl.querySelector("#sentinel");
+  const grid = root.querySelector('#grid');
+  const sentinel = root.querySelector('#sentinel');
 
   let page = 1;
   let loading = false;
-  let exhausted = false;
+  let done = false;
 
-  async function loadPage() {
-    if (loading || exhausted) return;
+  async function load() {
+    if (loading || done) return;
     loading = true;
-
-    // Pull published posts with embeds; 12 per page for good perf
-    const url = `${API}/wp-json/wp/v2/posts?status=publish&_embed&per_page=12&page=${page}`;
-    let list = [];
     try {
-      const r = await fetch(url, { mode: "cors", credentials: "omit" });
-      if (!r.ok) {
-        if (r.status === 400 || r.status === 404) {
-          exhausted = true;
-          return;
-        }
-        throw new Error(`HTTP ${r.status}`);
-      }
-      list = await r.json();
+      const items = await fetchPage(page);
+      // Filter out cartoons (optional — remove if you want them)
+      const filtered = items.filter(p => !isCartoon(p));
+      grid.insertAdjacentHTML('beforeend', filtered.map(cardHTML).join(''));
+      page += 1;
+      if (items.length < PER_PAGE) done = true;
     } catch (e) {
-      console.error("[Home] fetch failed:", e);
-      // Don’t hard stop — allow manual refresh or next intersection
+      console.error('[Home] load failed', e);
+      if (!grid.children.length) {
+        grid.insertAdjacentHTML('beforeend', `<p style="color:#c00">Failed to fetch posts: ${e.message}</p>`);
+        done = true;
+      }
+    } finally {
       loading = false;
-      return;
     }
-
-    if (!Array.isArray(list) || list.length === 0) {
-      exhausted = true;
-      loading = false;
-      return;
-    }
-
-    // Filter out cartoons reliably
-    const filtered = list.filter(p => !isCartoon(p._embedded));
-
-    grid.insertAdjacentHTML(
-      "beforeend",
-      filtered.map(postCardHTML).join("")
-    );
-
-    page += 1;
-    loading = false;
   }
 
-  // Initial batch
-  await loadPage();
+  // Kick off initial load
+  await load();
 
-  // Robust infinite scroll (guard against rapid triggers)
-  const io = new IntersectionObserver(
-    entries => {
-      for (const e of entries) {
-        if (e.isIntersecting) {
-          loadPage();
-        }
-      }
-    },
-    { rootMargin: "900px 0px 900px 0px", threshold: 0 }
-  );
+  // Infinite scroll
+  const io = new IntersectionObserver((entries) => {
+    const last = entries[0];
+    if (last.isIntersecting) load();
+  }, { rootMargin: '800px 0px 800px 0px' });
+
   io.observe(sentinel);
 }
