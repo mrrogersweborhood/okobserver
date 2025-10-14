@@ -1,4 +1,4 @@
-/* detail.v263.js — import-safe version (no API read at module top) */
+/* detail.v263.js — import-safe + default export */
 
 function prettyDate(iso) {
   try {
@@ -28,25 +28,19 @@ function getFeatured(embedded) {
 }
 
 function resolveAPI() {
-  // 1) window.OKO.API (preferred, set by main.js)
   let api = (window.OKO && window.OKO.API) || "";
-
-  // 2) <meta name="oko-api" content="...">
   if (!api) {
     const m = document.querySelector('meta[name="oko-api"]');
-    if (m && m.content) api = m.content.trim();
+    if (m?.content) api = m.content.trim();
   }
-
-  // 3) localStorage (optional fallback)
   if (!api) {
     const s = localStorage.getItem("oko_api");
     if (s) api = s.trim();
   }
-
   return api || "";
 }
 
-export async function detail(appEl, id) {
+export default async function detail(appEl, id) {
   const API = resolveAPI();
   if (!API) {
     appEl.innerHTML = `
@@ -70,8 +64,8 @@ export async function detail(appEl, id) {
   `;
 
   const host = appEl.querySelector("#post");
-
   const url = `${API}/wp-json/wp/v2/posts/${id}?_embed=1`;
+
   let post;
   try {
     const r = await fetch(url, { mode: "cors", credentials: "omit" });
