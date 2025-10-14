@@ -102,7 +102,7 @@ main#app, #app {
 .post-card .post-title,
 #app .card .post-title,
 #app article .post-title {
-  margin: 0.75rem 1rem 0.25rem 1rem; /* add same left/right padding as excerpt */
+  margin: 0.75rem 1rem 0.25rem 1rem;
   color: #1e90ff !important;
   text-decoration: none;
   font-size: 1.05rem;
@@ -113,7 +113,7 @@ main#app, #app {
 
 .post-card .post-excerpt,
 #app .card .post-excerpt {
-  margin: 0 1rem 1rem 1rem; /* indent excerpt same as title */
+  margin: 0 1rem 1rem 1rem;
   color: #444;
   line-height: 1.55;
   font-size: 0.95rem;
@@ -180,3 +180,16 @@ main#app, #app {
   margin: 1.25rem 0;
 }
 .post-detail .back-link { margin: 0.75rem 0; }
+
+/* === Hide WordPress Editor Artifacts === */
+.mceTemp,
+div.mceTemp {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
