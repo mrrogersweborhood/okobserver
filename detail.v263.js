@@ -1,146 +1,206 @@
-// detail.v263.js — OkObserver Post Detail (v2.6.x, resilient & self-contained)
+// detail.v263.js — Post detail view (standalone, no external utils)
 
-export default async function renderDetail(app, id) {
-  // ---------- 1) Resolve API base safely (no race with main.js) ----------
-  const apiBase =
-    (typeof window !== 'undefined' && window.OKO_API_BASE) ||
-    (document.querySelector('meta[name="oko-api-base"]')?.content) ||
-    '';
-  if (!apiBase) {
-    console.error('[Detail] API base missing.');
-    app.innerHTML = `
-      <section class="page-error" style="max-width:960px;margin:3rem auto;padding:1rem;">
-        <p><strong>Page error:</strong> API base missing.</p>
-      </section>`;
-    return;
-  }
-  if (!id) {
-    app.innerHTML = `
-      <section class="page-error" style="max-width:960px;margin:3rem auto;padding:1rem;">
-        <p><strong>Page error:</strong> Missing post id.</p>
-      </section>`;
-    return;
-  }
+// ---------- helpers (embedded) ----------
+const API_BASE = (window.OKO_API_BASE || "").replace(/\/+$/, "");
 
-  // ---------- 2) Helpers ----------
-  const fetchJSON = async (url) => {
-    const r = await fetch(url, { credentials: 'omit' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  };
-  const fmtDate = (iso) =>
-    new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric', month: 'long', day: 'numeric'
-    });
+function joinUrl(base, path) {
+  const b = (base || "").replace(/\/+$/, "");
+  const p = (path || "").replace(/^\/+/, "");
+  return `${b}/${p}`;
+}
 
-  const backLink = `<a href="#/" class="back-link" style="color:#1e63ff;text-decoration:none;">← Back to Posts</a>`;
+function qs(params = {}) {
+  const u = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    if (Array.isArray(v)) v.forEach(val => u.append(k, val));
+    else u.append(k, v);
+  });
+  const s = u.toString();
+  return s ? `?${s}` : "";
+}
 
-  // ---------- 3) Shell (so users see immediate structure) ----------
-  app.innerHTML = `
-    <article class="post-detail" style="max-width:900px;margin:2rem auto;padding:0 1rem;">
-      <div class="back top" style="margin:.25rem 0 1rem 0">${backLink}</div>
-      <header class="post-header" style="margin-bottom:1rem;">
-        <h1 class="post-title" style="margin:.25rem 0 .4rem 0;line-height:1.2;">Loading…</h1>
-        <div class="post-meta" style="color:#555;font-size:.95rem;"></div>
-      </header>
-      <figure class="post-media" style="margin:0 0 1.25rem 0;"></figure>
-      <div class="post-content" style="line-height:1.7;font-size:1.05rem;color:#222;">Please wait…</div>
-      <div class="back bottom" style="margin:1.75rem 0 1rem 0">${backLink}</div>
-    </article>
+async function apiFetchJson(pathOrUrl, params) {
+  const url = pathOrUrl.startsWith("http")
+    ? pathOrUrl + qs(params)
+    : joinUrl(API_BASE, pathOrUrl) + qs(params);
+
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+function prettyDate(iso) {
+  try { return new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }); }
+  catch { return iso; }
+}
+
+function sanitizeHtml(html = "") {
+  // Very light sanitization for embeds; keep links, iframes with safe attrs.
+  return String(html)
+    .replace(/\son[a-z]+="[^"]*"/gi, "")                         // strip inline handlers
+    .replace(/<script[\s\S]*?<\/script>/gi, "")                  // drop scripts
+    .replace(/<iframe/gi, '<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"')
+    .replace(/<img /gi, '<img loading="lazy" ');
+}
+
+function extractFirstVideoUrl(html = "") {
+  const a = document.createElement("div");
+  a.innerHTML = html;
+
+  // Prefer direct Vimeo/YouTube anchors if present
+  const anchors = [...a.querySelectorAll("a[href]")].map(n => n.getAttribute("href"));
+  const direct = anchors.find(h =>
+    /(?:vimeo\.com|youtube\.com\/watch\?v=|youtu\.be\/)/i.test(h || "")
+  );
+  if (direct) return direct;
+
+  // Or look for iframes embed
+  const frame = a.querySelector("iframe[src*='vimeo.com'],iframe[src*='youtube.com'],iframe[src*='youtu.be']");
+  if (frame) return frame.getAttribute("src") || null;
+
+  return null;
+}
+// ---------- end helpers ----------
+
+const APP = document.getElementById("app");
+
+function heroBlock({ title, author, date, posterHtml }) {
+  return `
+  <header class="post-hero">
+    <a class="backlink" href="#/posts">← Back to Posts</a>
+    <h1 class="post-title">${title}</h1>
+    <div class="post-meta">By ${author} — ${date}</div>
+    ${posterHtml || ""}
+  </header>`;
+}
+
+function posterTemplate({ posterSrc, playLabel = "Play" }) {
+  if (!posterSrc) return "";
+  return `
+  <div class="video-poster" role="button" tabindex="0" aria-label="${playLabel}">
+    <img src="${posterSrc}" alt="">
+    <button class="poster-play" aria-label="${playLabel}">▶</button>
+  </div>`;
+}
+
+function contentBlock(html) {
+  return `<div class="post-content">${sanitizeHtml(html || "")}</div>`;
+}
+
+function footerBacklink() {
+  return `<div class="post-footer"><a class="backlink" href="#/posts">← Back to Posts</a></div>`;
+}
+
+function getFeaturedSrc(post) {
+  const media = post._embedded?.["wp:featuredmedia"]?.[0];
+  return (
+    media?.media_details?.sizes?.large?.source_url ||
+    media?.media_details?.sizes?.medium_large?.source_url ||
+    media?.source_url || ""
+  );
+}
+
+function buildPlayer(videoUrl) {
+  if (!videoUrl) return "";
+  // Normalize Vimeo share URLs to player URLs
+  const vimeo = videoUrl.match(/vimeo\.com\/(\d+)/);
+  const you = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+
+  let src = videoUrl;
+  if (vimeo) src = `https://player.vimeo.com/video/${vimeo[1]}`;
+  if (you)   src = `https://www.youtube.com/embed/${you[1]}`;
+
+  return `
+  <div class="video-embed">
+    <iframe
+      src="${src}"
+      allowfullscreen
+      loading="lazy"
+      title="Embedded video"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
+    </iframe>
+  </div>`;
+}
+
+export default async function renderDetail(app, idParam) {
+  if (!API_BASE) throw new Error("[Detail] API base missing.");
+
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  APP.innerHTML = `
+    <section class="detail">
+      <div class="container">
+        <div class="loading">Loading…</div>
+      </div>
+    </section>
   `;
 
-  const $title = app.querySelector('.post-title');
-  const $meta  = app.querySelector('.post-meta');
-  const $media = app.querySelector('.post-media');
-  const $body  = app.querySelector('.post-content');
+  const container = APP.querySelector(".container");
 
-  // ---------- 4) Fetch post with embeds (author, media) ----------
-  let post;
   try {
-    post = await fetchJSON(`${apiBase}/wp-json/wp/v2/posts/${encodeURIComponent(id)}?_embed=1`);
+    // Fetch the post with embeds
+    const post = await apiFetchJson(`posts/${id}`, { _embed: 1 });
+
+    const title = post.title?.rendered || "(Untitled)";
+    const author = post._embedded?.author?.[0]?.name || "Oklahoma Observer";
+    const date = prettyDate(post.date || post.date_gmt);
+    const posterSrc = getFeaturedSrc(post);
+
+    // Detect a video URL from content
+    const videoUrl = extractFirstVideoUrl(post.content?.rendered || "");
+
+    const posterHtml = posterSrc
+      ? posterTemplate({ posterSrc, playLabel: "Play video" })
+      : "";
+
+    const parts = [
+      heroBlock({ title, author, date, posterHtml }),
+      contentBlock(post.content?.rendered || ""),
+      footerBacklink()
+    ];
+
+    container.innerHTML = parts.join("");
+
+    // Wire poster → player swap (no autoplay; plays only on click)
+    if (videoUrl && posterSrc) {
+      const poster = container.querySelector(".video-poster");
+      const swapToPlayer = () => {
+        poster.outerHTML = buildPlayer(videoUrl);
+      };
+      poster?.addEventListener("click", swapToPlayer);
+      poster?.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault(); swapToPlayer();
+        }
+      });
+    }
+
   } catch (err) {
-    console.error('[Detail] fetch failed:', err);
-    $body.innerHTML = `<p class="error">Failed to load post. ${err?.message || err}</p>`;
-    return;
+    console.error("[Detail] load failed:", err);
+    container.innerHTML = `
+      <p class="error" role="alert" style="color:#b00">
+        Page error: ${err?.message || err}
+      </p>`;
   }
-
-  // ---------- 5) Populate header/meta ----------
-  const title = post.title?.rendered || 'Untitled';
-  const author =
-    post._embedded?.author?.[0]?.name ||
-    post._embedded?.author?.[0]?.slug ||
-    '—';
-  const date = post.date ? fmtDate(post.date) : '';
-
-  $title.innerHTML = title;
-  $meta.textContent = `By ${author}${date ? ` — ${date}` : ''}`;
-
-  // ---------- 6) Featured image or video embed ----------
-  // Try featured image first
-  const fm = post._embedded?.['wp:featuredmedia']?.[0];
-  const featured =
-    fm?.media_details?.sizes?.large?.source_url ||
-    fm?.media_details?.sizes?.medium_large?.source_url ||
-    fm?.source_url ||
-    '';
-
-  // Check for Vimeo/YouTube URLs inside content to embed player
-  const contentHTML = post.content?.rendered || '';
-  const vimeo = contentHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
-  const yt    = contentHTML.match(/https?:\/\/(?:www\.)?youtu(?:\.be|be\.com)\/(?:watch\?v=)?([A-Za-z0-9_-]{6,})/);
-
-  let mediaHTML = '';
-  if (vimeo) {
-    const vid = vimeo[1];
-    mediaHTML = `
-      <div style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;">
-        <iframe
-          src="https://player.vimeo.com/video/${vid}?title=0&byline=0&portrait=0"
-          style="position:absolute;inset:0;border:0;width:100%;height:100%;"
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowfullscreen
-        ></iframe>
-      </div>`;
-  } else if (yt) {
-    const vid = yt[1];
-    mediaHTML = `
-      <div style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;">
-        <iframe
-          src="https://www.youtube.com/embed/${vid}"
-          style="position:absolute;inset:0;border:0;width:100%;height:100%;"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-        ></iframe>
-      </div>`;
-  } else if (featured) {
-    mediaHTML = `
-      <img src="${featured}" alt="" style="width:100%;height:auto;border-radius:12px;display:block;box-shadow:0 1px 3px rgba(0,0,0,.08);" />`;
-  }
-  $media.innerHTML = mediaHTML;
-
-  // ---------- 7) Body HTML + cleanups ----------
-  // Keep publisher HTML, but ensure embeds/images are responsive & rounded.
-  const safe = contentHTML
-    .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border-radius:10px;margin:1rem 0;"')
-    .replaceAll('<img', '<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
-  $body.innerHTML = safe;
-
-  // Remove empty WP placeholders that can leave gray boxes
-  $body.querySelectorAll('.mceTemp, .wp-block:empty, .wp-block-image:empty, .wp-block-video:empty').forEach(n => n.remove());
-
-  // First paragraph shouldn’t be indented even if WP inserted &nbsp;/<br>
-  const firstP = $body.querySelector('p');
-  if (firstP) {
-    firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i, '').trimStart();
-    firstP.style.textIndent = '0';
-  }
-
-  // Ensure all images get lazy/async hints
-  $body.querySelectorAll('img').forEach(img => {
-    if (!img.hasAttribute('loading')) img.loading = 'lazy';
-    if (!img.hasAttribute('decoding')) img.decoding = 'async';
-    img.style.maxWidth = img.style.maxWidth || '100%';
-    img.style.height = img.style.height || 'auto';
-    img.style.borderRadius = img.style.borderRadius || '10px';
-  });
 }
+
+/* ---------- minimal styles for nicer defaults (optional; safe to keep) ---------- */
+const style = document.createElement("style");
+style.textContent = `
+.detail .container{max-width:980px;margin:0 auto;padding:1rem}
+.backlink{display:inline-block;margin:0 0 1rem 0;color:#245; text-decoration:none}
+.backlink:hover{text-decoration:underline}
+.post-title{margin:0 0 .25rem 0; line-height:1.2}
+.post-meta{color:#666;margin:0 0 1rem 0}
+.video-poster{position:relative;display:block;max-width:100%;border-radius:10px;overflow:hidden;background:#f5f5f5}
+.video-poster img{display:block;width:100%;height:auto}
+.poster-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:0;border-radius:999px;padding:.75rem 1rem;font-size:1.1rem;background:#1976d2;color:white;cursor:pointer}
+.video-embed{position:relative;padding-top:56.25%;border-radius:10px;overflow:hidden;background:#000;margin:.25rem 0 1rem}
+.video-embed iframe{position:absolute;inset:0;width:100%;height:100%}
+.post-content figure{margin:1rem 0}
+.post-content img{max-width:100%;height:auto;display:block;margin:0 auto}
+.post-footer{margin:2rem 0}
+`;
+document.head.appendChild(style);
