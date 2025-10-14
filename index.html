@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer</title>
+  <meta name="description" content="The Oklahoma Observer – Comforting the afflicted and afflicting the comfortable since 1969." />
 
-  <!-- Your primary stylesheet (existing) -->
-  <link rel="stylesheet" href="./styles.css?v=patch1" />
+  <!-- ✅ CSS Stylesheet (cache-busted) -->
+  <link rel="stylesheet" href="./styles.css?v=265" />
+  <link rel="stylesheet" href="./override.css?v=265" />
 
-  <!-- NEW: surgical overrides kept separate so they won't be lost -->
-  <link rel="stylesheet" href="./override.css?v=1" />
-
-  <link rel="icon" href="./icon.png" type="image/png" />
+  <!-- Site Icon -->
+  <link rel="icon" type="image/png" href="./icon.png" />
 </head>
+
 <body>
   <header id="site-header">
     <div class="brand">
@@ -36,36 +37,44 @@
     document.getElementById("year").textContent = new Date().getFullYear();
   </script>
 
-  <!-- Keep your current versioned entry point -->
-  <script type="module" src="./main.js?v=2.6.4"></script>
+  <!-- ✅ JS modules (cache-busted) -->
+  <script type="module" src="./core.v263.js?v=265"></script>
+  <script type="module" src="./home.v263.js?v=265"></script>
+  <script type="module" src="./detail.v263.js?v=265"></script>
+  <script type="module" src="./about.v263.js?v=265"></script>
+  <script type="module" src="./main.js?v=265"></script>
 
-  <!-- Optional but safe scroll memory helper (only if you kept it) -->
-  <script src="./scroll-restore.js?v=1"></script>
-<script>
-/**
- * OkObserver — WordPress Empty Block Cleanup
- * Removes leftover empty DIVs, figures, or embed wrappers (gray boxes)
- */
-document.addEventListener('DOMContentLoaded', () => {
-  const selectors = [
-    '.mceTemp',
-    'div.mceTemp',
-    '.wp-block:empty',
-    'figure:empty',
-    '.wp-block-image:empty',
-    '.wp-block-video:empty',
-    '.wp-block-embed__wrapper:empty',
-    '.wp-block-embed:has(> iframe[src=""])',
-    '.wp-block-embed:has(> a[href=""])',
-    '.wp-block-embed[style*="padding-bottom:56.25%"]:empty'
-  ];
+  <!-- Scroll restore helper -->
+  <script src="./scroll-restore.js?v=265"></script>
 
-  selectors.forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => {
-      el.remove();
+  <!-- ✅ Cleanup script for empty WordPress blocks -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectors = [
+        '.mceTemp',
+        'div.mceTemp',
+        '.wp-block:empty',
+        'figure:empty',
+        '.wp-block-image:empty',
+        '.wp-block-video:empty',
+        '.wp-block-embed__wrapper:empty',
+        '.wp-block-embed:has(> iframe[src=""])',
+        '.wp-block-embed:has(> a[href=""])',
+        '.wp-block-embed[style*="padding-bottom:56.25%"]:empty'
+      ];
+      selectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(el => el.remove());
+      });
     });
-  });
-});
-</script>
+  </script>
+
+  <!-- ✅ Register updated service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js?v=265');
+      });
+    }
+  </script>
 </body>
 </html>
