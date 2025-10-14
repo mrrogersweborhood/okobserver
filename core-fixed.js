@@ -1,70 +1,67 @@
-// core-fixed.js — Hash router + scroll memory (v=265)
+// core-fixed.js v2.65 — minimal router with resilient page loading
 
 const app = document.getElementById('app');
 
-const state = {
-  listScrollY: 0,
-};
-
-// tiny helper
-function el(tag, className, html) {
-  const n = document.createElement(tag);
-  if (className) n.className = className;
-  if (html != null) n.innerHTML = html;
-  return n;
+function parseHash() {
+  // #/post/123 → ["post","123"]
+  const raw = (location.hash || '#/').replace(/^#\/?/, '');
+  return raw ? raw.split('/') : [];
 }
 
-export default async function start() {
+async function loadModule(path) {
+  // All your pages are ES modules we import dynamically
+  const mod = await import(path);
+  // Try common export patterns
+  const render =
+    (typeof mod.default === 'function' && mod.default) ||
+    (typeof mod.render === 'function' && mod.render) ||
+    (typeof mod.home === 'function' && mod.home) ||
+    (typeof mod.main === 'function' && mod.main) ||
+    null;
+
+  if (!render) {
+    throw new TypeError('mod.default is not a function');
+  }
+  return render;
+}
+
+export async function start() {
   await router();
   window.addEventListener('hashchange', router, { passive: true });
 }
 
-async function router() {
+export async function router() {
   if (!app) return;
-
-  const hash = (window.location.hash || '#/').replace(/^#\//, '');
-  const [route, id] = hash.split('/');
-
-  // shell
-  app.innerHTML = '';
-  const shell = el('div', 'route-shell', `<p style="opacity:.7">Loading…</p>`);
-  app.appendChild(shell);
-
+  const [route, arg] = parseHash();
   try {
-    // HOME (post list)
+    let render;
     if (!route || route === '') {
-      const mod = await import('./home.js?v=265'); // use your actual filenames
-      await mod.default(app, {
-        onBeforeLeave: () => (state.listScrollY = window.scrollY),
-      });
-      // restore scroll position when coming back
-      requestAnimationFrame(() => window.scrollTo(0, state.listScrollY || 0));
+      render = await loadModule('./home.js?v=265');
+      await render(app);
       return;
     }
-
-    // ABOUT
     if (route === 'about') {
-      const mod = await import('./about.js?v=265');
-      await mod.default(app);
+      render = await loadModule('./about.js?v=265');
+      await render(app);
+      return;
+    }
+    if (route === 'post' && arg) {
+      render = await loadModule('./detail.v263.js?v=265');
+      await render(app, arg);
       return;
     }
 
-    // POST DETAIL
-    if (route === 'post' && id) {
-      // keep filename exactly as provided below (no renames)
-      const mod = await import('./detail.v263.js?v=265');
-      // remember list position before going in
-      if (document.body) state.listScrollY = window.scrollY;
-      await mod.default(app, id);
-      return;
-    }
-
-    // 404
-    app.innerHTML = `<p style="text-align:center;margin-top:2rem;">Page not found</p>`;
+    // Fallback → home
+    render = await loadModule('./home.js?v=265');
+    await render(app);
   } catch (err) {
     console.error('[Router error]', err);
-    app.innerHTML = `<p style="text-align:center;color:red;margin-top:2rem;">
-      Page error: ${String((err && err.message) || err)}
-    </p>`;
+    app.innerHTML = `
+      <section class="container" style="max-width:960px;margin:2rem auto;">
+        <p class="page-error">Page error: ${String(err && err.message || err)}</p>
+      </section>`;
   }
 }
+
+// Auto-start if this module is included straight in <script type="module">
+start();
