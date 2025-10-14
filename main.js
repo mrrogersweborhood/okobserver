@@ -1,78 +1,46 @@
-// main.js — OkObserver entry (v2.6.x)
-// Sets the API base, wires a tiny router, and lazy-loads route modules.
+// main.js  — OkObserver v2.6.5 stable bootstrap
+console.log('[OkObserver] main.js v2.6.x booting');
 
-(() => {
-  // ---------- 1) API base (Cloudflare Worker) ----------
-  // CHANGE THIS ONLY if your Worker URL is different.
-  const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
+const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
+window.OKO_API_BASE = API_BASE;
 
-  // Expose for all route modules
-  window.OKO_API_BASE = API_BASE;
+const app = document.getElementById('app');
+if (!app) {
+  console.error('[OkObserver] App container missing.');
+}
 
-  // ---------- 2) Simple logger ----------
-  const log = (...a) => console.log('[OkObserver]', ...a);
-  const errorLog = (...a) => console.error('[OkObserver]', ...a);
+// Simple module cache
+const cache = {};
 
-  // ---------- 3) App root ----------
-  const app = document.getElementById('app');
-  if (!app) {
-    document.body.innerHTML = '<main id="app"></main>';
-  }
+async function loadModule(path) {
+  if (cache[path]) return cache[path];
+  const mod = await import(path);
+  cache[path] = mod.default || mod;
+  return cache[path];
+}
 
-  // ---------- 4) Router ----------
-  const routes = {
-    '': () => import(`./home.v263.js?v=265`).then(m => m.default),
-    'posts': () => import(`./home.v263.js?v=265`).then(m => m.default),
-    'about': () => import(`./about.v263.js?v=265`).then(m => m.default),
-    'post': () => import(`./detail.v263.js?v=265`).then(m => m.default),
-  };
-
-  function parseHash() {
-    // #/post/123   => ["post","123"]
-    // #/about      => ["about"]
-    // "" or "#/"   => [""]
-    const h = (location.hash || '').replace(/^#\/?/, '');
-    const parts = h.split('/').filter(Boolean);
-    return parts;
-  }
-
-  async function render() {
-    try {
-      const parts = parseHash();
-      const key = (parts[0] || '').toLowerCase();
-
-      // pick route
-      let load;
-      if (!key || key === 'posts') load = routes[''];
-      else if (routes[key]) load = routes[key];
-      else load = routes['']; // fallback to home
-
-      const mod = await load();
-      // route handlers are default exported functions
-      // home: fn(app)
-      // about: fn(app)
-      // detail: fn(app, id)
-      if (key === 'post') {
-        const id = parts[1];
-        await mod(document.getElementById('app'), id);
-      } else {
-        await mod(document.getElementById('app'));
-      }
-    } catch (e) {
-      errorLog('router error:', e);
-      const el = document.getElementById('app');
-      if (el) {
-        el.innerHTML = `
-          <section class="page-error">
-            <p>Page error: ${e?.message || e}</p>
-          </section>
-        `;
-      }
+async function router() {
+  const hash = location.hash || '#/';
+  const [route, id] = hash.replace(/^#\//, '').split('/');
+  try {
+    if (!route || route === '') {
+      const renderHome = await loadModule('./home.v263.js?v=265');
+      await renderHome(app);
+    } else if (route === 'post' && id) {
+      const renderDetail = await loadModule('./detail.v263.js?v=265');
+      await renderDetail(app, id);
+    } else if (route === 'about') {
+      const renderAbout = await loadModule('./about.v263.js?v=265');
+      await renderAbout(app);
+    } else {
+      app.innerHTML = `<section class="page-error"><p>Page not found.</p></section>`;
     }
+  } catch (err) {
+    console.error('[OkObserver router error]', err);
+    app.innerHTML = `<section class="page-error"><p>Router error: ${err.message}</p></section>`;
   }
+}
 
-  // ---------- 5) Start ----------
-  log('main.js v2.6.x booting');
-  window.addEventListener('hashchange', render);
-  window.addEventListener('DOMContentLoaded', render);
-})();
+// Listen for navigation
+window.addEventListener('hashchange', router);
+window.addEventListener('DOMContentLoaded', router);

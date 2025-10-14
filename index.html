@@ -1,79 +1,67 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Oklahoma Observer</title>
-  <meta name="description" content="The Oklahoma Observer – Comforting the afflicted and afflicting the comfortable since 1969." />
 
-  <!-- Styles (cache-busted) -->
-  <link rel="stylesheet" href="./styles.css?v=265c" />
-  <link rel="stylesheet" href="./override.css?v=265c" />
+  <!-- Fallback API base so routes never boot without it -->
+  <meta name="oko-api-base" content="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- Icon -->
-  <link rel="icon" type="image/png" href="./icon.png" />
+  <!-- App styles (cache-busted) -->
+  <link rel="stylesheet" href="./styles.css?v=265" />
+
+  <!-- Prevent stale cache -->
+  <meta http-equiv="Cache-Control" content="no-store" />
 </head>
-
 <body>
-  <header id="site-header">
-    <div class="brand">
-      <img src="./ObserverLogoBlue.png" alt="The Oklahoma Observer" />
+  <header class="site-header" style="background:#1e63ff;color:white;position:sticky;top:0;z-index:50;">
+    <div class="container" style="display:flex;flex-direction:column;align-items:center;padding:0.5rem 1rem;">
+      <a class="brand" href="./#/" style="text-decoration:none;color:white;font-family:Georgia,serif;font-size:2rem;font-weight:700;">
+        Observer
+      </a>
+      <div class="motto" style="font-style:italic;font-size:0.9rem;margin-top:0.2rem;">
+        “To comfort the afflicted and afflict the comfortable.”
+      </div>
+      <nav class="nav" style="margin-top:0.5rem;">
+        <a href="./#/" style="color:white;text-decoration:none;margin:0 0.75rem;">Posts</a>
+        <a href="./#/about" style="color:white;text-decoration:none;margin:0 0.75rem;">About</a>
+      </nav>
     </div>
-    <nav class="site-nav">
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
   </header>
 
   <main id="app">
-    <p style="text-align:center; margin:2rem 0;">Loading...</p>
+    <div class="loading" style="text-align:center;padding:2rem;">Loading…</div>
   </main>
 
-  <footer id="site-footer">
-    © <span id="year"></span> The Oklahoma Observer. All Rights Reserved.
+  <footer class="site-footer" style="background:#f8f8f8;color:#444;text-align:center;padding:1.5rem 0;margin-top:2rem;">
+    © 2025 The Oklahoma Observer. All Rights Reserved.
   </footer>
 
+  <!-- Boot strap: define API base BEFORE any route files load -->
   <script>
-    document.getElementById("year").textContent = new Date().getFullYear();
+    (function () {
+      var apiFromWindow = (typeof window !== 'undefined' && window.OKO_API_BASE) ? window.OKO_API_BASE : '';
+      var meta = document.querySelector('meta[name="oko-api-base"]');
+      var apiFromMeta = meta ? meta.getAttribute('content') : '';
+      var apiDefault = 'https://okobserver-proxy.bob-b5c.workers.dev';
+      var base = apiFromWindow || apiFromMeta || apiDefault;
+      window.OKO_API_BASE = base;
+      if (!base) console.error('[OkObserver] No API base resolved at bootstrap.');
+    })();
   </script>
 
-  <!-- App modules (cache-busted, NO filename changes) -->
+  <!-- Core + utilities -->
   <script type="module" src="./core-fixed.js?v=265"></script>
-  <script type="module" src="./home.js?v=265"></script>
-  <script type="module" src="./about.js?v=265"></script>
-  <script type="module" src="./detail.v263.js?v=265"></script>
+  <script type="module" src="./utils.v263.js?v=265"></script>
+
+  <!-- Main app -->
   <script type="module" src="./main.js?v=265"></script>
 
-  <!-- Scroll memory helper (if you’re using it) -->
-  <script src="./scroll-restore.js?v=265"></script>
-
-  <!-- Cleanup for empty WP blocks (prevents gray boxes) -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const selectors = [
-        '.mceTemp',
-        'div.mceTemp',
-        '.wp-block:empty',
-        'figure:empty',
-        '.wp-block-image:empty',
-        '.wp-block-video:empty',
-        '.wp-block-embed__wrapper:empty',
-        '.wp-block-embed:has(> iframe[src=""])',
-        '.wp-block-embed:has(> a[href=""])',
-        '.wp-block-embed[style*="padding-bottom:56.25%"]:empty'
-      ];
-      selectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(el => el.remove());
-      });
-    });
-  </script>
-
-  <!-- Minimal Service Worker registration (cache-busted) -->
+  <!-- Lightweight service worker registration -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=265');
-      });
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   </script>
 </body>

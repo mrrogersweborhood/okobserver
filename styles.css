@@ -152,3 +152,52 @@ header.site-header{position:sticky;top:0;z-index:10;background:#1d7be0;color:#ff
   border: 0;
   padding: 0;
 }
+/* === DETAIL PAGE REFINEMENT v2.6.x === */
+.post-detail {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* Make header and back links feel lighter */
+.post-detail .back-link {
+  display: inline-block;
+  margin: 0.25rem 0 1rem;
+  color: #1e63ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.post-detail .back-link:hover {
+  text-decoration: underline;
+}
+
+.post-detail .post-title {
+  margin-top: 0.3rem;
+  color: #111827;
+}
+
+.post-detail .post-meta {
+  color: #555;
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Smooth the transition from featured image to body */
+.post-detail img {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.25rem;
+}
+
+/* Adjust body text for readability */
+.post-detail .post-content {
+  font-size: 1.05rem;
+  line-height: 1.75;
+  color: #222;
+  text-align: left;
+}
+
