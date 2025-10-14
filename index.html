@@ -6,11 +6,11 @@
   <title>The Oklahoma Observer</title>
   <meta name="description" content="The Oklahoma Observer – Comforting the afflicted and afflicting the comfortable since 1969." />
 
-  <!-- ✅ CSS Stylesheet (cache-busted) -->
+  <!-- Styles (cache-busted) -->
   <link rel="stylesheet" href="./styles.css?v=265" />
   <link rel="stylesheet" href="./override.css?v=265" />
 
-  <!-- Site Icon -->
+  <!-- Icon -->
   <link rel="icon" type="image/png" href="./icon.png" />
 </head>
 
@@ -37,17 +37,17 @@
     document.getElementById("year").textContent = new Date().getFullYear();
   </script>
 
-  <!-- ✅ JS modules (cache-busted) -->
-  <script type="module" src="./core.v263.js?v=265"></script>
-  <script type="module" src="./home.v263.js?v=265"></script>
+  <!-- App modules (cache-busted, NO filename changes) -->
+  <script type="module" src="./core-fixed.js?v=265"></script>
+  <script type="module" src="./home.js?v=265"></script>
+  <script type="module" src="./about.js?v=265"></script>
   <script type="module" src="./detail.v263.js?v=265"></script>
-  <script type="module" src="./about.v263.js?v=265"></script>
   <script type="module" src="./main.js?v=265"></script>
 
-  <!-- Scroll restore helper -->
+  <!-- Scroll memory helper (if you’re using it) -->
   <script src="./scroll-restore.js?v=265"></script>
 
-  <!-- ✅ Cleanup script for empty WordPress blocks -->
+  <!-- Cleanup for empty WP blocks (prevents gray boxes) -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const selectors = [
@@ -68,7 +68,7 @@
     });
   </script>
 
-  <!-- ✅ Register updated service worker -->
+  <!-- Minimal Service Worker registration (cache-busted) -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

@@ -1,4 +1,4 @@
-// core-fixed.js  (router/bootstrap)  cache bust via ?v=264
+// core-fixed.js — Hash router + scroll memory (v=265)
 
 const app = document.getElementById('app');
 
@@ -6,6 +6,7 @@ const state = {
   listScrollY: 0,
 };
 
+// tiny helper
 function el(tag, className, html) {
   const n = document.createElement(tag);
   if (className) n.className = className;
@@ -21,37 +22,44 @@ export default async function start() {
 async function router() {
   if (!app) return;
 
-  const hash = (window.location.hash || '#/').slice(2);
+  const hash = (window.location.hash || '#/').replace(/^#\//, '');
   const [route, id] = hash.split('/');
 
+  // shell
   app.innerHTML = '';
   const shell = el('div', 'route-shell', `<p style="opacity:.7">Loading…</p>`);
   app.appendChild(shell);
 
   try {
+    // HOME (post list)
     if (!route || route === '') {
-      const mod = await import(`./home.v263.js?v=264`);
+      const mod = await import('./home.js?v=265'); // use your actual filenames
       await mod.default(app, {
         onBeforeLeave: () => (state.listScrollY = window.scrollY),
       });
+      // restore scroll position when coming back
       requestAnimationFrame(() => window.scrollTo(0, state.listScrollY || 0));
       return;
     }
 
+    // ABOUT
     if (route === 'about') {
-      const mod = await import(`./about.v263.js?v=264`);
+      const mod = await import('./about.js?v=265');
       await mod.default(app);
       return;
     }
 
+    // POST DETAIL
     if (route === 'post' && id) {
-      // keep filename the same; only bust cache with ?v=264
-      const mod = await import(`./detail.v263.js?v=264`);
+      // keep filename exactly as provided below (no renames)
+      const mod = await import('./detail.v263.js?v=265');
+      // remember list position before going in
       if (document.body) state.listScrollY = window.scrollY;
       await mod.default(app, id);
       return;
     }
 
+    // 404
     app.innerHTML = `<p style="text-align:center;margin-top:2rem;">Page not found</p>`;
   } catch (err) {
     console.error('[Router error]', err);
