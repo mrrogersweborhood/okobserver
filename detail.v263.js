@@ -1,215 +1,214 @@
-/* OkObserver · detail.v263.js · v2.6.6 (media-first + FB video + spacing + cleaners) */
+// detail.v263.js
+// OkObserver - Post detail renderer (v2.6.x)
+// - FB video embed support
+// - Back-to-posts button spacing
+// - Title/author/date below media
 
-const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
+import { fmtDate, qs, qsa, el, ap, safeHTML, fetchWithRetry } from './utils.js';
 
-/* ---------- tiny utils ---------- */
-function joinUrl(base, path){const b=(base||'').replace(/\/+$/,'');const p=(path||'').replace(/^\/+/,'');return `${b}/${p}`;}
-function qs(params={}){const u=new URLSearchParams();for(const [k,v] of Object.entries(params)){if(v==null||v==='')continue;Array.isArray(v)?v.forEach(x=>u.append(k,x)):u.append(k,v)}const s=u.toString();return s?`?${s}`:'';}
-async function apiJSON(pathOrUrl, params){
-  const url = pathOrUrl.startsWith('http') ? pathOrUrl + qs(params) : joinUrl(API_BASE, pathOrUrl) + qs(params);
-  const r = await fetch(url,{headers:{accept:'application/json'}}); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
-}
-const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
-const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' };
-
-/* ---------- featured media ---------- */
-function featuredSrc(post){
-  const fm = post?._embedded?.['wp:featuredmedia']?.[0];
-  return fm?.media_details?.sizes?.large?.source_url
-      || fm?.media_details?.sizes?.medium_large?.source_url
-      || fm?.source_url || '';
+const API = window.OKO && window.OKO.apiBase;
+if (!API) {
+  console.error('[Detail] API base missing.');
 }
 
-/* ---------- video detection (Vimeo/YouTube/Facebook) ---------- */
-function extractVideoURL(html=''){
-  const unwrap = html.replace(/&amp;/g,'&');
-  const d = document.createElement('div'); d.innerHTML = unwrap;
+function makeBackButton() {
+  const wrap = el('div', {
+    class: 'detail-back-wrap',
+    style:
+      'display:flex;justify-content:flex-start;margin:16px 0 8px 0;position:sticky;top:0;z-index:2;'
+  });
+  const btn = el(
+    'a',
+    {
+      href: '#/',
+      class:
+        'btn-back',
+      style:
+        'display:inline-block;background:#e9f2ff;border:1px solid #b9d6ff;border-radius:9999px;padding:8px 12px;font-weight:600;text-decoration:none;color:#0b63ce;box-shadow:0 1px 0 rgba(0,0,0,.05)'
+    },
+    '← Back to Posts'
+  );
+  ap(wrap, btn);
+  return wrap;
+}
 
-  // anchors
-  for(const a of d.querySelectorAll('a[href]')){
-    const href=(a.getAttribute('href')||'').replace(/&amp;/g,'&');
-    if(/vimeo\.com\/\d+/.test(href)) return href;
-    if(/(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/.test(href)) return href;
-    if(/facebook\.com\/.+\/videos\/\d+/.test(href)) return href;
-  }
-  // iframes
-  const f = d.querySelector('iframe[src*="vimeo.com"],iframe[src*="youtube.com"],iframe[src*="youtu.be"],iframe[src*="facebook.com"]');
-  if(f) return (f.getAttribute('src')||'').replace(/&amp;/g,'&');
+function facebookEmbedIframeFromUrl(fbPostUrl) {
+  // Use FB post plugin (works for videos too; FB decides rendering)
+  const src =
+    'https://www.facebook.com/plugins/post.php?href=' +
+    encodeURIComponent(fbPostUrl) +
+    '&show_text=true&width=700';
 
-  // raw strings
-  const text = d.textContent||'';
-  const vm = text.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/);
-  if(vm) return vm[0];
-  const yt = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
-  if(yt) return yt[0];
-  const fb = text.match(/https?:\/\/(?:www\.)?facebook\.com\/[^ \n]+\/videos\/\d+/);
-  if(fb) return fb[0];
+  const iframe = el('iframe', {
+    src,
+    width: '700',
+    height: '525',
+    style: 'border:none;overflow:hidden;max-width:100%;width:100%;aspect-ratio: 4 / 3;',
+    scrolling: 'no',
+    frameborder: '0',
+    allow:
+      'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share',
+    allowfullscreen: 'true'
+  });
+
+  return iframe;
+}
+
+function extractFirstFacebookLinkFromHTML(html) {
+  // 1) explicit <a href="https://www.facebook.com/...">
+  const anchorMatch = html.match(
+    /<a[^>]+href=["'](https?:\/\/(?:www\.)?facebook\.com\/[^"']+)["']/i
+  );
+  if (anchorMatch) return anchorMatch[1];
+
+  // 2) plain URL present in text (rare after WP formatting)
+  const urlMatch = html.match(
+    /(https?:\/\/(?:www\.)?facebook\.com\/[^\s<"]+)/i
+  );
+  if (urlMatch) return urlMatch[1];
 
   return null;
 }
 
-function normalizePlayerSrc(url){
-  if(!url) return null;
-  const u = url.replace(/&amp;/g,'&');
+function heroMediaFromPost(post) {
+  // Prefer FB embed if present in content
+  const content = post?.content?.rendered || '';
+  const fbUrl = extractFirstFacebookLinkFromHTML(content);
 
-  // Vimeo
-  const vimeo = u.match(/vimeo\.com\/(\d+)/);
-  if(vimeo) return { type:'vimeo', src:`https://player.vimeo.com/video/${vimeo[1]}` };
-
-  // YouTube
-  const yt = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-  if(yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]}` };
-
-  // Facebook (page/video path)
-  const fb = u.match(/facebook\.com\/[^/]+\/videos\/(\d+)/);
-  if(fb){
-    const encoded = encodeURIComponent(u.split('?')[0]); // use canonical path
-    return { type:'facebook', src:`https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false` };
+  if (fbUrl) {
+    return facebookEmbedIframeFromUrl(fbUrl);
   }
 
-  return { type:'other', src:u };
+  // fallback featured image if available via _embedded
+  const media =
+    post?._embedded?.['wp:featuredmedia'] &&
+    post._embedded['wp:featuredmedia'][0];
+
+  if (media && media.source_url) {
+    const img = el('img', {
+      src: media.source_url,
+      alt: media.alt_text || post.title?.rendered || 'Featured image',
+      style:
+        'width:100%;height:auto;display:block;border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.06)'
+    });
+    return img;
+  }
+
+  return null;
 }
 
-/* ---------- WP cleaners ---------- */
-function stripEmptyBlocks(html=''){
-  let s = String(html);
-  s = s.replace(/<div[^>]*class=["'][^"']*mceTemp[^"']*["'][^>]*>.*?<\/div>/gis,'');
-  s = s.replace(/<figure[^>]*>\s*<\/figure>/gis,'');
-  s = s.replace(/<figcaption>\s*<\/figcaption>/gis,'');
-  s = s.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gis,'');
-  s = s.replace(/<p>\s*(?:&nbsp;|\s|<br\s*\/?>)*\s<\/p>/gis,'');
-  return s;
+function authorLine(post) {
+  const name =
+    (post?._embedded?.author && post._embedded.author[0]?.name) ||
+    'Oklahoma Observer';
+  const date = fmtDate(post?.date);
+  const line = el(
+    'div',
+    {
+      class: 'detail-meta',
+      style:
+        'color:#52616b;font-size:14px;margin:8px 0 12px 0;'
+    },
+    `By ${name} — ${date}`
+  );
+  return line;
 }
 
-/* ---------- UI helpers ---------- */
-function backButtonHTML(){
-  return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`;
-}
-function posterHTML(src, title){
-  if(!src) return '';
-  return `
-    <div class="oko-video-poster" role="button" tabindex="0" aria-label="Play video">
-      <img src="${src}" alt="${decode(title)}" class="oko-video-poster__img">
-      <button class="oko-video-poster__play" aria-label="Play video">▶</button>
-    </div>`;
-}
-function playerHTML(embed){
-  if(!embed?.src) return '';
-  const common = `loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade" frameborder="0"`;
-  return `
-    <div class="oko-video-embed">
-      <iframe src="${embed.src}" ${common}></iframe>
-    </div>`;
+function cleanContentHTML(html) {
+  // Trim giant empty wrappers WP sometimes injects.
+  // Also remove lone <div class="mceTemp"></div> blocks
+  let out = html
+    .replace(/<div class="mceTemp"><\/div>/g, '')
+    .replace(/<p>\s*<\/p>/g, '');
+  return out;
 }
 
-/* ---------- render ---------- */
-export default async function renderDetail(app, idParam){
-  const mount = app || document.getElementById('app');
-  const id = Array.isArray(idParam)? idParam[0] : idParam;
+async function renderDetail(container, id) {
+  container.innerHTML = '';
 
-  if(!API_BASE){ mount.innerHTML=`<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
-  if(!id){ mount.innerHTML=`<section class="page-error"><p>Page error: missing id.</p></section>`; return; }
+  ap(container, makeBackButton());
 
-  mount.innerHTML = `
-    <article class="post-detail">
-      <div class="oko-actions-top">${backButtonHTML()}</div>
-      <figure class="post-media" style="margin:0 0 1rem 0"></figure>
-      <header class="post-header">
-        <h1 class="post-title" style="margin:.5rem 0">Loading…</h1>
-        <div class="post-meta" style="color:#666"></div>
-      </header>
-      <div class="post-content" style="line-height:1.7">Please wait…</div>
-      <div class="oko-actions-bottom" style="margin-top:1.25rem">${backButtonHTML()}</div>
-    </article>
-  `;
-
-  const $title = mount.querySelector('.post-title');
-  const $meta  = mount.querySelector('.post-meta');
-  const $media = mount.querySelector('.post-media');
-  const $body  = mount.querySelector('.post-content');
-
-  mount.addEventListener('click',(e)=>{
-    const b = e.target.closest('[data-nav="back"]');
-    if(b){ e.preventDefault(); window.location.hash = '#/'; }
+  const card = el('article', {
+    class: 'detail-card',
+    style:
+      'background:#fff;border:1px solid #e6e8eb;border-radius:14px;max-width:980px;margin:0 auto 56px;box-shadow:0 1px 2px rgba(0,0,0,.05);padding:18px 18px 24px 18px;'
   });
 
+  const mediaBox = el('div', {
+    style: 'width:100%;margin:4px 0 12px 0;'
+  });
+
+  const titleBox = el('div', { style: 'margin:8px 0;' });
+  const title = el(
+    'h1',
+    {
+      style:
+        'font-size:28px;line-height:1.2;margin:0 0 4px 0;letter-spacing:.2px;'
+    },
+    safeHTML((window.DOMPurify && window.DOMPurify.sanitize(post.title?.rendered)) || '')
+  );
+
+  // Fetch post
   let post;
-  try{
-    post = await apiJSON(`posts/${encodeURIComponent(id)}`, {_embed:1});
-  }catch(err){
-    console.error('[Detail] fetch failed', err);
-    $body.innerHTML = `<p class="error" style="color:#b00">Failed to load post.</p>`;
+  try {
+    post = await fetchWithRetry(
+      `${API}/posts/${id}?_embed=1`,
+      { mode: 'cors' },
+      2
+    ).then((r) => r.json());
+  } catch (e) {
+    card.innerHTML =
+      '<p style="color:#c1121f">Failed to load post.</p>';
+    ap(container, card);
     return;
   }
 
-  const title  = post.title?.rendered || '(Untitled)';
-  const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const date   = prettyDate(post.date || post.date_gmt);
-  const contentRaw = post.content?.rendered || '';
+  // HERO media (FB embed or featured image)
+  const hero = heroMediaFromPost(post);
+  if (hero) ap(mediaBox, hero);
 
-  $title.innerHTML = title;
-  $meta.textContent = `By ${author} — ${date}`;
+  // Title/Meta AFTER media
+  title.innerHTML = post?.title?.rendered || '';
+  ap(titleBox, title);
+  ap(titleBox, authorLine(post));
 
-  // media: poster first, then embed when clicked
-  const poster = featuredSrc(post);
-  const vidURL = extractVideoURL(contentRaw);
-  const embed  = vidURL ? normalizePlayerSrc(vidURL) : null;
+  // Content
+  const contentBox = el('div', {
+    class: 'detail-content',
+    style:
+      'font-size:17px;line-height:1.68;color:#222;'
+  });
+  contentBox.innerHTML = cleanContentHTML(post?.content?.rendered || '');
 
-  if(poster && embed){
-    $media.innerHTML = posterHTML(poster, decode(title));
-    const posterEl = $media.querySelector('.oko-video-poster');
-    const swap = ()=>{ $media.innerHTML = playerHTML(embed); };
-    posterEl?.addEventListener('click', swap);
-    posterEl?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); swap(); }});
-  }else if(embed){
-    $media.innerHTML = playerHTML(embed);
-  }else if(poster){
-    $media.innerHTML = `<img src="${poster}" alt="" style="width:100%;height:auto;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);">`;
-  }else{
-    // nothing to show → drop wrapper to avoid big gap
-    $media.remove();
-  }
+  // Assemble
+  ap(card, mediaBox);
+  ap(card, titleBox);
+  ap(card, contentBox);
 
-  // content cleanup & render
-  let content = stripEmptyBlocks(contentRaw)
-    .replaceAll('<iframe','<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
-    .replaceAll('<img','<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
-  $body.innerHTML = content;
+  ap(container, card);
 
-  // tidy first paragraph
-  const firstP = $body.querySelector('p');
-  if(firstP){
-    firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i,'').trimStart();
-    firstP.style.textIndent='0';
-  }
+  // Add another back button at the end (real button style)
+  const tailBack = makeBackButton();
+  tailBack.style.margin = '8px 0 0 0';
+  ap(container, tailBack);
 
-  // external links → new tab
-  $body.querySelectorAll('a[href]').forEach(a=>{
-    const href=a.getAttribute('href')||'';
-    if(!href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')){
-      a.target='_blank'; a.rel='noopener';
+  // Clicks on internal links should not leave the SPA
+  card.addEventListener('click', (ev) => {
+    const a = ev.target.closest('a');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href) return;
+    if (href.startsWith('#/')) {
+      // our internal route, let router handle it
+      ev.preventDefault();
+      window.location.hash = href.slice(1);
     }
   });
 }
 
-/* ---------- local styles ---------- */
-const __once='oko-detail-media-first-v266';
-if(!document.getElementById(__once)){
-  const style=document.createElement('style'); style.id=__once; style.textContent=`
-  .oko-actions-top{ margin:.4rem 0 .75rem 0; }
-  .oko-btn-back{
-    display:inline-flex;align-items:center;gap:.45rem;background:#1e63ff;color:#fff;border:0;
-    border-radius:999px;padding:.5rem .9rem;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12)
-  }
-  .oko-btn-back:hover{filter:brightness(1.05)} .oko-btn-back:active{transform:translateY(1px)}
-  .oko-video-poster{position:relative;display:block;border-radius:12px;overflow:hidden;background:#000;margin:0 0 1rem 0}
-  .oko-video-poster__img{display:block;width:100%;height:auto;opacity:.98;transition:transform .18s ease, opacity .18s ease}
-  .oko-video-poster:hover .oko-video-poster__img{transform:scale(1.01);opacity:1}
-  .oko-video-poster__play{
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:0;border-radius:999px;
-    padding:.7rem 1rem;font-size:1.05rem;background:#1e63ff;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer;z-index:3
-  }
-  .oko-video-embed{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:0 0 1rem 0}
-  .oko-video-embed iframe{position:absolute;inset:0;width:100%;height:100%}
-  `; document.head.appendChild(style);
+export default async function start(app, id) {
+  const container = el('div', { class: 'detail-root', style: 'padding:10px 12px 24px;' });
+  app.innerHTML = '';
+  ap(app, container);
+  await renderDetail(container, id);
 }

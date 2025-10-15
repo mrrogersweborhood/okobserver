@@ -22,3 +22,12 @@
 }
 .ok-card__media img { width: 100%; height: auto; display:block; }
 .ok-card__body { padding: 12px 14px; }
+.detail-back-wrap {
+  margin-top: 10px;
+}
+
+.detail-card iframe,
+.detail-card img {
+  max-width: 100%;
+  height: auto;
+}
