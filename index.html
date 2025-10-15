@@ -1,19 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Silence favicon 404 (harmless but noisy) -->
-  <link rel="icon" href="data:,">
-
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OkObserver</title>
-  <link rel="stylesheet" href="app.css" />
+  <meta name="description" content="The Oklahoma Observer - To comfort the afflicted and afflict the comfortable.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
 
-  <!-- Permanent guards: 4-up grid + title cleanup -->
+  <style>
+    :root {
+      --brand: #1E63FF;
+      --light-bg: #f5f7fb;
+      --text-dark: #111;
+      --border: #ddd;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--light-bg);
+      color: var(--text-dark);
+    }
+
+    header {
+      background: var(--brand);
+      color: #fff;
+      padding: 0.6rem 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      margin-left: 1.2rem;
+      font-weight: 500;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+
+    main {
+      padding: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h2 {
+      margin-top: 0;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #777;
+      padding: 1rem 0;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+  </style>
+
+  <!-- 🔒 Permanent 4-column grid and card styling -->
   <style id="oko-guards">
-    /* ====== Responsive, enforced posts grid ======
-       Wide: 4 columns; Medium: 2; Small: 1.
-       Uses broad selectors so theme/JS changes won’t break it. */
     #app .posts-grid,
     #app .posts-list,
     #app .posts,
@@ -22,142 +81,99 @@
     #app > .grid {
       display: grid !important;
       grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-      gap: 22px !important;
+      gap: 28px !important;
       align-items: start !important;
+      justify-items: stretch !important;
+      margin-top: 1rem !important;
     }
-    @media (max-width: 1200px){
+
+    @media (max-width: 1200px) {
       #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
         grid-template-columns: repeat(3, minmax(0,1fr)) !important;
       }
     }
-    @media (max-width: 900px){
+    @media (max-width: 900px) {
       #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
         grid-template-columns: repeat(2, minmax(0,1fr)) !important;
       }
     }
-    @media (max-width: 560px){
+    @media (max-width: 560px) {
       #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
         grid-template-columns: 1fr !important;
       }
     }
 
-    /* Make cards behave inside the enforced grid */
-    .post-card { width: 100% !important; max-width: none !important; display: block; }
-    .post-card img { width: 100% !important; height: auto !important; display: block; }
+    .post-card {
+      width: 100% !important;
+      max-width: none !important;
+      display: block;
+      background: #fff !important;
+      border-radius: 10px !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+      overflow: hidden;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
 
-    /* ====== Detail page: remove any blue box behind titles ====== */
-    .post-detail .post-header .post-title,
-    .post-detail h1.post-title {
+    .post-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    }
+
+    .post-card img {
+      width: 100% !important;
+      height: auto !important;
+      display: block;
+      border-bottom: 1px solid #eee;
+    }
+
+    .post-card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0.7rem 0.8rem;
+      color: var(--brand);
+    }
+
+    .post-card p {
+      margin: 0 0.8rem 1rem 0.8rem;
+      color: #333;
+      line-height: 1.4;
+    }
+
+    .post-card a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Remove unwanted title backgrounds from detail pages */
+    .post-detail .post-title {
       background: transparent !important;
-      background-image: none !important;
-      border: 0 !important;
       box-shadow: none !important;
-      padding: 0 !important;
-      margin: .6rem 0 .2rem 0 !important;
-      color: #111 !important;
+      border: none !important;
     }
-    .post-detail .post-header .post-title::before,
-    .post-detail .post-header .post-title::after {
-      content: none !important;
-      display: none !important;
-    }
-
-    /* Optional: subtle base layout (unchanged) */
-    body { font-family: system-ui, sans-serif; margin: 0; background: #f7f9fc; }
-    header {
-      background: #1e63ff; color: #fff; padding: 1rem;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    header h1 { margin: 0; font-size: 1.5rem; }
-    nav a { color: #fff; margin-left: 1rem; text-decoration: none; font-weight: 600; }
-    main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
-    footer { text-align: center; padding: 1rem; color: #555; font-size: 0.85rem; }
   </style>
 </head>
 
 <body>
   <header>
-    <div>
-      <h1>OkObserver</h1>
-      <p style="font-size:0.8rem; margin:0;">"To comfort the afflicted and afflict the comfortable."</p>
-    </div>
+    <h1>OkObserver</h1>
     <nav>
       <a href="#/">Posts</a>
       <a href="#/about">About</a>
     </nav>
   </header>
 
-  <main id="app">
-    <!-- Content dynamically injected here -->
+  <main>
+    <div id="app">
+      <h2>Latest Posts</h2>
+      <p>Loading…</p>
+    </div>
   </main>
 
   <footer>
     © 2025 The Oklahoma Observer • All Rights Reserved.
   </footer>
 
-  <!-- Keep whatever your current main.js expects (module or classic). 
-       If your working build showed “Entry loaded v2.x” without import errors,
-       leave this EXACTLY as it was in your working setup. -->
+  <!-- Load main app -->
   <script type="module" src="main.js"></script>
-
-  <!-- JS enforcer: re-applies grid & title cleanup after any route/render -->
-  <script>
-    (function enforceGuards(){
-      const APP = document.getElementById('app');
-      if (!APP) return;
-
-      function getCards(root){
-        const candidates = root.querySelectorAll(
-          '.post-card, .card, article.post, article, li.post, [data-post-id]'
-        );
-        return [...candidates].filter(el =>
-          el.querySelector('a[href*="#/post/"]') || el.querySelector('a[href*="/#/post/"]')
-        );
-      }
-
-      function ensureGrid(){
-        const cards = getCards(APP);
-        if (cards.length < 2) return;
-
-        // Find a container that holds multiple cards; fall back to #app
-        let container = cards[0].parentElement;
-        while (container && container !== APP) {
-          const count = getCards(container).length;
-          if (count > 1) break;
-          container = container.parentElement;
-        }
-        if (!container || container === document.body) container = APP;
-
-        container.style.setProperty('display', 'grid', 'important');
-        container.style.setProperty('grid-template-columns', 'repeat(4, minmax(0, 1fr))', 'important');
-        container.style.setProperty('gap', '22px', 'important');
-        container.style.setProperty('align-items', 'start', 'important');
-
-        cards.forEach(c => {
-          c.style.setProperty('width', '100%', 'important');
-          c.style.setProperty('max-width', 'none', 'important');
-          c.style.setProperty('display', 'block', 'important');
-        });
-      }
-
-      function cleanTitleBox(){
-        document.querySelectorAll('.post-detail .post-title').forEach(t => {
-          t.style.setProperty('background', 'transparent', 'important');
-          t.style.setProperty('border', '0', 'important');
-          t.style.setProperty('box-shadow', 'none', 'important');
-          t.style.setProperty('padding', '0', 'important');
-        });
-      }
-
-      // Run now and keep running as the SPA updates
-      ensureGrid(); cleanTitleBox();
-
-      const obs = new MutationObserver(() => { ensureGrid(); cleanTitleBox(); });
-      obs.observe(APP, { childList: true, subtree: true });
-
-      window.addEventListener('hashchange', () => setTimeout(() => { ensureGrid(); cleanTitleBox(); }, 0));
-      document.addEventListener('DOMContentLoaded', () => { ensureGrid(); cleanTitleBox(); });
-    })();
-  </script>
 </body>
 </html>
