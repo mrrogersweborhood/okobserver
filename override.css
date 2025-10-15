@@ -653,4 +653,59 @@ figure:empty,
   margin: 0 !important;
   box-sizing: border-box;
 }
+/* --- Post Detail: remove unwanted blue box behind title --- */
+
+.post-detail .post-title,
+.single-post .post-title,
+#post-detail .post-title,
+#app .post-title.single,
+#app article.single .post-title,
+.post-view .post-title {
+  background: none !important;
+  color: #1e90ff !important;     /* keep brand blue text */
+  padding: 0 !important;
+  margin: 0 0 0.5rem 0 !important;
+  display: block;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* In case a wrapper div has background */
+.post-detail header,
+.single-post header,
+#post-detail header,
+.post-view header {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+/* Post Detail: ensure author + date are visible and spaced */
+.post-detail .post-meta,
+.post-detail .post-byline,
+.post-detail .post-date {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 0 0 0.75rem 0 !important;
+  color: #6b7280 !important;   /* neutral gray */
+  font-size: 0.95rem !important;
+  line-height: 1.4 !important;
+}
+
+/* In case theme targets these */
+#app .post-meta, 
+#app .post-byline, 
+#app .post-date {
+  display: block !important;
+}
+
+/* Remove any unwanted backgrounds/borders around the header area */
+.post-detail header,
+.post-detail .post-header {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 0 .5rem 0 !important;
+}
 
