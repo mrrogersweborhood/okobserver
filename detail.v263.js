@@ -233,3 +233,45 @@ if (!document.getElementById(__once)) {
   document.head.appendChild(style);
 }
 export { renderDetail as renderPostDetail };
+// --- Safety: ensure author + date render in post detail ---
+(function ensureByline() {
+  try {
+    const root = document.querySelector('.post-detail') || document.querySelector('#post-detail') || document.querySelector('#app article');
+    if (!root) return;
+
+    // If byline already exists, leave it alone
+    const hasByline = root.querySelector('.post-byline, .post-meta, .post-date');
+    if (hasByline) return;
+
+    // Try to read data from any dataset your renderer set on the container
+    const titleEl = root.querySelector('.post-title');
+    const isoDate = root.dataset?.date || root.getAttribute('data-date'); // e.g., "2025-10-10T12:34:56Z"
+    const author = root.dataset?.author || root.getAttribute('data-author'); // e.g., "Arnold Hamilton"
+
+    // Format date (fallback to locale)
+    let prettyDate = '';
+    if (isoDate) {
+      const d = new Date(isoDate);
+      if (!isNaN(d)) prettyDate = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    // Build a simple byline if we have at least one piece of info
+    if (author || prettyDate) {
+      const meta = document.createElement('div');
+      meta.className = 'post-meta';
+      meta.style.margin = '0 0 .75rem 0';
+      meta.style.color = '#6b7280';
+      meta.style.fontSize = '.95rem';
+      meta.textContent = [author, prettyDate].filter(Boolean).join(' • ');
+      // Insert after title, or at top if no title found
+      if (titleEl && titleEl.parentNode) {
+        titleEl.parentNode.insertBefore(meta, titleEl.nextSibling);
+      } else {
+        root.insertBefore(meta, root.firstChild);
+      }
+    }
+  } catch (e) {
+    console.warn('[detail] ensureByline skipped:', e);
+  }
+})();
+
