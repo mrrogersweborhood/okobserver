@@ -202,3 +202,72 @@ figure:empty,
   height: 0 !important;
   min-height: 0 !important;
 }
+/* --- Softer post summary cards (append-only) --- */
+.post-grid,
+.posts-grid,
+#post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  gap: 1.5rem; /* slightly more breathing room between cards */
+}
+
+.ok-card,
+.post-card,
+#app .card,
+#app article {
+  border-radius: 18px !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07) !important;
+  transition: box-shadow 0.25s ease, transform 0.18s ease;
+}
+
+.ok-card:hover,
+.post-card:hover,
+#app .card:hover,
+#app article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+}
+
+/* --- Softer post summary cards (append-only) --- */
+.post-grid,
+.posts-grid,
+#post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  gap: 1.5rem; /* slightly more breathing room between cards */
+}
+
+.ok-card,
+.post-card,
+#app .card,
+#app article {
+  border-radius: 18px !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07) !important;
+  transition: box-shadow 0.25s ease, transform 0.18s ease;
+}
+
+.ok-card:hover,
+.post-card:hover,
+#app .card:hover,
+#app article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 16px rgba(0,0,0,0.12);
+}
+
+/* Match image corners to cards for smoother look */
+.post-thumb img,
+.post-card img,
+#app .card img,
+#app article img {
+  border-radius: 14px !important;
+  transition: transform 0.2s ease;
+}
+
+.post-thumb img:hover,
+.post-card img:hover,
+#app .card img:hover,
+#app article img:hover {
+  transform: scale(1.02);
+}
