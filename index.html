@@ -1,226 +1,66 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- OkObserver · index.html · v2.6.5 -->
-  <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1e63ff" />
-  <meta name="color-scheme" content="light" />
-  <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
-
-  <!-- Gentle no-cache to fight stale assets on GH Pages -->
-  <meta http-equiv="Cache-Control" content="no-store, max-age=0, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-
-  <title>OkObserver</title>
-
-  <!-- Tiny inline favicon to avoid 404s -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%231e63ff'/%3E%3C/svg%3E" />
-
-  <!-- Your main stylesheet (cache-busted) -->
-  <link rel="stylesheet" href="./styles.css?v=265" />
-
-  <!-- Inline layout CSS: header + grid helpers -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Oklahoma Observer</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <style>
-    :root {
-      --brand: #1e63ff;
-      --text: #111827;
-      --muted: #6b7280;
-      --bg: #ffffff;
-      --card: #ffffff;
-      --border: rgba(0,0,0,.06);
+    :root { --brand:#1e63ff; --brand-dark:#0047cc; --light-bg:#f8f9fa; --text-color:#111; }
+    body { font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; background:var(--light-bg); color:var(--text-color); }
+    header { background: var(--brand); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:14px 18px; position:sticky; top:0; z-index:1000; }
+    header .logo { display:flex; flex-direction:column; }
+    header .logo h1 { font-size:1.6rem; font-weight:700; margin:0; }
+    header .logo span { font-size:.75rem; font-style:italic; opacity:.9; }
+    nav { display:flex; align-items:center; gap:18px; }
+    nav a { color:#fff; text-decoration:none; font-weight:600; }
+    nav a:hover { text-decoration:underline; }
+    .hamburger { display:none; flex-direction:column; justify-content:center; align-items:center; cursor:pointer; width:32px; height:32px; }
+    .hamburger span { height:3px; width:22px; background:#fff; margin:3px 0; border-radius:2px; }
+    @media (max-width:700px) {
+      nav { display:none; flex-direction:column; background:var(--brand); position:absolute; top:60px; right:10px; border-radius:6px; box-shadow:0 2px 5px rgba(0,0,0,.2); }
+      nav.show { display:flex; }
+      .hamburger { display:flex; }
     }
-    html, body {
-      margin: 0; padding: 0;
-      background: var(--bg); color: var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    /* ===== Sticky Header ===== */
-    .site-header {
-      position: sticky; top: 0; z-index: 1000;
-      background: var(--brand); color: #fff;
-      box-shadow: 0 1px 2px rgba(0,0,0,.1);
-    }
-    .header-wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 10px 14px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 4px;
-      min-width: 0;
-    }
-    .brand .logo {
-      font-family: Georgia, "Times New Roman", serif;
-      font-weight: 800;
-      font-size: 28px;
-      line-height: 1;
-      margin: 0;
-      color: #fff;
-      text-decoration: none;
-    }
-    .brand .motto {
-      font-size: 12.5px;
-      font-style: italic;
-      opacity: .95;
-      margin: 0;
-      color: #f5f7ff;
-    }
-
-    /* Hamburger (right) */
-    .hamburger {
-      appearance: none;
-      background: transparent;
-      border: 0;
-      cursor: pointer;
-      padding: 8px;
-      border-radius: 10px;
-      transition: background .15s ease;
-    }
-    .hamburger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    .hamburger:hover { background: rgba(255,255,255,.12); }
-    .hamburger .bars {
-      display: inline-block; width: 22px; height: 2px;
-      background: #fff; position: relative;
-    }
-    .hamburger .bars::before,
-    .hamburger .bars::after {
-      content: ""; position: absolute; left: 0; right: 0; height: 2px; background: #fff;
-    }
-    .hamburger .bars::before { top: -6px; }
-    .hamburger .bars::after  { top:  6px; }
-
-    /* Slide-down nav panel */
-    .nav-panel {
-      background: rgba(255,255,255,.10);
-      overflow: hidden;
-      transition: grid-template-rows .25s ease, opacity .25s ease;
-      display: grid;
-      grid-template-rows: 0fr; /* collapsed */
-      opacity: 0;
-    }
-    .nav-panel.open {
-      grid-template-rows: 1fr; /* expanded */
-      opacity: 1;
-    }
-    .nav-inner {
-      min-height: 0;
-    }
-    .nav {
-      display: flex;
-      gap: 18px;
-      padding: 10px 14px;
-    }
-    .nav a {
-      color: #fff; text-decoration: none; font-weight: 600;
-    }
-    .nav a:hover { text-decoration: underline; }
-
-    /* ===== App Container ===== */
-    #app { max-width: 1200px; margin: 0 auto; padding: 16px; }
-
-    /* ===== Grid helpers (used by Home) ===== */
-    .ok-grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      align-items: start;
-    }
-    @media (max-width: 1200px) { .ok-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 900px)  { .ok-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 600px)  { .ok-grid { grid-template-columns: 1fr; } }
-
-    .ok-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 1px 2px rgba(0,0,0,.05);
-    }
-    .ok-thumb {
-      width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #f2f4f7;
-    }
-    .ok-body { padding: 12px 14px; }
-    .ok-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; line-height: 1.25; }
-    .ok-title a { color: #153e90; text-decoration: none; }
-    .ok-title a:hover { text-decoration: underline; }
-    .ok-meta { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
-    .ok-excerpt { margin: 0; color: #222; font-size: 14px; line-height: 1.45; }
-
-    /* Detail page soft card (if your CSS doesn't already handle it) */
-    .post-detail {
-      background: #fff; border: 1px solid rgba(0,0,0,.05);
-      border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.05);
-      padding: 1.5rem; margin: 2rem 0;
-    }
-    .post-detail .back-link { color: #1e63ff; text-decoration: none; font-weight: 500; }
-    .post-detail .back-link:hover { text-decoration: underline; }
+    main { padding:20px; }
+    footer { text-align:center; padding:20px; font-size:14px; color:#666; background:#f3f3f3; border-top:1px solid #ddd; }
+    .detail-back-wrap { margin-top:10px; }
+    .detail-card iframe, .detail-card img { max-width:100%; height:auto; }
+    .ok-grid { display:grid; gap:18px; grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:start; }
+    @media (max-width:1200px){ .ok-grid{ grid-template-columns:repeat(3,1fr);} }
+    @media (max-width:900px){ .ok-grid{ grid-template-columns:repeat(2,1fr);} }
+    @media (max-width:600px){ .ok-grid{ grid-template-columns:1fr;} }
+    .ok-card{ background:#fff; border:1px solid rgba(0,0,0,.06); border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+    .ok-thumb{ width:100%; aspect-ratio:16/9; object-fit:cover; display:block; background:#f2f4f7; }
+    .ok-body{ padding:12px 14px; }
+    .ok-title{ margin:0 0 6px; font-size:18px; font-weight:700; line-height:1.25; }
+    .ok-title a{ color:#153e90; text-decoration:none; }
+    .ok-title a:hover{ text-decoration:underline; }
+    .ok-meta{ margin:0 0 8px; color:#6b7280; font-size:13px; }
+    .ok-excerpt{ margin:0; color:#222; font-size:14px; line-height:1.45; }
   </style>
 </head>
 <body>
-  <!-- ===== Sticky Header ===== -->
-  <header class="site-header">
-    <div class="header-wrap">
-      <div class="brand">
-        <a class="logo" href="#/">OkObserver</a>
-        <p class="motto">“To comfort the afflicted and afflict the comfortable.”</p>
-      </div>
-      <button class="hamburger" id="menuBtn" aria-expanded="false" aria-controls="siteNav" aria-label="Open navigation">
-        <span class="bars"></span>
-      </button>
+  <header>
+    <div class="logo">
+      <h1>OkObserver</h1>
+      <span>"To comfort the afflicted and afflict the comfortable."</span>
     </div>
-
-    <!-- Slide-down nav panel -->
-    <div class="nav-panel" id="siteNav">
-      <div class="nav-inner">
-        <nav class="nav" role="navigation">
-          <a href="#/">Posts</a>
-          <a href="#/about">About</a>
-        </nav>
-      </div>
+    <div class="hamburger" id="hamburger">
+      <span></span><span></span><span></span>
     </div>
+    <nav id="menu">
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+    </nav>
   </header>
-
-  <!-- ===== App Root ===== -->
-  <main id="app" aria-live="polite"></main>
-
-  <!-- Optional global portals -->
-  <div id="toast" aria-live="assertive" aria-atomic="true"></div>
-  <div id="modal-root" aria-hidden="true"></div>
-
-  <!-- Slide-down nav toggle (no dependency) -->
-  <script>
-    (function () {
-      const btn = document.getElementById('menuBtn');
-      const panel = document.getElementById('siteNav');
-      if (!btn || !panel) return;
-      const toggle = () => {
-        const open = panel.classList.toggle('open');
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      };
-      btn.addEventListener('click', toggle);
-      // Close panel on navigation click
-      panel.addEventListener('click', (e) => {
-        const a = e.target.closest('a[href^="#/"]');
-        if (a) {
-          panel.classList.remove('open');
-          btn.setAttribute('aria-expanded', 'false');
-        }
-      });
-    })();
-  </script>
-
-  <!-- Main ESM entry (cache-busted). Your router will import home/detail chunks. -->
+  <main id="app"><p>Loading…</p></main>
+  <footer>© 2025 The Oklahoma Observer. All Rights Reserved.</footer>
   <script type="module" src="./main.js?v=265"></script>
+  <script>
+    const hamburger = document.getElementById('hamburger');
+    const menu = document.getElementById('menu');
+    hamburger.addEventListener('click', () => menu.classList.toggle('show'));
+  </script>
 </body>
 </html>
