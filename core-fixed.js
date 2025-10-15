@@ -1,53 +1,61 @@
-// core-fixed.js v2.65
-const app = document.getElementById('app');
+// core-fixed.js — clean dynamic imports (NO ?v= in import() URLs)
 
-function parseHash() {
-  const raw = (location.hash || '#/').replace(/^#\/?/, '');
-  return raw ? raw.split('/') : [];
+export function start() {
+  router();
 }
 
+// Basic, safe escaper for error text
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Centralized dynamic import with optional version stripping (defensive)
 async function loadModule(path) {
-  const mod = await import(path);
-  const render =
-    (typeof mod.default === 'function' && mod.default) ||
-    (typeof mod.render === 'function' && mod.render) ||
-    (typeof mod.home === 'function' && mod.home) ||
-    (typeof mod.main === 'function' && mod.main) ||
-    null;
-  if (!render) throw new TypeError('mod.default is not a function');
-  return render;
-}
-
-export async function start() {
-  await router();
-  addEventListener('hashchange', router, { passive: true });
+  // If someone passes "...js?v=271", strip the query so GitHub Pages can serve it
+  const clean = path.split("?")[0];
+  return import(clean);
 }
 
 export async function router() {
+  const app = document.getElementById("app");
   if (!app) return;
-  const [route, id] = parseHash();
+
+  const hash = (window.location.hash || "#/").slice(2); // remove "#/"
+  const [route, id] = hash.split("/");
+
   try {
-    if (!route) {
-      const render = await loadModule('./home.js?v=265');
-      return render(app);
+    if (!route || route === "") {
+      const mod = await loadModule("./home.v263.js");
+      await mod.renderHome(app);
+      return;
     }
-    if (route === 'about') {
-      const render = await loadModule('./about.js?v=265');
-      return render(app);
+
+    if (route === "about") {
+      const mod = await loadModule("./about.v263.js");
+      await mod.renderAbout(app);
+      return;
     }
-    if (route === 'post' && id) {
-      const render = await loadModule('./detail.v263.js?v=265');
-      return render(app, id);
+
+    if (route === "post" && id) {
+      const mod = await loadModule("./detail.v263.js");
+      await mod.renderPost(app, id);
+      return;
     }
-    const render = await loadModule('./home.js?v=265');
-    return render(app);
+
+    // Fallback to home if unknown route
+    const mod = await loadModule("./home.v263.js");
+    await mod.renderHome(app);
   } catch (err) {
-    console.error('[Router error]', err);
-    app.innerHTML = `
-      <section class="container"><p class="page-error">
-        Page error: ${String(err && err.message || err)}
-      </p></section>`;
+    console.error("[Router error]", err);
+    app.innerHTML = `<div class="container" style="padding:2rem">
+      <p style="color:#b00020">Page error: ${escapeHtml(err?.message || String(err))}</p>
+    </div>`;
   }
 }
 
-start();
+// Keep hash routing responsive
+window.addEventListener("hashchange", router);
+window.addEventListener("DOMContentLoaded", router);
