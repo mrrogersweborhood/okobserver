@@ -708,4 +708,42 @@ figure:empty,
   padding: 0 !important;
   margin: 0 0 .5rem 0 !important;
 }
+/* --- FORCE FIX: Post Detail title, author, and date --- */
+
+.post-detail .post-title,
+.single-post .post-title,
+#post-detail .post-title,
+#app article.single .post-title {
+  background: none !important;
+  color: #1e90ff !important;
+  padding: 0 !important;
+  margin: 0 0 .75rem 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Reveal author and date if hidden */
+.post-detail .post-meta,
+.post-detail .post-byline,
+.post-detail .post-date,
+#post-detail .post-meta,
+#post-detail .post-byline,
+#post-detail .post-date {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #6b7280 !important;
+  font-size: 0.95rem !important;
+  margin: 0 0 0.75rem 0 !important;
+}
+
+/* Some themes put meta inside header—neutralize its bg too */
+.post-detail header,
+#post-detail header,
+.single-post header {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
 
