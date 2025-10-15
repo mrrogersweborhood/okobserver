@@ -1,13 +1,14 @@
-/* OkObserver · detail.v263.js · v2.6.5 (media-first + real buttons)
+/* OkObserver · detail.v263.js · v2.6.5 (media-first + spacing + cleaners)
    - Media (featured image or poster) at the TOP
    - Title, author, date BELOW the media
-   - "Back to Posts" as real BUTTONS (top & bottom)
-   - Click poster → swap to Vimeo/YT embed (no autoplay)
-   - Strip empty WP wrappers; responsive iframes/images
-   - Self-contained; no external utils
+   - Real "Back to Posts" buttons (top & bottom) with proper spacing
+   - Click poster → embed player (no autoplay)
+   - Aggressive cleanup of empty WP wrappers to remove big white gaps
+   - Remove media wrapper entirely if it ends up empty
+   - Robust video URL detection (Vimeo/YouTube + query params + &amp;)
+   - Self-contained
 */
 
-// ---------- helpers ----------
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
 
 function joinUrl(base, path) {
@@ -30,11 +31,8 @@ async function apiJSON(pathOrUrl, params) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
-const prettyDate = iso => {
-  try { return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }); }
-  catch { return iso || ''; }
-};
-const decode = (html = '') => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent || d.innerText || ''; };
+const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' }); } catch { return iso || ''; } };
+const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||''; };
 
 function featuredSrc(post) {
   const fm = post?._embedded?.['wp:featuredmedia']?.[0];
@@ -45,23 +43,31 @@ function featuredSrc(post) {
   );
 }
 
+// ————— video detection (stronger) —————
 function extractVideoURL(html = '') {
-  const d = document.createElement('div'); d.innerHTML = html;
+  const unwrap = html.replace(/&amp;/g, '&');
+  const d = document.createElement('div');
+  d.innerHTML = unwrap;
+
+  // 1) explicit anchors
   for (const a of d.querySelectorAll('a[href]')) {
-    const href = a.getAttribute('href') || '';
+    const href = (a.getAttribute('href') || '').replace(/&amp;/g, '&');
     if (/vimeo\.com\/\d+/.test(href)) return href;
     if (/(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/.test(href)) return href;
   }
+  // 2) iframes
   const f = d.querySelector('iframe[src*="vimeo.com"],iframe[src*="youtube.com"],iframe[src*="youtu.be"]');
-  if (f) return f.getAttribute('src') || null;
+  if (f) return (f.getAttribute('src') || '').replace(/&amp;/g, '&');
+
+  // 3) raw text fallbacks
   const text = d.textContent || '';
   const vm = text.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
   if (vm) return vm[0];
   const yt = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
   if (yt) return yt[0];
+
   return null;
 }
-
 function normalizePlayerSrc(url) {
   if (!url) return null;
   const vimeo = url.match(/vimeo\.com\/(\d+)/);
@@ -71,15 +77,23 @@ function normalizePlayerSrc(url) {
   return url;
 }
 
-function cleanWP(html = '') {
-  return String(html)
-    .replace(/<div[^>]*class=["'][^"']*mceTemp[^"']*["'][^>]*>.*?<\/div>/gis, '')
-    .replace(/<figure[^>]*>\s*<\/figure>/gis, '')
-    .replace(/<figcaption>\s*<\/figcaption>/gis, '')
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gis, '');
+// ————— WP cleaners —————
+function stripEmptyBlocks(html='') {
+  let s = String(html);
+
+  // common WP empty wrappers and caption shells
+  s = s.replace(/<div[^>]*class=["'][^"']*mceTemp[^"']*["'][^>]*>.*?<\/div>/gis, '');
+  s = s.replace(/<figure[^>]*>\s*<\/figure>/gis, '');
+  s = s.replace(/<figcaption>\s*<\/figcaption>/gis, '');
+  s = s.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gis, '');
+
+  // empty paragraphs (nbsp/br/whitespace only)
+  s = s.replace(/<p>\s*(?:&nbsp;|\s|<br\s*\/?>)*\s<\/p>/gis, '');
+
+  return s;
 }
 
-// ---------- UI helpers ----------
+// ————— UI helpers —————
 function backButtonHTML() {
   return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`;
 }
@@ -106,21 +120,14 @@ function playerHTML(embedSrc) {
     </div>`;
 }
 
-// ---------- main ----------
+// ————— render —————
 export default async function renderDetail(app, idParam) {
   const mount = app || document.getElementById('app');
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
 
-  if (!API_BASE) {
-    mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`;
-    return;
-  }
-  if (!id) {
-    mount.innerHTML = `<section class="page-error"><p>Page error: missing id.</p></section>`;
-    return;
-  }
+  if (!API_BASE) { mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
+  if (!id)      { mount.innerHTML = `<section class="page-error"><p>Page error: missing id.</p></section>`;   return; }
 
-  // Shell (BUTTON at top, MEDIA first, then title/meta, then body, BUTTON at bottom)
   mount.innerHTML = `
     <article class="post-detail">
       <div class="oko-actions-top">${backButtonHTML()}</div>
@@ -134,7 +141,7 @@ export default async function renderDetail(app, idParam) {
 
       <div class="post-content" style="line-height:1.7">Please wait…</div>
 
-      <div class="oko-actions-bottom" style="margin-top:1.5rem">${backButtonHTML()}</div>
+      <div class="oko-actions-bottom" style="margin-top:1.25rem">${backButtonHTML()}</div>
     </article>
   `;
 
@@ -143,17 +150,13 @@ export default async function renderDetail(app, idParam) {
   const $media = mount.querySelector('.post-media');
   const $body  = mount.querySelector('.post-content');
 
-  // Back button wiring
+  // nav
   mount.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-nav="back"]');
-    if (btn) {
-      e.preventDefault();
-      window.location.hash = '#/';
-      return;
-    }
+    if (btn) { e.preventDefault(); window.location.hash = '#/'; }
   });
 
-  // Fetch post
+  // fetch
   let post;
   try {
     post = await apiJSON(`posts/${encodeURIComponent(id)}`, { _embed: 1 });
@@ -163,50 +166,49 @@ export default async function renderDetail(app, idParam) {
     return;
   }
 
-  // Fill content
   const title  = post.title?.rendered || '(Untitled)';
   const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
   const date   = prettyDate(post.date || post.date_gmt);
   const contentRaw = post.content?.rendered || '';
-  const content = cleanWP(contentRaw);
 
   $title.innerHTML = title;
   $meta.textContent = `By ${author} — ${date}`;
 
-  // Media first: poster → player, or just image/player
-  const vidURL  = extractVideoURL(contentRaw);
-  const embed   = normalizePlayerSrc(vidURL);
-  const poster  = featuredSrc(post);
+  // media
+  const poster = featuredSrc(post);
+  const vidURL = extractVideoURL(contentRaw);
+  const embed  = normalizePlayerSrc(vidURL);
 
   if (poster && embed) {
     $media.innerHTML = posterHTML(poster, decode(title));
     const posterEl = $media.querySelector('.oko-video-poster');
     const swap = () => { $media.innerHTML = playerHTML(embed); };
     posterEl?.addEventListener('click', swap);
-    posterEl?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); swap(); }
-    });
+    posterEl?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); swap(); }});
   } else if (embed) {
     $media.innerHTML = playerHTML(embed);
   } else if (poster) {
     $media.innerHTML = `<img src="${poster}" alt="" style="width:100%;height:auto;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);">`;
   } else {
-    $media.innerHTML = '';
+    // nothing to show → drop the media wrapper to avoid empty space
+    $media.remove();
   }
 
-  // Body: responsive iframes/images, remove odd placeholders
-  $body.innerHTML = content
+  // body & cleanup
+  let content = stripEmptyBlocks(contentRaw)
     .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
     .replaceAll('<img',    '<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
 
-  // First paragraph de-indent
+  $body.innerHTML = content;
+
+  // collapse stray leading junk in first paragraph
   const firstP = $body.querySelector('p');
   if (firstP) {
     firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i, '').trimStart();
     firstP.style.textIndent = '0';
   }
 
-  // External links new tab
+  // external links to new tab
   $body.querySelectorAll('a[href]').forEach(a => {
     const href = a.getAttribute('href') || '';
     if (!href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
@@ -215,12 +217,13 @@ export default async function renderDetail(app, idParam) {
   });
 }
 
-/* ---------- scoped styles (real buttons + media presentation) ---------- */
+/* styles (adds top margin to the top Back button; ensures play icon visibility) */
 const __once = 'oko-detail-media-first';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
   style.textContent = `
+  .oko-actions-top{ margin:.4rem 0 .75rem 0; } /* <-- spacing above media */
   .oko-btn-back{
     display:inline-flex;align-items:center;gap:.45rem;
     background:#1e63ff;color:#fff;border:0;border-radius:999px;
@@ -235,7 +238,8 @@ if (!document.getElementById(__once)) {
   .oko-video-poster__play{
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     border:0;border-radius:999px;padding:.7rem 1rem;font-size:1.05rem;
-    background:#1e63ff;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer
+    background:#1e63ff;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer;
+    z-index:3
   }
   .oko-video-embed{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:0 0 1rem 0}
   .oko-video-embed iframe{position:absolute;inset:0;width:100%;height:100%}
