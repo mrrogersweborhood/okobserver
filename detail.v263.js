@@ -1,4 +1,4 @@
-/* OkObserver · detail.v263.js · v2.7.4
+/* OkObserver · detail.v263.js · v2.7.5
    Restores video behavior (poster→click-to-play for YT/Vimeo, FB plugin),
    removes title background, shows author + pretty date.
    Standalone: no imports, no new filenames.
@@ -13,12 +13,20 @@ async function apiJSON(pathOrUrl, params){const url = pathOrUrl.startsWith('http
 const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
 const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' }
 
-// Ensure we always work with a real Element
+// Ensure we always work with a real Element (SAFE)
 function asEl(target){
   if (target instanceof Element) return target;
+
   if (typeof target === 'string') {
-    const bySel = document.querySelector(target);
-    if (bySel) return bySel;
+    // Only try querySelector if it looks like a selector; otherwise skip it.
+    const looksLikeSelector = /^[.#\[]|^\w+\[/.test(target.trim());
+    if (looksLikeSelector) {
+      try {
+        const found = document.querySelector(target);
+        if (found) return found;
+      } catch { /* invalid selector; ignore */ }
+    }
+    // Fall back to id lookup (safe for numeric strings)
     const byId = document.getElementById(target);
     if (byId) return byId;
   }
@@ -107,7 +115,7 @@ export default async function renderDetail(a, b){
   let mount, id;
   const looksLikeId = x => (typeof x === 'string' || typeof x === 'number') && !String(x).trim().startsWith('#') && !String(x).trim().match(/[\.>#\s]/);
 
-  if (a instanceof Element || (typeof a === 'string' && (document.querySelector(a) || document.getElementById(a)))) {
+  if (a instanceof Element || (typeof a === 'string' && (document.getElementById(a) || /^[.#\[]/.test(a)))) {
     // Called as (container, id)
     mount = asEl(a);
     id = Array.isArray(b) ? b[0] : b;
@@ -116,8 +124,6 @@ export default async function renderDetail(a, b){
     mount = asEl('#app');
     id = Array.isArray(a) ? a[0] : a;
   }
-
-  // Fallback: if id still missing but first arg looked like an id, use it
   if (!id && looksLikeId(a)) id = a;
 
   if(!API_BASE){ mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
@@ -200,7 +206,7 @@ export default async function renderDetail(a, b){
 }
 
 /* ---------- scoped styles (title reset + media sizing + buttons) ---------- */
-const __once = 'oko-detail-scope-v274';
+const __once = 'oko-detail-scope-v275';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
