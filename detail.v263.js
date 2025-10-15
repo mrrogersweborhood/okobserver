@@ -209,3 +209,5 @@ if (!document.getElementById(__once)) {
   `;
   document.head.appendChild(style);
 }
+export { renderDetail as renderPostDetail };
+
