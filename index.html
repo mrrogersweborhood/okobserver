@@ -1,68 +1,47 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Oklahoma Observer</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Observer</title>
 
-  <!-- Fallback API base so routes never boot without it -->
-  <meta name="oko-api-base" content="https://okobserver-proxy.bob-b5c.workers.dev" />
+    <!-- Optional: add a tiny inline favicon to stop the favicon 404 -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23006aff'/%3E%3C/svg%3E" />
 
-  <!-- App styles (cache-busted) -->
-  <link rel="stylesheet" href="./styles.css?v=265" />
-
-  <!-- Prevent stale cache -->
-  <meta http-equiv="Cache-Control" content="no-store" />
-</head>
-<body>
-  <header class="site-header" style="background:#1e63ff;color:white;position:sticky;top:0;z-index:50;">
-    <div class="container" style="display:flex;flex-direction:column;align-items:center;padding:0.5rem 1rem;">
-      <a class="brand" href="./#/" style="text-decoration:none;color:white;font-family:Georgia,serif;font-size:2rem;font-weight:700;">
-        Observer
-      </a>
-      <div class="motto" style="font-style:italic;font-size:0.9rem;margin-top:0.2rem;">
-        “To comfort the afflicted and afflict the comfortable.”
+    <style>
+      /* keep header + container basics; doesn’t touch your page modules */
+      :root { color-scheme: light; }
+      html, body { margin:0; padding:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; background:#fff; color:#111; }
+      .site-header { background:#165DFF; color:#fff; }
+      .site-header .wrap { max-width:1200px; margin:0 auto; padding:18px 16px; }
+      .site-title { font-size:28px; font-weight:800; margin:0 0 6px; }
+      .site-motto { font-size:14px; opacity:.9; margin:0; }
+      .nav { display:flex; gap:18px; padding:10px 16px; background:rgba(255,255,255,.08); }
+      .nav a { color:#fff; text-decoration:none; font-weight:600; }
+      .nav a:hover { text-decoration:underline; }
+      .app { max-width:1200px; margin:0 auto; padding:16px; }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <div class="site-title">Observer</div>
+        <p class="site-motto">“To comfort the afflicted and afflict the comfortable.”</p>
       </div>
-      <nav class="nav" style="margin-top:0.5rem;">
-        <a href="./#/" style="color:white;text-decoration:none;margin:0 0.75rem;">Posts</a>
-        <a href="./#/about" style="color:white;text-decoration:none;margin:0 0.75rem;">About</a>
+      <nav class="nav">
+        <a href="#/">Posts</a>
+        <a href="#/about">About</a>
       </nav>
-    </div>
-  </header>
+    </header>
 
-  <main id="app">
-    <div class="loading" style="text-align:center;padding:2rem;">Loading…</div>
-  </main>
+    <main id="app" class="app">
+      <!-- app renders here -->
+    </main>
 
-  <footer class="site-footer" style="background:#f8f8f8;color:#444;text-align:center;padding:1.5rem 0;margin-top:2rem;">
-    © 2025 The Oklahoma Observer. All Rights Reserved.
-  </footer>
-
-  <!-- Boot strap: define API base BEFORE any route files load -->
-  <script>
-    (function () {
-      var apiFromWindow = (typeof window !== 'undefined' && window.OKO_API_BASE) ? window.OKO_API_BASE : '';
-      var meta = document.querySelector('meta[name="oko-api-base"]');
-      var apiFromMeta = meta ? meta.getAttribute('content') : '';
-      var apiDefault = 'https://okobserver-proxy.bob-b5c.workers.dev';
-      var base = apiFromWindow || apiFromMeta || apiDefault;
-      window.OKO_API_BASE = base;
-      if (!base) console.error('[OkObserver] No API base resolved at bootstrap.');
-    })();
-  </script>
-
-  <!-- Core + utilities -->
-  <script type="module" src="./core-fixed.js?v=265"></script>
-  <script type="module" src="./utils.v263.js?v=265"></script>
-
-  <!-- Main app -->
-  <script type="module" src="./main.js?v=265"></script>
-
-  <!-- Lightweight service worker registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
-  </script>
-</body>
+    <!-- Boot the app; no utils included -->
+    <script type="module" src="./main.js?v=265"></script>
+  </body>
 </html>
