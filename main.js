@@ -1,63 +1,39 @@
-// main.js — OkObserver app entry
-// v2.5.4 (patched to use core-fixed.js safely)
+/* main.js – boot + top-level error boundary */
+console.log("[OkObserver] Entry loaded: v2.5.4");
 
-import { start } from './core-fixed.js';  // ✅ patched: use core-fixed router
+/** Global config (locked once) */
+export const CONFIG = {
+  API_BASE: "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2",
+  SITE_BASE: location.origin + location.pathname.replace(/index\.html?$/i, ""),
+};
+Object.freeze(CONFIG);
 
-// -------- Version banner --------
-const VERSION = 'v2.5.4';
-console.log('[OkObserver] Entry loaded:', VERSION);
+const app = document.getElementById("app");
 
-// -------- API base locking --------
-// On GitHub Pages, we must use the Cloudflare Worker proxy (CORS-safe).
-// Elsewhere (e.g., local dev), you may point at a relative /api/ path or the same proxy.
-(function configureApiBase() {
-  const isGitHubPages = location.hostname.endsWith('github.io');
-  const workerBase = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
-  const relativeBase = `${location.origin}/api/wp/v2`;
+function setView(node) {
+  app.innerHTML = "";
+  app.appendChild(node);
+}
 
-  // Prefer Worker on GH Pages, otherwise allow relative (or override via hash flag).
-  let base = isGitHubPages ? workerBase : relativeBase;
-
-  // Optional override for debugging: add #useWorker or #useRelative to the URL.
-  const hash = location.hash || '';
-  if (hash.includes('useWorker')) base = workerBase;
-  if (hash.includes('useRelative')) base = relativeBase;
-
-  // Freeze a global that other modules can read
-  Object.defineProperty(window, 'OKO_API_BASE', {
-    value: base,
-    writable: false,
-    configurable: false,
-    enumerable: true
-  });
-
-  console.log('[OkObserver] API base (locked):', window.OKO_API_BASE);
-})();
-
-// -------- One-shot bootstrap --------
-(async function boot() {
-  if (window.__okBooted) return;
-  window.__okBooted = true;
-
+/* Router bootstrap (hash-based) */
+async function route() {
+  const hash = location.hash || "#/";
   try {
-    // Ensure DOM is ready before we try to render into #app
-    if (document.readyState === 'loading') {
-      await new Promise((resolve) =>
-        document.addEventListener('DOMContentLoaded', resolve, { once: true })
-      );
-    }
-    await start(); // ✅ exported from core-fixed.js
+    const { renderHome, renderDetail, renderAbout } = await import("./core-fixed.js");
+    const [_, route, id] = hash.split("/");
+    if (!route || route === "") return setView(await renderHome());
+    if (route === "post" && id) return setView(await renderDetail(id));
+    if (route === "about") return setView(await renderAbout());
+    return setView(await renderHome());
   } catch (err) {
-    console.error('OkObserver failed to start', err);
-    const app = document.getElementById('app');
-    if (app) {
-      app.innerHTML = `
-        <div style="padding:1rem;color:#b00020">
-          <strong>App script did not execute.</strong>
-          Check Network → main.js (200), then hard-reload.<br/>
-          <small>${String(err)}</small>
-        </div>
-      `;
-    }
+    console.error("[OkObserver] router error:", err);
+    const div = document.createElement("div");
+    div.className = "card";
+    div.style.padding = "18px";
+    div.textContent = "Page error: failed to load module.";
+    setView(div);
   }
-})();
+}
+
+window.addEventListener("hashchange", route);
+window.addEventListener("DOMContentLoaded", route);
