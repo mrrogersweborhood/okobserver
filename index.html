@@ -1,6 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Silence favicon 404 (harmless but noisy) -->
+<link rel="icon" href="data:,">
+
+<!-- OkObserver: small, scoped CSS (safe to duplicate) -->
+<style id="oko-head-guards">
+  /* Force 4-up on wide screens with responsive fallbacks.
+     Uses a broad container selector but only affects direct children grids. */
+  #app { contain: content; } /* keeps layout effects scoped */
+  #app { --oko-gap: 22px; }
+
+  @media (min-width: 1000px){
+    #app > * { display: grid !important; grid-template-columns: repeat(4, minmax(0,1fr)) !important; gap: var(--oko-gap) !important; align-items: start !important; }
+  }
+  @media (max-width: 999px) and (min-width: 641px){
+    #app > * { display: grid !important; grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: var(--oko-gap) !important; align-items: start !important; }
+  }
+  @media (max-width: 640px){
+    #app > * { display: grid !important; grid-template-columns: 1fr !important; gap: var(--oko-gap) !important; align-items: start !important; }
+  }
+
+  /* Ensure post titles on detail view never pick up a background box */
+  .post-detail .post-header .post-title,
+  .post-detail h1.post-title {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #111 !important;
+  }
+</style>
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OkObserver</title>
@@ -171,5 +202,67 @@
       document.addEventListener('DOMContentLoaded', makeGrid);
     })();
   </script>
+<script id="oko-enforce-grid">
+(function enforceFourAcross(){
+  const APP = document.getElementById('app');
+  if (!APP) return;
+
+  function getCards(root){
+    // Common post card shapes; keep broad so theme changes don’t break it
+    const candidates = root.querySelectorAll(
+      '.post-card, .card, article.post, article, li.post, [data-post-id]'
+    );
+    // Must contain a link to a detail page
+    return [...candidates].filter(el =>
+      el.querySelector('a[href*="#/post/"]') || el.querySelector('a[href*="/#/post/"]'));
+  }
+
+  function ensureGrid(){
+    const cards = getCards(APP);
+    if (cards.length < 2) return; // not enough to grid
+
+    // Find a container holding multiple cards
+    let container = cards[0].parentElement;
+    while (container && container !== APP) {
+      if (getCards(container).length > 1) break;
+      container = container.parentElement;
+    }
+    if (!container || container === APP) container = APP;
+
+    // Force grid on that container
+    container.style.setProperty('display', 'grid', 'important');
+    container.style.setProperty('grid-template-columns', 'repeat(4, minmax(0, 1fr))', 'important');
+    container.style.setProperty('gap', '22px', 'important');
+    container.style.setProperty('align-items', 'start', 'important');
+
+    // Make each card fit the grid cleanly
+    cards.forEach(c => {
+      c.style.setProperty('width', '100%', 'important');
+      c.style.setProperty('max-width', 'none', 'important');
+      c.style.setProperty('display', 'block', 'important');
+    });
+  }
+
+  function cleanTitleBox(){
+    document.querySelectorAll('.post-detail .post-title').forEach(t => {
+      t.style.setProperty('background', 'transparent', 'important');
+      t.style.setProperty('border', '0', 'important');
+      t.style.setProperty('box-shadow', 'none', 'important');
+      t.style.setProperty('padding', '0', 'important');
+    });
+  }
+
+  // Run now and on future DOM changes / route changes
+  ensureGrid();
+  cleanTitleBox();
+
+  const obs = new MutationObserver(() => { ensureGrid(); cleanTitleBox(); });
+  obs.observe(APP, { childList: true, subtree: true });
+
+  window.addEventListener('hashchange', () => setTimeout(() => { ensureGrid(); cleanTitleBox(); }, 0));
+  document.addEventListener('DOMContentLoaded', () => { ensureGrid(); cleanTitleBox(); });
+})();
+</script>
+
 </body>
 </html>
