@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OkObserver</title>
   <link rel="stylesheet" href="app.css" />
+
   <style>
-    /* Existing styles */
     body {
       font-family: system-ui, sans-serif;
       margin: 0;
@@ -42,6 +42,56 @@
       font-size: 0.85rem;
     }
   </style>
+
+  <!-- 🔧 Permanent Fix for 4-column grid & Title cleanup -->
+  <style id="oko-hotfix-v1">
+    /* --- Force 4-up grid on the posts summary --- */
+    .posts-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 22px !important;
+      align-items: start !important;
+    }
+    /* tablet */
+    @media (max-width: 1200px) {
+      .posts-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+    }
+    /* big phones */
+    @media (max-width: 900px) {
+      .posts-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    }
+    /* phones */
+    @media (max-width: 560px) {
+      .posts-grid { grid-template-columns: 1fr !important; }
+    }
+
+    /* Prevent rogue styles shrinking cards to 100% width */
+    .post-card { width: 100% !important; max-width: none !important; }
+
+    /* --- Remove any blue box/background from post titles on detail pages --- */
+    .post-detail .post-header .post-title,
+    .post-detail h1.post-title {
+      background: transparent !important;
+      background-image: none !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: .6rem 0 .2rem 0 !important;
+      color: #111 !important;
+    }
+    .post-detail .post-header .post-title::before,
+    .post-detail .post-header .post-title::after {
+      content: none !important;
+      display: none !important;
+    }
+
+    /* Author/date line */
+    .post-detail .post-meta {
+      color: #666;
+      font-size: 14px;
+      margin: 0 0 .75rem 0;
+    }
+  </style>
 </head>
 
 <body>
@@ -66,63 +116,40 @@
 
   <script type="module" src="main.js"></script>
 
-  <!-- 🧱 Permanent 4-column grid lock -->
-  <style id="oko-grid-lock">
-    :root body #app .grid,
-    :root body main .grid,
-    :root body .posts .grid {
-      display: grid !important;
-      gap: 16px !important;
-      grid-auto-rows: auto !important;
-      grid-template-columns: repeat(4, 1fr) !important;
-    }
-    :root body #app .grid > * {
-      min-width: 0 !important;
-      width: 100% !important;
-    }
-    @media (max-width: 1100px) {
-      :root body #app .grid,
-      :root body main .grid,
-      :root body .posts .grid {
-        grid-template-columns: repeat(3, 1fr) !important;
-      }
-    }
-    @media (max-width: 800px) {
-      :root body #app .grid,
-      :root body main .grid,
-      :root body .posts .grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
-    }
-    @media (max-width: 520px) {
-      :root body #app .grid,
-      :root body main .grid,
-      :root body .posts .grid {
-        grid-template-columns: 1fr !important;
-      }
-    }
-    :root body #app .grid img {
-      max-width: 100% !important;
-      height: auto !important;
-      display: block !important;
-    }
-  </style>
-
-  <!-- JS guard to enforce 4-column layout even if scripts modify it -->
+  <!-- 🧱 Enforce layout integrity -->
   <script>
-    (function () {
-      const postsGridSel = '#app .grid, main .grid, .posts .grid';
-      function enforceGrid() {
-        document.querySelectorAll(postsGridSel).forEach(el => {
+    (function enforceGridAndTitle() {
+      // Lock the posts grid layout permanently
+      const selector = '.posts-grid, #app .grid, main .grid, .posts .grid';
+      function applyGridFix() {
+        document.querySelectorAll(selector).forEach(el => {
           el.style.setProperty('display', 'grid', 'important');
-          el.style.setProperty('gap', '16px', 'important');
-          el.style.setProperty('grid-auto-rows', 'auto', 'important');
+          el.style.setProperty('gap', '22px', 'important');
+          el.style.setProperty('align-items', 'start', 'important');
           el.style.setProperty('grid-template-columns', 'repeat(4, 1fr)', 'important');
         });
       }
-      enforceGrid();
-      document.addEventListener('DOMContentLoaded', enforceGrid);
-      new MutationObserver(enforceGrid).observe(document.documentElement, { childList: true, subtree: true });
+
+      // Remove any blue box background from post titles dynamically
+      function cleanTitles() {
+        document.querySelectorAll('.post-detail .post-title').forEach(t => {
+          t.style.background = 'transparent';
+          t.style.border = 'none';
+          t.style.boxShadow = 'none';
+        });
+      }
+
+      applyGridFix();
+      cleanTitles();
+      document.addEventListener('DOMContentLoaded', () => {
+        applyGridFix();
+        cleanTitles();
+      });
+
+      new MutationObserver(() => {
+        applyGridFix();
+        cleanTitles();
+      }).observe(document.documentElement, { childList: true, subtree: true });
     })();
   </script>
 </body>
