@@ -1,206 +1,112 @@
-// detail.v263.js — Post detail view (standalone, no external utils)
+/*
+  OkObserver Post Detail (v2.6.5)
+  - Renders single post by ID
+  - Back to Posts (top & bottom)
+  - Featured image (if any)
+  - Cleans quirky markup from WP
+  - Leaves safe embeds (iframe/video) intact
+*/
 
-// ---------- helpers (embedded) ----------
-const API_BASE = (window.OKO_API_BASE || "").replace(/\/+$/, "");
+import { fetchWithRetry } from './utils.js';
+import { formatDate, decodeHTML } from './utils.js';
 
-function joinUrl(base, path) {
-  const b = (base || "").replace(/\/+$/, "");
-  const p = (path || "").replace(/^\/+/, "");
-  return `${b}/${p}`;
-}
+export default async function renderDetail(app, id) {
+  const mount = app || document.getElementById('app');
+  const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp/v2';
 
-function qs(params = {}) {
-  const u = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v === undefined || v === null || v === "") return;
-    if (Array.isArray(v)) v.forEach(val => u.append(k, val));
-    else u.append(k, v);
-  });
-  const s = u.toString();
-  return s ? `?${s}` : "";
-}
+  if (!API_BASE) {
+    console.error('[Detail] API base missing.');
+    mount.innerHTML = `<p>Page error: API base missing.</p>`;
+    return;
+  }
 
-async function apiFetchJson(pathOrUrl, params) {
-  const url = pathOrUrl.startsWith("http")
-    ? pathOrUrl + qs(params)
-    : joinUrl(API_BASE, pathOrUrl) + qs(params);
-
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  return res.json();
-}
-
-function prettyDate(iso) {
-  try { return new Date(iso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }); }
-  catch { return iso; }
-}
-
-function sanitizeHtml(html = "") {
-  // Very light sanitization for embeds; keep links, iframes with safe attrs.
-  return String(html)
-    .replace(/\son[a-z]+="[^"]*"/gi, "")                         // strip inline handlers
-    .replace(/<script[\s\S]*?<\/script>/gi, "")                  // drop scripts
-    .replace(/<iframe/gi, '<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade"')
-    .replace(/<img /gi, '<img loading="lazy" ');
-}
-
-function extractFirstVideoUrl(html = "") {
-  const a = document.createElement("div");
-  a.innerHTML = html;
-
-  // Prefer direct Vimeo/YouTube anchors if present
-  const anchors = [...a.querySelectorAll("a[href]")].map(n => n.getAttribute("href"));
-  const direct = anchors.find(h =>
-    /(?:vimeo\.com|youtube\.com\/watch\?v=|youtu\.be\/)/i.test(h || "")
-  );
-  if (direct) return direct;
-
-  // Or look for iframes embed
-  const frame = a.querySelector("iframe[src*='vimeo.com'],iframe[src*='youtube.com'],iframe[src*='youtu.be']");
-  if (frame) return frame.getAttribute("src") || null;
-
-  return null;
-}
-// ---------- end helpers ----------
-
-const APP = document.getElementById("app");
-
-function heroBlock({ title, author, date, posterHtml }) {
-  return `
-  <header class="post-hero">
-    <a class="backlink" href="#/posts">← Back to Posts</a>
-    <h1 class="post-title">${title}</h1>
-    <div class="post-meta">By ${author} — ${date}</div>
-    ${posterHtml || ""}
-  </header>`;
-}
-
-function posterTemplate({ posterSrc, playLabel = "Play" }) {
-  if (!posterSrc) return "";
-  return `
-  <div class="video-poster" role="button" tabindex="0" aria-label="${playLabel}">
-    <img src="${posterSrc}" alt="">
-    <button class="poster-play" aria-label="${playLabel}">▶</button>
-  </div>`;
-}
-
-function contentBlock(html) {
-  return `<div class="post-content">${sanitizeHtml(html || "")}</div>`;
-}
-
-function footerBacklink() {
-  return `<div class="post-footer"><a class="backlink" href="#/posts">← Back to Posts</a></div>`;
-}
-
-function getFeaturedSrc(post) {
-  const media = post._embedded?.["wp:featuredmedia"]?.[0];
-  return (
-    media?.media_details?.sizes?.large?.source_url ||
-    media?.media_details?.sizes?.medium_large?.source_url ||
-    media?.source_url || ""
-  );
-}
-
-function buildPlayer(videoUrl) {
-  if (!videoUrl) return "";
-  // Normalize Vimeo share URLs to player URLs
-  const vimeo = videoUrl.match(/vimeo\.com\/(\d+)/);
-  const you = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-
-  let src = videoUrl;
-  if (vimeo) src = `https://player.vimeo.com/video/${vimeo[1]}`;
-  if (you)   src = `https://www.youtube.com/embed/${you[1]}`;
-
-  return `
-  <div class="video-embed">
-    <iframe
-      src="${src}"
-      allowfullscreen
-      loading="lazy"
-      title="Embedded video"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share">
-    </iframe>
-  </div>`;
-}
-
-export default async function renderDetail(app, idParam) {
-  if (!API_BASE) throw new Error("[Detail] API base missing.");
-
-  const id = Array.isArray(idParam) ? idParam[0] : idParam;
-
-  APP.innerHTML = `
-    <section class="detail">
-      <div class="container">
-        <div class="loading">Loading…</div>
-      </div>
-    </section>
+  // Skeleton while fetching
+  mount.innerHTML = `
+    <a class="ok-back" href="#/">← Back to Posts</a>
+    <div class="ok-post ok-elevated">
+      <div class="ok-post__head"><h1 class="ok-title">Loading…</h1></div>
+      <div class="ok-post__body"><p>Please wait…</p></div>
+    </div>
   `;
 
-  const container = APP.querySelector(".container");
-
   try {
-    // Fetch the post with embeds
-    const post = await apiFetchJson(`posts/${id}`, { _embed: 1 });
+    // 1) Load the post (with embeds for author/media)
+    const post = await fetchWithRetry(
+      `${API_BASE}/posts/${id}?_embed=1`,
+      3
+    );
 
-    const title = post.title?.rendered || "(Untitled)";
-    const author = post._embedded?.author?.[0]?.name || "Oklahoma Observer";
-    const date = prettyDate(post.date || post.date_gmt);
-    const posterSrc = getFeaturedSrc(post);
+    // Guard
+    if (!post || !post.id) {
+      mount.innerHTML = `
+        <a class="ok-back" href="#/">← Back to Posts</a>
+        <p>Page error: post not found.</p>`;
+      return;
+    }
 
-    // Detect a video URL from content
-    const videoUrl = extractFirstVideoUrl(post.content?.rendered || "");
+    // 2) Collect display fields
+    const title  = decodeHTML(post.title?.rendered || '');
+    const date   = formatDate(post.date);
+    const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
 
-    const posterHtml = posterSrc
-      ? posterTemplate({ posterSrc, playLabel: "Play video" })
-      : "";
+    const featured =
+      post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
 
-    const parts = [
-      heroBlock({ title, author, date, posterHtml }),
-      contentBlock(post.content?.rendered || ""),
-      footerBacklink()
-    ];
+    // 3) Clean & prepare content
+    //    - Keep iframes/video/img/figure/figcaption
+    //    - Strip “mceTemp” and empty image placeholders
+    const raw = String(post.content?.rendered || '');
 
-    container.innerHTML = parts.join("");
+    const cleaned = raw
+      // Remove the tiny WP "mceTemp" placeholders and empty figs
+      .replace(/<div[^>]*class=["'][^"']*mceTemp[^"']*["'][^>]*>.*?<\/div>/gis, '')
+      .replace(/<figure[^>]*>\s*<\/figure>/gis, '')
+      // Remove empty captions and images with no src
+      .replace(/<img[^>]*src=["']\s*["'][^>]*>/gis, '')
+      .replace(/<figcaption>\s*<\/figcaption>/gis, '')
+      // Lightly sanitize scripts
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gis, '');
 
-    // Wire poster → player swap (no autoplay; plays only on click)
-    if (videoUrl && posterSrc) {
-      const poster = container.querySelector(".video-poster");
-      const swapToPlayer = () => {
-        poster.outerHTML = buildPlayer(videoUrl);
-      };
-      poster?.addEventListener("click", swapToPlayer);
-      poster?.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault(); swapToPlayer();
-        }
-      });
+    // 4) Render
+    mount.innerHTML = `
+      <a class="ok-back" href="#/">← Back to Posts</a>
+
+      <article class="ok-post ok-elevated">
+        <header class="ok-post__head">
+          <h1 class="ok-title">${title}</h1>
+          <p class="ok-meta">By ${author} — ${date}</p>
+        </header>
+
+        ${featured ? `
+          <div class="ok-hero">
+            <img class="ok-hero__img" src="${featured}" alt="${title}" loading="lazy">
+          </div>` : ''}
+
+        <div class="ok-post__body ok-content">
+          ${cleaned}
+        </div>
+
+        <footer class="ok-post__foot">
+          <a class="ok-back" href="#/">← Back to Posts</a>
+        </footer>
+      </article>
+    `;
+
+    // 5) Optional polish: make external links open in new tab safely
+    for (const a of mount.querySelectorAll('.ok-content a[href]')) {
+      const href = a.getAttribute('href') || '';
+      const isHash = href.startsWith('#');
+      if (!isHash && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+      }
     }
 
   } catch (err) {
-    console.error("[Detail] load failed:", err);
-    container.innerHTML = `
-      <p class="error" role="alert" style="color:#b00">
-        Page error: ${err?.message || err}
-      </p>`;
+    console.error('[Detail] load failed:', err);
+    mount.innerHTML = `
+      <a class="ok-back" href="#/">← Back to Posts</a>
+      <p>Page error: ${decodeHTML(err.message || 'Unknown error')}</p>
+    `;
   }
 }
-
-/* ---------- minimal styles for nicer defaults (optional; safe to keep) ---------- */
-const style = document.createElement("style");
-style.textContent = `
-.detail .container{max-width:980px;margin:0 auto;padding:1rem}
-.backlink{display:inline-block;margin:0 0 1rem 0;color:#245; text-decoration:none}
-.backlink:hover{text-decoration:underline}
-.post-title{margin:0 0 .25rem 0; line-height:1.2}
-.post-meta{color:#666;margin:0 0 1rem 0}
-.video-poster{position:relative;display:block;max-width:100%;border-radius:10px;overflow:hidden;background:#f5f5f5}
-.video-poster img{display:block;width:100%;height:auto}
-.poster-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:0;border-radius:999px;padding:.75rem 1rem;font-size:1.1rem;background:#1976d2;color:white;cursor:pointer}
-.video-embed{position:relative;padding-top:56.25%;border-radius:10px;overflow:hidden;background:#000;margin:.25rem 0 1rem}
-.video-embed iframe{position:absolute;inset:0;width:100%;height:100%}
-.post-content figure{margin:1rem 0}
-.post-content img{max-width:100%;height:auto;display:block;margin:0 auto}
-.post-footer{margin:2rem 0}
-`;
-document.head.appendChild(style);
