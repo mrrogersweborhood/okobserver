@@ -1,162 +1,59 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title>The Oklahoma Observer</title>
+<head>
+  <!-- OkObserver · index.html · v2.6.5 (app shell only) -->
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e88ff" />
+  <meta name="color-scheme" content="light dark" />
 
-    <!-- Simple inline favicon (prevents 404s) -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%231e90ff'/%3E%3C/svg%3E"
-    />
+  <!-- Hard no-cache hint for intermediaries (GitHub Pages still serves static, but helps browsers) -->
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 
-    <!-- Core CSS -->
-    <style>
-      :root {
-        --brand: #1e90ff;
-        --text: #111;
-        --bg: #fff;
-        --muted: #555;
-        --border: #ddd;
-      }
+  <title>Observer</title>
+  <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
 
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      }
+  <!-- Icons -->
+  <link rel="icon" type="image/png" href="./favicon.ico?v=265" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=265" />
 
-      header.site-header {
-        background: var(--brand);
-        color: #fff;
-        text-align: center;
-        padding: 1.2rem 0 0.6rem;
-      }
+  <!-- Styles (cache-busted). Your CSS controls the grid (e.g., 4 columns on desktop). -->
+  <link rel="stylesheet" href="./styles.css?v=265">
 
-      header.site-header h1 {
-        font-size: 2rem;
-        margin: 0;
-        font-weight: 800;
-      }
+  <!-- Preload main module to reduce FOUC -->
+  <link rel="modulepreload" href="./main.js?v=265">
 
-      header.site-header p {
-        margin: 0.2rem 0 0.8rem;
-        font-size: 0.9rem;
-        font-style: italic;
-      }
+  <!-- Open Graph / Social -->
+  <meta property="og:title" content="Observer" />
+  <meta property="og:description" content="To comfort the afflicted and afflict the comfortable." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mrrogersweborhood.github.io/okobserver/" />
+</head>
+<body>
+  <!-- App header is rendered by JS; keep body minimal -->
+  <noscript>JavaScript is required to run this site.</noscript>
 
-      nav.nav {
-        display: flex;
-        justify-content: center;
-        gap: 1.5rem;
-        background: rgba(255, 255, 255, 0.12);
-        padding: 0.6rem 0;
-      }
+  <!-- App root (router renders into this) -->
+  <div id="app" aria-live="polite"></div>
 
-      nav.nav a {
-        color: #fff;
-        text-decoration: none;
-        font-weight: 600;
-      }
+  <!-- Global portals -->
+  <div id="toast" aria-live="assertive" aria-atomic="true"></div>
+  <div id="modal-root" aria-hidden="true"></div>
 
-      nav.nav a:hover {
-        text-decoration: underline;
-      }
+  <!-- Service Worker (tiny: install/activate only). Safe to keep. -->
+  <script>
+    // sw.js only skips waiting & claims clients; no caching logic to fight our busting.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js?v=265').catch(() => {});
+      });
+    }
+  </script>
 
-      main.app {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 1.5rem;
-      }
-
-      footer.site-footer {
-        text-align: center;
-        padding: 1rem;
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: 0.85rem;
-      }
-
-      /* GRID LAYOUT */
-      .ok-grid {
-        display: grid !important;
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-        gap: 24px !important;
-        align-items: start;
-      }
-
-      .ok-card {
-        border-radius: 12px;
-        background: #fff;
-        box-shadow: 0 1px 2px rgba(0,0,0,.06);
-        overflow: hidden;
-      }
-
-      .ok-card img.ok-thumb {
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        object-fit: cover;
-        display: block;
-        background: #f2f2f2;
-      }
-
-      .ok-card .ok-body { padding: 12px 14px; }
-
-      .ok-card .ok-title {
-        margin: 0 0 6px;
-        font-size: 18px;
-        font-weight: 700;
-        line-height: 1.25;
-      }
-
-      .ok-card .ok-meta {
-        margin: 0 0 8px;
-        color: #666;
-        font-size: 13px;
-      }
-
-      .ok-card .ok-excerpt {
-        margin: 0;
-        color: #222;
-        font-size: 14px;
-        line-height: 1.45;
-      }
-
-      @media (max-width: 1200px) {
-        .ok-grid { grid-template-columns: repeat(3, 1fr) !important; }
-      }
-      @media (max-width: 900px) {
-        .ok-grid { grid-template-columns: repeat(2, 1fr) !important; }
-      }
-      @media (max-width: 600px) {
-        .ok-grid { grid-template-columns: 1fr !important; }
-      }
-    </style>
-  </head>
-
-  <body>
-    <header class="site-header">
-      <h1>Observer</h1>
-      <p>"To comfort the afflicted and afflict the comfortable."</p>
-      <nav class="nav">
-        <a href="#/">Posts</a>
-        <a href="#/about">About</a>
-      </nav>
-    </header>
-
-    <main id="app" class="app"></main>
-
-    <footer class="site-footer">
-      © 2025 The Oklahoma Observer. All Rights Reserved.
-    </footer>
-
-    <!-- Boot script -->
-    <script type="module" src="./main.js?v=265"></script>
-  </body>
+  <!-- Main ESM entry (cache-busted). This file imports core-fixed, home/detail chunks, and utils. -->
+  <script type="module" src="./main.js?v=265"></script>
+</body>
 </html>
