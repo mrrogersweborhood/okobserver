@@ -32,3 +32,11 @@ import { start } from './core-fixed.js';
     if (app) app.innerHTML = `<div style="padding:1rem;color:#b00020"><strong>App failed to start.</strong><br/><small>${String(err)}</small></div>`;
   }
 })();
+// Service worker (GH Pages-safe)
+if ('serviceWorker' in navigator) {
+  const swUrl = new URL('sw.js', window.location.origin + window.location.pathname.replace(/[^/]*$/, ''));
+  navigator.serviceWorker.register(swUrl.href, { scope: './' })
+    .then(reg => console.log('[SW] registered:', reg.scope))
+    .catch(err => console.warn('[SW] registration failed:', err));
+}
+
