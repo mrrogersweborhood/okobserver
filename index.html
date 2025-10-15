@@ -151,6 +151,71 @@
       border: none !important;
     }
   </style>
+<style id="oko-grid-guard">
+  /* target any posts container we can recognize */
+  #app .posts-grid,
+  #app .posts,
+  #app .cards,
+  #app .list,
+  #app .grid,
+  #app > .grid,
+  #app [data-posts],
+  #app [data-list] {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 28px !important;
+    align-items: start !important;
+    justify-items: stretch !important;
+    margin-top: 1rem !important;
+  }
+
+  /* style individual cards (fallback if your markup doesn’t add .post-card) */
+  #app .post-card, 
+  #app article, 
+  #app .card {
+    width: 100% !important;
+    max-width: none !important;
+    background: #fff !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08) !important;
+    overflow: hidden !important;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  #app .post-card:hover, 
+  #app article:hover, 
+  #app .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  }
+  #app .post-card img, 
+  #app article img, 
+  #app .card img {
+    width: 100% !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  /* responsive breakpoints */
+  @media (max-width: 1200px) {
+    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
+    #app > .grid, #app [data-posts], #app [data-list] {
+      grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+    }
+  }
+  @media (max-width: 900px) {
+    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
+    #app > .grid, #app [data-posts], #app [data-list] {
+      grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    }
+  }
+  @media (max-width: 560px) {
+    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
+    #app > .grid, #app [data-posts], #app [data-list] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+
 </head>
 
 <body>
@@ -175,5 +240,63 @@
 
   <!-- Load main app -->
   <script type="module" src="main.js"></script>
+<script>
+(function enforcePostsGrid() {
+  const CANDIDATE_SELECTORS = [
+    '#app .posts-grid',
+    '#app .posts',
+    '#app .cards',
+    '#app .list',
+    '#app .grid',
+    '#app > .grid',
+    '#app [data-posts]',
+    '#app [data-list]'
+  ];
+
+  function findListRoot() {
+    for (const sel of CANDIDATE_SELECTORS) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function applyGrid(el) {
+    if (!el) return;
+    // lock it in with inline styles — hardest to override
+    el.style.setProperty('display', 'grid', 'important');
+    el.style.setProperty('grid-template-columns', 'repeat(4, minmax(0, 1fr))', 'important');
+    el.style.setProperty('gap', '28px', 'important');
+    el.style.setProperty('align-items', 'start', 'important');
+    el.style.setProperty('justify-items', 'stretch', 'important');
+    el.style.setProperty('margin-top', '1rem', 'important');
+  }
+
+  function lockGridNow() {
+    applyGrid(findListRoot());
+  }
+
+  // Initial pass
+  lockGridNow();
+
+  // Re-apply whenever SPA updates DOM (route changes, infinite scroll, etc.)
+  const obs = new MutationObserver(() => {
+    lockGridNow();
+  });
+  obs.observe(document.getElementById('app') || document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // Also re-apply on hash changes (SPA navigation)
+  window.addEventListener('hashchange', lockGridNow);
+
+  // Safety: re-affirm after fetch completes (in case render finishes later)
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') lockGridNow();
+  });
+})();
+</script>
+
 </body>
 </html>
