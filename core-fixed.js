@@ -1,10 +1,12 @@
-// core-fixed.js — clean dynamic imports (NO ?v= in import() URLs)
+// core-fixed.js — robust dynamic imports (NO ?v= in import() URLs)
+// - Falls back between default and named exports so detail/home/about keep working
+// - Clean errors rendered in-app instead of silent failures
 
 export function start() {
   router();
 }
 
-// Basic, safe escaper for error text
+// Safe escaper for error text
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -12,11 +14,28 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
-// Centralized dynamic import with optional version stripping (defensive)
+// Centralized dynamic import with defensive query stripping
 async function loadModule(path) {
-  // If someone passes "...js?v=271", strip the query so GitHub Pages can serve it
-  const clean = path.split("?")[0];
+  // If someone accidentally passes "...js?v=XYZ", strip the query so GitHub Pages can serve it
+  const clean = String(path).split("?")[0];
   return import(clean);
+}
+
+// Helper to call the right export (default or named)
+async function callExport(mod, candidates, ...args) {
+  for (const name of candidates) {
+    if (name === "default" && typeof mod?.default === "function") {
+      return mod.default(...args);
+    }
+    if (name !== "default" && typeof mod?.[name] === "function") {
+      return mod[name](...args);
+    }
+  }
+  const available = Object.keys(mod || {});
+  throw new Error(
+    `Module does not export any of: ${candidates.join(", ")}. ` +
+    `Available exports: ${available.length ? available.join(", ") : "(none)"}`
+  );
 }
 
 export async function router() {
@@ -29,25 +48,27 @@ export async function router() {
   try {
     if (!route || route === "") {
       const mod = await loadModule("./home.v263.js");
-      await mod.renderHome(app);
+      // Try default first, then renderHome (supports both styles)
+      await callExport(mod, ["default", "renderHome"], app);
       return;
     }
 
     if (route === "about") {
       const mod = await loadModule("./about.v263.js");
-      await mod.renderAbout(app);
+      await callExport(mod, ["default", "renderAbout"], app);
       return;
     }
 
     if (route === "post" && id) {
       const mod = await loadModule("./detail.v263.js");
-      await mod.renderPost(app, id);
+      // Many of your versions used either default or renderPost/renderDetail
+      await callExport(mod, ["default", "renderPost", "renderDetail"], app, id);
       return;
     }
 
     // Fallback to home if unknown route
     const mod = await loadModule("./home.v263.js");
-    await mod.renderHome(app);
+    await callExport(mod, ["default", "renderHome"], app);
   } catch (err) {
     console.error("[Router error]", err);
     app.innerHTML = `<div class="container" style="padding:2rem">
