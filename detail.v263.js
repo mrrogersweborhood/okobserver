@@ -275,3 +275,88 @@ export { renderDetail as renderPostDetail };
   }
 })();
 
+// Ensure post byline (author • date) appears under the title on detail view
+(() => {
+  try {
+    const article = document.querySelector('article.post-detail');
+    if (!article) return;
+
+    // Already present? bail.
+    if (article.querySelector('.post-meta, .post-byline, .post-date')) return;
+
+    // Try to read from known places first
+    const author =
+      article.dataset.author ||
+      article.getAttribute('data-author') ||
+      window.__okPost?.author?.name ||
+      window.__okPost?.yoast_head_json?.author ||
+      '';
+
+    const iso =
+      article.dataset.date ||
+      article.getAttribute('data-date') ||
+      window.__okPost?.date ||
+      '';
+
+    let prettyDate = '';
+    if (iso) {
+      const d = new Date(iso);
+      if (!isNaN(d)) {
+        prettyDate = d.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+    }
+
+    // If we still have nothing, attempt to fetch by ID in the URL #/post/<id>
+    const needsFetch = !author && !prettyDate;
+    const maybeId = (location.hash.match(/post\/(\d+)/) || [])[1];
+
+    const insertMeta = (text) => {
+      if (!text) return;
+      const title = article.querySelector('.post-title');
+      const meta = document.createElement('div');
+      meta.className = 'post-meta';
+      meta.textContent = text;
+      meta.style.margin = '0 0 .75rem 0';
+      meta.style.color = '#6b7280';
+      meta.style.fontSize = '.95rem';
+      if (title && title.parentNode) {
+        title.parentNode.insertBefore(meta, title.nextSibling);
+      } else {
+        article.insertBefore(meta, article.firstChild);
+      }
+    };
+
+    if (!needsFetch) {
+      const parts = [author, prettyDate].filter(Boolean);
+      insertMeta(parts.join(' • '));
+      return;
+    }
+
+    if (maybeId) {
+      const base = (window.__OKOBSERVER_API_BASE || '').replace(/\/+$/, '');
+      const url = `${base}/posts/${maybeId}`;
+      fetch(url)
+        .then(r => r.ok ? r.json() : null)
+        .then(p => {
+          if (!p) return;
+          const a =
+            p._embedded?.author?.[0]?.name ||
+            p.author_name || // sometimes custom field
+            '';
+          const d = p.date ? new Date(p.date) : null;
+          const pd = d && !isNaN(d) ? d.toLocaleDateString(undefined, {
+            year: 'numeric', month: 'long', day: 'numeric'
+          }) : '';
+          const txt = [a, pd].filter(Boolean).join(' • ');
+          insertMeta(txt);
+        })
+        .catch(() => {});
+    }
+  } catch (e) {
+    console.warn('[detail] byline ensure failed', e);
+  }
+})();
