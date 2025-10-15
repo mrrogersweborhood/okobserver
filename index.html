@@ -43,32 +43,41 @@
     }
   </style>
 
-  <!-- 🔧 Permanent Fix for 4-column grid & Title cleanup -->
+  <!-- Permanent Fix for 4-column grid & Title cleanup -->
   <style id="oko-hotfix-v1">
-    /* --- Force 4-up grid on the posts summary --- */
-    .posts-grid {
+    /* Force 4-up grid with responsive fallbacks */
+    #app .posts-grid,
+    #app .posts-list,
+    #app .posts,
+    #app .cards,
+    #app .list,
+    #app > .grid {
       display: grid !important;
       grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
       gap: 22px !important;
       align-items: start !important;
     }
-    /* tablet */
-    @media (max-width: 1200px) {
-      .posts-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+    @media (max-width: 1200px){
+      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
+        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+      }
     }
-    /* big phones */
-    @media (max-width: 900px) {
-      .posts-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+    @media (max-width: 900px){
+      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+      }
     }
-    /* phones */
-    @media (max-width: 560px) {
-      .posts-grid { grid-template-columns: 1fr !important; }
+    @media (max-width: 560px){
+      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
+        grid-template-columns: 1fr !important;
+      }
     }
 
-    /* Prevent rogue styles shrinking cards to 100% width */
+    /* Card layout sanity */
     .post-card { width: 100% !important; max-width: none !important; }
+    .post-card img { width: 100% !important; height: auto !important; display: block; }
 
-    /* --- Remove any blue box/background from post titles on detail pages --- */
+    /* Remove any blue box from post titles (detail page) */
     .post-detail .post-header .post-title,
     .post-detail h1.post-title {
       background: transparent !important;
@@ -85,7 +94,7 @@
       display: none !important;
     }
 
-    /* Author/date line */
+    /* Author/date display */
     .post-detail .post-meta {
       color: #666;
       font-size: 14px;
@@ -107,7 +116,7 @@
   </header>
 
   <main id="app">
-    <!-- Dynamic content loads here -->
+    <!-- Content dynamically injected here -->
   </main>
 
   <footer>
@@ -116,21 +125,34 @@
 
   <script type="module" src="main.js"></script>
 
-  <!-- 🧱 Enforce layout integrity -->
+  <!-- Enforce grid and cleanup dynamically -->
   <script>
-    (function enforceGridAndTitle() {
-      // Lock the posts grid layout permanently
-      const selector = '.posts-grid, #app .grid, main .grid, .posts .grid';
-      function applyGridFix() {
-        document.querySelectorAll(selector).forEach(el => {
-          el.style.setProperty('display', 'grid', 'important');
-          el.style.setProperty('gap', '22px', 'important');
-          el.style.setProperty('align-items', 'start', 'important');
-          el.style.setProperty('grid-template-columns', 'repeat(4, 1fr)', 'important');
-        });
+    (function gridEnforcer(){
+      const APP = document.getElementById('app');
+
+      function makeGrid() {
+        let container =
+          APP.querySelector('.posts-grid') ||
+          APP.querySelector('.posts-list') ||
+          APP.querySelector('.posts') ||
+          APP.querySelector('.cards') ||
+          APP.querySelector('.list') ||
+          [...APP.children].find(el => el.querySelectorAll('.post-card').length > 1);
+
+        const cards = APP.querySelectorAll('.post-card');
+        if (container && cards.length > 1) {
+          container.style.setProperty('display', 'grid', 'important');
+          container.style.setProperty('gap', '22px', 'important');
+          container.style.setProperty('align-items', 'start', 'important');
+          container.style.setProperty('grid-template-columns', 'repeat(4, 1fr)', 'important');
+
+          cards.forEach(c => {
+            c.style.setProperty('width', '100%', 'important');
+            c.style.setProperty('max-width', 'none', 'important');
+          });
+        }
       }
 
-      // Remove any blue box background from post titles dynamically
       function cleanTitles() {
         document.querySelectorAll('.post-detail .post-title').forEach(t => {
           t.style.background = 'transparent';
@@ -139,17 +161,14 @@
         });
       }
 
-      applyGridFix();
+      makeGrid();
       cleanTitles();
-      document.addEventListener('DOMContentLoaded', () => {
-        applyGridFix();
-        cleanTitles();
-      });
-
       new MutationObserver(() => {
-        applyGridFix();
+        makeGrid();
         cleanTitles();
-      }).observe(document.documentElement, { childList: true, subtree: true });
+      }).observe(APP, { childList: true, subtree: true });
+      window.addEventListener('hashchange', () => setTimeout(makeGrid, 0));
+      document.addEventListener('DOMContentLoaded', makeGrid);
     })();
   </script>
 </body>
