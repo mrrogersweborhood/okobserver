@@ -6,42 +6,157 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <title>Observer</title>
+    <title>The Oklahoma Observer</title>
 
-    <!-- Optional: add a tiny inline favicon to stop the favicon 404 -->
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%23006aff'/%3E%3C/svg%3E" />
+    <!-- Simple inline favicon (prevents 404s) -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%231e90ff'/%3E%3C/svg%3E"
+    />
 
+    <!-- Core CSS -->
     <style>
-      /* keep header + container basics; doesn’t touch your page modules */
-      :root { color-scheme: light; }
-      html, body { margin:0; padding:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; background:#fff; color:#111; }
-      .site-header { background:#165DFF; color:#fff; }
-      .site-header .wrap { max-width:1200px; margin:0 auto; padding:18px 16px; }
-      .site-title { font-size:28px; font-weight:800; margin:0 0 6px; }
-      .site-motto { font-size:14px; opacity:.9; margin:0; }
-      .nav { display:flex; gap:18px; padding:10px 16px; background:rgba(255,255,255,.08); }
-      .nav a { color:#fff; text-decoration:none; font-weight:600; }
-      .nav a:hover { text-decoration:underline; }
-      .app { max-width:1200px; margin:0 auto; padding:16px; }
+      :root {
+        --brand: #1e90ff;
+        --text: #111;
+        --bg: #fff;
+        --muted: #555;
+        --border: #ddd;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      header.site-header {
+        background: var(--brand);
+        color: #fff;
+        text-align: center;
+        padding: 1.2rem 0 0.6rem;
+      }
+
+      header.site-header h1 {
+        font-size: 2rem;
+        margin: 0;
+        font-weight: 800;
+      }
+
+      header.site-header p {
+        margin: 0.2rem 0 0.8rem;
+        font-size: 0.9rem;
+        font-style: italic;
+      }
+
+      nav.nav {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        background: rgba(255, 255, 255, 0.12);
+        padding: 0.6rem 0;
+      }
+
+      nav.nav a {
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      nav.nav a:hover {
+        text-decoration: underline;
+      }
+
+      main.app {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+
+      footer.site-footer {
+        text-align: center;
+        padding: 1rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+
+      /* GRID LAYOUT */
+      .ok-grid {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 24px !important;
+        align-items: start;
+      }
+
+      .ok-card {
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,.06);
+        overflow: hidden;
+      }
+
+      .ok-card img.ok-thumb {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        display: block;
+        background: #f2f2f2;
+      }
+
+      .ok-card .ok-body { padding: 12px 14px; }
+
+      .ok-card .ok-title {
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+
+      .ok-card .ok-meta {
+        margin: 0 0 8px;
+        color: #666;
+        font-size: 13px;
+      }
+
+      .ok-card .ok-excerpt {
+        margin: 0;
+        color: #222;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 1200px) {
+        .ok-grid { grid-template-columns: repeat(3, 1fr) !important; }
+      }
+      @media (max-width: 900px) {
+        .ok-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      }
+      @media (max-width: 600px) {
+        .ok-grid { grid-template-columns: 1fr !important; }
+      }
     </style>
   </head>
+
   <body>
     <header class="site-header">
-      <div class="wrap">
-        <div class="site-title">Observer</div>
-        <p class="site-motto">“To comfort the afflicted and afflict the comfortable.”</p>
-      </div>
+      <h1>Observer</h1>
+      <p>"To comfort the afflicted and afflict the comfortable."</p>
       <nav class="nav">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
       </nav>
     </header>
 
-    <main id="app" class="app">
-      <!-- app renders here -->
-    </main>
+    <main id="app" class="app"></main>
 
-    <!-- Boot the app; no utils included -->
+    <footer class="site-footer">
+      © 2025 The Oklahoma Observer. All Rights Reserved.
+    </footer>
+
+    <!-- Boot script -->
     <script type="module" src="./main.js?v=265"></script>
   </body>
 </html>
