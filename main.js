@@ -1,9 +1,9 @@
 // main.js — OkObserver app entry
 // v2.5.4 (patched to use core-fixed.js safely)
 
-import { start } from './core-fixed.js';  // ✅ replaces old import from core.js?v=...
-// ---------------------------------------------------------------------------
+import { start } from './core-fixed.js';  // ✅ patched: use core-fixed router
 
+// -------- Version banner --------
 const VERSION = 'v2.5.4';
 console.log('[OkObserver] Entry loaded:', VERSION);
 

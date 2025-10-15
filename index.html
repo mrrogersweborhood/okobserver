@@ -1,67 +1,58 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  <style>
-    :root { --brand:#1e63ff; --brand-dark:#0047cc; --light-bg:#f8f9fa; --text-color:#111; }
-    body { font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; padding:0; background:var(--light-bg); color:var(--text-color); }
-    header { background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:14px 18px; position:sticky; top:0; z-index:1000; }
-    header .logo { display:flex; flex-direction:column; }
-    header .logo h1 { font-size:1.6rem; font-weight:700; margin:0; }
-    header .logo span { font-size:.75rem; font-style:italic; opacity:.9; }
-    nav { display:flex; align-items:center; gap:18px; }
-    nav a { color:#fff; text-decoration:none; font-weight:600; }
-    nav a:hover { text-decoration:underline; }
-    .hamburger { display:none; flex-direction:column; justify-content:center; align-items:center; cursor:pointer; width:32px; height:32px; }
-    .hamburger span { height:3px; width:22px; background:#fff; margin:3px 0; border-radius:2px; }
-    @media (max-width:700px){
-      nav{display:none;flex-direction:column;background:var(--brand);position:absolute;top:60px;right:10px;border-radius:6px;box-shadow:0 2px 5px rgba(0,0,0,.2);}
-      nav.show{display:flex;}
-      .hamburger{display:flex;}
-    }
-    main{padding:20px;}
-    footer{text-align:center;padding:20px;font-size:14px;color:#666;background:#f3f3f3;border-top:1px solid #ddd;}
-    /* Post grid */
-    .ok-grid{display:grid;gap:18px;grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;}
-    @media(max-width:1200px){.ok-grid{grid-template-columns:repeat(3,1fr);}}
-    @media(max-width:900px){.ok-grid{grid-template-columns:repeat(2,1fr);}}
-    @media(max-width:600px){.ok-grid{grid-template-columns:1fr;}}
-    .ok-card{background:#fff;border:1px solid rgba(0,0,0,.06);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);}
-    .ok-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#f2f4f7;}
-    .ok-body{padding:12px 14px;}
-    .ok-title{margin:0 0 6px;font-size:18px;font-weight:700;line-height:1.25;}
-    .ok-title a{color:#153e90;text-decoration:none;}
-    .ok-title a:hover{text-decoration:underline;}
-    .ok-meta{margin:0 0 8px;color:#6b7280;font-size:13px;}
-    .ok-excerpt{margin:0;color:#222;font-size:14px;line-height:1.45;}
-  </style>
+
+  <link rel="icon" type="image/x-icon" href="./favicon2[1].ico" />
+  <meta name="theme-color" content="#1E90FF" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- your existing styles -->
+  <link rel="stylesheet" href="./app.css" />
+  <link rel="stylesheet" href="./detail.css" />
+
+  <meta name="description" content="The Oklahoma Observer — To Comfort The Afflicted And Afflict The Comfortable." />
+
+  <!-- no-cache to fight GH Pages caching -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
 </head>
 <body>
-  <header>
-    <div class="logo">
-      <h1>OkObserver</h1>
-      <span>"To comfort the afflicted and afflict the comfortable."</span>
+  <header id="main-header">
+    <div class="header-inner">
+      <img src="./Observer-logo[1].png" alt="Oklahoma Observer Logo" class="site-logo" />
+      <div class="motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+
+      <nav class="nav">
+        <a href="#/" class="nav-link">Posts</a>
+        <a href="#/about" class="nav-link">About</a>
+      </nav>
+
+      <button id="menu-toggle" aria-label="Menu">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </button>
     </div>
-    <div class="hamburger" id="hamburger"><span></span><span></span><span></span></div>
-    <nav id="menu">
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
   </header>
 
-  <main id="app"><p>Loading…</p></main>
+  <main id="app">
+    <div class="loading">Loading…</div>
+  </main>
 
-  <footer>© 2025 The Oklahoma Observer • All Rights Reserved.</footer>
+  <footer id="main-footer">
+    <p>&copy; <span id="year"></span> The Oklahoma Observer. All Rights Reserved.</p>
+  </footer>
 
-  <!-- bump this to refresh all modules -->
-  <script type="module" src="./main.js?v=271"></script>
+  <!-- Keep versioning ONLY on entry; internal dynamic imports do NOT use ?v= -->
+  <script type="module" src="./main.js?v=2.6.0"></script>
   <script>
-    const hamburger=document.getElementById('hamburger');
-    const menu=document.getElementById('menu');
-    hamburger.addEventListener('click',()=>menu.classList.toggle('show'));
+    document.getElementById("year").textContent = new Date().getFullYear();
+    document.getElementById("menu-toggle").addEventListener("click", function () {
+      document.querySelector(".nav").classList.toggle("open");
+    });
   </script>
 </body>
 </html>

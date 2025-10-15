@@ -1,4 +1,4 @@
-// utils.v263.js
+/* OkObserver · utils.v263.js */
 export async function apiFetchJson(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`API ${res.status}`);
@@ -13,8 +13,9 @@ export function prettyDate(iso) {
 
 export function extractFirstImage(html) {
   if (!html) return null;
-  const m = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/i)
-           || html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
-  if (m) return { src: m[1], alt: m[2] || '' };
+  const withAlt = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*>/i);
+  if (withAlt) return { src: withAlt[1], alt: withAlt[2] || '' };
+  const simple  = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+  if (simple) return { src: simple[1], alt: '' };
   return null;
 }

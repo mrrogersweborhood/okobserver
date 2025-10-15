@@ -1,41 +1,29 @@
-// core-fixed.js — robust dynamic imports (NO ?v= in import() URLs)
-// - Falls back between default and named exports so detail/home/about keep working
-// - Clean errors rendered in-app instead of silent failures
+// core-fixed.js — stable routing for OkObserver (GitHub Pages–safe)
+// Removes ?v= from all dynamic imports, supports default OR named exports.
 
 export function start() {
   router();
 }
 
-// Safe escaper for error text
 function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return String(s).replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;");
 }
 
-// Centralized dynamic import with defensive query stripping
+// dynamic import helper that strips query params (defensive)
 async function loadModule(path) {
-  // If someone accidentally passes "...js?v=XYZ", strip the query so GitHub Pages can serve it
-  const clean = String(path).split("?")[0];
+  const clean = path.split("?")[0];
   return import(clean);
 }
 
-// Helper to call the right export (default or named)
+// utility to call default or named export without guessing
 async function callExport(mod, candidates, ...args) {
   for (const name of candidates) {
-    if (name === "default" && typeof mod?.default === "function") {
-      return mod.default(...args);
-    }
-    if (name !== "default" && typeof mod?.[name] === "function") {
-      return mod[name](...args);
-    }
+    const fn = name === "default" ? mod?.default : mod?.[name];
+    if (typeof fn === "function") return fn(...args);
   }
-  const available = Object.keys(mod || {});
-  throw new Error(
-    `Module does not export any of: ${candidates.join(", ")}. ` +
-    `Available exports: ${available.length ? available.join(", ") : "(none)"}`
-  );
+  throw new Error(`Module missing export (${candidates.join(", ")}). Found: ${Object.keys(mod)}`);
 }
 
 export async function router() {
@@ -48,7 +36,6 @@ export async function router() {
   try {
     if (!route || route === "") {
       const mod = await loadModule("./home.v263.js");
-      // Try default first, then renderHome (supports both styles)
       await callExport(mod, ["default", "renderHome"], app);
       return;
     }
@@ -61,22 +48,20 @@ export async function router() {
 
     if (route === "post" && id) {
       const mod = await loadModule("./detail.v263.js");
-      // Many of your versions used either default or renderPost/renderDetail
       await callExport(mod, ["default", "renderPost", "renderDetail"], app, id);
       return;
     }
 
-    // Fallback to home if unknown route
+    // Fallback to home
     const mod = await loadModule("./home.v263.js");
     await callExport(mod, ["default", "renderHome"], app);
   } catch (err) {
-    console.error("[Router error]", err);
-    app.innerHTML = `<div class="container" style="padding:2rem">
-      <p style="color:#b00020">Page error: ${escapeHtml(err?.message || String(err))}</p>
-    </div>`;
+    console.error("[OkObserver router error]", err);
+    app.innerHTML = `<div style="padding:2rem"><p style="color:#c00;font-weight:500">
+      Page error: ${escapeHtml(err.message || "module load failed.")}
+    </p></div>`;
   }
 }
 
-// Keep hash routing responsive
 window.addEventListener("hashchange", router);
 window.addEventListener("DOMContentLoaded", router);
