@@ -374,4 +374,59 @@ figure:empty,
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* --- Post grid polish: softer edges, breathing room, clean text insets --- */
+
+.post-grid,
+.posts-grid,
+#post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  gap: 1.6rem !important;
+}
+
+/* card container */
+.ok-card,
+.post-card,
+#app .card,
+#app article {
+  border-radius: 20px !important;
+  border: 1px solid rgba(0,0,0,.06) !important;
+  background: #fff !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08) !important;
+  overflow: hidden;
+  transition: box-shadow .2s ease, transform .15s ease;
+}
+.ok-card:hover,
+.post-card:hover,
+#app .card:hover,
+#app article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.12);
+}
+
+/* inner padding so text never kisses the border */
+.ok-card .card-body,
+.post-card .card-body,
+#app .card .card-body,
+#app article .card-body,
+#app .card .content,
+#app article .content {
+  padding: 14px 16px !important;
+}
+
+/* titles */
+.ok-card .post-title,
+.post-card .post-title,
+#app .card .post-title,
+#app article .post-title {
+  margin: 10px 16px 6px 16px !important;
+  padding: 0 !important;
+  background: none !important;
+  color: #1e90ff !important; /* brand blue */
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* meta*
 
