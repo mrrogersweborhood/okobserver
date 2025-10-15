@@ -746,4 +746,32 @@ figure:empty,
   box-shadow: none !important;
   padding: 0 !important;
 }
+/* Strong kill-switch for blue title background on post detail */
+article.post-detail header.post-header .post-title,
+#app article.post-detail header.post-header .post-title,
+#app #post-detail header.post-header .post-title,
+#post-detail header.post-header .post-title {
+  background: none !important;
+  color: #1e90ff !important;
+  padding: 0 !important;
+  margin: 0 0 .75rem 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Ensure byline block renders if present but hidden */
+article.post-detail .post-meta,
+article.post-detail .post-byline,
+article.post-detail .post-date,
+#post-detail .post-meta,
+#post-detail .post-byline,
+#post-detail .post-date {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #6b7280 !important;
+  font-size: .95rem !important;
+  line-height: 1.4 !important;
+  margin: 0 0 .75rem 0 !important;
+}
 
