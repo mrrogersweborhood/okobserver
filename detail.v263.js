@@ -1,4 +1,4 @@
-/* OkObserver · detail.v263.js · v2.7.3
+/* OkObserver · detail.v263.js · v2.7.4
    Restores video behavior (poster→click-to-play for YT/Vimeo, FB plugin),
    removes title background, shows author + pretty date.
    Standalone: no imports, no new filenames.
@@ -11,7 +11,19 @@ function joinUrl(base, path){const b=(base||'').replace(/\/+$/,'');const p=(path
 function qs(params={}){const u=new URLSearchParams();for(const [k,v] of Object.entries(params)){if(v==null||v==='')continue;Array.isArray(v)?v.forEach(x=>u.append(k,x)):u.append(k,v)}const s=u.toString();return s?`?${s}`:'';}
 async function apiJSON(pathOrUrl, params){const url = pathOrUrl.startsWith('http')? pathOrUrl+qs(params) : joinUrl(API_BASE, pathOrUrl)+qs(params); const r=await fetch(url,{headers:{accept:'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json();}
 const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
-const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' };
+const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' }
+
+// Ensure we always work with a real Element
+function asEl(target){
+  if (target instanceof Element) return target;
+  if (typeof target === 'string') {
+    const bySel = document.querySelector(target);
+    if (bySel) return bySel;
+    const byId = document.getElementById(target);
+    if (byId) return byId;
+  }
+  return document.getElementById('app') || document.body;
+}
 
 // ---------- media helpers ----------
 function featuredSrc(post){
@@ -90,9 +102,23 @@ function playerHTML(embed){
 }
 
 // ---------- main render ----------
-export default async function renderDetail(app, idParam){
-  const mount = app || document.getElementById('app');
-  const id = Array.isArray(idParam) ? idParam[0] : idParam;
+export default async function renderDetail(a, b){
+  // Accept either: (container, id) OR (id)
+  let mount, id;
+  const looksLikeId = x => (typeof x === 'string' || typeof x === 'number') && !String(x).trim().startsWith('#') && !String(x).trim().match(/[\.>#\s]/);
+
+  if (a instanceof Element || (typeof a === 'string' && (document.querySelector(a) || document.getElementById(a)))) {
+    // Called as (container, id)
+    mount = asEl(a);
+    id = Array.isArray(b) ? b[0] : b;
+  } else {
+    // Called as (id)
+    mount = asEl('#app');
+    id = Array.isArray(a) ? a[0] : a;
+  }
+
+  // Fallback: if id still missing but first arg looked like an id, use it
+  if (!id && looksLikeId(a)) id = a;
 
   if(!API_BASE){ mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
   if(!id){ mount.innerHTML = `<section class="page-error"><p>Page error: missing id.</p></section>`; return; }
@@ -174,7 +200,7 @@ export default async function renderDetail(app, idParam){
 }
 
 /* ---------- scoped styles (title reset + media sizing + buttons) ---------- */
-const __once = 'oko-detail-scope-v273';
+const __once = 'oko-detail-scope-v274';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
@@ -210,4 +236,3 @@ if (!document.getElementById(__once)) {
   document.head.appendChild(style);
 }
 export { renderDetail as renderPostDetail };
-
