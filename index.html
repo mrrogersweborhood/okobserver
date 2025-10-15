@@ -297,6 +297,99 @@
   });
 })();
 </script>
+<script>
+/* OkObserver: PERMANENT 4-COLUMN ENFORCER */
+(function () {
+  const COLS_DESKTOP = 4, GAP = 28;
+
+  function isPostLink(a) {
+    try {
+      const href = a.getAttribute('href') || '';
+      return href.includes('#/post/');
+    } catch { return false; }
+  }
+
+  // Find the closest ancestor that contains a bunch of post links
+  function findPostsContainer() {
+    const links = Array.from(document.querySelectorAll('a[href*="#/post/"]'));
+    if (links.length < 4) return null; // not on the list page yet
+    // Find the highest ancestor that contains most links (list wrapper)
+    let common = links[0].parentElement;
+    while (common && common !== document.body) {
+      const count = common.querySelectorAll('a[href*="#/post/"]').length;
+      if (count >= Math.max(4, links.length * 0.7)) break;
+      common = common.parentElement;
+    }
+    return common || null;
+  }
+
+  function styleCard(el) {
+    el.style.setProperty('width', '100%', 'important');
+    el.style.setProperty('max-width', 'none', 'important');
+    el.style.setProperty('background', '#fff', 'important');
+    el.style.setProperty('border-radius', '10px', 'important');
+    el.style.setProperty('box-shadow', '0 2px 6px rgba(0,0,0,.08)', 'important');
+    el.style.setProperty('overflow', 'hidden', 'important');
+  }
+
+  function normalizeCardContent(card) {
+    // images
+    card.querySelectorAll('img').forEach(img => {
+      img.style.setProperty('display', 'block', 'important');
+      img.style.setProperty('width', '100%', 'important');
+      img.style.setProperty('height', 'auto', 'important');
+      img.style.setProperty('object-fit', 'cover', 'important');
+    });
+  }
+
+  function lockGrid(container) {
+    if (!container) return;
+
+    // force grid on container
+    container.style.setProperty('display', 'grid', 'important');
+    container.style.setProperty('grid-template-columns', `repeat(${COLS_DESKTOP}, minmax(0, 1fr))`, 'important');
+    container.style.setProperty('gap', `${GAP}px`, 'important');
+    container.style.setProperty('align-items', 'start', 'important');
+    container.style.setProperty('justify-items', 'stretch', 'important');
+    container.style.setProperty('margin-top', '1rem', 'important');
+
+    // style each "card" (the clickable tile or its parent)
+    const candidates = Array.from(container.querySelectorAll('a[href*="#/post/"]'));
+    candidates.forEach(a => {
+      const card = a.closest('article, li, div') || a;
+      styleCard(card);
+      normalizeCardContent(card);
+    });
+
+    // responsive fallbacks
+    const id = 'oko-grid-immutable';
+    if (!document.getElementById(id)) {
+      const s = document.createElement('style');
+      s.id = id;
+      s.textContent = `
+        @media (max-width: 1200px){ [data-oko-grid="on"]{grid-template-columns:repeat(3, minmax(0,1fr)) !important} }
+        @media (max-width: 900px){  [data-oko-grid="on"]{grid-template-columns:repeat(2, minmax(0,1fr)) !important} }
+        @media (max-width: 560px){  [data-oko-grid="on"]{grid-template-columns:1fr !important} }
+      `;
+      document.head.appendChild(s);
+    }
+    container.setAttribute('data-oko-grid', 'on');
+  }
+
+  function enforce() {
+    const list = findPostsContainer();
+    if (list) lockGrid(list);
+  }
+
+  // Run now, on SPA navigations, and on DOM changes
+  enforce();
+  window.addEventListener('hashchange', enforce, { passive: true });
+  document.addEventListener('readystatechange', () => { if (document.readyState === 'complete') enforce(); });
+
+  const root = document.getElementById('app') || document.body;
+  new MutationObserver(() => enforce()).observe(root, { childList: true, subtree: true });
+})();
+</script>
 
 </body>
 </html>
