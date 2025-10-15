@@ -24,9 +24,7 @@
     }
     main{padding:20px;}
     footer{text-align:center;padding:20px;font-size:14px;color:#666;background:#f3f3f3;border-top:1px solid #ddd;}
-    .detail-back-wrap{margin-top:10px;}
-    .detail-card iframe,.detail-card img{max-width:100%;height:auto;}
-    /* 4-column responsive grid */
+    /* Post grid */
     .ok-grid{display:grid;gap:18px;grid-template-columns:repeat(4,minmax(0,1fr));align-items:start;}
     @media(max-width:1200px){.ok-grid{grid-template-columns:repeat(3,1fr);}}
     @media(max-width:900px){.ok-grid{grid-template-columns:repeat(2,1fr);}}
@@ -58,7 +56,8 @@
 
   <footer>© 2025 The Oklahoma Observer • All Rights Reserved.</footer>
 
-  <script type="module" src="./main.js?v=269"></script>
+  <!-- bump this to refresh all modules -->
+  <script type="module" src="./main.js?v=271"></script>
   <script>
     const hamburger=document.getElementById('hamburger');
     const menu=document.getElementById('menu');
