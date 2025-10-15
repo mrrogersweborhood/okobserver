@@ -606,3 +606,51 @@ figure:empty,
 
 /* Safety: kill any leftover outer margins on the card itself */
 #app article, #app .card, .post-card, .ok-card { margin: 0 !important; }
+/* --- Responsive grid layout fix: 4-2-1 columns permanent --- */
+
+.post-grid,
+.posts-grid,
+#post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr); /* desktop default */
+  gap: 1.4rem !important;
+  align-items: start;
+}
+
+/* Tablet (<= 1100px): 2 columns */
+@media (max-width: 1100px) {
+  .post-grid,
+  .posts-grid,
+  #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Mobile (<= 720px): 1 column */
+@media (max-width: 720px) {
+  .post-grid,
+  .posts-grid,
+  #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Ensure each card fills its grid cell fully */
+.ok-card,
+.post-card,
+#app .card,
+#app article {
+  width: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
