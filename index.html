@@ -1,59 +1,226 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <!-- OkObserver · index.html · v2.6.5 (app shell only) -->
+  <!-- OkObserver · index.html · v2.6.5 -->
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#1e88ff" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#1e63ff" />
+  <meta name="color-scheme" content="light" />
+  <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
 
-  <!-- Hard no-cache hint for intermediaries (GitHub Pages still serves static, but helps browsers) -->
+  <!-- Gentle no-cache to fight stale assets on GH Pages -->
   <meta http-equiv="Cache-Control" content="no-store, max-age=0, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>Observer</title>
-  <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
+  <title>OkObserver</title>
 
-  <!-- Icons -->
-  <link rel="icon" type="image/png" href="./favicon.ico?v=265" />
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=265" />
+  <!-- Tiny inline favicon to avoid 404s -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%231e63ff'/%3E%3C/svg%3E" />
 
-  <!-- Styles (cache-busted). Your CSS controls the grid (e.g., 4 columns on desktop). -->
-  <link rel="stylesheet" href="./styles.css?v=265">
+  <!-- Your main stylesheet (cache-busted) -->
+  <link rel="stylesheet" href="./styles.css?v=265" />
 
-  <!-- Preload main module to reduce FOUC -->
-  <link rel="modulepreload" href="./main.js?v=265">
+  <!-- Inline layout CSS: header + grid helpers -->
+  <style>
+    :root {
+      --brand: #1e63ff;
+      --text: #111827;
+      --muted: #6b7280;
+      --bg: #ffffff;
+      --card: #ffffff;
+      --border: rgba(0,0,0,.06);
+    }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-  <!-- Open Graph / Social -->
-  <meta property="og:title" content="Observer" />
-  <meta property="og:description" content="To comfort the afflicted and afflict the comfortable." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://mrrogersweborhood.github.io/okobserver/" />
+    /* ===== Sticky Header ===== */
+    .site-header {
+      position: sticky; top: 0; z-index: 1000;
+      background: var(--brand); color: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .header-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 10px 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 0;
+    }
+    .brand .logo {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 800;
+      font-size: 28px;
+      line-height: 1;
+      margin: 0;
+      color: #fff;
+      text-decoration: none;
+    }
+    .brand .motto {
+      font-size: 12.5px;
+      font-style: italic;
+      opacity: .95;
+      margin: 0;
+      color: #f5f7ff;
+    }
+
+    /* Hamburger (right) */
+    .hamburger {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 10px;
+      transition: background .15s ease;
+    }
+    .hamburger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .hamburger:hover { background: rgba(255,255,255,.12); }
+    .hamburger .bars {
+      display: inline-block; width: 22px; height: 2px;
+      background: #fff; position: relative;
+    }
+    .hamburger .bars::before,
+    .hamburger .bars::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 2px; background: #fff;
+    }
+    .hamburger .bars::before { top: -6px; }
+    .hamburger .bars::after  { top:  6px; }
+
+    /* Slide-down nav panel */
+    .nav-panel {
+      background: rgba(255,255,255,.10);
+      overflow: hidden;
+      transition: grid-template-rows .25s ease, opacity .25s ease;
+      display: grid;
+      grid-template-rows: 0fr; /* collapsed */
+      opacity: 0;
+    }
+    .nav-panel.open {
+      grid-template-rows: 1fr; /* expanded */
+      opacity: 1;
+    }
+    .nav-inner {
+      min-height: 0;
+    }
+    .nav {
+      display: flex;
+      gap: 18px;
+      padding: 10px 14px;
+    }
+    .nav a {
+      color: #fff; text-decoration: none; font-weight: 600;
+    }
+    .nav a:hover { text-decoration: underline; }
+
+    /* ===== App Container ===== */
+    #app { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+    /* ===== Grid helpers (used by Home) ===== */
+    .ok-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: start;
+    }
+    @media (max-width: 1200px) { .ok-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px)  { .ok-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px)  { .ok-grid { grid-template-columns: 1fr; } }
+
+    .ok-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    }
+    .ok-thumb {
+      width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #f2f4f7;
+    }
+    .ok-body { padding: 12px 14px; }
+    .ok-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; line-height: 1.25; }
+    .ok-title a { color: #153e90; text-decoration: none; }
+    .ok-title a:hover { text-decoration: underline; }
+    .ok-meta { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+    .ok-excerpt { margin: 0; color: #222; font-size: 14px; line-height: 1.45; }
+
+    /* Detail page soft card (if your CSS doesn't already handle it) */
+    .post-detail {
+      background: #fff; border: 1px solid rgba(0,0,0,.05);
+      border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,.05);
+      padding: 1.5rem; margin: 2rem 0;
+    }
+    .post-detail .back-link { color: #1e63ff; text-decoration: none; font-weight: 500; }
+    .post-detail .back-link:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
-  <!-- App header is rendered by JS; keep body minimal -->
-  <noscript>JavaScript is required to run this site.</noscript>
+  <!-- ===== Sticky Header ===== -->
+  <header class="site-header">
+    <div class="header-wrap">
+      <div class="brand">
+        <a class="logo" href="#/">OkObserver</a>
+        <p class="motto">“To comfort the afflicted and afflict the comfortable.”</p>
+      </div>
+      <button class="hamburger" id="menuBtn" aria-expanded="false" aria-controls="siteNav" aria-label="Open navigation">
+        <span class="bars"></span>
+      </button>
+    </div>
 
-  <!-- App root (router renders into this) -->
-  <div id="app" aria-live="polite"></div>
+    <!-- Slide-down nav panel -->
+    <div class="nav-panel" id="siteNav">
+      <div class="nav-inner">
+        <nav class="nav" role="navigation">
+          <a href="#/">Posts</a>
+          <a href="#/about">About</a>
+        </nav>
+      </div>
+    </div>
+  </header>
 
-  <!-- Global portals -->
+  <!-- ===== App Root ===== -->
+  <main id="app" aria-live="polite"></main>
+
+  <!-- Optional global portals -->
   <div id="toast" aria-live="assertive" aria-atomic="true"></div>
   <div id="modal-root" aria-hidden="true"></div>
 
-  <!-- Service Worker (tiny: install/activate only). Safe to keep. -->
+  <!-- Slide-down nav toggle (no dependency) -->
   <script>
-    // sw.js only skips waiting & claims clients; no caching logic to fight our busting.
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=265').catch(() => {});
+    (function () {
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('siteNav');
+      if (!btn || !panel) return;
+      const toggle = () => {
+        const open = panel.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      btn.addEventListener('click', toggle);
+      // Close panel on navigation click
+      panel.addEventListener('click', (e) => {
+        const a = e.target.closest('a[href^="#/"]');
+        if (a) {
+          panel.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
       });
-    }
+    })();
   </script>
 
-  <!-- Main ESM entry (cache-busted). This file imports core-fixed, home/detail chunks, and utils. -->
+  <!-- Main ESM entry (cache-busted). Your router will import home/detail chunks. -->
   <script type="module" src="./main.js?v=265"></script>
 </body>
 </html>
