@@ -271,3 +271,11 @@ figure:empty,
 #app article img:hover {
   transform: scale(1.02);
 }
+/* --- Remove blue background from post titles on detail page --- */
+.post-detail .post-title {
+  background: none !important;
+  color: #1e90ff !important;
+  padding: 0 !important;
+  margin-top: 0.5rem;
+  display: block;
+}
