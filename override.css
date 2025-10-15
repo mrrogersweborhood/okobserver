@@ -544,3 +544,65 @@ figure:empty,
 
 /* 9) Detail page titles: ensure no blue background boxes anywhere */
 .post-detail .post-title { background: none !important; color: #1e90ff !important; padding: 0 !important; }
+/* --- Hard fix: prevent excerpts from touching edges --- */
+
+/* Ensure every card has inner padding, regardless of markup */
+#app article,
+#app .card,
+.post-card,
+.ok-card {
+  padding: 14px 16px !important;      /* universal inset */
+  box-sizing: border-box;
+}
+
+/* But images/media should be edge-to-edge at the top */
+#app article > .post-thumb,
+#app .card > .post-thumb,
+.post-card > .post-thumb,
+.ok-card > .post-thumb,
+#app article > .media,
+#app .card > .media {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Remove the extra padding we just added from the media area only */
+#app article > .post-thumb img,
+#app .card > .post-thumb img,
+.post-card > .post-thumb img,
+.ok-card > .post-thumb img,
+#app article > .media img,
+#app .card > .media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px !important;
+}
+
+/* Tight, consistent spacing on text blocks */
+#app article .post-title,
+#app .card .post-title,
+.post-card .post-title,
+.ok-card .post-title {
+  margin: 6px 0 6px 0 !important;     /* rely on card padding */
+  padding: 0 !important;
+  background: none !important;
+  color: #1e90ff !important;
+  line-height: 1.25;
+}
+
+#app article .post-excerpt,
+#app .card .post-excerpt,
+.post-card .post-excerpt,
+.ok-card .post-excerpt,
+#app article p,
+#app .card p,
+.post-card p,
+.ok-card p {
+  margin: 8px 0 12px 0 !important;    /* never hits the edges */
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Safety: kill any leftover outer margins on the card itself */
+#app article, #app .card, .post-card, .ok-card { margin: 0 !important; }
