@@ -1,7 +1,7 @@
 /* OkObserver · detail.v263.js · v2.7.5
-   Restores video behavior (poster→click-to-play for YT/Vimeo, FB plugin),
-   removes title background, shows author + pretty date.
-   Standalone: no imports, no new filenames.
+   Poster→click-to-play (YouTube/Vimeo), Facebook plugin for FB links.
+   Title has no background; author + pretty date shown; back buttons.
+   Works with calls as (id) or (container, id).
 */
 
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
@@ -13,22 +13,13 @@ async function apiJSON(pathOrUrl, params){const url = pathOrUrl.startsWith('http
 const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
 const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' }
 
-// Ensure we always work with a real Element (SAFE)
+// Ensure we always have an Element; don’t treat numeric IDs as selectors
 function asEl(target){
   if (target instanceof Element) return target;
-
   if (typeof target === 'string') {
-    // Only try querySelector if it looks like a selector; otherwise skip it.
-    const looksLikeSelector = /^[.#\[]|^\w+\[/.test(target.trim());
-    if (looksLikeSelector) {
-      try {
-        const found = document.querySelector(target);
-        if (found) return found;
-      } catch { /* invalid selector; ignore */ }
-    }
-    // Fall back to id lookup (safe for numeric strings)
-    const byId = document.getElementById(target);
-    if (byId) return byId;
+    const t = target.trim();
+    if (/^[.#\[]/.test(t)) { try { const q=document.querySelector(t); if (q) return q; } catch{} }
+    const byId = document.getElementById(t); if (byId) return byId;
   }
   return document.getElementById('app') || document.body;
 }
@@ -113,7 +104,7 @@ function playerHTML(embed){
 export default async function renderDetail(a, b){
   // Accept either: (container, id) OR (id)
   let mount, id;
-  const looksLikeId = x => (typeof x === 'string' || typeof x === 'number') && !String(x).trim().startsWith('#') && !String(x).trim().match(/[\.>#\s]/);
+  const looksLikeId = x => (typeof x === 'string' || typeof x === 'number') && /^\d+$/.test(String(x).trim());
 
   if (a instanceof Element || (typeof a === 'string' && (document.getElementById(a) || /^[.#\[]/.test(a)))) {
     // Called as (container, id)

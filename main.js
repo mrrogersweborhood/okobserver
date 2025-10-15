@@ -1,39 +1,34 @@
-/* main.js – boot + top-level error boundary */
+// main.js — OkObserver boot + API base lock (v2.5.4 patched)
 console.log("[OkObserver] Entry loaded: v2.5.4");
 
-/** Global config (locked once) */
-export const CONFIG = {
-  API_BASE: "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2",
-  SITE_BASE: location.origin + location.pathname.replace(/index\.html?$/i, ""),
-};
-Object.freeze(CONFIG);
+// Lock API base (Cloudflare Worker on GitHub Pages)
+(function configureApiBase() {
+  const isGitHubPages = location.hostname.endsWith('github.io');
+  const workerBase = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  const relativeBase = `${location.origin}/api/wp-json/wp/v2`;
+  let base = isGitHubPages ? workerBase : relativeBase;
 
-const app = document.getElementById("app");
+  const hash = location.hash || '';
+  if (hash.includes('useWorker')) base = workerBase;
+  if (hash.includes('useRelative')) base = relativeBase;
 
-function setView(node) {
-  app.innerHTML = "";
-  app.appendChild(node);
-}
+  Object.defineProperty(window, 'OKO_API_BASE', {
+    value: base, writable: false, configurable: false, enumerable: true
+  });
+  console.log('[OkObserver] API base (locked):', window.OKO_API_BASE);
+})();
 
-/* Router bootstrap (hash-based) */
-async function route() {
-  const hash = location.hash || "#/";
-  try {
-    const { renderHome, renderDetail, renderAbout } = await import("./core-fixed.js");
-    const [_, route, id] = hash.split("/");
-    if (!route || route === "") return setView(await renderHome());
-    if (route === "post" && id) return setView(await renderDetail(id));
-    if (route === "about") return setView(await renderAbout());
-    return setView(await renderHome());
-  } catch (err) {
-    console.error("[OkObserver] router error:", err);
-    const div = document.createElement("div");
-    div.className = "card";
-    div.style.padding = "18px";
-    div.textContent = "Page error: failed to load module.";
-    setView(div);
+// Router entry
+import { start } from './core-fixed.js';
+(async function boot() {
+  if (window.__okBooted) return; window.__okBooted = true;
+  if (document.readyState === 'loading') {
+    await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
   }
-}
-
-window.addEventListener("hashchange", route);
-window.addEventListener("DOMContentLoaded", route);
+  try { await start(); }
+  catch (err) {
+    console.error('OkObserver failed to start', err);
+    const app = document.getElementById('app');
+    if (app) app.innerHTML = `<div style="padding:1rem;color:#b00020"><strong>App failed to start.</strong><br/><small>${String(err)}</small></div>`;
+  }
+})();
