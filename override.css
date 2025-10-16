@@ -823,4 +823,105 @@ article.post-detail header.post-header .post-meta,
   border: 0 !important;
   box-shadow: none !important;
 }
+/* --- Force grid back to 4 / 2 / 1 columns (PC / tablet / phone) --- */
+
+/* Use high-specificity selectors that match your app containers */
+#app .posts-grid,
+#app #post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* desktop default */
+  gap: 1.4rem !important;
+  align-items: start;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  #app .posts-grid,
+  #app #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone */
+@media (max-width: 720px) {
+  #app .posts-grid,
+  #app #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Safety: remove any margins that collapse columns */
+#app .posts-grid > *,
+#app #post-grid > *,
+#app .posts > *,
+#app .cards > *,
+#app .grid > * {
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
+/* --- Hard lock: grid = 4 / 2 / 1 (PC / tablet / phone) --- */
+
+/* Highest-specificity, covers all your list containers */
+#app .posts-grid,
+#app #post-grid,
+#app .posts,
+#app .cards,
+#app .grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* desktop */
+  gap: 1.4rem !important;
+  align-items: start;
+}
+
+/* Tablet ≤1100px: 2 columns */
+@media (max-width: 1100px) {
+  #app .posts-grid,
+  #app #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone ≤720px: 1 column */
+@media (max-width: 720px) {
+  #app .posts-grid,
+  #app #post-grid,
+  #app .posts,
+  #app .cards,
+  #app .grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Safety: kill inline/legacy column overrides if any slipped in */
+#app .posts-grid[style],
+#app #post-grid[style],
+#app .posts[style],
+#app .cards[style],
+#app .grid[style] {
+  grid-template-columns: unset !important;
+}
+
+/* Ensure children fill the cell and have no outer margins */
+#app .posts-grid > *,
+#app #post-grid > *,
+#app .posts > *,
+#app .cards > *,
+#app .grid > * {
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
 
