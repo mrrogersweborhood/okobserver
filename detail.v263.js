@@ -1,7 +1,8 @@
-/* OkObserver · detail.v263.js · v2.7.5
-   Poster→click-to-play (YouTube/Vimeo), Facebook plugin for FB links.
-   Title has no background; author + pretty date shown; back buttons.
-   Works with calls as (id) or (container, id).
+/* OkObserver · detail.v263.js · v2.7.6 (stable)
+   - Poster→click-to-play (YouTube/Vimeo), Facebook plugin for FB links.
+   - Title has no background; author + pretty date shown directly under title.
+   - Back buttons preserved (visibility managed by CSS if desired).
+   - Works with calls as (id) or (container, id).
 */
 
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
@@ -75,31 +76,6 @@ function stripEmptyBlocks(html=''){
   return s;
 }
 
-// ---------- UI bits ----------
-function backButtonHTML(){ return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`; }
-function posterHTML(src, title){
-  if(!src) return '';
-  return `
-    <div class="oko-video-poster" role="button" tabindex="0" aria-label="Play video">
-      <img src="${src}" alt="${decode(title)}" class="oko-video-poster__img">
-      <button class="oko-video-poster__play" aria-label="Play video">▶</button>
-    </div>`;
-}
-function playerHTML(embed){
-  if(!embed?.src) return '';
-  return `
-    <div class="oko-video-embed">
-      <iframe
-        src="${embed.src}"
-        title="Embedded media"
-        loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="no-referrer-when-downgrade"
-        frameborder="0"></iframe>
-    </div>`;
-}
-
 // ---------- main render ----------
 export default async function renderDetail(a, b){
   // Accept either: (container, id) OR (id)
@@ -120,6 +96,7 @@ export default async function renderDetail(a, b){
   if(!API_BASE){ mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
   if(!id){ mount.innerHTML = `<section class="page-error"><p>Page error: missing id.</p></section>`; return; }
 
+  // Initial shell (no premature "Back to Posts" from JS; CSS controls visibility if needed)
   mount.innerHTML = `
     <article class="post-detail">
       <div class="oko-actions-top">${backButtonHTML()}</div>
@@ -138,13 +115,13 @@ export default async function renderDetail(a, b){
   const $media = mount.querySelector('.post-media');
   const $body  = mount.querySelector('.post-content');
 
-  // back buttons
+  // back buttons (hash navigation)
   mount.addEventListener('click', (e) => {
     const b = e.target.closest('[data-nav="back"]');
     if (b) { e.preventDefault(); window.location.hash = '#/'; }
   });
 
-  // fetch
+  // fetch post
   let post;
   try{
     post = await apiJSON(`posts/${encodeURIComponent(id)}`, {_embed:1});
@@ -154,14 +131,22 @@ export default async function renderDetail(a, b){
     return;
   }
 
-  // header
+  // header (title + byline directly under title)
   const rawTitle = post.title?.rendered || '(Untitled)';
   const author   = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
   const date     = prettyDate(post.date || post.date_gmt);
   const contentRaw = post.content?.rendered || '';
 
   $title.innerHTML = rawTitle;
-  $meta.textContent = `By ${author} — ${date}`;
+
+  // Ensure byline exists just beneath the title
+  let metaEl = $meta;
+  if (!metaEl) {
+    metaEl = document.createElement('div');
+    metaEl.className = 'post-meta';
+    $title.parentNode.insertBefore(metaEl, $title.nextSibling);
+  }
+  metaEl.textContent = `By ${author} — ${date}`;
 
   // media first (poster + click-to-play for YT/Vimeo; FB plugin inline)
   const poster = featuredSrc(post);
@@ -196,8 +181,8 @@ export default async function renderDetail(a, b){
   }
 }
 
-/* ---------- scoped styles (title reset + media sizing + buttons) ---------- */
-const __once = 'oko-detail-scope-v275';
+// ---------- scoped styles (title reset + media sizing + buttons) ----------
+const __once = 'oko-detail-scope-v276';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
@@ -218,374 +203,36 @@ if (!document.getElementById(__once)) {
   .post-detail .post-header .post-title,
   .post-detail h1.post-title{
     background:transparent !important;background-image:none !important;border:none !important;box-shadow:none !important;outline:0 !important;
-    padding:0 !important;margin:.6rem 0 .2rem 0 !important;color:#111 !important;line-height:1.2;font-weight:800;
+    padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;line-height:1.2;font-weight:800;
   }
-  .post-detail .post-header h1.post-title::before,
-  .post-detail .post-header h1.post-title::after,
-  .post-detail .post-header .post-title::before,
-  .post-detail .post-header .post-title::after{
-    content:none !important; display:none !important;
-  }
-  .post-header .post-meta{color:#666;font-size:14px;margin:0 0 .75rem 0}
+  .post-header .post-meta{color:#666;font-size:14px;margin:.25rem 0 .9rem 0}
   .post-content{line-height:1.7;color:#222}
   .post-content img{max-width:100%;height:auto;border-radius:10px;margin:1rem 0}
   `;
   document.head.appendChild(style);
 }
-export { renderDetail as renderPostDetail };
-// --- Safety: ensure author + date render in post detail ---
-(function ensureByline() {
-  try {
-    const root = document.querySelector('.post-detail') || document.querySelector('#post-detail') || document.querySelector('#app article');
-    if (!root) return;
 
-    // If byline already exists, leave it alone
-    const hasByline = root.querySelector('.post-byline, .post-meta, .post-date');
-    if (hasByline) return;
-
-    // Try to read data from any dataset your renderer set on the container
-    const titleEl = root.querySelector('.post-title');
-    const isoDate = root.dataset?.date || root.getAttribute('data-date'); // e.g., "2025-10-10T12:34:56Z"
-    const author = root.dataset?.author || root.getAttribute('data-author'); // e.g., "Arnold Hamilton"
-
-    // Format date (fallback to locale)
-    let prettyDate = '';
-    if (isoDate) {
-      const d = new Date(isoDate);
-      if (!isNaN(d)) prettyDate = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-    }
-
-    // Build a simple byline if we have at least one piece of info
-    if (author || prettyDate) {
-      const meta = document.createElement('div');
-      meta.className = 'post-meta';
-      meta.style.margin = '0 0 .75rem 0';
-      meta.style.color = '#6b7280';
-      meta.style.fontSize = '.95rem';
-      meta.textContent = [author, prettyDate].filter(Boolean).join(' • ');
-      // Insert after title, or at top if no title found
-      if (titleEl && titleEl.parentNode) {
-        titleEl.parentNode.insertBefore(meta, titleEl.nextSibling);
-      } else {
-        root.insertBefore(meta, root.firstChild);
-      }
-    }
-  } catch (e) {
-    console.warn('[detail] ensureByline skipped:', e);
-  }
-})();
-
-// Ensure post byline (author • date) appears under the title on detail view
-(() => {
-  try {
-    const article = document.querySelector('article.post-detail');
-    if (!article) return;
-
-    // Already present? bail.
-    if (article.querySelector('.post-meta, .post-byline, .post-date')) return;
-
-    // Try to read from known places first
-    const author =
-      article.dataset.author ||
-      article.getAttribute('data-author') ||
-      window.__okPost?.author?.name ||
-      window.__okPost?.yoast_head_json?.author ||
-      '';
-
-    const iso =
-      article.dataset.date ||
-      article.getAttribute('data-date') ||
-      window.__okPost?.date ||
-      '';
-
-    let prettyDate = '';
-    if (iso) {
-      const d = new Date(iso);
-      if (!isNaN(d)) {
-        prettyDate = d.toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      }
-    }
-
-    // If we still have nothing, attempt to fetch by ID in the URL #/post/<id>
-    const needsFetch = !author && !prettyDate;
-    const maybeId = (location.hash.match(/post\/(\d+)/) || [])[1];
-
-    const insertMeta = (text) => {
-      if (!text) return;
-      const title = article.querySelector('.post-title');
-      const meta = document.createElement('div');
-      meta.className = 'post-meta';
-      meta.textContent = text;
-      meta.style.margin = '0 0 .75rem 0';
-      meta.style.color = '#6b7280';
-      meta.style.fontSize = '.95rem';
-      if (title && title.parentNode) {
-        title.parentNode.insertBefore(meta, title.nextSibling);
-      } else {
-        article.insertBefore(meta, article.firstChild);
-      }
-    };
-
-    if (!needsFetch) {
-      const parts = [author, prettyDate].filter(Boolean);
-      insertMeta(parts.join(' • '));
-      return;
-    }
-
-    if (maybeId) {
-      const base = (window.__OKOBSERVER_API_BASE || '').replace(/\/+$/, '');
-      const url = `${base}/posts/${maybeId}`;
-      fetch(url)
-        .then(r => r.ok ? r.json() : null)
-        .then(p => {
-          if (!p) return;
-          const a =
-            p._embedded?.author?.[0]?.name ||
-            p.author_name || // sometimes custom field
-            '';
-          const d = p.date ? new Date(p.date) : null;
-          const pd = d && !isNaN(d) ? d.toLocaleDateString(undefined, {
-            year: 'numeric', month: 'long', day: 'numeric'
-          }) : '';
-          const txt = [a, pd].filter(Boolean).join(' • ');
-          insertMeta(txt);
-        })
-        .catch(() => {});
-    }
-  } catch (e) {
-    console.warn('[detail] byline ensure failed', e);
-  }
-})();
-// --- Append-only: ensure byline (author • date) on post detail ---
-(() => {
-  try {
-    const article =
-      document.querySelector('article.post-detail') ||
-      document.querySelector('#post-detail') ||
-      document.querySelector('#app article');
-
-    if (!article) return;
-
-    // If a byline/meta already exists, do nothing.
-    if (article.querySelector('.post-meta, .post-byline, .post-date')) return;
-
-    // Try common data sources first
-    const fromDS = {
-      author:
-        article.dataset?.author ||
-        article.getAttribute('data-author') ||
-        (window.__okPost && (window.__okPost.author?.name || window.__okPost._embedded?.author?.[0]?.name)) ||
-        '',
-      isoDate:
-        article.dataset?.date ||
-        article.getAttribute('data-date') ||
-        (window.__okPost && (window.__okPost.date || window.__okPost.date_gmt)) ||
-        ''
-    };
-
-    const pretty = (iso) => {
-      const d = new Date(iso);
-      return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
-        year: 'numeric', month: 'long', day: 'numeric'
-      });
-    };
-
-    const insertMeta = (text) => {
-      if (!text) return;
-      const titleEl =
-        article.querySelector('.post-title') ||
-        article.querySelector('h1, h2');
-      const meta = document.createElement('div');
-      meta.className = 'post-meta';
-      meta.textContent = text;
-      meta.style.margin = '0 0 .75rem 0';
-      meta.style.color = '#6b7280';
-      meta.style.fontSize = '.95rem';
-      meta.style.lineHeight = '1.4';
-      if (titleEl && titleEl.parentNode) {
-        titleEl.parentNode.insertBefore(meta, titleEl.nextSibling);
-      } else {
-        article.insertBefore(meta, article.firstChild);
-      }
-    };
-
-    // If we already have either author or date, render immediately
-    const immediate = [fromDS.author, pretty(fromDS.isoDate)].filter(Boolean).join(' • ');
-    if (immediate) { insertMeta(immediate); return; }
-
-    // Fallback: fetch by ID from URL if nothing available
-    const idMatch = location.hash.match(/post\/(\d+)/);
-    const postId = idMatch ? idMatch[1] : null;
-    const apiBase = (window.__OKOBSERVER_API_BASE || '').replace(/\/+$/, '');
-
-    if (!postId || !apiBase) return;
-
-    fetch(`${apiBase}/posts/${postId}?_embed=author`)
-      .then(r => r.ok ? r.json() : null)
-      .then(p => {
-        if (!p) return;
-        const a = p._embedded?.author?.[0]?.name || '';
-        const pd = pretty(p.date || p.date_gmt);
-        const txt = [a, pd].filter(Boolean).join(' • ');
-        insertMeta(txt);
-      })
-      .catch(() => { /* ignore */ });
-
-  } catch (e) {
-    console.warn('[detail] ensureByline error:', e);
-  }
-})();
-// --- Append-only: show loading UI only if fetch is slow ---
-(function delayDetailLoader(){
-  const app = document.getElementById('app');
-  if (!app) return;
-
-  // If we already rendered the detail, do nothing.
-  if (app.querySelector('article.post-detail')) return;
-
-  // Schedule a deferred loader (700ms). If content renders before that, we won't show it.
-  let loaderTimer = setTimeout(() => {
-    // still nothing on screen; show a minimal loader card
-    if (app && !app.querySelector('article.post-detail')) {
-      const ghost = document.createElement('div');
-      ghost.id = 'post-detail-loader';
-      ghost.innerHTML = `
-        <section class="ok-card" style="padding:1rem 1.25rem;margin:1.25rem auto;max-width:920px">
-          <a class="ok-btn" href="#/" style="display:inline-block;margin-bottom:.75rem">← Back to Posts</a>
-          <div style="font-weight:700;color:#0f3d8a">Loading…</div>
-          <p style="margin:.25rem 0 0;color:#555">Please wait…</p>
-        </section>
-      `;
-      app.appendChild(ghost);
-    }
-  }, 700);
-
-  // When the real article appears, remove the loader and cancel the timer
-  const obs = new MutationObserver(() => {
-    if (app.querySelector('article.post-detail')) {
-      clearTimeout(loaderTimer);
-      const ghost = document.getElementById('post-detail-loader');
-      if (ghost) ghost.remove();
-      obs.disconnect();
-    }
-  });
-  obs.observe(app, { childList: true, subtree: true });
-
-  // Safety: also clear if we navigate away
-  window.addEventListener('hashchange', () => {
-    clearTimeout(loaderTimer);
-    const ghost = document.getElementById('post-detail-loader');
-    if (ghost) ghost.remove();
-    obs.disconnect();
-  }, { once: true });
-})();
-// --- Append-only: delayed detail loader (gentler timing) ---
-(function delayDetailLoaderV2(){
-  const app = document.getElementById('app');
-  if (!app) return;
-
-  // Skip if detail already rendered
-  if (app.querySelector('article.post-detail')) return;
-
-  // Wait longer (~1.5s) before showing loader
-  let loaderTimer = setTimeout(() => {
-    if (app && !app.querySelector('article.post-detail')) {
-      const ghost = document.createElement('div');
-      ghost.id = 'post-detail-loader';
-      ghost.innerHTML = `
-        <section class="ok-card" style="padding:1rem 1.25rem;margin:1.25rem auto;max-width:920px">
-          <a class="ok-btn" href="#/" style="display:inline-block;margin-bottom:.75rem">← Back to Posts</a>
-          <div style="font-weight:700;color:#0f3d8a">Loading…</div>
-          <p style="margin:.25rem 0 0;color:#555">Please wait…</p>
-        </section>
-      `;
-      app.appendChild(ghost);
-    }
-  }, 1500); // increased from 700 ms → 1.5 s
-
-  // When the real article appears, remove loader immediately
-  const obs = new MutationObserver(() => {
-    if (app.querySelector('article.post-detail')) {
-      clearTimeout(loaderTimer);
-      const ghost = document.getElementById('post-detail-loader');
-      if (ghost) ghost.remove();
-      obs.disconnect();
-    }
-  });
-  obs.observe(app, { childList: true, subtree: true });
-
-  // Also clear if navigating away early
-  window.addEventListener('hashchange', () => {
-    clearTimeout(loaderTimer);
-    const ghost = document.getElementById('post-detail-loader');
-    if (ghost) ghost.remove();
-    obs.disconnect();
-  }, { once: true });
-})();
-// --- Append-only: delayed loader + hide 'Back to Posts' until ready ---
-(function delayDetailLoaderV3(){
-  const app = document.getElementById('app');
-  if (!app) return;
-
-  // Don't run twice or if detail is already visible
-  if (app.querySelector('article.post-detail')) return;
-
-  // Delay loader appearance (~1.5s)
-  let loaderTimer = setTimeout(() => {
-    if (app && !app.querySelector('article.post-detail')) {
-      const ghost = document.createElement('div');
-      ghost.id = 'post-detail-loader';
-      ghost.innerHTML = `
-        <section class="ok-card" style="padding:1rem 1.25rem;margin:1.25rem auto;max-width:920px;text-align:left">
-          <div style="font-weight:700;color:#0f3d8a">Loading…</div>
-          <p style="margin:.25rem 0 0;color:#555">Please wait…</p>
-        </section>
-      `;
-      app.appendChild(ghost);
-    }
-  }, 1500);
-
-  // Watch for the article being injected
-  const obs = new MutationObserver(() => {
-    const post = app.querySelector('article.post-detail');
-    if (post) {
-      clearTimeout(loaderTimer);
-
-      // Remove loader if it exists
-      const ghost = document.getElementById('post-detail-loader');
-      if (ghost) ghost.remove();
-
-      // Ensure 'Back to Posts' buttons appear *only now*
-      const backLinks = post.querySelectorAll('a[href="#/"]');
-      backLinks.forEach(btn => {
-        btn.style.visibility = 'visible';
-        btn.style.opacity = '1';
-        btn.style.transition = 'opacity 0.3s ease';
-      });
-
-      obs.disconnect();
-    }
-  });
-
-  obs.observe(app, { childList: true, subtree: true });
-
-  // Initially hide 'Back to Posts' buttons (if template preloads them)
-  const initialBackLinks = document.querySelectorAll('a[href="#/"]');
-  initialBackLinks.forEach(btn => {
-    btn.style.visibility = 'hidden';
-    btn.style.opacity = '0';
-  });
-
-  // Cleanup on navigation away
-  window.addEventListener('hashchange', () => {
-    clearTimeout(loaderTimer);
-    const ghost = document.getElementById('post-detail-loader');
-    if (ghost) ghost.remove();
-    obs.disconnect();
-  }, { once: true });
-})();
-
+// ---------- HTML helpers ----------
+function backButtonHTML(){ return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`; }
+function posterHTML(src, title){
+  if(!src) return '';
+  return `
+    <div class="oko-video-poster" role="button" tabindex="0" aria-label="Play video">
+      <img src="${src}" alt="${decode(title)}" class="oko-video-poster__img">
+      <button class="oko-video-poster__play" aria-label="Play video">▶</button>
+    </div>`;
+}
+function playerHTML(embed){
+  if(!embed?.src) return '';
+  return `
+    <div class="oko-video-embed">
+      <iframe
+        src="${embed.src}"
+        title="Embedded media"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        referrerpolicy="no-referrer-when-downgrade"
+        frameborder="0"></iframe>
+    </div>`;
+}
