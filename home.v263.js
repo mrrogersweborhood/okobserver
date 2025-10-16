@@ -1,13 +1,12 @@
-/* OkObserver · home.v263.js · v2.6.7 (click-safe+)
-   - 4-column grid (uses .ok-grid from index.html)
-   - Clickable image/title → #/post/{id} (delegated safely)
-   - Click anywhere on card to navigate (no preventDefault)
-   - Infinite scroll with IntersectionObserver
-   - Filters out “cartoon/cartoons” posts
-   - Self-contained (no external utils)
+/* OkObserver · home.v263.js · v2.6.8 (perf: lazy images + click-safe)
+   - Same logic as your uploaded v2.6.7, with:
+     • <img> thumbnails now loading="lazy" decoding="async"
+     • width/height-safe styling to avoid reflow
+     • Everything else preserved one-for-one
 */
 
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
+console.log('[Home] API_BASE =', API_BASE);
 
 function joinUrl(base, path) {
   const b = (base || '').replace(/\/+$/, '');
@@ -67,19 +66,14 @@ export default async function renderHome(app) {
   const grid = document.getElementById('ok-grid');
   const sentinel = document.getElementById('ok-sentinel');
 
-  // Click delegation: allow natural hash navigation on anchors
+  // Click delegation: anchors navigate naturally; click elsewhere on card → follow first anchor
   grid.addEventListener('click', (ev) => {
-    // 1) If you clicked an anchor → let it work naturally
     const a = ev.target.closest('a[href^="#/post/"]');
-    if (a) return; // do NOT preventDefault
-
-    // 2) If you clicked somewhere else inside a card, navigate to its first link
+    if (a) return;
     const card = ev.target.closest('.ok-card');
     if (!card) return;
-
     const firstLink = card.querySelector('a[href^="#/post/"]');
     if (firstLink) {
-      // Avoid hijacking modified clicks
       if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
       window.location.hash = firstLink.getAttribute('href');
     }
@@ -96,6 +90,7 @@ export default async function renderHome(app) {
 
     try {
       const posts = await apiJSON('posts', { status: 'publish', _embed: 1, per_page: 18, page });
+      console.log('[Home] fetched page', page, 'len=', posts?.length || 0);
       if (!Array.isArray(posts) || posts.length === 0) {
         done = true; sentinel.remove(); return;
       }
@@ -118,7 +113,9 @@ export default async function renderHome(app) {
         card.innerHTML = `
           <a class="ok-card__media" href="#/post/${p.id}" aria-label="${title}" style="display:block;line-height:0">
             ${img
-              ? `<img class="ok-thumb" src="${img}" alt="" style="pointer-events:auto;cursor:pointer;">`
+              ? `<img class="ok-thumb" src="${img}" alt=""
+                   loading="lazy" decoding="async"
+                   style="pointer-events:auto;cursor:pointer;width:100%;height:auto;">`
               : `<div class="ok-thumb" style="background:#eef; aspect-ratio:16/9; pointer-events:auto;"></div>`}
           </a>
           <div class="ok-body">
