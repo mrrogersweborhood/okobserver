@@ -774,4 +774,53 @@ article.post-detail .post-date,
   line-height: 1.4 !important;
   margin: 0 0 .75rem 0 !important;
 }
+/* --- Post Detail header fix: remove blue bar + restore byline --- */
+
+/* The header around the title is forcing the blue bar */
+article.post-detail header.post-header,
+#post-detail header.post-header,
+#app article.post-detail header.post-header {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 0 .75rem 0 !important;
+}
+
+/* Title: brand blue text, no background box */
+article.post-detail header.post-header .post-title,
+#post-detail header.post-header .post-title,
+#app article.post-detail header.post-header .post-title {
+  background: none !important;
+  color: #1e90ff !important;
+  padding: 0 !important;
+  margin: 0 0 .5rem 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  line-height: 1.2 !important;
+}
+
+/* Author + date: ensure visible and properly spaced */
+article.post-detail header.post-header .post-byline,
+article.post-detail header.post-header .post-date,
+article.post-detail header.post-header .post-meta,
+#post-detail header.post-header .post-byline,
+#post-detail header.post-header .post-date,
+#post-detail header.post-header .post-meta {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #6b7280 !important;       /* readable neutral gray */
+  font-size: 0.95rem !important;
+  line-height: 1.4 !important;
+  margin: 0 0 .75rem 0 !important;
+}
+
+/* Safety: strip any leftover background on title container elements */
+.post-detail .post-title,
+#post-detail .post-title {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
 
