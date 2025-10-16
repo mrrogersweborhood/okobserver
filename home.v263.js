@@ -1,6 +1,7 @@
-/* OkObserver · home.v263.js · v2.6.6 (click-safe)
+/* OkObserver · home.v263.js · v2.6.7 (click-safe+)
    - 4-column grid (uses .ok-grid from index.html)
    - Clickable image/title → #/post/{id} (delegated safely)
+   - Click anywhere on card to navigate (no preventDefault)
    - Infinite scroll with IntersectionObserver
    - Filters out “cartoon/cartoons” posts
    - Self-contained (no external utils)
@@ -66,14 +67,22 @@ export default async function renderHome(app) {
   const grid = document.getElementById('ok-grid');
   const sentinel = document.getElementById('ok-sentinel');
 
-  // click delegation limited to our own links only
+  // Click delegation: allow natural hash navigation on anchors
   grid.addEventListener('click', (ev) => {
+    // 1) If you clicked an anchor → let it work naturally
     const a = ev.target.closest('a[href^="#/post/"]');
-    if (!a) return;
-    // allow normal hash navigation (no preventDefault)
-    // but ensure the click isn't swallowed by non-primary buttons
-    if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-    // nothing else to do; the router will handle the hashchange
+    if (a) return; // do NOT preventDefault
+
+    // 2) If you clicked somewhere else inside a card, navigate to its first link
+    const card = ev.target.closest('.ok-card');
+    if (!card) return;
+
+    const firstLink = card.querySelector('a[href^="#/post/"]');
+    if (firstLink) {
+      // Avoid hijacking modified clicks
+      if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      window.location.hash = firstLink.getAttribute('href');
+    }
   });
 
   let page = 1;
