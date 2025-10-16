@@ -483,4 +483,47 @@ export { renderDetail as renderPostDetail };
     obs.disconnect();
   }, { once: true });
 })();
+// --- Append-only: delayed detail loader (gentler timing) ---
+(function delayDetailLoaderV2(){
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  // Skip if detail already rendered
+  if (app.querySelector('article.post-detail')) return;
+
+  // Wait longer (~1.5s) before showing loader
+  let loaderTimer = setTimeout(() => {
+    if (app && !app.querySelector('article.post-detail')) {
+      const ghost = document.createElement('div');
+      ghost.id = 'post-detail-loader';
+      ghost.innerHTML = `
+        <section class="ok-card" style="padding:1rem 1.25rem;margin:1.25rem auto;max-width:920px">
+          <a class="ok-btn" href="#/" style="display:inline-block;margin-bottom:.75rem">← Back to Posts</a>
+          <div style="font-weight:700;color:#0f3d8a">Loading…</div>
+          <p style="margin:.25rem 0 0;color:#555">Please wait…</p>
+        </section>
+      `;
+      app.appendChild(ghost);
+    }
+  }, 1500); // increased from 700 ms → 1.5 s
+
+  // When the real article appears, remove loader immediately
+  const obs = new MutationObserver(() => {
+    if (app.querySelector('article.post-detail')) {
+      clearTimeout(loaderTimer);
+      const ghost = document.getElementById('post-detail-loader');
+      if (ghost) ghost.remove();
+      obs.disconnect();
+    }
+  });
+  obs.observe(app, { childList: true, subtree: true });
+
+  // Also clear if navigating away early
+  window.addEventListener('hashchange', () => {
+    clearTimeout(loaderTimer);
+    const ghost = document.getElementById('post-detail-loader');
+    if (ghost) ghost.remove();
+    obs.disconnect();
+  }, { once: true });
+})();
 
