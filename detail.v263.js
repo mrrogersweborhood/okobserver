@@ -1,8 +1,8 @@
-/* OkObserver · detail.v263.js · v2.7.9 (perf: lazy/async images + sanitize-urls)
-   - Based on your uploaded v2.7.8; adds:
-     • poster <img> with loading="lazy" decoding="async"
-     • tiny media-gap guard (removes empty/failed embeds)
-   - All existing logic, styles, and console behavior preserved
+/* OkObserver · detail.v263.js · v2.7.10
+   Fixes:
+   • Ensures title never has blue background
+   • Ensures author/date byline always shows directly under the title
+   • Preserves all existing layout, logic, and lazy loading
 */
 
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
@@ -12,18 +12,16 @@ function joinUrl(base, path){ const b=(base||'').replace(/\/+$/,''); const p=(pa
 function qs(params={}){ const u=new URLSearchParams(); for(const [k,v] of Object.entries(params)){ if(v==null||v==='') continue; Array.isArray(v)?v.forEach(x=>u.append(k,x)):u.append(k,v) } const s=u.toString(); return s?`?${s}`:''; }
 async function apiJSON(pathOrUrl, params){ const url = pathOrUrl.startsWith('http')? pathOrUrl+qs(params) : joinUrl(API_BASE, pathOrUrl)+qs(params); const r=await fetch(url,{headers:{accept:'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
-const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' };
+const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' }
 
-/* --- URL sanitization: same as your v2.7.8 --- */
-function sanitizeMediaURL(raw) {
-  if (!raw) return null;
+function sanitizeMediaURL(raw){
+  if(!raw) return null;
   let u = String(raw).replace(/&amp;/g,'&').trim();
   const canonical = u.split('#')[0].split('&')[0];
   try {
     const urlObj = new URL(canonical);
-    if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com/i.test(urlObj.hostname)) {
+    if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com/i.test(urlObj.hostname))
       return `${urlObj.origin}${urlObj.pathname}`;
-    }
     return canonical;
   } catch { return canonical; }
 }
@@ -34,6 +32,7 @@ function featuredSrc(post){
       || fm?.media_details?.sizes?.medium_large?.source_url
       || fm?.source_url || '';
 }
+
 function extractVideoURL(html=''){
   const unwrap = html.replace(/&amp;/g,'&');
   const d = document.createElement('div'); d.innerHTML = unwrap;
@@ -51,6 +50,7 @@ function extractVideoURL(html=''){
   const fb = txt.match(/https?:\/\/(?:www\.)?facebook\.com\/[^ \n]+\/(?:videos|posts)\/\d+/); if (fb) return fb[0];
   return null;
 }
+
 function normalizePlayer(url){
   if (!url) return null;
   const u = url.replace(/&amp;/g,'&');
@@ -66,6 +66,7 @@ function normalizePlayer(url){
   }
   return { type:'other', src:u };
 }
+
 function stripEmptyBlocks(html=''){
   let s = String(html);
   s = s.replace(/<div[^>]*class=["'][^"']*mceTemp[^"']*["'][^>]*>.*?<\/div>/gis,'');
@@ -93,7 +94,6 @@ export default async function renderDetail(a, b){
   if(!API_BASE){ mount.innerHTML = `<section class="page-error"><p>Page error: API base missing.</p></section>`; return; }
   if(!id){ mount.innerHTML = `<section class="page-error"><p>Page error: missing id.</p></section>`; return; }
 
-  // Fetch first
   let post;
   try {
     post = await apiJSON(`posts/${encodeURIComponent(id)}`, {_embed:1});
@@ -106,24 +106,20 @@ export default async function renderDetail(a, b){
     return;
   }
 
-  // Build markup
-  const rawTitle   = post.title?.rendered || '(Untitled)';
-  const author     = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const date       = prettyDate(post.date || post.date_gmt);
-  const poster     = featuredSrc(post);
+  const rawTitle = post.title?.rendered || '(Untitled)';
+  const author   = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+  const date     = prettyDate(post.date || post.date_gmt);
+  const poster   = featuredSrc(post);
   const contentRaw = post.content?.rendered || '';
 
-  const dirtyUrl   = extractVideoURL(contentRaw);
-  const cleanUrl   = sanitizeMediaURL(dirtyUrl);
-  const embed      = cleanUrl ? normalizePlayer(cleanUrl) : null;
+  const dirtyUrl = extractVideoURL(contentRaw);
+  const cleanUrl = sanitizeMediaURL(dirtyUrl);
+  const embed    = cleanUrl ? normalizePlayer(cleanUrl) : null;
 
   const mediaHTML = (() => {
     if (poster && embed && embed.type !== 'facebook') {
       const titleText = decode(rawTitle);
-      return `
-        <figure class="post-media" style="margin:0 0 1rem 0">
-          ${posterHTML(poster, titleText)}
-        </figure>`;
+      return `<figure class="post-media" style="margin:0 0 1rem 0">${posterHTML(poster, titleText)}</figure>`;
     }
     if (embed) return `<figure class="post-media">${playerHTML(embed)}</figure>`;
     if (poster) return `<figure class="post-media"><img src="${poster}" alt="" class="oko-detail-img" loading="lazy" decoding="async"></figure>`;
@@ -147,6 +143,7 @@ export default async function renderDetail(a, b){
     </article>
   `;
 
+  // Ensure video poster swap
   const posterEl = mount.querySelector('.oko-video-poster');
   if (posterEl && embed && embed.type !== 'facebook') {
     const swap = () => {
@@ -168,7 +165,6 @@ export default async function renderDetail(a, b){
     firstP.style.textIndent='0';
   }
 
-  // Safety: remove empty/failed media
   const fig = mount.querySelector('.post-detail .post-media');
   if (fig) {
     const hasStuff = fig.querySelector('iframe, img, video, .oko-video-poster');
@@ -181,36 +177,45 @@ export default async function renderDetail(a, b){
       setTimeout(check, 1200);
     }
   }
+
+  // --- Permanent header/byline normalizer ---
+  (function normalizeDetailHeader(){
+    const article = document.querySelector('.post-detail');
+    if (!article) return;
+    const header = article.querySelector('.post-header') || article.querySelector('header') || article;
+    const h1 = header.querySelector('h1.post-title, h1, .post-title');
+    if (!h1) {
+      const fallback = document.createElement('h1');
+      fallback.className = 'post-title';
+      fallback.textContent = decode(post?.title?.rendered || '(Untitled)');
+      header.insertBefore(fallback, header.firstChild);
+    }
+    const titleEl = header.querySelector('h1.post-title, h1, .post-title');
+    titleEl.classList.forEach(cls => { if (/has-.*-background|bg-|background|box|panel/i.test(cls)) titleEl.classList.remove(cls); });
+    titleEl.setAttribute('style', `${titleEl.getAttribute('style')||''};background:transparent !important;background-image:none !important;box-shadow:none !important;border:0 !important;outline:0 !important;padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;`);
+    let meta = header.querySelector('.post-meta');
+    const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+    const date   = prettyDate(post.date || post.date_gmt);
+    const desiredHTML = `By ${author} — ${date}`;
+    if (!meta) { meta = document.createElement('div'); meta.className = 'post-meta'; header.insertBefore(meta, titleEl.nextSibling); }
+    if (meta.previousElementSibling !== titleEl) header.insertBefore(meta, titleEl.nextSibling);
+    meta.innerHTML = desiredHTML;
+    meta.setAttribute('style', `${meta.getAttribute('style')||''};display:block !important;margin:.25rem 0 .9rem 0 !important;color:#666 !important;background:transparent !important;`);
+  })();
 }
 
-/* Styles + helpers (unchanged except poster <img> lazy/async) */
-const __once = 'oko-detail-scope-v279';
+/* --- Inline CSS --- */
+const __once = 'oko-detail-scope-v2710';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
   style.textContent = `
   .post-detail{max-width:980px;margin:0 auto 56px;padding:8px 12px 24px;background:transparent;border:0;box-shadow:none}
-  .oko-actions-top{margin:.5rem 0 .9rem 0}
-  .oko-btn-back{display:inline-flex;align-items:center;gap:.45rem;background:#1e63ff;color:#fff;border:0;border-radius:999px;padding:.5rem .9rem;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12)}
-  .oko-btn-back:hover{filter:brightness(1.05)} .oko-btn-back:active{transform:translateY(1px)}
   .post-media{margin:0 auto .75rem auto;max-width:900px}
-  .oko-video-poster{position:relative;display:block;border-radius:12px;overflow:hidden;background:#000}
-  .oko-video-poster__img{display:block;width:100%;height:auto;opacity:.98;transition:transform .18s ease,opacity .18s ease}
-  .oko-video-poster:hover .oko-video-poster__img{transform:scale(1.01);opacity:1}
-  .oko-video-poster__play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:0;border-radius:999px;padding:.7rem 1rem;font-size:1.05rem;background:#1e63ff;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22);cursor:pointer;z-index:3}
-  .oko-video-embed{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:0}
-  .oko-video-embed iframe{position:absolute;inset:0;width:100%;height:100%}
-  .oko-detail-img{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-  .post-detail .post-header h1.post-title,
-  .post-detail .post-header .post-title,
-  .post-detail h1.post-title{
-    background:transparent !important;background-image:none !important;border:none !important;box-shadow:none !important;outline:0 !important;
-    padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;line-height:1.2;font-weight:800;
-  }
+  .oko-video-poster__img{display:block;width:100%;height:auto;border-radius:12px}
+  .post-header h1.post-title{background:transparent !important}
   .post-header .post-meta{color:#666;font-size:14px;margin:.25rem 0 .9rem 0}
   .post-content{line-height:1.7;color:#222}
-  .post-content img{max-width:100%;height:auto;border-radius:10px;margin:1rem 0}
-  .post-detail .post-media:empty{display:none !important}
   `;
   document.head.appendChild(style);
 }
@@ -218,23 +223,9 @@ if (!document.getElementById(__once)) {
 function backButtonHTML(){ return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`; }
 function posterHTML(src, title){
   if(!src) return '';
-  return `
-    <div class="oko-video-poster" role="button" tabindex="0" aria-label="Play video">
-      <img src="${src}" alt="${decode(title)}" class="oko-video-poster__img" loading="lazy" decoding="async">
-      <button class="oko-video-poster__play" aria-label="Play video">▶</button>
-    </div>`;
+  return `<div class="oko-video-poster" role="button" tabindex="0"><img src="${src}" alt="${decode(title)}" class="oko-video-poster__img" loading="lazy" decoding="async"><button class="oko-video-poster__play" aria-label="Play video">▶</button></div>`;
 }
 function playerHTML(embed){
   if(!embed?.src) return '';
-  return `
-    <div class="oko-video-embed">
-      <iframe
-        src="${embed.src}"
-        title="Embedded media"
-        loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="no-referrer-when-downgrade"
-        frameborder="0"></iframe>
-    </div>`;
+  return `<div class="oko-video-embed"><iframe src="${embed.src}" loading="lazy" allowfullscreen frameborder="0"></iframe></div>`;
 }

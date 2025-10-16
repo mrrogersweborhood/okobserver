@@ -172,3 +172,27 @@ article.post-detail h1.post-title,
   margin: .6rem 0 .25rem 0 !important;
   color: #111 !important;
 }
+/* === Permanent nukes for title background & byline position === */
+:where(article.post-detail, .post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  margin: .6rem 0 .25rem 0 !important;
+  color: #111 !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+:where(article.post-detail, .post-detail) :where(.post-header) :where(.post-meta) {
+  display: block !important;
+  margin: .25rem 0 .9rem 0 !important;
+  color: #666 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Extra guard in case some global “*.post-title” tries to color backgrounds */
+:where(.post-title)[style*="background"] { background: transparent !important; background-image: none !important; }
