@@ -959,4 +959,190 @@ article.post-detail header.post-header .post-meta,
   width: 100% !important;
   box-sizing: border-box;
 }
+/* --- OkObserver Grid Layout (4 / 2 / 1 columns) --- */
+
+/* Main grid wrapper (home feed) */
+#app .ok-grid,
+#ok-grid.ok-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* desktop */
+  gap: 1.4rem !important;
+  align-items: start;
+  margin: 0 auto;
+  max-width: 1400px;
+  padding: 0.5rem;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  #app .ok-grid,
+  #ok-grid.ok-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone */
+@media (max-width: 720px) {
+  #app .ok-grid,
+  #ok-grid.ok-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Card styling for cleaner spacing and softer edges --- */
+.ok-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ok-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* Inner padding for content */
+.ok-body {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.ok-title {
+  margin: 0 0 0.25rem;
+  line-height: 1.3;
+}
+
+.ok-meta {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 0.5rem;
+}
+
+.ok-excerpt {
+  color: #333;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+/* Thumbnails */
+.ok-thumb {
+  width: 100%;
+  border-bottom: 1px solid #eee;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  display: block;
+  object-fit: cover;
+}
+
+/* Smooth spacing between cards */
+.ok-grid > * {
+  margin: 0;
+  box-sizing: border-box;
+}
+/* ===============================
+   OkObserver — Layout Overrides
+   =============================== */
+
+/* --- Responsive Post Grid (4 / 2 / 1) --- */
+#app .ok-grid,
+#ok-grid.ok-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 1.4rem !important;
+  align-items: start;
+  margin: 0 auto;
+  max-width: 1400px;
+  padding: 0.5rem;
+}
+
+/* Tablet (2 columns) */
+@media (max-width: 1100px) {
+  #app .ok-grid,
+  #ok-grid.ok-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone (1 column) */
+@media (max-width: 720px) {
+  #app .ok-grid,
+  #ok-grid.ok-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* --- Card Styling --- */
+.ok-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ok-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.ok-body { padding: 0.75rem 1rem 1rem; }
+.ok-title { margin: 0 0 0.25rem; line-height: 1.3; }
+.ok-meta { font-size: 0.9rem; color: #666; margin: 0 0 0.5rem; }
+.ok-excerpt { color: #333; font-size: 0.95rem; line-height: 1.45; }
+.ok-thumb {
+  width: 100%;
+  border-bottom: 1px solid #eee;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  display: block;
+  object-fit: cover;
+}
+.ok-grid > * { margin: 0; box-sizing: border-box; }
+
+/* --- Post Detail Cleanup --- */
+
+/* Remove unwanted blue background or box around titles */
+.post-detail .post-title,
+.single-post .post-title,
+#post-detail .post-title,
+#app .post-title.single,
+#app article.single .post-title,
+.post-view .post-title,
+.ok-post .post-title {
+  background: none !important;
+  color: #1e90ff !important;   /* brand blue text */
+  padding: 0 !important;
+  margin: 0 0 0.5rem 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Make sure post headers and wrappers have no blue background */
+.post-detail header,
+.single-post header,
+#post-detail header,
+.post-view header,
+.ok-post header {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Author and date line (“By … — …”) */
+.post-meta,
+.ok-meta,
+.post-detail .post-meta {
+  color: #555 !important;
+  font-size: 0.95rem !important;
+  margin-bottom: 0.75rem !important;
+  font-weight: 400;
+}
+
+/* Ensure post content spacing is comfortable */
+.post-content {
+  line-height: 1.6;
+  font-size: 1rem;
+  color: #222;
+}
 
