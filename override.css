@@ -1174,4 +1174,30 @@ article.post-detail header.post-header .post-meta,
   line-height: 1.25 !important;
   color: #111 !important;
 }
+/* Force title and byline to stack vertically on post detail */
+.post-detail .post-header {
+  display: block !important;              /* kill any flex/grid row layout */
+}
+
+.post-detail .post-header h1.post-title {
+  display: block !important;
+  margin: 0 0 .35rem 0 !important;        /* spacing above byline */
+  line-height: 1.22 !important;
+}
+
+.post-detail .post-header .post-meta {
+  display: block !important;              /* not inline/right of title */
+  float: none !important;                 /* ignore any float-right */
+  clear: both !important;                 /* drop under title no matter what */
+  margin: .1rem 0 1.1rem 0 !important;    /* comfy spacing */
+  color: #555 !important;
+  font-size: .95rem !important;
+  font-weight: 500;
+  text-align: left !important;
+}
+
+/* Safety: if some theme class applies flex to header children */
+.post-detail .post-header > * {
+  flex: none !important;
+}
 
