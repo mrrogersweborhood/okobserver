@@ -1,0 +1,70 @@
+/* --- OkObserver: Posts grid --- */
+.ok-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+/* solid breakpoints so Windows laptops show multiple columns */
+@media (min-width: 1024px) {
+  .ok-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1366px) {
+  .ok-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* cards */
+.ok-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+  overflow: hidden;
+}
+.ok-card__media img { width: 100%; height: auto; display:block; }
+.ok-card__body { padding: 12px 14px; }
+.detail-back-wrap {
+  margin-top: 10px;
+}
+
+.detail-card iframe,
+.detail-card img {
+  max-width: 100%;
+  height: auto;
+}
+/* --- Detail page fixes --- */
+.post-title {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 16px 0 8px !important;
+  color: #111;
+  border: 0;
+}
+
+.post-meta {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  color: #666;
+}
+
+.post-meta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.post-figure {
+  margin: 0 0 12px;
+}
+.post-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+/* keep detail content comfortable */
+.post-content {
+  line-height: 1.65;
+  color: #1b1b1b;
+}
