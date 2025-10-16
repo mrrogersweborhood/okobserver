@@ -1154,4 +1154,24 @@ article.post-detail header.post-header .post-meta,
 #app article.post-detail a[href="#/"] { 
   display: inline-block !important; 
 }
+/* --- Post detail: author + date under title --- */
+.post-detail .post-header {
+  margin-bottom: 1.25rem;
+}
+
+.post-detail .post-header .post-meta {
+  display: block;
+  font-size: 0.95rem;
+  color: #666;
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.post-detail .post-header h1.post-title {
+  margin-bottom: 0.25rem !important;
+  line-height: 1.25 !important;
+  color: #111 !important;
+}
 
