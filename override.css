@@ -148,3 +148,27 @@ article.post-detail h1.post-title,
   background: transparent !important;
   color: #666 !important;
 }
+/* Force the byline to be visible and beneath the title */
+.post-detail .post-header .post-meta {
+  display: block !important;
+  margin: .25rem 0 .9rem 0 !important;
+  color: #666 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Title must NEVER have a blue background */
+.post-detail .post-header h1.post-title,
+.post-detail h1.post-title,
+article.post-detail h1.post-title,
+.post-detail .post-title {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  margin: .6rem 0 .25rem 0 !important;
+  color: #111 !important;
+}
