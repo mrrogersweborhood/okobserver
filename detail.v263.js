@@ -360,3 +360,83 @@ export { renderDetail as renderPostDetail };
     console.warn('[detail] byline ensure failed', e);
   }
 })();
+// --- Append-only: ensure byline (author • date) on post detail ---
+(() => {
+  try {
+    const article =
+      document.querySelector('article.post-detail') ||
+      document.querySelector('#post-detail') ||
+      document.querySelector('#app article');
+
+    if (!article) return;
+
+    // If a byline/meta already exists, do nothing.
+    if (article.querySelector('.post-meta, .post-byline, .post-date')) return;
+
+    // Try common data sources first
+    const fromDS = {
+      author:
+        article.dataset?.author ||
+        article.getAttribute('data-author') ||
+        (window.__okPost && (window.__okPost.author?.name || window.__okPost._embedded?.author?.[0]?.name)) ||
+        '',
+      isoDate:
+        article.dataset?.date ||
+        article.getAttribute('data-date') ||
+        (window.__okPost && (window.__okPost.date || window.__okPost.date_gmt)) ||
+        ''
+    };
+
+    const pretty = (iso) => {
+      const d = new Date(iso);
+      return isNaN(d) ? '' : d.toLocaleDateString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric'
+      });
+    };
+
+    const insertMeta = (text) => {
+      if (!text) return;
+      const titleEl =
+        article.querySelector('.post-title') ||
+        article.querySelector('h1, h2');
+      const meta = document.createElement('div');
+      meta.className = 'post-meta';
+      meta.textContent = text;
+      meta.style.margin = '0 0 .75rem 0';
+      meta.style.color = '#6b7280';
+      meta.style.fontSize = '.95rem';
+      meta.style.lineHeight = '1.4';
+      if (titleEl && titleEl.parentNode) {
+        titleEl.parentNode.insertBefore(meta, titleEl.nextSibling);
+      } else {
+        article.insertBefore(meta, article.firstChild);
+      }
+    };
+
+    // If we already have either author or date, render immediately
+    const immediate = [fromDS.author, pretty(fromDS.isoDate)].filter(Boolean).join(' • ');
+    if (immediate) { insertMeta(immediate); return; }
+
+    // Fallback: fetch by ID from URL if nothing available
+    const idMatch = location.hash.match(/post\/(\d+)/);
+    const postId = idMatch ? idMatch[1] : null;
+    const apiBase = (window.__OKOBSERVER_API_BASE || '').replace(/\/+$/, '');
+
+    if (!postId || !apiBase) return;
+
+    fetch(`${apiBase}/posts/${postId}?_embed=author`)
+      .then(r => r.ok ? r.json() : null)
+      .then(p => {
+        if (!p) return;
+        const a = p._embedded?.author?.[0]?.name || '';
+        const pd = pretty(p.date || p.date_gmt);
+        const txt = [a, pd].filter(Boolean).join(' • ');
+        insertMeta(txt);
+      })
+      .catch(() => { /* ignore */ });
+
+  } catch (e) {
+    console.warn('[detail] ensureByline error:', e);
+  }
+})();
+

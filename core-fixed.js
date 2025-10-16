@@ -1,50 +1,52 @@
-// core-fixed.js — GitHub Pages–safe router (no ?v= in imports)
+// core-fixed.js — OkObserver Router (cache-busted dynamic imports)
 
-export function start() { router(); }
+/**
+ *  SPA Router + Core Entry
+ *  Handles #/ routes for home, post detail, and about views.
+ *  Uses ?v= token for cache-busting so browsers always fetch new versions.
+ */
 
-function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-async function loadModule(path) { return import(path.split("?")[0]); }
+console.log('[OkObserver] core-fixed.js loaded');
 
-async function callExport(mod, candidates, ...args) {
-  for (const name of candidates) {
-    const fn = name === "default" ? mod?.default : mod?.[name];
-    if (typeof fn === "function") return fn(...args);
+const VERSION = '2025-10-15a'; // bump this when you redeploy
+
+// Dynamic view imports with cache-busting
+const loadHome   = () => import(`./home.v263.js?v=${VERSION}`);
+const loadDetail = () => import(`./detail.v263.js?v=${VERSION}`);
+const loadAbout  = () => import(`./about.v263.js?v=${VERSION}`);
+
+// Simple router
+export async function start() {
+  const app = document.getElementById('app');
+  if (!app) {
+    console.warn('[OkObserver] #app not found');
+    return;
   }
-  throw new Error(`Module missing export (${candidates.join(", ")}). Found: ${Object.keys(mod)}`);
-}
 
-export async function router() {
-  const app = document.getElementById("app");
-  if (!app) return;
-
-  const hash = (window.location.hash || "#/").slice(2);
-  const [route, id] = hash.split("/");
+  const hash = window.location.hash || '#/';
+  console.log('[OkObserver] Route:', hash);
 
   try {
-    if (!route || route === "") {
-      const mod = await loadModule("./home.v263.js");
-      await callExport(mod, ["default", "renderHome"], app);
-      return;
+    if (hash.startsWith('#/about')) {
+      const mod = await loadAbout();
+      mod.renderAbout?.();
+    } else if (hash.startsWith('#/post/')) {
+      const id = hash.split('/')[2];
+      const mod = await loadDetail();
+      mod.renderDetail?.(id);
+    } else {
+      const mod = await loadHome();
+      mod.renderHome?.();
     }
-    if (route === "about") {
-      const mod = await loadModule("./about.v263.js");
-      await callExport(mod, ["default", "renderAbout"], app);
-      return;
-    }
-    if (route === "post" && id) {
-      const mod = await loadModule("./detail.v263.js");
-      // Try both signatures: (app,id) named export, or default expecting (id) or (app,id)
-      if (mod.renderPostDetail) return mod.renderPostDetail(app, id);
-      return callExport(mod, ["default", "renderPost", "renderDetail"], app, id);
-    }
-    const mod = await loadModule("./home.v263.js");
-    await callExport(mod, ["default", "renderHome"], app);
   } catch (err) {
-    console.error("[OkObserver router error]", err);
-    app.innerHTML = `<div style="padding:2rem"><p style="color:#c00;font-weight:600">
-      Page error: ${escapeHtml(err.message || "module load failed.")}</p></div>`;
+    console.error('[OkObserver] Router error:', err);
+    app.innerHTML = `
+      <div style="padding:1rem;color:#b00020;">
+        <strong>Failed to load view.</strong><br/>
+        ${String(err)}
+      </div>`;
   }
 }
 
-window.addEventListener("hashchange", router);
-window.addEventListener("DOMContentLoaded", router);
+// Reload view when hash changes
+window.addEventListener('hashchange', start);

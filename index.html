@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OkObserver</title>
-  <meta name="description" content="The Oklahoma Observer - To comfort the afflicted and afflict the comfortable.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
+  <meta name="description" content="The Oklahoma Observer - To comfort the afflicted and afflict the comfortable." />
+
+  <!-- ✅ Real favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2025-10-15a" />
+
+  <!-- ✅ Versioned CSS for cache busting -->
+  <link rel="stylesheet" href="app.css?v=2025-10-15a" />
+  <link rel="stylesheet" href="detail.css?v=2025-10-15a" />
+  <link rel="stylesheet" href="override.css?v=2025-10-15a" />
 
   <style>
     :root {
@@ -14,14 +21,12 @@
       --text-dark: #111;
       --border: #ddd;
     }
-
     body {
       margin: 0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: var(--light-bg);
       color: var(--text-dark);
     }
-
     header {
       background: var(--brand);
       color: #fff;
@@ -33,34 +38,10 @@
       top: 0;
       z-index: 10;
     }
-
-    header h1 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin: 0;
-    }
-
-    nav a {
-      color: #fff;
-      text-decoration: none;
-      margin-left: 1.2rem;
-      font-weight: 500;
-    }
-
-    nav a:hover {
-      text-decoration: underline;
-    }
-
-    main {
-      padding: 1.5rem;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    h2 {
-      margin-top: 0;
-    }
-
+    header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
+    nav a { color: #fff; text-decoration: none; margin-left: 1.2rem; font-weight: 500; }
+    nav a:hover { text-decoration: underline; }
+    main { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
     footer {
       text-align: center;
       font-size: 0.9rem;
@@ -70,152 +51,6 @@
       background: #fff;
     }
   </style>
-
-  <!-- 🔒 Permanent 4-column grid and card styling -->
-  <style id="oko-guards">
-    #app .posts-grid,
-    #app .posts-list,
-    #app .posts,
-    #app .cards,
-    #app .list,
-    #app > .grid {
-      display: grid !important;
-      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-      gap: 28px !important;
-      align-items: start !important;
-      justify-items: stretch !important;
-      margin-top: 1rem !important;
-    }
-
-    @media (max-width: 1200px) {
-      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
-        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
-      }
-    }
-    @media (max-width: 900px) {
-      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
-        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
-      }
-    }
-    @media (max-width: 560px) {
-      #app .posts-grid, #app .posts-list, #app .posts, #app .cards, #app .list, #app > .grid {
-        grid-template-columns: 1fr !important;
-      }
-    }
-
-    .post-card {
-      width: 100% !important;
-      max-width: none !important;
-      display: block;
-      background: #fff !important;
-      border-radius: 10px !important;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
-      overflow: hidden;
-      transition: transform .15s ease, box-shadow .15s ease;
-    }
-
-    .post-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-    }
-
-    .post-card img {
-      width: 100% !important;
-      height: auto !important;
-      display: block;
-      border-bottom: 1px solid #eee;
-    }
-
-    .post-card h3 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0.7rem 0.8rem;
-      color: var(--brand);
-    }
-
-    .post-card p {
-      margin: 0 0.8rem 1rem 0.8rem;
-      color: #333;
-      line-height: 1.4;
-    }
-
-    .post-card a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    /* Remove unwanted title backgrounds from detail pages */
-    .post-detail .post-title {
-      background: transparent !important;
-      box-shadow: none !important;
-      border: none !important;
-    }
-  </style>
-<style id="oko-grid-guard">
-  /* target any posts container we can recognize */
-  #app .posts-grid,
-  #app .posts,
-  #app .cards,
-  #app .list,
-  #app .grid,
-  #app > .grid,
-  #app [data-posts],
-  #app [data-list] {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    gap: 28px !important;
-    align-items: start !important;
-    justify-items: stretch !important;
-    margin-top: 1rem !important;
-  }
-
-  /* style individual cards (fallback if your markup doesn’t add .post-card) */
-  #app .post-card, 
-  #app article, 
-  #app .card {
-    width: 100% !important;
-    max-width: none !important;
-    background: #fff !important;
-    border-radius: 10px !important;
-    box-shadow: 0 2px 6px rgba(0,0,0,.08) !important;
-    overflow: hidden !important;
-    transition: transform .15s ease, box-shadow .15s ease;
-  }
-  #app .post-card:hover, 
-  #app article:hover, 
-  #app .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(0,0,0,.12);
-  }
-  #app .post-card img, 
-  #app article img, 
-  #app .card img {
-    width: 100% !important;
-    height: auto !important;
-    display: block !important;
-  }
-
-  /* responsive breakpoints */
-  @media (max-width: 1200px) {
-    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
-    #app > .grid, #app [data-posts], #app [data-list] {
-      grid-template-columns: repeat(3, minmax(0,1fr)) !important;
-    }
-  }
-  @media (max-width: 900px) {
-    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
-    #app > .grid, #app [data-posts], #app [data-list] {
-      grid-template-columns: repeat(2, minmax(0,1fr)) !important;
-    }
-  }
-  @media (max-width: 560px) {
-    #app .posts-grid, #app .posts, #app .cards, #app .list, #app .grid, 
-    #app > .grid, #app [data-posts], #app [data-list] {
-      grid-template-columns: 1fr !important;
-    }
-  }
-</style>
-
 </head>
 
 <body>
@@ -229,8 +64,7 @@
 
   <main>
     <div id="app">
-      <h2>Latest Posts</h2>
-      <p>Loading…</p>
+      <h2>Loading...</h2>
     </div>
   </main>
 
@@ -238,158 +72,7 @@
     © 2025 The Oklahoma Observer • All Rights Reserved.
   </footer>
 
-  <!-- Load main app -->
-  <script type="module" src="main.js"></script>
-<script>
-(function enforcePostsGrid() {
-  const CANDIDATE_SELECTORS = [
-    '#app .posts-grid',
-    '#app .posts',
-    '#app .cards',
-    '#app .list',
-    '#app .grid',
-    '#app > .grid',
-    '#app [data-posts]',
-    '#app [data-list]'
-  ];
-
-  function findListRoot() {
-    for (const sel of CANDIDATE_SELECTORS) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  function applyGrid(el) {
-    if (!el) return;
-    // lock it in with inline styles — hardest to override
-    el.style.setProperty('display', 'grid', 'important');
-    el.style.setProperty('grid-template-columns', 'repeat(4, minmax(0, 1fr))', 'important');
-    el.style.setProperty('gap', '28px', 'important');
-    el.style.setProperty('align-items', 'start', 'important');
-    el.style.setProperty('justify-items', 'stretch', 'important');
-    el.style.setProperty('margin-top', '1rem', 'important');
-  }
-
-  function lockGridNow() {
-    applyGrid(findListRoot());
-  }
-
-  // Initial pass
-  lockGridNow();
-
-  // Re-apply whenever SPA updates DOM (route changes, infinite scroll, etc.)
-  const obs = new MutationObserver(() => {
-    lockGridNow();
-  });
-  obs.observe(document.getElementById('app') || document.body, {
-    childList: true,
-    subtree: true
-  });
-
-  // Also re-apply on hash changes (SPA navigation)
-  window.addEventListener('hashchange', lockGridNow);
-
-  // Safety: re-affirm after fetch completes (in case render finishes later)
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') lockGridNow();
-  });
-})();
-</script>
-<script>
-/* OkObserver: PERMANENT 4-COLUMN ENFORCER */
-(function () {
-  const COLS_DESKTOP = 4, GAP = 28;
-
-  function isPostLink(a) {
-    try {
-      const href = a.getAttribute('href') || '';
-      return href.includes('#/post/');
-    } catch { return false; }
-  }
-
-  // Find the closest ancestor that contains a bunch of post links
-  function findPostsContainer() {
-    const links = Array.from(document.querySelectorAll('a[href*="#/post/"]'));
-    if (links.length < 4) return null; // not on the list page yet
-    // Find the highest ancestor that contains most links (list wrapper)
-    let common = links[0].parentElement;
-    while (common && common !== document.body) {
-      const count = common.querySelectorAll('a[href*="#/post/"]').length;
-      if (count >= Math.max(4, links.length * 0.7)) break;
-      common = common.parentElement;
-    }
-    return common || null;
-  }
-
-  function styleCard(el) {
-    el.style.setProperty('width', '100%', 'important');
-    el.style.setProperty('max-width', 'none', 'important');
-    el.style.setProperty('background', '#fff', 'important');
-    el.style.setProperty('border-radius', '10px', 'important');
-    el.style.setProperty('box-shadow', '0 2px 6px rgba(0,0,0,.08)', 'important');
-    el.style.setProperty('overflow', 'hidden', 'important');
-  }
-
-  function normalizeCardContent(card) {
-    // images
-    card.querySelectorAll('img').forEach(img => {
-      img.style.setProperty('display', 'block', 'important');
-      img.style.setProperty('width', '100%', 'important');
-      img.style.setProperty('height', 'auto', 'important');
-      img.style.setProperty('object-fit', 'cover', 'important');
-    });
-  }
-
-  function lockGrid(container) {
-    if (!container) return;
-
-    // force grid on container
-    container.style.setProperty('display', 'grid', 'important');
-    container.style.setProperty('grid-template-columns', `repeat(${COLS_DESKTOP}, minmax(0, 1fr))`, 'important');
-    container.style.setProperty('gap', `${GAP}px`, 'important');
-    container.style.setProperty('align-items', 'start', 'important');
-    container.style.setProperty('justify-items', 'stretch', 'important');
-    container.style.setProperty('margin-top', '1rem', 'important');
-
-    // style each "card" (the clickable tile or its parent)
-    const candidates = Array.from(container.querySelectorAll('a[href*="#/post/"]'));
-    candidates.forEach(a => {
-      const card = a.closest('article, li, div') || a;
-      styleCard(card);
-      normalizeCardContent(card);
-    });
-
-    // responsive fallbacks
-    const id = 'oko-grid-immutable';
-    if (!document.getElementById(id)) {
-      const s = document.createElement('style');
-      s.id = id;
-      s.textContent = `
-        @media (max-width: 1200px){ [data-oko-grid="on"]{grid-template-columns:repeat(3, minmax(0,1fr)) !important} }
-        @media (max-width: 900px){  [data-oko-grid="on"]{grid-template-columns:repeat(2, minmax(0,1fr)) !important} }
-        @media (max-width: 560px){  [data-oko-grid="on"]{grid-template-columns:1fr !important} }
-      `;
-      document.head.appendChild(s);
-    }
-    container.setAttribute('data-oko-grid', 'on');
-  }
-
-  function enforce() {
-    const list = findPostsContainer();
-    if (list) lockGrid(list);
-  }
-
-  // Run now, on SPA navigations, and on DOM changes
-  enforce();
-  window.addEventListener('hashchange', enforce, { passive: true });
-  document.addEventListener('readystatechange', () => { if (document.readyState === 'complete') enforce(); });
-
-  const root = document.getElementById('app') || document.body;
-  new MutationObserver(() => enforce()).observe(root, { childList: true, subtree: true });
-})();
-</script>
-
+  <!-- ✅ Cache-busted main entry -->
+  <script type="module" src="main.js?v=2025-10-15a"></script>
 </body>
 </html>
