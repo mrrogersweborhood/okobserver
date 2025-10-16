@@ -13,12 +13,38 @@
   <meta name="color-scheme" content="light">
 
   <!-- ✅ Real favicon -->
-  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2025-10-15a" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2025-10-16h" />
 
-  <!-- ✅ Versioned CSS for cache busting -->
-  <link rel="stylesheet" href="app.css?v=2025-10-15a" />
-  <link rel="stylesheet" href="detail.css?v=2025-10-15a" />
-  <link rel="stylesheet" href="override.css?v=2025-10-15a" />
+  <!-- ✅ Versioned CSS for cache busting (override last) -->
+  <link rel="stylesheet" href="app.css?v=2025-10-16h" />
+  <link rel="stylesheet" href="detail.css?v=2025-10-16h" />
+  <link rel="stylesheet" href="override.css?v=2025-10-16h" />
+
+  <!-- 🔒 Inline hard-fix so it always wins even if a stale CSS is cached -->
+  <style id="oko-hardfix">
+    :where(.post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title){
+      background:transparent !important;background-image:none !important;
+      box-shadow:none !important;border:0 !important;outline:0 !important;
+      padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;
+      text-align:left !important;line-height:1.2 !important;font-weight:800 !important;
+    }
+    :where(.post-detail) :where(.post-header) :where(.post-meta, .byline, .meta, .meta-inline){
+      display:block !important;margin:.25rem 0 .9rem 0 !important;
+      color:#666 !important;background:transparent !important;padding:0 !important;border:0 !important;
+      text-align:left !important;
+    }
+    :where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a,
+    :where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button,
+    :where(.post-detail) .oko-btn-back{
+      display:inline-block !important;appearance:button !important;cursor:pointer !important;
+      border:0 !important;border-radius:10px !important;padding:10px 14px !important;
+      font-weight:600 !important;text-decoration:none !important;
+      background:#1e90ff !important;color:#fff !important;box-shadow:0 2px 10px rgba(0,0,0,.08) !important;
+    }
+    :where(.post-title)[style*="background"]{
+      background:transparent !important;background-image:none !important;
+    }
+  </style>
 
   <style>
     :root {
@@ -78,7 +104,7 @@
     © 2025 The Oklahoma Observer • All Rights Reserved.
   </footer>
 
-  <!-- ✅ Cache-busted main entry -->
-  <script type="module" src="main.js?v=2025-10-15a"></script>
+  <!-- ✅ Cache-busted main entry (fixed prior typo) -->
+  <script type="module" src="main.js?v=2025-10-16h"></script>
 </body>
 </html>
