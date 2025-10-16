@@ -526,4 +526,66 @@ export { renderDetail as renderPostDetail };
     obs.disconnect();
   }, { once: true });
 })();
+// --- Append-only: delayed loader + hide 'Back to Posts' until ready ---
+(function delayDetailLoaderV3(){
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  // Don't run twice or if detail is already visible
+  if (app.querySelector('article.post-detail')) return;
+
+  // Delay loader appearance (~1.5s)
+  let loaderTimer = setTimeout(() => {
+    if (app && !app.querySelector('article.post-detail')) {
+      const ghost = document.createElement('div');
+      ghost.id = 'post-detail-loader';
+      ghost.innerHTML = `
+        <section class="ok-card" style="padding:1rem 1.25rem;margin:1.25rem auto;max-width:920px;text-align:left">
+          <div style="font-weight:700;color:#0f3d8a">Loading…</div>
+          <p style="margin:.25rem 0 0;color:#555">Please wait…</p>
+        </section>
+      `;
+      app.appendChild(ghost);
+    }
+  }, 1500);
+
+  // Watch for the article being injected
+  const obs = new MutationObserver(() => {
+    const post = app.querySelector('article.post-detail');
+    if (post) {
+      clearTimeout(loaderTimer);
+
+      // Remove loader if it exists
+      const ghost = document.getElementById('post-detail-loader');
+      if (ghost) ghost.remove();
+
+      // Ensure 'Back to Posts' buttons appear *only now*
+      const backLinks = post.querySelectorAll('a[href="#/"]');
+      backLinks.forEach(btn => {
+        btn.style.visibility = 'visible';
+        btn.style.opacity = '1';
+        btn.style.transition = 'opacity 0.3s ease';
+      });
+
+      obs.disconnect();
+    }
+  });
+
+  obs.observe(app, { childList: true, subtree: true });
+
+  // Initially hide 'Back to Posts' buttons (if template preloads them)
+  const initialBackLinks = document.querySelectorAll('a[href="#/"]');
+  initialBackLinks.forEach(btn => {
+    btn.style.visibility = 'hidden';
+    btn.style.opacity = '0';
+  });
+
+  // Cleanup on navigation away
+  window.addEventListener('hashchange', () => {
+    clearTimeout(loaderTimer);
+    const ghost = document.getElementById('post-detail-loader');
+    if (ghost) ghost.remove();
+    obs.disconnect();
+  }, { once: true });
+})();
 
