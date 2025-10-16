@@ -1,28 +1,34 @@
-// core-fixed.js — robust router for GH Pages (subfolder-safe) with cache-busted imports
+// core-fixed.js — robust router for GH Pages with flexible view exports
 console.log('[OkObserver] core-fixed.js loaded');
 
 const VERSION = '2025-10-15a';
 
-// Build subfolder-safe URLs (works under /okobserver/)
+// Build subfolder-safe, cache-busted URLs
 function importWithVersion(relPath) {
   const u = new URL(relPath, import.meta.url);
-  // ensure a version param for cache-busting without breaking the base path
   u.searchParams.set('v', VERSION);
   return import(u.href);
 }
 
-// Try a set of common export shapes
-function callRender(mod, which, ...args) {
-  const fns = [
-    mod?.[which],
-    mod?.default?.[which],
-    which === 'renderHome'   ? mod?.startHome   : null,
-    which === 'renderDetail' ? mod?.startDetail : null,
-    which === 'renderAbout'  ? mod?.startAbout  : null,
-  ].filter(Boolean);
-  const fn = fns[0];
-  if (typeof fn === 'function') return fn(...args);
-  throw new Error(`View module missing ${which}() export`);
+// Call a view export regardless of how the module exported it
+function callView(mod, primaryName, app, ...args) {
+  // 1) named export
+  if (typeof mod?.[primaryName] === 'function') {
+    return mod[primaryName](app, ...args);
+  }
+  // 2) default object with method
+  if (mod?.default && typeof mod.default[primaryName] === 'function') {
+    return mod.default[primaryName](app, ...args);
+  }
+  // 3) default function (named or anonymous)
+  if (typeof mod?.default === 'function') {
+    return mod.default(app, ...args);
+  }
+  // 4) last resort: any function export
+  const anyFn = Object.values(mod).find(v => typeof v === 'function');
+  if (anyFn) return anyFn(app, ...args);
+
+  throw new Error(`View module missing ${primaryName}() export`);
 }
 
 const loadHome   = () => importWithVersion('./home.v263.js');
@@ -42,14 +48,14 @@ export async function start() {
   try {
     if (hash.startsWith('#/about')) {
       const mod = await loadAbout();
-      callRender(mod, 'renderAbout');
+      callView(mod, 'renderAbout', app);
     } else if (hash.startsWith('#/post/')) {
       const id = hash.split('/')[2];
       const mod = await loadDetail();
-      callRender(mod, 'renderDetail', id);
+      callView(mod, 'renderDetail', app, id);
     } else {
       const mod = await loadHome();
-      callRender(mod, 'renderHome');
+      callView(mod, 'renderHome', app);
     }
   } catch (err) {
     console.error('[OkObserver] Router error:', err);
