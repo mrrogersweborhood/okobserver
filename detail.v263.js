@@ -1,9 +1,9 @@
-/* OkObserver · detail.v263.js · v2.7.7 (stable, self-contained)
+/* OkObserver · detail.v263.js · v2.7.8 (sanitize-urls)
    - Fetch-first render: nothing is written until the post is ready
    - Title (no blue box) + byline directly under title
    - Poster → click-to-play (YouTube/Vimeo); FB posts via plugin
    - Back buttons only appear with the final detail markup
-   - Includes its own small helper set (API_BASE, apiJSON, etc.)
+   - Includes its own helper set + URL sanitization for malformed embeds
 */
 
 /* ----------------- small helpers (self-contained) ----------------- */
@@ -14,6 +14,26 @@ function qs(params={}){ const u=new URLSearchParams(); for(const [k,v] of Object
 async function apiJSON(pathOrUrl, params){ const url = pathOrUrl.startsWith('http')? pathOrUrl+qs(params) : joinUrl(API_BASE, pathOrUrl)+qs(params); const r=await fetch(url,{headers:{accept:'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
 const prettyDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) } catch { return iso||'' } };
 const decode = (html='') => { const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'' };
+
+/* --- URL sanitization: strip encoded ampersands/params/fragments; keep canonical --- */
+function sanitizeMediaURL(raw) {
+  if (!raw) return null;
+  let u = String(raw).replace(/&amp;/g,'&').trim();
+  // If it's a Vimeo/YouTube/Facebook URL, drop any trailing params/fragments
+  // that commonly break detection (e.g. &login=true#)
+  const canonical = u.split('#')[0].split('&')[0];
+  try {
+    const urlObj = new URL(canonical);
+    // keep only origin + pathname for known providers
+    if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com/i.test(urlObj.hostname)) {
+      return `${urlObj.origin}${urlObj.pathname}`;
+    }
+    return canonical;
+  } catch {
+    // fallback: remove fragments/params by regex
+    return canonical;
+  }
+}
 
 function featuredSrc(post){
   const fm = post?._embedded?.['wp:featuredmedia']?.[0];
@@ -94,14 +114,17 @@ export default async function renderDetail(a, b){
     return;
   }
 
-  // 2) Build ready-to-display markup
+  // 2) Build ready-to-display markup (with sanitized media URL)
   const rawTitle   = post.title?.rendered || '(Untitled)';
   const author     = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
   const date       = prettyDate(post.date || post.date_gmt);
   const poster     = featuredSrc(post);
   const contentRaw = post.content?.rendered || '';
-  const url        = extractVideoURL(contentRaw);
-  const embed      = url ? normalizePlayer(url) : null;
+
+  // Extract first candidate, then sanitize it before normalizing
+  const dirtyUrl   = extractVideoURL(contentRaw);
+  const cleanUrl   = sanitizeMediaURL(dirtyUrl);
+  const embed      = cleanUrl ? normalizePlayer(cleanUrl) : null;
 
   const mediaHTML = (() => {
     if (poster && embed && embed.type !== 'facebook') {
@@ -157,10 +180,24 @@ export default async function renderDetail(a, b){
     firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i,'').trimStart();
     firstP.style.textIndent='0';
   }
+
+  // --- Collapse empty/failed media blocks (safety) ---
+  const fig = mount.querySelector('.post-detail .post-media');
+  if (fig) {
+    const hasStuff = fig.querySelector('iframe, img, video, .oko-video-poster');
+    if (!hasStuff) fig.remove(); else {
+      const check = () => {
+        const iframe = fig.querySelector('iframe');
+        if (iframe && iframe.offsetHeight < 40) fig.remove();
+      };
+      requestAnimationFrame(check);
+      setTimeout(check, 1200);
+    }
+  }
 }
 
 /* ----------------------------- scoped styles ----------------------------- */
-const __once = 'oko-detail-scope-v277';
+const __once = 'oko-detail-scope-v278';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
@@ -169,7 +206,7 @@ if (!document.getElementById(__once)) {
   .oko-actions-top{margin:.5rem 0 .9rem 0}
   .oko-btn-back{display:inline-flex;align-items:center;gap:.45rem;background:#1e63ff;color:#fff;border:0;border-radius:999px;padding:.5rem .9rem;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12)}
   .oko-btn-back:hover{filter:brightness(1.05)} .oko-btn-back:active{transform:translateY(1px)}
-  .post-media{margin:0 auto 1rem auto;max-width:900px}
+  .post-media{margin:0 auto .75rem auto;max-width:900px}
   .oko-video-poster{position:relative;display:block;border-radius:12px;overflow:hidden;background:#000}
   .oko-video-poster__img{display:block;width:100%;height:auto;opacity:.98;transition:transform .18s ease,opacity .18s ease}
   .oko-video-poster:hover .oko-video-poster__img{transform:scale(1.01);opacity:1}
@@ -186,6 +223,7 @@ if (!document.getElementById(__once)) {
   .post-header .post-meta{color:#666;font-size:14px;margin:.25rem 0 .9rem 0}
   .post-content{line-height:1.7;color:#222}
   .post-content img{max-width:100%;height:auto;border-radius:10px;margin:1rem 0}
+  .post-detail .post-media:empty{display:none !important}
   `;
   document.head.appendChild(style);
 }
