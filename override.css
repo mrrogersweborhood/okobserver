@@ -924,4 +924,39 @@ article.post-detail header.post-header .post-meta,
   width: 100% !important;
   box-sizing: border-box;
 }
+/* Responsive grid: 4 / 2 / 1 — force selectors on your known wrapper */
+#app #post-grid.posts-grid.grid,
+#app .posts-grid#post-grid,
+#app .posts-grid.grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* desktop */
+  gap: 1.4rem !important;
+  align-items: start;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  #app #post-grid.posts-grid.grid,
+  #app .posts-grid#post-grid,
+  #app .posts-grid.grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Phone */
+@media (max-width: 720px) {
+  #app #post-grid.posts-grid.grid,
+  #app .posts-grid#post-grid,
+  #app .posts-grid.grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Child safety: no outer margins so seams stay clean */
+#app #post-grid > *,
+#app .posts-grid > * {
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box;
+}
 

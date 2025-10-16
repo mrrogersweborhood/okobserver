@@ -146,3 +146,30 @@ export default async function renderHome(app) {
   window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#/post/')) saveScroll(); });
   window.addEventListener('beforeunload', saveScroll);
 }
+// Ensure the home view mounts a dedicated grid container with the right classes/ID
+// (append-only; keep your existing logic—just make sure this HTML is what you render)
+
+export default async function renderHome(appEl) {
+  const app = appEl || document.getElementById('app');
+  if (!app) return;
+
+  // 1) Create a known grid wrapper your CSS already targets
+  app.innerHTML = `
+    <h2>Latest Posts</h2>
+    <div id="post-grid" class="posts-grid grid"></div>
+  `;
+
+  const grid = document.getElementById('post-grid');
+
+  // 2) After you fetch posts, insert cards into #post-grid (not directly into #app)
+  //    Keep your current card markup; the key is appending to `grid`.
+  const posts = await fetchPostsSomehow(); // <-- keep your real fetch
+  grid.innerHTML = posts.map(p => `
+    <article class="ok-card post-card">
+      ${p.thumbHtml || ''}
+      <h3 class="post-title"><a href="#/post/${p.id}">${p.title}</a></h3>
+      <div class="post-byline">${p.author} — ${p.prettyDate}</div>
+      <p class="post-excerpt">${p.excerpt}</p>
+    </article>
+  `).join('');
+}
