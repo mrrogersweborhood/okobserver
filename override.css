@@ -1145,4 +1145,13 @@ article.post-detail header.post-header .post-meta,
   font-size: 1rem;
   color: #222;
 }
+/* Hide "Back to Posts" links until the actual post detail exists */
+#app a[href="#/"] { 
+  display: none !important; 
+}
+
+/* Show them ONLY when they are inside the real post detail */
+#app article.post-detail a[href="#/"] { 
+  display: inline-block !important; 
+}
 
