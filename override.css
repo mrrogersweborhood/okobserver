@@ -196,3 +196,64 @@ article.post-detail h1.post-title,
 
 /* Extra guard in case some global “*.post-title” tries to color backgrounds */
 :where(.post-title)[style*="background"] { background: transparent !important; background-image: none !important; }
+/* === OKObserver hard overrides for post detail === */
+
+/* 1) Back to Posts buttons — look & behave like buttons */
+:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a,
+:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button,
+:where(.post-detail) .oko-btn-back {
+  display: inline-block !important;
+  appearance: button !important;
+  cursor: pointer !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  background: #1e90ff !important;        /* dodger blue */
+  color: #fff !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08) !important;
+}
+:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a:hover,
+:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button:hover,
+:where(.post-detail) .oko-btn-back:hover {
+  filter: brightness(.95) !important;
+}
+
+/* 2) Title must never have a colored background */
+:where(.post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  margin: .6rem 0 .25rem 0 !important;
+  color: #111 !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+
+/* 3) Byline directly under title, left-aligned */
+:where(.post-detail) :where(.post-header) :where(.post-meta) {
+  display: block !important;
+  margin: .25rem 0 .9rem 0 !important;
+  color: #666 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  text-align: left !important;
+}
+
+/* Guard if any global ".post-title" forces a bg */
+:where(.post-title)[style*="background"] {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* Do not right-align small meta snippets that might be inside header */
+:where(.post-detail) :where(.post-header) :where(.byline, .meta, .meta-inline) {
+  text-align: left !important;
+  background: transparent !important;
+  border: 0 !important;
+}

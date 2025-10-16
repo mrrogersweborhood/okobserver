@@ -7,7 +7,7 @@
    - Preserve existing behavior; all additions are safe and additive
 --------------------------------------------------- */
 
-const VERSION = 'oko-sw-v1-2025-10-16b';
+const VERSION = 'oko-sw-v1-2025-10-16c';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
