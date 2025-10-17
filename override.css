@@ -257,3 +257,49 @@ article.post-detail h1.post-title,
   background: transparent !important;
   border: 0 !important;
 }
+/* === Fix: Post Detail Page Styling === */
+.post-detail .post-header {
+  display: block;
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.post-detail .post-title {
+  background: none !important;
+  color: var(--text-dark, #000) !important;
+  padding: 0 !important;
+  margin-bottom: 0.25rem !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.post-detail .post-meta {
+  display: block !important;
+  text-align: left !important;
+  font-size: 0.9rem !important;
+  color: #555 !important;
+  margin-bottom: 1rem !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Make Back to Posts buttons look like actual buttons again */
+.oko-actions-top a[data-nav="back"],
+.oko-actions-bottom a[data-nav="back"] {
+  background: var(--brand, #1E90FF) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 999px !important;
+  padding: 0.4rem 1rem !important;
+  display: inline-block !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  transition: background 0.2s ease-in-out;
+}
+.oko-actions-top a[data-nav="back"]:hover,
+.oko-actions-bottom a[data-nav="back"]:hover {
+  background: #0f5edc !important;
+}
