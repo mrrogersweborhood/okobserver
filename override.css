@@ -175,3 +175,74 @@ footer {
   text-align: center;
   padding: 1rem;
 }
+/* Post detail media wrapper */
+.post-detail .post-media {
+  margin: 0 0 1rem 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Ensure images/iframes don’t create odd gaps */
+.post-detail .post-media img,
+.post-detail .post-media iframe,
+.post-detail .post-content img,
+.post-detail .post-content iframe {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  border: 0 !important;
+}
+
+/* Click-to-play poster container */
+.post-detail .oko-video-wrap {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  border-radius: 10px !important;
+}
+
+/* Poster image */
+.post-detail .oko-video-poster {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  cursor: pointer !important;
+  border-radius: 10px !important;
+}
+
+/* Centered play button overlay */
+.post-detail .oko-video-play {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 54px !important;
+  height: 54px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.56) !important;
+  display: grid !important;
+  place-items: center !important;
+  color: #fff !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25) !important;
+  pointer-events: none !important;  /* click passes through to poster */
+}
+
+/* The triangle icon itself (CSS triangle) */
+.post-detail .oko-video-play::before {
+  content: "" !important;
+  display: block !important;
+  margin-left: 2px !important;
+  width: 0; height: 0;
+  border-left: 14px solid #fff !important;
+  border-top: 9px solid transparent !important;
+  border-bottom: 9px solid transparent !important;
+}
+
+/* Remove unexpected extra space below media on some embeds */
+.post-detail .post-media > :last-child {
+  margin-bottom: 0 !important;
+}

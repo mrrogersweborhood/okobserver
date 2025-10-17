@@ -1,8 +1,9 @@
-/* OkObserver · detail.v263.js · v2.7.10
+/* OkObserver · detail.v263.js · v2.7.11
    Fixes:
-   • Ensures title never has blue background
-   • Ensures author/date byline always shows directly under the title
-   • Preserves all existing layout, logic, and lazy loading
+   • Restores centered “▶ Play” overlay
+   • Removes excess white space under media
+   • Keeps title transparent + byline directly under title
+   • No layout or functional regressions
 */
 
 const API_BASE = (window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2').replace(/\/+$/, '');
@@ -119,7 +120,13 @@ export default async function renderDetail(a, b){
   const mediaHTML = (() => {
     if (poster && embed && embed.type !== 'facebook') {
       const titleText = decode(rawTitle);
-      return `<figure class="post-media" style="margin:0 0 1rem 0">${posterHTML(poster, titleText)}</figure>`;
+      return `
+        <figure class="post-media">
+          <div class="oko-video-wrap">
+            <img class="oko-video-poster" src="${poster}" alt="${titleText}">
+            <div class="oko-video-play" aria-hidden="true"></div>
+          </div>
+        </figure>`;
     }
     if (embed) return `<figure class="post-media">${playerHTML(embed)}</figure>`;
     if (poster) return `<figure class="post-media"><img src="${poster}" alt="" class="oko-detail-img" loading="lazy" decoding="async"></figure>`;
@@ -143,7 +150,7 @@ export default async function renderDetail(a, b){
     </article>
   `;
 
-  // Ensure video poster swap
+  // Click-to-play functionality
   const posterEl = mount.querySelector('.oko-video-poster');
   if (posterEl && embed && embed.type !== 'facebook') {
     const swap = () => {
@@ -178,7 +185,6 @@ export default async function renderDetail(a, b){
     }
   }
 
-  // --- Permanent header/byline normalizer ---
   (function normalizeDetailHeader(){
     const article = document.querySelector('.post-detail');
     if (!article) return;
@@ -191,29 +197,27 @@ export default async function renderDetail(a, b){
       header.insertBefore(fallback, header.firstChild);
     }
     const titleEl = header.querySelector('h1.post-title, h1, .post-title');
-    titleEl.classList.forEach(cls => { if (/has-.*-background|bg-|background|box|panel/i.test(cls)) titleEl.classList.remove(cls); });
-    titleEl.setAttribute('style', `${titleEl.getAttribute('style')||''};background:transparent !important;background-image:none !important;box-shadow:none !important;border:0 !important;outline:0 !important;padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;`);
+    titleEl.setAttribute('style', `${titleEl.getAttribute('style')||''};background:transparent !important;color:#111 !important;box-shadow:none !important;margin:.6rem 0 .25rem 0 !important;font-weight:800 !important;`);
     let meta = header.querySelector('.post-meta');
-    const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-    const date   = prettyDate(post.date || post.date_gmt);
     const desiredHTML = `By ${author} — ${date}`;
     if (!meta) { meta = document.createElement('div'); meta.className = 'post-meta'; header.insertBefore(meta, titleEl.nextSibling); }
-    if (meta.previousElementSibling !== titleEl) header.insertBefore(meta, titleEl.nextSibling);
     meta.innerHTML = desiredHTML;
-    meta.setAttribute('style', `${meta.getAttribute('style')||''};display:block !important;margin:.25rem 0 .9rem 0 !important;color:#666 !important;background:transparent !important;`);
+    meta.setAttribute('style', `${meta.getAttribute('style')||''};display:block;margin:.25rem 0 1rem 0 !important;color:#555 !important;text-align:left !important;background:transparent !important;`);
   })();
 }
 
-/* --- Inline CSS --- */
-const __once = 'oko-detail-scope-v2710';
+/* Inline CSS scope */
+const __once = 'oko-detail-scope-v2711';
 if (!document.getElementById(__once)) {
   const style = document.createElement('style');
   style.id = __once;
   style.textContent = `
   .post-detail{max-width:980px;margin:0 auto 56px;padding:8px 12px 24px;background:transparent;border:0;box-shadow:none}
   .post-media{margin:0 auto .75rem auto;max-width:900px}
-  .oko-video-poster__img{display:block;width:100%;height:auto;border-radius:12px}
-  .post-header h1.post-title{background:transparent !important}
+  .oko-video-wrap{position:relative;display:block;width:100%;overflow:hidden;border-radius:10px}
+  .oko-video-poster{display:block;width:100%;height:auto;cursor:pointer;border-radius:10px}
+  .oko-video-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:999px;background:rgba(0,0,0,.56);display:grid;place-items:center;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none}
+  .oko-video-play::before{content:"";display:block;margin-left:2px;width:0;height:0;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent}
   .post-header .post-meta{color:#666;font-size:14px;margin:.25rem 0 .9rem 0}
   .post-content{line-height:1.7;color:#222}
   `;
@@ -221,10 +225,6 @@ if (!document.getElementById(__once)) {
 }
 
 function backButtonHTML(){ return `<button type="button" class="oko-btn-back" data-nav="back">← Back to Posts</button>`; }
-function posterHTML(src, title){
-  if(!src) return '';
-  return `<div class="oko-video-poster" role="button" tabindex="0"><img src="${src}" alt="${decode(title)}" class="oko-video-poster__img" loading="lazy" decoding="async"><button class="oko-video-poster__play" aria-label="Play video">▶</button></div>`;
-}
 function playerHTML(embed){
   if(!embed?.src) return '';
   return `<div class="oko-video-embed"><iframe src="${embed.src}" loading="lazy" allowfullscreen frameborder="0"></iframe></div>`;
