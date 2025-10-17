@@ -5,6 +5,12 @@
    stripEmptyBlocks.
 */
 
+// ✅ Fallback: define API_BASE if user opens a post detail directly
+if (!window.API_BASE) {
+  window.API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
+  console.warn("[Detail] API_BASE auto-set for direct page load");
+}
+
 export default async function renderDetail(mountOrId, maybeId) {
   // ---- resolve mount + id (supports: renderDetail('#app', 123) or renderDetail(123)) ----
   let mount = document.getElementById('app') || document.body;
@@ -31,7 +37,7 @@ export default async function renderDetail(mountOrId, maybeId) {
     return;
   }
 
-  // ---- fetch post first (no partial UI to avoid flicker) ----
+  // ---- fetch post first ----
   let post;
   try {
     post = await apiJSON(`posts/${encodeURIComponent(id)}`, { _embed: 1 });
@@ -58,7 +64,6 @@ export default async function renderDetail(mountOrId, maybeId) {
 
   // ---- media block (poster first; clicking swaps to full-size player) ----
   const mediaHTML = (() => {
-    // We prefer poster with click-to-play unless the embed is Facebook (whose player handles its own sizing)
     if (poster && embed && embed.type !== 'facebook') {
       return `
         <figure class="post-media media-16x9">
@@ -67,7 +72,6 @@ export default async function renderDetail(mountOrId, maybeId) {
         </figure>`;
     }
     if (embed) {
-      // inline player (no poster available)
       return `<figure class="post-media media-16x9">${playerHTML(embed)}</figure>`;
     }
     if (poster) {
@@ -78,9 +82,7 @@ export default async function renderDetail(mountOrId, maybeId) {
 
   // ---- sanitize/soften content imgs/iframes ----
   let content = stripEmptyBlocks(contentRaw)
-    // enforce responsive iframes
     .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
-    // responsive images
     .replaceAll('<img', '<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
 
   // ---- render the full article atomically ----
@@ -102,13 +104,11 @@ export default async function renderDetail(mountOrId, maybeId) {
   const playBtn = mount.querySelector('.post-detail .oko-play');
   if (fig && playBtn && embed && embed.type !== 'facebook') {
     const swapToPlayer = () => {
-      // get raw player HTML and force full width
       let html = playerHTML(embed)
         .replace(/\swidth="[^"]*"/gi, '')
         .replace(/\sheight="[^"]*"/gi, '');
       fig.innerHTML = html;
 
-      // ensure iframe fills the container
       const ifr = fig.querySelector('iframe');
       if (ifr) {
         ifr.removeAttribute('width');
@@ -117,12 +117,10 @@ export default async function renderDetail(mountOrId, maybeId) {
         ifr.style.height = '100%';
         ifr.style.display = 'block';
         ifr.style.border = '0';
-        // the figure already defines the aspect-ratio via CSS class
       }
     };
 
     playBtn.addEventListener('click', swapToPlayer);
-    // keyboard support if someone focuses the poster (space/enter)
     fig.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -154,10 +152,7 @@ function backButtonHTML() {
   return `<a href="#/" data-nav="back" class="oko-btn-back">← Back to Posts</a>`;
 }
 
-/* ---------- detail-specific CSS safety net (only if needed) ----------
-   These rules are injected once to guarantee full-width players even if
-   third-party iframes bring width/height attributes.
-*/
+/* ---------- detail-specific CSS safety net ---------- */
 injectOnce('detail-media-sizing', `
   .post-detail .post-media{ margin:0 0 1rem 0; }
   .post-detail .media-16x9{ width:100%; max-width:980px; margin:0 auto 1rem auto;
