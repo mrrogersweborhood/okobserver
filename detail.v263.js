@@ -1,15 +1,15 @@
-/* OkObserver – Detail view (v2.6.5)
-   - Vimeo, YouTube, AND Facebook video support
-   - Only strips inline iframe when it's NOT Facebook
-   - Keeps large responsive player for Vimeo/YouTube
-   - No blue title background; byline under title
+/* OkObserver – Detail view (v2.6.6)
+   - Vimeo, YouTube, and Facebook support
+   - Facebook: lift real <iframe> into the media area; remove from body
+   - Vimeo/YouTube: click poster swaps to full, responsive player
+   - Title has no blue background; byline sits under title
 */
 
 const log = (...a) => console.log('[Detail]', ...a);
 
 const decode = (s = '') => {
   const el = document.createElement('textarea');
-  el.innerHTML = s;
+  el.innerHTML = s || '';
   return el.value;
 };
 
@@ -24,8 +24,10 @@ const prettyDate = (iso) => {
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
+// -------- API ----------
 async function apiGet(path) {
   if (typeof apiJSON === 'function') return apiJSON(path, { _embed: 1 });
+
   let base = (typeof API_BASE === 'string' && API_BASE) || window.__OKO_API_BASE__;
   if (!base) {
     base = (window.__OKO_API_BASE__ =
@@ -38,29 +40,59 @@ async function apiGet(path) {
   return r.json();
 }
 
-const featuredSrc = (post) => post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
+// -------- Helpers ----------
+const featuredSrc = (post) =>
+  post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
 
-const extractVideoURL = (html = '') => {
+/* Detects first known embed in the HTML and returns:
+   - Vimeo:   { type:'vimeo', id, url }
+   - YouTube: { type:'youtube', id, url }
+   - Facebook:{ type:'facebook', iframe, src }  <-- NEW
+   - null if nothing matches
+*/
+function detectEmbed(html = '') {
+  // Vimeo (plain URL)
   const vimeo = html.match(/https?:\/\/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/i);
   if (vimeo) return { type: 'vimeo', id: vimeo[1], url: vimeo[0] };
+
+  // YouTube (plain URL)
   const ytb = html.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/i);
   if (ytb) return { type: 'youtube', id: ytb[1], url: ytb[0] };
-  const ifrV = html.match(/<iframe[^>]+src=["']https?:\/\/player\.vimeo\.com\/video\/(\d+)/i);
+
+  // Vimeo (iframe)
+  const ifrV = html.match(/<iframe[^>]+src=["']https?:\/\/player\.vimeo\.com\/video\/(\d+)[^"']*["'][\s\S]*?<\/iframe>/i);
   if (ifrV) return { type: 'vimeo', id: ifrV[1], url: `https://vimeo.com/${ifrV[1]}` };
-  const ifrY = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?youtube\.com\/embed\/([\w-]+)/i);
+
+  // YouTube (iframe)
+  const ifrY = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?youtube\.com\/embed\/([\w-]+)[^"']*["'][\s\S]*?<\/iframe>/i);
   if (ifrY) return { type: 'youtube', id: ifrY[1], url: `https://youtu.be/${ifrY[1]}` };
-  // Facebook support
-  const ifrFB = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?facebook\.com\/plugins\/video\.php/i);
-  if (ifrFB) return { type: 'facebook', id: null, url: null };
+
+  // Facebook (iframe) – keep full tag and src
+  const ifrFB = html.match(/<iframe[^>]+src=["'](https?:\/\/(?:www\.)?facebook\.com\/plugins\/video\.php[^"']*)["'][\s\S]*?<\/iframe>/i);
+  if (ifrFB) return { type: 'facebook', iframe: ifrFB[0], src: ifrFB[1] };
+
   return null;
-};
+}
 
 const playerHTML = (embed) => {
   if (!embed) return '';
-  if (embed.type === 'vimeo')
-    return `<div class="oko-player-wrap"><iframe loading="lazy" src="https://player.vimeo.com/video/${embed.id}?title=0&byline=0&portrait=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
-  if (embed.type === 'youtube')
-    return `<div class="oko-player-wrap"><iframe loading="lazy" src="https://www.youtube.com/embed/${embed.id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
+  if (embed.type === 'vimeo') {
+    return `
+      <div class="oko-player-wrap">
+        <iframe loading="lazy"
+          src="https://player.vimeo.com/video/${embed.id}?title=0&byline=0&portrait=0"
+          allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+      </div>`;
+  }
+  if (embed.type === 'youtube') {
+    return `
+      <div class="oko-player-wrap">
+        <iframe loading="lazy"
+          src="https://www.youtube.com/embed/${embed.id}"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen></iframe>
+      </div>`;
+  }
   return '';
 };
 
@@ -73,10 +105,12 @@ const posterHTML = (src, alt = '') =>
 const stripEmptyBlocks = (html = '') =>
   html.replace(/<p>\s*(?:&nbsp;|\s|<br\s*\/?>)*<\/p>/gi, '').trim();
 
-const stripFirstIframe = (html = '') => html.replace(/<iframe[\s\S]*?<\/iframe>/i, '');
+/* Removes the first <iframe> block from html */
+const removeFirstIframe = (html = '') => html.replace(/<iframe[\s\S]*?<\/iframe>/i, '');
 
 const backButtonHTML = () => `<a href="#/" class="oko-btn-back" data-nav="back">← Back to Posts</a>`;
 
+// -------- Renderer ----------
 export default async function renderDetail(mountOrId, idMaybe) {
   let mountEl, postId;
   const isNode = (x) => x && typeof x === 'object' && x.nodeType === 1;
@@ -92,29 +126,44 @@ export default async function renderDetail(mountOrId, idMaybe) {
     const titleText = decode(post.title?.rendered || '(Untitled)');
     const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
     const date = prettyDate(post.date || post.date_gmt);
+
     const poster = featuredSrc(post);
     let contentRaw = post.content?.rendered || '';
-    const embed = extractVideoURL(contentRaw);
+    const embed = detectEmbed(contentRaw);
 
-    // Only strip if not Facebook
-    if (embed && embed.type !== 'facebook') contentRaw = stripFirstIframe(contentRaw);
-
+    // Build media
     let mediaHTML = '';
-    if (embed && poster && embed.type !== 'facebook')
-      mediaHTML = `<figure class="post-media">${posterHTML(poster, titleText)}</figure>`;
-    else if (embed && embed.type !== 'facebook')
-      mediaHTML = `<figure class="post-media">${playerHTML(embed)}</figure>`;
-    else if (poster)
+    if (embed?.type === 'facebook' && embed.iframe) {
+      // 1) Facebook: show real iframe at the top, responsive
+      const fbIframeNormalized = embed.iframe
+        .replace('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.08);"');
+      mediaHTML = `<figure class="post-media">${fbIframeNormalized}</figure>`;
+      // remove the original from the article body to avoid blank/clickable white area
+      contentRaw = contentRaw.replace(embed.iframe, '');
+    } else if (embed && (embed.type === 'vimeo' || embed.type === 'youtube')) {
+      // 2) Vimeo / YouTube
+      if (poster) {
+        mediaHTML = `<figure class="post-media">${posterHTML(poster, titleText)}</figure>`;
+      } else {
+        mediaHTML = `<figure class="post-media">${playerHTML(embed)}</figure>`;
+      }
+      // strip any inline iframe from body to prevent duplicates/whitespace
+      contentRaw = removeFirstIframe(contentRaw);
+    } else if (poster) {
+      // 3) Just an image
       mediaHTML = `<figure class="post-media"><img src="${poster}" alt="${titleText}" class="oko-detail-img"></figure>`;
+    }
 
+    // Clean remaining content media
     let content = stripEmptyBlocks(contentRaw)
       .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px;margin:1rem 0;"')
       .replaceAll('<img', '<img loading="lazy" style="max-width:100%;height:auto;border-radius:12px;margin:1rem 0;"');
 
+    // Compose article
     mountEl.innerHTML = `
       <article class="post-detail">
         <div class="oko-actions-top">${backButtonHTML()}</div>
-        ${mediaHTML}
+        ${mediaHTML || ''}
         <header class="post-header">
           <h1 class="post-title">${titleText}</h1>
           <div class="post-meta">By ${author} — ${date}</div>
@@ -123,8 +172,9 @@ export default async function renderDetail(mountOrId, idMaybe) {
         <div class="oko-actions-bottom" style="margin-top:1.1rem">${backButtonHTML()}</div>
       </article>`;
 
+    // Poster click (Vimeo/YouTube)
     const posterBtn = $('.oko-video-poster', mountEl);
-    if (posterBtn && embed && embed.type !== 'facebook') {
+    if (posterBtn && embed && (embed.type === 'vimeo' || embed.type === 'youtube')) {
       const onPlay = () => {
         const fig = posterBtn.closest('.post-media');
         if (fig) fig.innerHTML = playerHTML(embed);
@@ -135,11 +185,13 @@ export default async function renderDetail(mountOrId, idMaybe) {
       });
     }
 
+    // Back buttons
     mountEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-nav="back"]');
       if (b) { e.preventDefault(); window.location.hash = '#/'; }
     });
 
+    // Tidy first paragraph
     const firstP = $('.post-content p', mountEl);
     if (firstP) {
       firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i, '').trimStart();
@@ -153,6 +205,7 @@ export default async function renderDetail(mountOrId, idMaybe) {
   }
 }
 
+// -------- One-time CSS for the detail page ----------
 (function injectOnce() {
   if (document.querySelector('style[data-oko-detail-css]')) return;
   const css = `
