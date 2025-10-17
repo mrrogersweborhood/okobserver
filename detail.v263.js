@@ -1,17 +1,15 @@
-/* OkObserver – Detail view (v2.6.4)
-   - Exports ONE default function the router expects
-   - Removes inline (small) iframe when we render a big player
-   - Forces full-width 16:9 player
-   - Byline under title, no blue title bar
-   - Keeps logs for diagnostics
+/* OkObserver – Detail view (v2.6.5)
+   - Vimeo, YouTube, AND Facebook video support
+   - Only strips inline iframe when it's NOT Facebook
+   - Keeps large responsive player for Vimeo/YouTube
+   - No blue title background; byline under title
 */
 
-/* ---------- tiny helpers ---------- */
 const log = (...a) => console.log('[Detail]', ...a);
 
 const decode = (s = '') => {
   const el = document.createElement('textarea');
-  el.innerHTML = s || '';
+  el.innerHTML = s;
   return el.value;
 };
 
@@ -26,65 +24,43 @@ const prettyDate = (iso) => {
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
-/* API helper: uses global apiJSON if present; otherwise fetch */
 async function apiGet(path) {
   if (typeof apiJSON === 'function') return apiJSON(path, { _embed: 1 });
-
   let base = (typeof API_BASE === 'string' && API_BASE) || window.__OKO_API_BASE__;
   if (!base) {
     base = (window.__OKO_API_BASE__ =
       'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2');
     log('API_BASE auto-set for direct page load');
   }
-
   const url = `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Fetch failed ${r.status}`);
   return r.json();
 }
 
-/* media helpers */
-const featuredSrc = (post) => {
-  const m = post._embedded?.['wp:featuredmedia']?.[0];
-  return m?.source_url || '';
-};
+const featuredSrc = (post) => post._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
 
 const extractVideoURL = (html = '') => {
-  // detect vimeo/youtube in content
   const vimeo = html.match(/https?:\/\/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/i);
   if (vimeo) return { type: 'vimeo', id: vimeo[1], url: vimeo[0] };
-  const ytb = html.match(
-    /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/i
-  );
+  const ytb = html.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/i);
   if (ytb) return { type: 'youtube', id: ytb[1], url: ytb[0] };
-  // also catch raw <iframe src=…> for vimeo/youtube
-  const ifrV = html.match(/<iframe[^>]+src=["']https?:\/\/player\.vimeo\.com\/video\/(\d+)[^"']*["']/i);
+  const ifrV = html.match(/<iframe[^>]+src=["']https?:\/\/player\.vimeo\.com\/video\/(\d+)/i);
   if (ifrV) return { type: 'vimeo', id: ifrV[1], url: `https://vimeo.com/${ifrV[1]}` };
-  const ifrY = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?youtube\.com\/embed\/([\w-]+)[^"']*["']/i);
+  const ifrY = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?youtube\.com\/embed\/([\w-]+)/i);
   if (ifrY) return { type: 'youtube', id: ifrY[1], url: `https://youtu.be/${ifrY[1]}` };
+  // Facebook support
+  const ifrFB = html.match(/<iframe[^>]+src=["']https?:\/\/(?:www\.)?facebook\.com\/plugins\/video\.php/i);
+  if (ifrFB) return { type: 'facebook', id: null, url: null };
   return null;
 };
 
 const playerHTML = (embed) => {
   if (!embed) return '';
-  if (embed.type === 'vimeo') {
-    return `
-      <div class="oko-player-wrap">
-        <iframe loading="lazy"
-                src="https://player.vimeo.com/video/${embed.id}?title=0&byline=0&portrait=0"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowfullscreen></iframe>
-      </div>`;
-  }
-  if (embed.type === 'youtube') {
-    return `
-      <div class="oko-player-wrap">
-        <iframe loading="lazy"
-                src="https://www.youtube.com/embed/${embed.id}"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen></iframe>
-      </div>`;
-  }
+  if (embed.type === 'vimeo')
+    return `<div class="oko-player-wrap"><iframe loading="lazy" src="https://player.vimeo.com/video/${embed.id}?title=0&byline=0&portrait=0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`;
+  if (embed.type === 'youtube')
+    return `<div class="oko-player-wrap"><iframe loading="lazy" src="https://www.youtube.com/embed/${embed.id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>`;
   return '';
 };
 
@@ -94,71 +70,47 @@ const posterHTML = (src, alt = '') =>
      <span class="oko-video-play"></span>
    </button>`;
 
-/* scrub helpers */
 const stripEmptyBlocks = (html = '') =>
   html.replace(/<p>\s*(?:&nbsp;|\s|<br\s*\/?>)*<\/p>/gi, '').trim();
 
-/* If we’re rendering our own player, remove the first iframe from content
-   to avoid the tiny, width-capped embed. */
 const stripFirstIframe = (html = '') => html.replace(/<iframe[\s\S]*?<\/iframe>/i, '');
 
-/* back button */
-const backButtonHTML = () =>
-  `<a href="#/" class="oko-btn-back" data-nav="back">← Back to Posts</a>`;
+const backButtonHTML = () => `<a href="#/" class="oko-btn-back" data-nav="back">← Back to Posts</a>`;
 
-/* ---------- main exported function ---------- */
 export default async function renderDetail(mountOrId, idMaybe) {
-  // Resolve mount + id
   let mountEl, postId;
   const isNode = (x) => x && typeof x === 'object' && x.nodeType === 1;
+  if (isNode(mountOrId)) { mountEl = mountOrId; postId = idMaybe; }
+  else if (typeof mountOrId === 'string' && document.getElementById(mountOrId)) {
+    mountEl = document.getElementById(mountOrId); postId = idMaybe;
+  } else { mountEl = document.getElementById('app') || document.body; postId = mountOrId; }
 
-  if (isNode(mountOrId)) {
-    mountEl = mountOrId;
-    postId = idMaybe;
-  } else if (typeof mountOrId === 'string' && document.getElementById(mountOrId)) {
-    mountEl = document.getElementById(mountOrId);
-    postId = idMaybe;
-  } else {
-    mountEl = document.getElementById('app') || document.body;
-    postId = mountOrId;
-  }
-
-  // Loading shell
-  mountEl.innerHTML = `
-    <section class="ok-card" style="max-width:980px;margin:1rem auto;padding:12px 16px">
-      <p>Loading…</p>
-    </section>
-  `;
+  mountEl.innerHTML = `<section class="ok-card" style="max-width:980px;margin:1rem auto;padding:12px 16px"><p>Loading…</p></section>`;
 
   try {
     const post = await apiGet(`posts/${encodeURIComponent(postId)}?_embed=1`);
-    const rawTitle = post.title?.rendered || '(Untitled)';
-    const titleText = decode(rawTitle);
+    const titleText = decode(post.title?.rendered || '(Untitled)');
     const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
     const date = prettyDate(post.date || post.date_gmt);
     const poster = featuredSrc(post);
     let contentRaw = post.content?.rendered || '';
     const embed = extractVideoURL(contentRaw);
 
-    // If we’re going to show our own player, strip the first iframe from content.
-    if (embed) contentRaw = stripFirstIframe(contentRaw);
+    // Only strip if not Facebook
+    if (embed && embed.type !== 'facebook') contentRaw = stripFirstIframe(contentRaw);
 
-    // Media: prefer poster with click-to-play for Vimeo/YouTube
     let mediaHTML = '';
-    if (embed && poster) {
+    if (embed && poster && embed.type !== 'facebook')
       mediaHTML = `<figure class="post-media">${posterHTML(poster, titleText)}</figure>`;
-    } else if (embed && !poster) {
+    else if (embed && embed.type !== 'facebook')
       mediaHTML = `<figure class="post-media">${playerHTML(embed)}</figure>`;
-    } else if (poster) {
+    else if (poster)
       mediaHTML = `<figure class="post-media"><img src="${poster}" alt="${titleText}" class="oko-detail-img"></figure>`;
-    }
 
-    // Normalize content media blocks (just in case)
     let content = stripEmptyBlocks(contentRaw)
       .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px;margin:1rem 0;"')
       .replaceAll('<img', '<img loading="lazy" style="max-width:100%;height:auto;border-radius:12px;margin:1rem 0;"');
 
-    // Full article (no blue bar; byline under title; centered title left-aligned)
     mountEl.innerHTML = `
       <article class="post-detail">
         <div class="oko-actions-top">${backButtonHTML()}</div>
@@ -169,12 +121,10 @@ export default async function renderDetail(mountOrId, idMaybe) {
         </header>
         <div class="post-content">${content}</div>
         <div class="oko-actions-bottom" style="margin-top:1.1rem">${backButtonHTML()}</div>
-      </article>
-    `;
+      </article>`;
 
-    // Activate poster → swap to LARGE inline player
     const posterBtn = $('.oko-video-poster', mountEl);
-    if (posterBtn && embed) {
+    if (posterBtn && embed && embed.type !== 'facebook') {
       const onPlay = () => {
         const fig = posterBtn.closest('.post-media');
         if (fig) fig.innerHTML = playerHTML(embed);
@@ -185,13 +135,11 @@ export default async function renderDetail(mountOrId, idMaybe) {
       });
     }
 
-    // Back links navigate via hash
     mountEl.addEventListener('click', (e) => {
       const b = e.target.closest('[data-nav="back"]');
       if (b) { e.preventDefault(); window.location.hash = '#/'; }
     });
 
-    // Tidy first paragraph indent
     const firstP = $('.post-content p', mountEl);
     if (firstP) {
       firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i, '').trimStart();
@@ -201,52 +149,28 @@ export default async function renderDetail(mountOrId, idMaybe) {
     log('rendered', { id: postId, title: titleText });
   } catch (err) {
     console.error('[Detail] fetch failed', err);
-    mountEl.innerHTML = `
-      <section class="ok-card" style="max-width:980px;margin:1rem auto;padding:12px 16px">
-        <p class="error" style="color:#b00">Failed to load post.</p>
-        <p><a class="oko-btn-back" href="#/">← Back to Posts</a></p>
-      </section>
-    `;
+    mountEl.innerHTML = `<section class="ok-card" style="max-width:980px;margin:1rem auto;padding:12px 16px"><p class="error" style="color:#b00">Failed to load post.</p><p><a class="oko-btn-back" href="#/">← Back to Posts</a></p></section>`;
   }
 }
 
-/* ---------- scoped CSS injection (stronger) ---------- */
-(function injectOnce(){
+(function injectOnce() {
   if (document.querySelector('style[data-oko-detail-css]')) return;
   const css = `
-    /* Ensure article isn’t a blue bar or card */
-    article.post-detail{max-width:980px;margin:0 auto;padding:8px 12px;background:transparent !important;border:0 !important;box-shadow:none !important}
-
-    /* Title + byline */
+    article.post-detail{max-width:980px;margin:0 auto;padding:8px 12px;background:transparent;border:0;box-shadow:none}
     article.post-detail .post-header{margin:.75rem 0 .5rem}
-    article.post-detail .post-title{margin:0;padding:0;background:transparent !important;color:var(--text-dark,#111) !important;text-align:left}
+    article.post-detail .post-title{margin:0;padding:0;background:transparent;color:var(--text-dark,#111);text-align:left}
     article.post-detail .post-meta{margin-top:6px;color:#666;font-size:.95rem}
-
-    /* Media area – full width, aspect ratio */
-    article.post-detail figure.post-media{margin:0 0 1rem 0}
-    .oko-player-wrap{width:100% !important;max-width:100% !important;aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 6px 22px rgba(0,0,0,.08)}
-    .oko-player-wrap iframe{display:block !important;width:100% !important;height:100% !important;border:0}
-
-    /* Poster */
+    .oko-player-wrap{width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 6px 22px rgba(0,0,0,.08)}
+    .oko-player-wrap iframe{width:100%;height:100%;border:0}
     .oko-video-poster{position:relative;display:block;width:100%;border:0;padding:0;background:transparent;cursor:pointer}
     .oko-video-poster img{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.08)}
-    .oko-video-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center}
-    .oko-video-play::before{content:'';display:block;margin-left:3px;width:0;height:0;border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent}
-
-    /* Kill any old width-caps on iframes inside detail content */
-    article.post-detail iframe{width:100% !important;max-width:100% !important;height:auto !important;aspect-ratio:16/9 !important;border:0 !important}
-
-    /* Back button as real button */
+    .oko-video-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+    .oko-video-play::before{content:'';margin-left:3px;width:0;height:0;border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent}
+    article.post-detail iframe{width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;border:0!important}
     .oko-btn-back{display:inline-block;padding:8px 12px;border-radius:999px;background:#e9f2ff;color:#0f3d8a;text-decoration:none}
-
-    @media (max-width:640px){
-      article.post-detail{padding:8px}
-      .oko-video-play{width:52px;height:52px}
-      .oko-video-play::before{border-left-width:14px;border-top-width:9px;border-bottom-width:9px}
-    }
   `;
   const s = document.createElement('style');
-  s.setAttribute('data-oko-detail-css', '1');
+  s.dataset.okoDetailCss = '1';
   s.textContent = css;
   document.head.appendChild(s);
 })();
