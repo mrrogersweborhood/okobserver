@@ -1,8 +1,10 @@
 /* -------------------------------
-   Base Overrides for OkObserver
+   OkObserver – Consolidated Overrides (cleaned)
+   NOTE: This file merges prior patches, removes duplicates,
+   and scopes “post detail” fixes so cards keep their styling.
    ------------------------------- */
 
-/* Maintain consistent card look and spacing */
+/* ========== Grid / Cards (Home) ========== */
 .ok-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -11,7 +13,10 @@
   align-items: stretch;
 }
 
-/* Card style */
+@media (max-width: 768px) {
+  .ok-grid { grid-template-columns: 1fr; }
+}
+
 .ok-card {
   background: #fff;
   border-radius: 10px;
@@ -20,15 +25,12 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform .2s ease, box-shadow .2s ease;
 }
-
 .ok-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 4px 8px rgba(0,0,0,.15);
 }
-
-/* Card image */
 .ok-card img {
   display: block;
   width: 100%;
@@ -36,38 +38,28 @@
   border-bottom: 1px solid #ddd;
   border-radius: 10px 10px 0 0;
 }
-
-/* Card content */
-.ok-card .ok-card-body {
-  flex: 1;
-  padding: 1rem;
-}
-
-.ok-card h2,
-.ok-card h3 {
-  margin: 0 0 0.5rem 0;
+.ok-card .ok-card-body { flex: 1; padding: 1rem; }
+.ok-card h2, .ok-card h3 {
+  margin: 0 0 .5rem 0;
   font-size: 1.2rem;
   line-height: 1.3;
   color: #111;
 }
+.ok-card p { margin: .5rem 0 0 0; line-height: 1.4; color: #444; }
 
-.ok-card p {
-  margin: 0.5rem 0 0 0;
-  line-height: 1.4;
-  color: #444;
+/* Performance hints for large grids */
+.ok-grid .ok-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 340px 280px; /* prevents layout jumps */
 }
 
-/* Responsive grid behavior */
-@media (max-width: 768px) {
-  .ok-grid {
-    grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
-  }
+/* Smooth edges theme-wide */
+.ok-card, .post-detail {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
 
-/* -------------------------------
-   Detail Page
-   ------------------------------- */
-
+/* ========== Post Detail Container ========== */
 .post-detail {
   max-width: 920px;
   margin: 1.25rem auto;
@@ -76,23 +68,67 @@
   border: 1px solid #e1e5ec;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
   padding: 1.25rem;
+
+  /* Prevent title from sliding under sticky header */
+  padding-top: 1.25rem !important;
+  position: relative;
+  z-index: 0;
 }
 
-.post-detail .post-title {
-  margin: 0;
-  font-size: 1.8rem;
-  line-height: 1.3;
-  color: #111;
-  background: none !important; /* ensure no blue background */
+/* ========== Post Detail: Header / Title / Byline ========== */
+.post-detail .post-header {
+  display: block;
+  margin-top: 1rem !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.post-detail .post-meta {
-  margin-top: 0.4rem;
-  font-size: 0.95rem;
-  color: #666;
+.post-detail h1.post-title,
+.post-detail .post-title,
+article.post-detail h1.post-title {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--text-dark, #111) !important;
+  padding: 0 !important;
+  margin: .6rem 0 .25rem 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
 }
 
-/* Images and video embeds */
+/* Guard against inline styles accidentally adding a bg */
+.post-title[style*="background"] {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.post-detail .post-meta,
+.post-detail .post-header .post-meta {
+  display: block !important;
+  text-align: left !important;
+  font-size: .9rem !important;
+  color: #555 !important;
+  margin: .25rem 0 1rem 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* If any global rule right-aligns a “byline/meta”, undo it here */
+.post-detail .post-header .byline,
+.post-detail .post-header .meta,
+.post-detail .post-header .meta-inline {
+  text-align: left !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* ========== Media in Post Detail ========== */
 .post-detail img,
 .post-detail iframe {
   max-width: 100%;
@@ -101,205 +137,41 @@
   margin: 1rem 0;
 }
 
-/* -------------------------------
-   Footer and Other Layouts
-   ------------------------------- */
+/* ========== Back to Posts buttons (detail page) ========== */
+.post-detail .oko-actions-top a[data-nav="back"],
+.post-detail .oko-actions-bottom a[data-nav="back"],
+.post-detail .oko-btn-back {
+  display: inline-block !important;
+  appearance: button !important;
+  cursor: pointer !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: .4rem 1rem !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  background: var(--brand, #1E90FF) !important; /* dodger blue */
+  color: #fff !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08) !important;
+  transition: background .2s ease-in-out;
+}
+.post-detail .oko-actions-top a[data-nav="back"]:hover,
+.post-detail .oko-actions-bottom a[data-nav="back"]:hover,
+.post-detail .oko-btn-back:hover {
+  filter: brightness(.95) !important;
+}
 
+/* Keep app header above content */
+header.site-header,
+header.app-header,
+header[role="banner"] {
+  z-index: 9999 !important;
+}
+
+/* ========== Footer ========== */
 footer {
   background: #fff;
   color: #666;
   border-top: 1px solid #ddd;
   text-align: center;
   padding: 1rem;
-}
-
-/* -------------------------------
-   Performance Hints
-   ------------------------------- */
-
-/* viewport virtualization for post grid */
-.ok-grid .ok-card {
-  content-visibility: auto;
-  contain-intrinsic-size: 340px 280px; /* placeholder size to prevent layout jumps */
-}
-
-/* smooth paint edges, no harsh borders */
-.ok-card, .post-detail {
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-}
-/* Post detail: ensure title never has a blue background */
-.post-detail .post-header h1.post-title,
-.post-detail h1.post-title,
-article.post-detail h1.post-title,
-.post-detail .post-title {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  outline: 0 !important;
-  padding: 0 !important;
-  margin: .6rem 0 .25rem 0 !important;
-  color: #111 !important;
-}
-
-/* Byline directly under title */
-.post-detail .post-header .post-meta {
-  background: transparent !important;
-  color: #666 !important;
-}
-/* Force the byline to be visible and beneath the title */
-.post-detail .post-header .post-meta {
-  display: block !important;
-  margin: .25rem 0 .9rem 0 !important;
-  color: #666 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Title must NEVER have a blue background */
-.post-detail .post-header h1.post-title,
-.post-detail h1.post-title,
-article.post-detail h1.post-title,
-.post-detail .post-title {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  outline: 0 !important;
-  padding: 0 !important;
-  margin: .6rem 0 .25rem 0 !important;
-  color: #111 !important;
-}
-/* === Permanent nukes for title background & byline position === */
-:where(article.post-detail, .post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title) {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  outline: 0 !important;
-  padding: 0 !important;
-  margin: .6rem 0 .25rem 0 !important;
-  color: #111 !important;
-  line-height: 1.2 !important;
-  font-weight: 800 !important;
-}
-:where(article.post-detail, .post-detail) :where(.post-header) :where(.post-meta) {
-  display: block !important;
-  margin: .25rem 0 .9rem 0 !important;
-  color: #666 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-/* Extra guard in case some global “*.post-title” tries to color backgrounds */
-:where(.post-title)[style*="background"] { background: transparent !important; background-image: none !important; }
-/* === OKObserver hard overrides for post detail === */
-
-/* 1) Back to Posts buttons — look & behave like buttons */
-:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a,
-:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button,
-:where(.post-detail) .oko-btn-back {
-  display: inline-block !important;
-  appearance: button !important;
-  cursor: pointer !important;
-  border: 0 !important;
-  border-radius: 10px !important;
-  padding: 10px 14px !important;
-  font-weight: 600 !important;
-  text-decoration: none !important;
-  background: #1e90ff !important;        /* dodger blue */
-  color: #fff !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,.08) !important;
-}
-:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a:hover,
-:where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button:hover,
-:where(.post-detail) .oko-btn-back:hover {
-  filter: brightness(.95) !important;
-}
-
-/* 2) Title must never have a colored background */
-:where(.post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title) {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  outline: 0 !important;
-  padding: 0 !important;
-  margin: .6rem 0 .25rem 0 !important;
-  color: #111 !important;
-  line-height: 1.2 !important;
-  font-weight: 800 !important;
-}
-
-/* 3) Byline directly under title, left-aligned */
-:where(.post-detail) :where(.post-header) :where(.post-meta) {
-  display: block !important;
-  margin: .25rem 0 .9rem 0 !important;
-  color: #666 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border: 0 !important;
-  text-align: left !important;
-}
-
-/* Guard if any global ".post-title" forces a bg */
-:where(.post-title)[style*="background"] {
-  background: transparent !important;
-  background-image: none !important;
-}
-
-/* Do not right-align small meta snippets that might be inside header */
-:where(.post-detail) :where(.post-header) :where(.byline, .meta, .meta-inline) {
-  text-align: left !important;
-  background: transparent !important;
-  border: 0 !important;
-}
-/* === Fix: Post Detail Page Styling === */
-.post-detail .post-header {
-  display: block;
-  background: transparent !important;
-  padding: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.post-detail .post-title {
-  background: none !important;
-  color: var(--text-dark, #000) !important;
-  padding: 0 !important;
-  margin-bottom: 0.25rem !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-.post-detail .post-meta {
-  display: block !important;
-  text-align: left !important;
-  font-size: 0.9rem !important;
-  color: #555 !important;
-  margin-bottom: 1rem !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* Make Back to Posts buttons look like actual buttons again */
-.oko-actions-top a[data-nav="back"],
-.oko-actions-bottom a[data-nav="back"] {
-  background: var(--brand, #1E90FF) !important;
-  color: #fff !important;
-  border: none !important;
-  border-radius: 999px !important;
-  padding: 0.4rem 1rem !important;
-  display: inline-block !important;
-  text-decoration: none !important;
-  font-weight: 600 !important;
-  transition: background 0.2s ease-in-out;
-}
-.oko-actions-top a[data-nav="back"]:hover,
-.oko-actions-bottom a[data-nav="back"]:hover {
-  background: #0f5edc !important;
 }
