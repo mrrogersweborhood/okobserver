@@ -134,3 +134,46 @@ main{padding-top:12px;padding-bottom:56px}
 header.oko-header :where(h1,.post-title){
   background:transparent!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important;
 }
+/* --- Header must always be blue --- */
+header, .oko-header, .app-header {
+  background: #1E63FF !important;
+  color: #fff !important;
+}
+
+/* Keep header links visible on blue */
+header a, .oko-header a, .app-header a {
+  color: #fff !important;
+}
+
+/* Ensure title area never gets that blue bar again on detail */
+.post-detail .post-title,
+.post-detail .post-header,
+.post-detail .oko-title {
+  background: transparent !important;
+  color: var(--text-dark, #111) !important;
+  padding: 0 !important;
+  margin: .5rem 0 0 !important;
+}
+
+/* Byline under title, left-aligned */
+.post-detail .post-meta {
+  margin-top: .25rem !important;
+  color: #6a6f75 !important;
+  text-align: left !important;
+  font-size: .95rem !important;
+}
+
+/* Back buttons look like buttons */
+.oko-btn-back,
+a.oko-btn-back {
+  display: inline-flex !important;
+  align-items: center;
+  gap: .35rem;
+  padding: .5rem .9rem !important;
+  border-radius: 999px !important;
+  background: #eef3ff !important;
+  color: #1E63FF !important;
+  border: 1px solid #dce6ff !important;
+  text-decoration: none !important;
+}
+.oko-actions-top,.oko-actions-bottom{margin:.5rem 0 !important;}
