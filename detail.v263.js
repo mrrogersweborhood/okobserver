@@ -1,152 +1,173 @@
-/* detail.v263.js — inline video (FB/Vimeo/YouTube), play overlay, no blue title, byline under title */
-/* Keeps console logs; no hardcoded IDs; avoids tiny iframe and phantom whitespace */
-import { decode, prettyDate, featuredSrc, stripEmptyBlocks } from './utils.v263.js';
-import { normalizePlayer, playerHTML, extractVideoURL } from './shared.js';
+/* OkObserver — Detail view (stable export, no external decode import)
+   - Works with window.apiJSON/window.API_BASE
+   - Title + byline under title
+   - Media:
+       * if content has <iframe>, it renders inline (keeps provider sizing)
+       * else if featured image exists, show image with play overlay only
+         when we have a known video URL extracted; clicking swaps in player
+   - Keeps console logs
+*/
 
-export default async function renderDetail(a, b){
-  console.log('[Detail] renderDetail start', { a, b });
+const dlog = (...a) => console.log('[Detail]', ...a);
 
-  // Resolve mount + id (flexible signature)
+const Module = (window.Module = window.Module || {});
+const apiJSON = window.apiJSON || Module.apiJSON;
+const API_BASE = window.API_BASE || Module.API_BASE;
+
+const decode = (s='') => { const t=document.createElement('textarea'); t.innerHTML=s; return t.value; };
+
+function prettyDate(iso) {
+  try { return new Date(iso).toLocaleDateString(undefined, {year:'numeric',month:'long',day:'numeric'}); }
+  catch { return ''; }
+}
+
+function featuredSrc(post) {
+  const m = post?._embedded?.['wp:featuredmedia']?.[0];
+  return (
+    m?.media_details?.sizes?.large?.source_url ||
+    m?.media_details?.sizes?.medium_large?.source_url ||
+    m?.source_url || ''
+  );
+}
+
+// naive URL sniff
+function extractVideoURL(html='') {
+  const m = html.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|player\.vimeo\.com\/video\/\d+|vimeo\.com\/\d+|facebook\.com\/[^"'\s]+)/i);
+  return m ? m[0] : null;
+}
+function isFacebook(u=''){ return /facebook\.com/i.test(u); }
+function isVimeo(u=''){ return /vimeo\.com/i.test(u); }
+function isYouTube(u=''){ return /youtu/i.test(u); }
+
+function fbEmbedHTML(url){
+  // simple inline iframe (no SDK dependency to avoid slowdowns)
+  const enc = encodeURIComponent(url);
+  return `<iframe src="https://www.facebook.com/plugins/video.php?href=${enc}&show_text=false&width=800"
+           style="width:100%;max-width:960px;aspect-ratio:16/9;border:0;border-radius:10px;overflow:hidden"
+           scrolling="no" frameborder="0" allowfullscreen
+           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe>`;
+}
+function vimeoEmbedHTML(url){
+  // normalize plain vimeo URL to player
+  const id = (url.match(/vimeo\.com\/(?:video\/)?(\d+)/)||[])[1];
+  const src = id ? `https://player.vimeo.com/video/${id}` : url;
+  return `<iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px"
+           loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+}
+function ytEmbedHTML(url){
+  const id = (url.match(/[?&]v=([\w-]{6,})/)||url.match(/youtu\.be\/([\w-]{6,})/)||[])[1];
+  const src = id ? `https://www.youtube.com/embed/${id}` : url;
+  return `<iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px"
+           loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+           allowfullscreen></iframe>`;
+}
+
+function posterHTML(src, title=''){
+  return `
+    <figure class="post-media" style="margin:0 0 1rem 0;position:relative">
+      <img src="${src}" alt="" class="oko-detail-img" style="width:100%;height:auto;border-radius:10px;display:block">
+      <button class="oko-video-poster" aria-label="Play video"
+        style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+               width:72px;height:72px;border-radius:50%;border:0;cursor:pointer;
+               background:rgba(0,0,0,.5);display:grid;place-items:center">
+        <span style="display:block;width:0;height:0;border-left:20px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:4px"></span>
+      </button>
+    </figure>`;
+}
+
+export default async function renderDetail(mountOrId, idMaybe){
+  // Resolve mount + id
   let mount, id;
-  const looksLikeId = x => (typeof x === 'string' || typeof x === 'number') && /^\d+$/.test(String(x).trim());
-  if (a instanceof Element || (typeof a === 'string' && (document.getElementById(a) || /^[.#\[]/.test(a)))){
-    mount = a instanceof Element ? a : document.querySelector(a);
-    id = Array.isArray(b) ? b[0] : b;
+  if (mountOrId instanceof Element) {
+    mount = mountOrId; id = idMaybe;
+  } else if (typeof mountOrId === 'string' && document.getElementById(mountOrId)) {
+    mount = document.getElementById(mountOrId); id = idMaybe;
   } else {
-    mount = document.getElementById('app') || document.body;
-    id = Array.isArray(a) ? a[0] : a;
+    mount = document.getElementById('app') || document.body; id = mountOrId;
   }
-  if (!id && looksLikeId(a)) id = a;
-  if (!mount) { console.error('[Detail] No mount'); return; }
 
-  // API base guard (works on direct-load of #/post/:id)
-  if (!window.API_BASE) {
-    console.warn('[Detail] API_BASE missing at detail entry — ensure main.js sets it before route, or define globally.');
+  if (!apiJSON || !API_BASE) {
+    mount.innerHTML = `<section class="ok-card" style="max-width:920px;margin:1rem auto;padding:1rem">
+      <p class="error" style="color:#b00">API base missing.</p></section>`;
+    return;
   }
-  if (!window.API_BASE){
-    mount.innerHTML = `
-      <section class="ok-card" style="max-width:920px;margin:1.25rem auto;padding:1rem">
-        <p class="error" style="color:#b00">API base missing.</p>
-        <p><a class="oko-btn-back" href="#/">← Back to Posts</a></p>
-      </section>`;
+  if (!id) {
+    mount.innerHTML = `<section class="ok-card" style="max-width:920px;margin:1rem auto;padding:1rem">
+      <p class="error" style="color:#b00">Missing post id.</p></section>`;
     return;
   }
 
-  // Fetch post first
+  dlog('API_BASE auto-set for direct page load');
+
+  // Fetch FIRST (no premature UI)
   let post;
   try {
-    post = await apiJSON(`posts/${encodeURIComponent(id)}`, { _embed: 1 });
-    console.log('[Detail] fetched', { id, title: post?.title?.rendered });
+    post = await apiJSON(`posts/${encodeURIComponent(id)}`, {_embed:1});
   } catch (err) {
     console.error('[Detail] fetch failed', err);
-    mount.innerHTML = `
-      <section class="ok-card" style="max-width:920px;margin:1.25rem auto;padding:1rem">
-        <p class="error" style="color:#b00">Failed to load post.</p>
-        <p><a class="oko-btn-back" href="#/">← Back to Posts</a></p>
-      </section>`;
+    mount.innerHTML = `<section class="ok-card" style="max-width:920px;margin:1rem auto;padding:1rem">
+      <p class="error" style="color:#b00">Failed to load post.</p>
+      <p><a href="#/">← Back to Posts</a></p></section>`;
     return;
   }
 
-  // Derive fields
+  // Build HTML
   const rawTitle = post.title?.rendered || '(Untitled)';
-  const titleText = decode(rawTitle);
-  const author   = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const date     = prettyDate(post.date || post.date_gmt);
-  const poster   = featuredSrc(post);
+  const title = decode(rawTitle);
+  const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+  const date   = prettyDate(post.date || post.date_gmt);
+  const poster = featuredSrc(post);
   const contentRaw = post.content?.rendered || '';
 
-  // Detect a video link (fb/yt/vimeo) from body
-  const linkInBody = extractVideoURL(contentRaw);
-  const embed      = linkInBody ? normalizePlayer(linkInBody) : null;
+  // decide media
+  const inlineIframe = /<iframe/i.test(contentRaw);
+  const externalUrl  = extractVideoURL(contentRaw);
+  let mediaHTML = '';
 
-  // Build media block
-  const mediaHTML = (() => {
-    if (embed) {
-      if (embed.type === 'facebook') {
-        // FB: embed a real iframe inline (no SDK), full width
-        const fbSrc = embed.src;
-        return `
-          <figure class="post-media">
-            <div class="oko-embed">
-              <iframe src="${fbSrc}"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                allowfullscreen loading="lazy"></iframe>
-            </div>
-          </figure>`;
-      }
-      // Vimeo/YouTube:
-      if (poster) {
-        // poster with overlay; click swaps to iframe player
-        return `
-          <figure class="post-media">
-            <a class="oko-video-poster" href="#" data-embed='${encodeURIComponent(JSON.stringify(embed))}'>
-              <img src="${poster}" alt="${titleText}">
-              <span class="oko-video-play" aria-hidden="true"></span>
-            </a>
-          </figure>`;
-      }
-      // no poster — render player immediately
-      return `
-        <figure class="post-media">
-          <div class="oko-embed">${playerHTML(embed)}</div>
-        </figure>`;
-    }
-    // No detectable embed — just show featured image if any
-    if (poster) {
-      return `
-        <figure class="post-media">
-          <img src="${poster}" alt="${titleText}" class="oko-detail-img">
-        </figure>`;
-    }
-    return '';
-  })();
+  if (inlineIframe) {
+    // keep publisher sizing but enforce safe width/rounded corners
+    mediaHTML = contentRaw.replace(/<iframe/gi, '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px"');
+  } else if (externalUrl) {
+    if (isFacebook(externalUrl)) mediaHTML = fbEmbedHTML(externalUrl);
+    else if (isVimeo(externalUrl)) mediaHTML = vimeoEmbedHTML(externalUrl);
+    else if (isYouTube(externalUrl)) mediaHTML = ytEmbedHTML(externalUrl);
+    else mediaHTML = ''; // unknown provider — fall back to poster only
+  } else if (poster) {
+    // no video detected; just image
+    mediaHTML = `<figure class="post-media"><img src="${poster}" alt="" class="oko-detail-img" style="width:100%;height:auto;border-radius:10px"></figure>`;
+  }
 
-  // Clean content (normalize stray media)
-  let content = stripEmptyBlocks(contentRaw)
-    .replaceAll('<iframe','<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
-    .replaceAll('<img','<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
-
-  // Compose article (no blue title; byline under title)
+  // final DOM write
   mount.innerHTML = `
     <article class="post-detail">
-      <div class="oko-actions-top"><a class="oko-btn-back" href="#/" data-nav="back">← Back to Posts</a></div>
-      ${mediaHTML}
+      <div class="oko-actions-top"><a class="oko-btn-back" href="#/">← Back to Posts</a></div>
+      ${!inlineIframe && !externalUrl && poster ? posterHTML(poster, title) : mediaHTML}
       <header class="post-header">
-        <h1 class="post-title">${rawTitle}</h1>
-        <div class="post-meta">By ${author} — ${date}</div>
+        <h1 class="post-title" style="margin:.5rem 0 0">${title}</h1>
+        <div class="post-meta" style="margin:.25rem 0 1rem;color:#5b6470">By ${author} — ${date}</div>
       </header>
-      <div class="post-content">${content}</div>
-      <div class="oko-actions-bottom"><a class="oko-btn-back" href="#/" data-nav="back">← Back to Posts</a></div>
-    </article>`;
+      <div class="post-content">${contentRaw
+        .replaceAll('<img','<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"')
+        .replaceAll('<iframe','<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
+      }</div>
+      <div class="oko-actions-bottom" style="margin-top:1.1rem"><a class="oko-btn-back" href="#/">← Back to Posts</a></div>
+    </article>
+  `;
 
-  // Back buttons → hash nav
-  mount.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-nav="back"]');
-    if (b) { e.preventDefault(); window.location.hash = '#/'; }
-  });
-
-  // Poster click → swap to iframe (Vimeo/YouTube only; FB already inline)
-  const posterLink = mount.querySelector('.oko-video-poster');
-  if (posterLink) {
-    posterLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      const fig = posterLink.closest('.post-media');
-      try {
-        const data = JSON.parse(decodeURIComponent(posterLink.getAttribute('data-embed') || '{}'));
-        if (!data || !data.src) return;
-        fig.innerHTML = `<div class="oko-embed">${playerHTML(data)}</div>`;
-      } catch(err) {
-        console.error('[Detail] poster swap failed', err);
-      }
-    }, { passive:false });
+  // If we showed a poster with a detected video URL (non-Facebook), enable swap-on-click
+  if (!inlineIframe && externalUrl && poster && !isFacebook(externalUrl)) {
+    const posterBtn = mount.querySelector('.oko-video-poster');
+    if (posterBtn) {
+      const swap = () => {
+        const fig = posterBtn.closest('.post-media');
+        if (!fig) return;
+        if (isVimeo(externalUrl)) fig.innerHTML = vimeoEmbedHTML(externalUrl);
+        else if (isYouTube(externalUrl)) fig.innerHTML = ytEmbedHTML(externalUrl);
+      };
+      posterBtn.addEventListener('click', swap);
+      posterBtn.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); swap(); }});
+    }
   }
 
-  // Tidy first paragraph
-  const firstP = mount.querySelector('.post-content p');
-  if (firstP) {
-    firstP.innerHTML = firstP.innerHTML.replace(/^(&nbsp;|\s|<br\s*\/?>)+/i,'').trimStart();
-    firstP.style.textIndent='0';
-  }
-
-  console.log('[Detail] renderDetail done');
+  dlog('renderDetail done');
 }

@@ -1,9 +1,8 @@
 /* ---------------------------------------------------
    main.js — OkObserver App Main Entry (Optimized)
    ---------------------------------------------------
-   This file contains your router, app boot logic,
-   and safe performance improvements such as idle
-   prefetching. All console logs remain intact.
+   Router + SW register + gentle idle prefetch.
+   Keeps console logs. No breaking changes.
 --------------------------------------------------- */
 
 // ------------------------
@@ -11,6 +10,9 @@
 // ------------------------
 const OKO_API_BASE = window.OKO_API_BASE || 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
 console.log('[OkObserver] main.js loaded, API base:', OKO_API_BASE);
+
+// expose to modules that still read window.API_BASE
+window.API_BASE = OKO_API_BASE;
 
 // ------------------------
 // Router
@@ -22,16 +24,16 @@ async function router() {
 
   if (hash === '#/' || hash.startsWith('#/page')) {
     console.log('[Router] → Home');
-    const mod = await import('./home.v263.js?v=2025-10-15a');
+    const mod = await import('./home.v263.js?v=2025-10-18a');
     await mod.default(app);
   } else if (hash.startsWith('#/post/')) {
     const id = hash.split('/')[2];
     console.log('[Router] → Detail', id);
-    const mod = await import('./detail.v263.js?v=2025-10-15a');
+    const mod = await import('./detail.v263.js?v=2025-10-18a');
     await mod.default(app, id);
   } else if (hash.startsWith('#/about')) {
     console.log('[Router] → About');
-    const mod = await import('./about.v263.js?v=2025-10-15a');
+    const mod = await import('./about.v263.js?v=2025-10-18a');
     await mod.default(app);
   } else {
     console.log('[Router] → 404');
@@ -74,7 +76,7 @@ window.addEventListener('DOMContentLoaded', router);
 // ------------------------
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=2025-10-15a')
+    navigator.serviceWorker.register('./sw.js?v=2025-10-18a')
       .then(reg => console.log('[OkObserver] SW registered', reg.scope))
       .catch(err => console.warn('[OkObserver] SW registration failed', err));
   });

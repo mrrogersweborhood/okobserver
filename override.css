@@ -1,365 +1,136 @@
 /* ===========================
-   OkObserver override.css  — FULL FILE
-   Canonical grid: #ok-grid, .ok-grid  (4/3/2/1 columns)
-   Keeps soft cards, no blue title bg, byline under title, poster play overlay, etc.
+   OkObserver override.css — FULL FILE (ironclad build)
    =========================== */
 
-/* --- LOCK THE POSTS GRID (desktop 4 cols; never collapse to 1 on wide screens) --- */
-#ok-grid,
-.ok-grid {
+/* --- LOCK THE POSTS GRID --- */
+#ok-grid, .ok-grid {
   display: grid !important;
   gap: 14px !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0,1fr)) !important;
   align-items: start;
 }
-@media (max-width: 1200px) {
-  #ok-grid, .ok-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+@media (max-width:1200px){#ok-grid,.ok-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media (max-width:900px){#ok-grid,.ok-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media (max-width:640px){#ok-grid,.ok-grid{grid-template-columns:1fr!important}}
+#ok-grid>*,.ok-grid>*{min-width:0;box-sizing:border-box}
+.post-grid,.posts-grid,#post-grid,#app .posts,#app .cards,#app .grid{gap:1.5rem}
+
+/* --- CARD LOOK --- */
+.ok-card,.post-card,#app .card,#app article{
+  border-radius:18px!important;
+  border:1px solid rgba(0,0,0,.06)!important;
+  background:#fff!important;
+  box-shadow:0 6px 18px rgba(0,0,0,.08)!important;
+  overflow:hidden;
+  transition:box-shadow .2s,transform .15s;
 }
-@media (max-width: 900px) {
-  #ok-grid, .ok-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+.ok-card:hover,.post-card:hover,#app .card:hover,#app article:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 24px rgba(0,0,0,.12);
 }
-@media (max-width: 640px) {
-  #ok-grid, .ok-grid { grid-template-columns: 1fr !important; }
+.ok-card .card-body,.post-card .card-body,#app .card .card-body,#app article .card-body,
+#app .card .content,#app article .content{padding:14px 16px!important}
+
+/* --- TITLES: no blue background --- */
+.ok-card .post-title,.post-card .post-title,#app .card .post-title,#app article .post-title,
+.post-detail .post-title,.single-post .post-title,#post-detail .post-title,#app .post-title.single,
+#app article.single .post-title,.post-view .post-title,.ok-post .post-title{
+  background:none!important;color:#111!important;padding:0!important;margin:10px 16px 6px 16px!important;
+  line-height:1.25;border:none!important;box-shadow:none!important;
 }
 
-/* Normalize children to prevent accidental full-row spans */
-#ok-grid > *,
-.ok-grid > * {
-  min-width: 0;
-  box-sizing: border-box;
+/* --- EXCERPTS & META --- */
+.post-byline,.post-date,.ok-card .post-excerpt,.post-card .post-excerpt,
+#app .card .post-excerpt,#app article .post-excerpt{
+  margin:0 16px 14px 16px!important;line-height:1.55;color:#3b3b3b;
 }
 
-/* Extra breathing room between cards if other containers are used */
-.post-grid, .posts-grid, #post-grid, #app .posts, #app .cards, #app .grid {
-  gap: 1.5rem;
+/* --- IMAGES --- */
+.post-thumb img,.post-card img,#app .card img,#app article img{
+  display:block;width:100%;height:auto;border-radius:16px!important;
+  margin:12px 12px 0 12px;box-shadow:0 2px 10px rgba(0,0,0,.06);
 }
 
-/* --- CARD APPEARANCE (soft edges, spacing, clean text) --- */
-.ok-card,
-.post-card,
-#app .card,
-#app article {
-  border-radius: 18px !important;
-  border: 1px solid rgba(0,0,0,.06) !important;
-  background: #fff !important;
-  box-shadow: 0 6px 18px rgba(0,0,0,.08) !important;
-  overflow: hidden;
-  transition: box-shadow .2s ease, transform .15s ease;
-}
-.ok-card:hover,
-.post-card:hover,
-#app .card:hover,
-#app article:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.12);
+/* Clamp long titles */
+.ok-card .post-title a,.post-card .post-title a,#app .card .post-title a{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
 
-/* Inner padding so text never kisses the border */
-.ok-card .card-body,
-.post-card .card-body,
-#app .card .card-body,
-#app article .card-body,
-#app .card .content,
-#app article .content {
-  padding: 14px 16px !important;
-}
+/* Perf hints */
+.ok-grid .ok-card{content-visibility:auto;contain-intrinsic-size:340px 280px}
 
-/* Titles (no blue background boxes anywhere) */
-.ok-card .post-title,
-.post-card .post-title,
-#app .card .post-title,
-#app article .post-title,
-.post-detail .post-title,
-.single-post .post-title,
-#post-detail .post-title,
-#app .post-title.single,
-#app article.single .post-title,
-.post-view .post-title,
-.ok-post .post-title {
-  background: none !important;
-  color: #111 !important; /* brand text; keep links colored via link styles */
-  padding: 0 !important;
-  margin: 10px 16px 6px 16px !important;
-  line-height: 1.25;
-  border: none !important;
-  box-shadow: none !important;
+/* --- DETAIL VIEW --- */
+.post-detail{
+  max-width:980px;margin:1.25rem auto 56px;background:#fff;border-radius:10px;
+  border:1px solid #e1e5ec;box-shadow:0 1px 4px rgba(0,0,0,.08);padding:1.25rem;position:relative;z-index:0;
 }
-
-/* Excerpt & meta spacing in cards */
-.post-byline,
-.post-date,
-.ok-card .post-excerpt,
-.post-card .post-excerpt,
-#app .card .post-excerpt,
-#app article .post-excerpt {
-  margin: 0 16px 14px 16px !important;
-  line-height: 1.55;
-  color: #3b3b3b;
+.post-detail .post-header{
+  display:block!important;margin-top:.6rem!important;margin-bottom:1.25rem;
+  background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;
 }
-
-/* Media in cards — soft image corners + inset spacing */
-.post-thumb img,
-.post-card img,
-#app .card img,
-#app article img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 16px !important;
-  margin: 12px 12px 0 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.06);
+.post-detail h1.post-title,.post-detail .post-title,article.post-detail h1.post-title{
+  background:transparent!important;color:#111!important;padding:0!important;margin:.6rem 0 .25rem 0!important;
+  border:0!important;outline:0!important;box-shadow:none!important;line-height:1.2!important;font-weight:800!important;
 }
-
-/* Optional: clamp long titles to two lines in grids */
-.ok-card .post-title a,
-.post-card .post-title a,
-#app .card .post-title a {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.post-title[style*="background"]{background:transparent!important}
+.post-detail .post-meta{
+  display:block!important;text-align:left!important;font-size:.95rem!important;color:#555!important;
+  margin:.25rem 0 1rem 0!important;background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;
 }
-
-/* Performance hints for large grids */
-.ok-grid .ok-card {
-  content-visibility: auto;
-  contain-intrinsic-size: 340px 280px; /* prevents layout jumps */
-}
-
-/* Smooth edges theme-wide */
-.ok-card, .post-detail {
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-}
-
-/* ===================== Post Detail (article.post-detail) ===================== */
-
-.post-detail {
-  max-width: 980px;
-  margin: 1.25rem auto 56px;
-  background: #fff;
-  border-radius: 10px;
-  border: 1px solid #e1e5ec;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  padding: 1.25rem;
-  position: relative;
-  z-index: 0;
-}
-
-/* Header/title/byline — stack vertically, no bg */
-.post-detail .post-header {
-  display: block !important;              /* kill any flex/grid layout that might align-right */
-  margin-top: .6rem !important;
-  margin-bottom: 1.25rem;
-  background: transparent !important;
-  padding: 0 !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-.post-detail h1.post-title,
-.post-detail .post-title,
-article.post-detail h1.post-title {
-  background: transparent !important;
-  background-image: none !important;
-  color: var(--text-dark, #111) !important;
-  padding: 0 !important;
-  margin: .6rem 0 .25rem 0 !important;
-  border: 0 !important;
-  outline: 0 !important;
-  box-shadow: none !important;
-  line-height: 1.2 !important;
-  font-weight: 800 !important;
-}
-.post-title[style*="background"] { /* guard against inline styles adding a bg */
-  background: transparent !important;
-  background-image: none !important;
-}
-.post-detail .post-meta,
-.post-detail .post-header .post-meta {
-  display: block !important;              /* ensure under title */
-  text-align: left !important;
-  font-size: .95rem !important;
-  color: #555 !important;
-  margin: .25rem 0 1rem 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-/* Media area in detail */
-.post-detail .post-media { margin: 0 0 1rem 0; }
-
-/* Content media defaults */
-.post-detail .post-content { line-height: 1.7; color: #222; }
-.post-detail .post-content img{
-  max-width: 100%;
-  height: auto;
-  border-radius: 10px;
-  margin: 1rem 0;
-}
+.post-detail .post-media{margin:0 0 1rem 0}
+.post-detail .post-content{line-height:1.7;color:#222}
+.post-detail .post-content img{max-width:100%;height:auto;border-radius:10px;margin:1rem 0}
 .post-detail .post-content iframe{
-  width: 100% !important;
-  max-width: 100% !important;
-  aspect-ratio: 16/9 !important;
-  border: 0 !important;
-  border-radius: 10px;
+  width:100%!important;max-width:100%!important;aspect-ratio:16/9!important;border:0!important;border-radius:10px;
 }
 
-/* Shared responsive wrapper for players */
-.oko-embed, .oko-embed iframe {
-  width: 100%;
-  aspect-ratio: 16/9;
-  border: 0;
-  border-radius: 10px;
-  display: block;
+/* --- EMBEDS & POSTERS --- */
+.oko-embed,.oko-embed iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:10px;display:block}
+.oko-video-poster{position:relative;display:block;width:100%;border-radius:10px;overflow:hidden;cursor:pointer}
+.oko-video-poster img{display:block;width:100%;height:auto}
+.oko-video-play{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.oko-video-play::before{
+  content:"";width:72px;height:72px;border-radius:999px;background:rgba(0,0,0,.35);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);
+}
+.oko-video-play::after{
+  content:"";margin-left:4px;border-style:solid;border-width:14px 0 14px 22px;
+  border-color:transparent transparent transparent #fff;
 }
 
-/* Poster + play overlay (visible and centered) */
-.oko-video-poster {
-  position: relative;
-  display: block;
-  width: 100%;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-}
-.oko-video-poster img { display: block; width: 100%; height: auto; }
-.oko-video-play {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none; /* clicks pass through to poster/link */
-}
-.oko-video-play::before {
-  content: "";
-  width: 72px;
-  height: 72px;
-  border-radius: 999px;
-  background: rgba(0,0,0,.35);
-  box-shadow: 0 4px 18px rgba(0,0,0,.35);
-}
-.oko-video-play::after {
-  content: "";
-  margin-left: 4px;
-  border-style: solid;
-  border-width: 14px 0 14px 22px;
-  border-color: transparent transparent transparent #fff;
-}
-
-/* Back to Posts buttons (detail) */
+/* --- BACK BUTTONS --- */
 .post-detail .oko-actions-top a[data-nav="back"],
 .post-detail .oko-actions-bottom a[data-nav="back"],
-.post-detail .oko-btn-back {
-  display: inline-flex !important;
-  align-items: center;
-  gap: .5rem;
-  padding: .5rem .9rem;
-  border-radius: 999px;
-  background: #1e63ff;
-  color: #fff !important;
-  text-decoration: none;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+.post-detail .oko-btn-back{
+  display:inline-flex!important;align-items:center;gap:.5rem;padding:.5rem .9rem;border-radius:999px;
+  background:#1e63ff;color:#fff!important;text-decoration:none;font-weight:600;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
 }
+#app a[href="#/"]{display:none!important}
+#app article.post-detail a[href="#/"]{display:inline-block!important}
 
-/* Hide generic “Back to Posts” links unless inside the real detail article */
-#app a[href="#/"] { display: none !important; }
-#app article.post-detail a[href="#/"] { display: inline-block !important; }
-
-/* Sticky header safe spacing */
-header { position: sticky; top: 0; z-index: 10; }
-main { padding-bottom: 56px; }
-/* === HEADER HOTFIX (append at end) ===================================== */
-/* Ironclad header layout that does not affect grid or detail views       */
-
-header.oko-header {
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: #ffffff;                 /* solid bg so content won't show through */
-  border-bottom: 1px solid rgba(0,0,0,.06);
-  box-shadow: 0 2px 10px rgba(0,0,0,.04);
-  min-height: 56px;                    /* consistent height */
+/* --- HEADER --- */
+header.oko-header{
+  position:sticky;top:0;z-index:1000;background:#fff;border-bottom:1px solid rgba(0,0,0,.06);
+  box-shadow:0 2px 10px rgba(0,0,0,.04);min-height:56px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:10px 16px;box-sizing:border-box;
 }
-
-/* Inner layout: brand left, nav right, consistent padding */
-header.oko-header .brand,
-header.oko-header .oko-nav {
-  display: flex;
-  align-items: center;
+header.oko-header .brand,header.oko-header .oko-nav{display:flex;align-items:center}
+header.oko-header .brand img{display:inline-block;height:28px;width:auto;margin-right:8px;vertical-align:middle}
+header.oko-header .brand strong{font-size:18px;line-height:1;white-space:nowrap}
+header.oko-header .oko-nav{gap:14px;flex-wrap:nowrap}
+header.oko-header .oko-nav a{
+  display:inline-flex;align-items:center;padding:8px 10px;border-radius:8px;
+  text-decoration:none;color:#0f1a2a;font-weight:600;line-height:1;white-space:nowrap;
 }
-
-header.oko-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 16px;                  /* left/right breathing room */
-  box-sizing: border-box;
+header.oko-header .oko-nav a:hover{background:rgba(30,99,255,0.08)}
+main{padding-top:12px;padding-bottom:56px}
+@media(max-width:640px){
+  header.oko-header{padding:8px 12px;min-height:52px}
+  header.oko-header .brand strong{font-size:16px}
+  header.oko-header .oko-nav a{padding:8px 8px}
 }
-
-/* Brand image/title never overflows or jumps */
-header.oko-header .brand img {
-  display: inline-block;
-  height: 28px;
-  width: auto;
-  margin-right: 8px;
-  vertical-align: middle;
-}
-header.oko-header .brand strong {
-  font-size: 18px;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-/* Nav links: inline, no wrap, consistent spacing */
-header.oko-header .oko-nav {
-  gap: 14px;
-  flex-wrap: nowrap;
-}
-header.oko-header .oko-nav a {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #0f1a2a;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-header.oko-header .oko-nav a:hover {
-  background: rgba(30, 99, 255, 0.08);
-}
-
-/* Ensure main content never slides under sticky header */
-main {
-  padding-top: 12px;                   /* tiny buffer below header */
-}
-
-/* On narrow screens keep header usable without breaking layout */
-@media (max-width: 640px) {
-  header.oko-header {
-    padding: 8px 12px;
-    min-height: 52px;
-  }
-  header.oko-header .brand strong {
-    font-size: 16px;
-  }
-  header.oko-header .oko-nav a {
-    padding: 8px 8px;
-  }
-}
-
-/* Guardrails: prevent any “blue box” or weird backgrounds leaking into header */
-header.oko-header :where(h1, .post-title) {
-  background: transparent !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  box-shadow: none !important;
-  border: 0 !important;
+header.oko-header :where(h1,.post-title){
+  background:transparent!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important;
 }

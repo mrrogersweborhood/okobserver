@@ -12,6 +12,8 @@ const log = (...a) => console.log('[Home]', ...a);
 const Module = (window.Module = window.Module || {});
 const apiJSON = window.apiJSON || Module.apiJSON;
 const API_BASE = window.API_BASE || Module.API_BASE;
+
+// Local decode so we don't depend on utils exports
 const decode = (s='') => { const t=document.createElement('textarea'); t.innerHTML=s; return t.value; };
 
 function prettyDate(iso) {
@@ -51,7 +53,7 @@ function cardHTML(post) {
       <!-- stretched link: makes whole card clickable without blocking focus -->
       <a class="stretched-link" href="#/post/${id}"
          aria-label="${title.replace(/"/g,'&quot;')}"
-         style="position:absolute;inset:0;z-index:1; text-decoration:none;"></a>
+         style="position:absolute;inset:0;z-index:1;text-decoration:none;"></a>
     </article>
   `;
 }
