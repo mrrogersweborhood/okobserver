@@ -1,13 +1,21 @@
-/* detail.v263.js — post detail view (safe, self-contained)
+/* detail.v263.js — post detail view (safe, self-contained; resilient import)
    - Robust poster → click-to-play
    - Vimeo / YouTube / Facebook inline embed (responsive 16:9)
    - Byline under title
    - Leaves global styles/headers/home grid untouched
 */
 
-import { apiJSON, decode, prettyDate, featuredSrc } from './utils.v263.js';
+import * as U from './utils.v263.js';
 
-/* ---------- helpers ---------- */
+// ---- resolve helpers from utils or global (no hard named imports) ----
+const apiJSON =
+  U.apiJSON || U.apiJson || U.api || (typeof window !== 'undefined' ? window.apiJSON : null);
+
+const decode = U.decode || ((x) => x);
+const prettyDate = U.prettyDate || ((s) => s);
+const featuredSrc = U.featuredSrc || (() => null);
+
+/* ---------- tiny helpers ---------- */
 
 function sel(m, q) { return (m || document).querySelector(q); }
 function html(strings, ...vals) {
@@ -27,55 +35,38 @@ function firstMediaURL(raw = '') {
   return m ? m[0].replace(/[),.]+$/, '') : null;
 }
 
-// Normalize to a playable embed
+// Normalize to a playable embed URL
 function normalizePlayer(url) {
   if (!url) return null;
   try {
     const u = new URL(url);
 
-    // Vimeo: vimeo.com/{id} or player.vimeo.com/video/{id}
+    // Vimeo
     if (/vimeo\.com$/i.test(u.hostname) || /player\.vimeo\.com$/i.test(u.hostname)) {
-      // extract numeric id
       let id = null;
-      const path = u.pathname.replace(/^\/+/, '');
-      // patterns: video/123, 12345, channels/.../123, etc.
-      const parts = path.split('/');
+      const parts = u.pathname.replace(/^\/+/, '').split('/');
       for (let i = parts.length - 1; i >= 0; i--) {
         if (/^\d+$/.test(parts[i])) { id = parts[i]; break; }
       }
       if (id) {
-        return {
-          type: 'vimeo',
-          src: `https://player.vimeo.com/video/${id}?autoplay=1&dnt=1`,
-        };
+        return { type: 'vimeo', src: `https://player.vimeo.com/video/${id}?autoplay=1&dnt=1` };
       }
     }
 
-    // YouTube short & long
+    // YouTube (youtu.be / youtube.com)
     if (/youtu\.be$/i.test(u.hostname)) {
       const id = u.pathname.slice(1);
-      if (id) {
-        return {
-          type: 'youtube',
-          src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
-        };
-      }
+      if (id) return { type: 'youtube', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
     }
     if (/youtube\.com$/i.test(u.hostname)) {
-      const id = u.searchParams.get('v');
-      if (id) {
-        return {
-          type: 'youtube',
-          src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
-        };
-      }
-      // already an embed
       if (u.pathname.startsWith('/embed/')) {
         return { type: 'youtube', src: u.toString() };
       }
+      const id = u.searchParams.get('v');
+      if (id) return { type: 'youtube', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
     }
 
-    // Facebook video
+    // Facebook
     if (/facebook\.com$/i.test(u.hostname)) {
       const encoded = encodeURIComponent(url);
       return {
@@ -94,11 +85,7 @@ function playerHTML(embed) {
   if (!embed?.src) return '';
   return `
     <div class="oko-embed-wrap" style="
-      position:relative;
-      width:100%;
-      max-width:980px;
-      margin:0 auto 1rem auto;
-    ">
+      position:relative;width:100%;max-width:980px;margin:0 auto 1rem auto;">
       <div style="position:relative;width:100%;aspect-ratio:16/9;">
         <iframe
           src="${embed.src}"
@@ -145,7 +132,6 @@ function backButtonHTML() {
                    text-decoration:none;font-weight:600;">← Back to Posts</a>`;
 }
 
-// Strip leading empty junk from first P
 function tidyFirstParagraph(mount) {
   const p = sel(mount, '.post-content p');
   if (p) {
@@ -171,7 +157,11 @@ export default async function renderDetail(a, b) {
 
   // Guard API
   if (typeof apiJSON !== 'function') {
-    mount.innerHTML = `<section class="page-error"><p>Failed to load post.</p>${backButtonHTML()}</section>`;
+    console.error('[Detail] apiJSON unavailable in utils/global');
+    mount.innerHTML = `<section class="ok-card" style="max-width:920px;margin:1.25rem auto;padding:1rem">
+      <p class="error" style="color:#b00">Failed to load post.</p>
+      <p>${backButtonHTML()}</p>
+    </section>`;
     return;
   }
 
@@ -189,26 +179,22 @@ export default async function renderDetail(a, b) {
   }
 
   // Post bits
-  const rawTitle  = post.title?.rendered || '(Untitled)';
-  const titleText = decode(rawTitle);
-  const author    = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const date      = prettyDate(post.date || post.date_gmt);
-  const poster    = featuredSrc(post);
+  const rawTitle   = post.title?.rendered || '(Untitled)';
+  const titleText  = decode(rawTitle);
+  const author     = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+  const date       = prettyDate(post.date || post.date_gmt);
+  const poster     = featuredSrc(post);
   const contentRaw = post.content?.rendered || '';
 
   // Try to find a playable URL in content
-  const mediaURL  = firstMediaURL(contentRaw);
-  const embed     = normalizePlayer(mediaURL);
+  const mediaURL = firstMediaURL(contentRaw);
+  const embed    = normalizePlayer(mediaURL);
 
-  // Build media area:
-  //  - If we have both poster & valid embed → show poster with big play, swap on click
-  //  - If only embed → render iframe directly
-  //  - If only poster → render poster only
-  //  - If neither → nothing
+  // Build media area
   let mediaHTML = '';
-  if (poster && embed && embed.src) {
+  if (poster && embed?.src) {
     mediaHTML = posterHTML(poster, titleText);
-  } else if (embed && embed.src) {
+  } else if (embed?.src) {
     mediaHTML = playerHTML(embed);
   } else if (poster) {
     mediaHTML = posterHTML(poster, titleText);
@@ -216,9 +202,8 @@ export default async function renderDetail(a, b) {
 
   // Render full article
   const content = contentRaw
-    // make any stray iframes responsive-ish
     .replaceAll('<iframe', '<iframe loading="lazy" style="width:100%;aspect-ratio:16/9;border:0;border-radius:10px;margin:1rem 0;"')
-    .replaceAll('<img', '<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
+    .replaceAll('<img',    '<img loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:1rem 0;"');
 
   mount.innerHTML = html`
     <article class="post-detail" style="max-width:980px;margin:0 auto 1.25rem auto;padding:0 12px;">
@@ -238,7 +223,7 @@ export default async function renderDetail(a, b) {
   `;
 
   // Wire up poster → player swap (only if we *have* a valid embed)
-  if (embed && embed.src) {
+  if (embed?.src) {
     const posterEl = sel(mount, '.oko-video-poster');
     const playBtn  = sel(mount, '.oko-play');
     const wrapper  = posterEl ? posterEl.closest('.post-media') : null;
