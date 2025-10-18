@@ -3,20 +3,36 @@
    (kept last in <head>)
    =========================== */
 
-/* Preserve 3–4 column grid on desktop, 2 on tablet, 1 on mobile */
-.posts-grid {
-  display: grid;
+/* Preserve 3–4 column grid on desktop, 2 on tablet, 1 on mobile
+   Hardened to match multiple container selectors used in the app */
+.posts-grid,
+.post-list,
+#posts {
+  display: grid !important;
   gap: 14px;
-  grid-template-columns: repeat(4, minmax(0,1fr));
+  grid-template-columns: repeat(4, minmax(0,1fr)) !important;
 }
 @media (max-width: 1200px) {
-  .posts-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .posts-grid,
+  .post-list,
+  #posts { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
 }
 @media (max-width: 900px) {
-  .posts-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .posts-grid,
+  .post-list,
+  #posts { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
 }
 @media (max-width: 640px) {
-  .posts-grid { grid-template-columns: 1fr; }
+  .posts-grid,
+  .post-list,
+  #posts { grid-template-columns: 1fr !important; }
+}
+
+/* Normalize children to avoid span-full regressions */
+.posts-grid > *,
+.post-list > *,
+#posts > * {
+  min-width: 0;
 }
 
 /* Card softness + spacing (no harsh edges, no text touching borders) */
