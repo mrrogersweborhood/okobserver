@@ -1,104 +1,197 @@
 /* ===========================
-   OkObserver override.css
-   (kept last in <head>)
+   OkObserver override.css  — FULL FILE
+   Canonical grid: #ok-grid, .ok-grid  (4/3/2/1 columns)
+   Keeps soft cards, no blue title bg, byline under title, poster play overlay, etc.
    =========================== */
 
-/* Preserve 3–4 column grid on desktop, 2 on tablet, 1 on mobile
-   Hardened to match multiple container selectors used in the app */
-.posts-grid,
-.post-list,
-#posts {
+/* --- LOCK THE POSTS GRID (desktop 4 cols; never collapse to 1 on wide screens) --- */
+#ok-grid,
+.ok-grid {
   display: grid !important;
-  gap: 14px;
-  grid-template-columns: repeat(4, minmax(0,1fr)) !important;
+  gap: 14px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: start;
 }
 @media (max-width: 1200px) {
-  .posts-grid,
-  .post-list,
-  #posts { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+  #ok-grid, .ok-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
 }
 @media (max-width: 900px) {
-  .posts-grid,
-  .post-list,
-  #posts { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+  #ok-grid, .ok-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
 }
 @media (max-width: 640px) {
-  .posts-grid,
-  .post-list,
-  #posts { grid-template-columns: 1fr !important; }
+  #ok-grid, .ok-grid { grid-template-columns: 1fr !important; }
 }
 
-/* Normalize children to avoid span-full regressions */
-.posts-grid > *,
-.post-list > *,
-#posts > * {
+/* Normalize children to prevent accidental full-row spans */
+#ok-grid > *,
+.ok-grid > * {
   min-width: 0;
+  box-sizing: border-box;
 }
 
-/* Card softness + spacing (no harsh edges, no text touching borders) */
-.post-card {
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,.08);
-  box-shadow: 0 6px 22px rgba(0,0,0,.06);
+/* Extra breathing room between cards if other containers are used */
+.post-grid, .posts-grid, #post-grid, #app .posts, #app .cards, #app .grid {
+  gap: 1.5rem;
+}
+
+/* --- CARD APPEARANCE (soft edges, spacing, clean text) --- */
+.ok-card,
+.post-card,
+#app .card,
+#app article {
+  border-radius: 18px !important;
+  border: 1px solid rgba(0,0,0,.06) !important;
+  background: #fff !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.08) !important;
   overflow: hidden;
-  background: #fff;
+  transition: box-shadow .2s ease, transform .15s ease;
 }
-.post-card .card-body {
-  padding: 12px 14px;
+.ok-card:hover,
+.post-card:hover,
+#app .card:hover,
+#app article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.12);
 }
 
-/* Summary titles: no blue background boxes */
+/* Inner padding so text never kisses the border */
+.ok-card .card-body,
+.post-card .card-body,
+#app .card .card-body,
+#app article .card-body,
+#app .card .content,
+#app article .content {
+  padding: 14px 16px !important;
+}
+
+/* Titles (no blue background boxes anywhere) */
+.ok-card .post-title,
 .post-card .post-title,
-.post-list .post-title,
-.post-detail .post-title {
-  background: transparent !important;
-  color: #111 !important;
-  margin: .25rem 0 .25rem 0;
-  line-height: 1.2;
+#app .card .post-title,
+#app article .post-title,
+.post-detail .post-title,
+.single-post .post-title,
+#post-detail .post-title,
+#app .post-title.single,
+#app article.single .post-title,
+.post-view .post-title,
+.ok-post .post-title {
+  background: none !important;
+  color: #111 !important; /* brand text; keep links colored via link styles */
+  padding: 0 !important;
+  margin: 10px 16px 6px 16px !important;
+  line-height: 1.25;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-/* Post excerpt spacing */
-.post-card .excerpt {
-  margin-top: .35rem;
+/* Excerpt & meta spacing in cards */
+.post-byline,
+.post-date,
+.ok-card .post-excerpt,
+.post-card .post-excerpt,
+#app .card .post-excerpt,
+#app article .post-excerpt {
+  margin: 0 16px 14px 16px !important;
   line-height: 1.55;
+  color: #3b3b3b;
 }
 
-/* Back buttons look like buttons */
-.oko-btn-back {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .5rem .9rem;
-  border-radius: 999px;
-  background: #1e63ff;
-  color: #fff !important;
-  text-decoration: none;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+/* Media in cards — soft image corners + inset spacing */
+.post-thumb img,
+.post-card img,
+#app .card img,
+#app article img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 16px !important;
+  margin: 12px 12px 0 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.06);
 }
-.oko-actions-top,
-.oko-actions-bottom { margin: .5rem 0 1rem; }
 
-/* ===== Detail page polish ===== */
+/* Optional: clamp long titles to two lines in grids */
+.ok-card .post-title a,
+.post-card .post-title a,
+#app .card .post-title a {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Performance hints for large grids */
+.ok-grid .ok-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 340px 280px; /* prevents layout jumps */
+}
+
+/* Smooth edges theme-wide */
+.ok-card, .post-detail {
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* ===================== Post Detail (article.post-detail) ===================== */
+
 .post-detail {
   max-width: 980px;
-  margin: 0 auto 56px;
-  padding: 8px 12px 24px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
-.post-detail .post-header{ margin: 0 0 12px 0; }
-.post-detail .post-meta{
-  margin: .25rem 0 .9rem 0;
-  color: #5b6470;
-  font-size: .95rem;
+  margin: 1.25rem auto 56px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e1e5ec;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  padding: 1.25rem;
+  position: relative;
+  z-index: 0;
 }
 
-/* Media area */
+/* Header/title/byline — stack vertically, no bg */
+.post-detail .post-header {
+  display: block !important;              /* kill any flex/grid layout that might align-right */
+  margin-top: .6rem !important;
+  margin-bottom: 1.25rem;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.post-detail h1.post-title,
+.post-detail .post-title,
+article.post-detail h1.post-title {
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--text-dark, #111) !important;
+  padding: 0 !important;
+  margin: .6rem 0 .25rem 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+}
+.post-title[style*="background"] { /* guard against inline styles adding a bg */
+  background: transparent !important;
+  background-image: none !important;
+}
+.post-detail .post-meta,
+.post-detail .post-header .post-meta {
+  display: block !important;              /* ensure under title */
+  text-align: left !important;
+  font-size: .95rem !important;
+  color: #555 !important;
+  margin: .25rem 0 1rem 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Media area in detail */
 .post-detail .post-media { margin: 0 0 1rem 0; }
 
 /* Content media defaults */
+.post-detail .post-content { line-height: 1.7; color: #222; }
 .post-detail .post-content img{
   max-width: 100%;
   height: auto;
@@ -139,7 +232,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  pointer-events: none; /* click passes to link/button */
+  pointer-events: none; /* clicks pass through to poster/link */
 }
 .oko-video-play::before {
   content: "";
@@ -156,6 +249,26 @@
   border-width: 14px 0 14px 22px;
   border-color: transparent transparent transparent #fff;
 }
+
+/* Back to Posts buttons (detail) */
+.post-detail .oko-actions-top a[data-nav="back"],
+.post-detail .oko-actions-bottom a[data-nav="back"],
+.post-detail .oko-btn-back {
+  display: inline-flex !important;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .9rem;
+  border-radius: 999px;
+  background: #1e63ff;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+
+/* Hide generic “Back to Posts” links unless inside the real detail article */
+#app a[href="#/"] { display: none !important; }
+#app article.post-detail a[href="#/"] { display: inline-block !important; }
 
 /* Sticky header safe spacing */
 header { position: sticky; top: 0; z-index: 10; }
