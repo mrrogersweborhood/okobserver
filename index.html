@@ -1,100 +1,114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <!-- Core meta -->
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#1e63ff" />
-    <meta name="color-scheme" content="light dark" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OkObserver</title>
+  <meta name="description" content="The Oklahoma Observer - To comfort the afflicted and afflict the comfortable." />
 
-    <!-- SEO / Social -->
-    <title>OkObserver</title>
-    <meta name="description" content="Latest posts and commentary from The Oklahoma Observer." />
-    <meta property="og:title" content="OkObserver" />
-    <meta property="og:description" content="Latest posts and commentary from The Oklahoma Observer." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://mrrogersweborhood.github.io/okobserver/" />
-    <meta property="og:image" content="icon.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+  <!-- performance preconnects (safe, additive) -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
+  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev">
+  <meta http-equiv="x-dns-prefetch-control" content="on">
+  <meta name="color-scheme" content="light">
 
-    <!-- Icons -->
-    <link rel="icon" href="favicon.ico" />
-    <link rel="apple-touch-icon" href="icon.png" />
+  <!-- ✅ Real favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=2025-10-15a" />
 
-    <!-- Performance hints -->
-    <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin />
-    <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+  <!-- app styles (your order preserved) -->
+  <link rel="stylesheet" href="styles.css?v=2025-10-15a">
+  <link rel="stylesheet" href="app.css?v=2025-10-15a">
+  <link rel="stylesheet" href="detail.css?v=2025-10-15a">
+  <link rel="stylesheet" href="override.css?v=2025-10-15a">
 
-    <!-- Styles (base → feature → overrides; overrides LAST) -->
-    <link rel="stylesheet" href="app.css?v=2025-10-18c" />
-    <link rel="stylesheet" href="detail.css?v=2025-10-18c" />
-    <link rel="stylesheet" href="override.css?v=2025-10-18c" />
+  <!-- guard styles that were working for you -->
+  <style>
+    /* Keep header above scrolling content */
+    header { position: sticky; top: 0; z-index: 10; }
 
-    <!-- Small safeguards -->
-    <style>
-      html { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-      body { margin: 0; }
-      header.oko-header { position: sticky; top: 0; z-index: 10; }
-      main { padding-bottom: 56px; }
-    </style>
+    /* Ensure grid remains multi-column on wide screens */
+    #ok-grid, .ok-grid {
+      display: grid !important;
+      gap: 14px !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      align-items: start;
+    }
+    @media (max-width: 1200px) { #ok-grid, .ok-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; } }
+    @media (max-width: 900px)  { #ok-grid, .ok-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; } }
+    @media (max-width: 640px)  { #ok-grid, .ok-grid { grid-template-columns: 1fr !important; } }
 
-    <!-- Preload entry (optional) -->
-    <link rel="modulepreload" href="main.js?v=2025-10-18c" />
-  </head>
+    /* Kill blue background boxes on titles anywhere */
+    :where(.post-title){ background:transparent !important; }
 
-  <body>
-    <!-- Header / Nav (keep brand + links intact) -->
-    <header class="oko-header">
-      <div class="brand">
-        <img src="ObserverLogoBlue.png" alt="" style="height:28px;vertical-align:middle;margin-right:8px;">
-        <strong>OkObserver</strong>
-      </div>
-      <nav class="oko-nav">
-        <a href="#/">Posts</a>
-        <a href="#/about">About</a>
-      </nav>
-    </header>
+    /* Detail title + byline under title, no right-justify */
+    :where(.post-detail) :where(.post-header){
+      display:block !important;background:transparent !important;border:0 !important;box-shadow:none !important;
+      padding:0 !important;margin:0 0 1rem 0 !important;
+    }
+    :where(.post-detail) :where(.post-header) :where(h1.post-title, h1, .post-title){
+      background:transparent !important;background-image:none !important;
+      box-shadow:none !important;border:0 !important;outline:0 !important;
+      padding:0 !important;margin:.6rem 0 .25rem 0 !important;color:#111 !important;
+      text-align:left !important;line-height:1.2 !important;font-weight:800 !important;
+    }
+    :where(.post-detail) :where(.post-header) :where(.post-meta, .byline, .meta, .meta-inline){
+      display:block !important;margin:.25rem 0 .9rem 0 !important;
+      color:#666 !important;background:transparent !important;padding:0 !important;border:0 !important;
+      text-align:left !important;
+    }
+    :where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) a,
+    :where(.post-detail) :where(.oko-actions-top, .oko-actions-bottom) button,
+    :where(.post-detail) .oko-btn-back{
+      display:inline-block !important;
+      padding:8px 12px !important;border-radius:999px !important;background:#1e63ff !important;color:#fff !important;
+      text-decoration:none !important;font-weight:600 !important;
+      box-shadow:0 2px 6px rgba(0,0,0,.15) !important;
+    }
 
-    <!-- App root -->
-    <main>
-      <div id="app" role="main"></div>
-    </main>
+    /* Keep content media responsive */
+    :where(.post-detail) :where(.post-content) img{
+      max-width:100%;height:auto;border-radius:10px;margin:1rem 0;
+    }
+    :where(.post-detail) :where(.post-content) iframe{
+      width:100% !important;max-width:100% !important;aspect-ratio:16/9 !important;border:0 !important;border-radius:10px;
+    }
 
-    <!-- Footer / branding -->
-    <footer>
-      © 2025 The Oklahoma Observer • All Rights Reserved.
-    </footer>
+    /* Poster play overlay (if present) */
+    :where(.oko-video-poster){ position:relative; display:block; border-radius:10px; overflow:hidden; cursor:pointer; }
+    :where(.oko-video-poster) img{ display:block; width:100%; height:auto; }
+    :where(.oko-video-play){
+      position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
+    }
+    :where(.oko-video-play)::before{
+      content:""; width:72px; height:72px; border-radius:999px; background:rgba(0,0,0,.35); box-shadow:0 4px 18px rgba(0,0,0,.35);
+    }
+    :where(.oko-video-play)::after{
+      content:""; margin-left:4px; border-style:solid; border-width:14px 0 14px 22px; border-color:transparent transparent transparent #fff;
+    }
+  </style>
+</head>
+<body>
+  <header class="oko-header">
+    <div class="brand">
+      <img src="ObserverLogoBlue.png" alt="" style="height:28px;vertical-align:middle;margin-right:8px;">
+      <strong>OkObserver</strong>
+    </div>
+    <nav class="oko-nav">
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+    </nav>
+  </header>
 
-    <!-- No-script notice -->
-    <noscript>
-      <div style="max-width:920px;margin:1rem auto;padding:1rem;border-radius:10px;background:#fff3cd;color:#6b5b00">
-        JavaScript is required to use this site.
-      </div>
-    </noscript>
+  <main>
+    <!-- App mount point -->
+    <div id="app"></div>
+  </main>
 
-    <!-- App entry (router + boot) -->
-    <script type="module" src="main.js?v=2025-10-18c"></script>
+  <footer>
+    © 2025 The Oklahoma Observer • All Rights Reserved.
+  </footer>
 
-    <!-- Service Worker registration (cache-bust via query) -->
-    <script>
-      (function registerSW(){
-        if (!('serviceWorker' in navigator)) return;
-        const SW_URL = 'sw.js?v=2025-10-18c';
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register(SW_URL).then(reg => {
-            console.log('[OkObserver] SW registered', reg.scope || '');
-            if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            reg.addEventListener('updatefound', () => {
-              const nw = reg.installing;
-              nw && nw.addEventListener('statechange', () => {
-                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('[OkObserver] SW updated; new content on next load');
-                }
-              });
-            });
-          }).catch(err => console.warn('[OkObserver] SW registration failed', err));
-        });
-      })();
-    </script>
-  </body>
+  <!-- ✅ Cache-busted main entry -->
+  <script type="module" src="main.js?v=2025-10-116g"></script>
+</body>
 </html>
