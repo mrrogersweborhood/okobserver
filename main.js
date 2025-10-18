@@ -39,16 +39,16 @@ async function router() {
 
   if (hash === '#/' || hash.startsWith('#/page')) {
     console.log('[Router] → Home');
-    const mod = await import('./home.v263.js?v=2025-10-18b');
+    const mod = await import('./home.v263.js?v=2025-10-18d');
     await mod.default(app);
   } else if (hash.startsWith('#/post/')) {
     const id = hash.split('/')[2];
     console.log('[Router] → Detail', id);
-    const mod = await import('./detail.v263.js?v=2025-10-18b');
+    const mod = await import('./detail.v263.js?v=2025-10-18d');
     await mod.default(app, id);
   } else if (hash.startsWith('#/about')) {
     console.log('[Router] → About');
-    const mod = await import('./about.v263.js?v=2025-10-18b');
+    const mod = await import('./about.v263.js?v=2025-10-18d');
     await mod.default(app);
   } else {
     app.innerHTML = `<section class="page-error"><p>Page not found.</p></section>`;
