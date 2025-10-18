@@ -1,9 +1,9 @@
-/* OkObserver — Home view (post summary grid)
-   FULL FILE — restores reliable click-to-detail without touching other views
+/* OkObserver — Home view (post summary grid, no cartoons)
+   FULL FILE — restores reliable click-to-detail, keeps console logs
+   - Filters out any post with category name/slug containing "cartoon"
    - Cards render with anchors: href="#/post/:id"
    - Stretched-link pattern: whole card is clickable
    - Event delegation on #ok-grid/.ok-grid
-   - Keeps console logs
 */
 
 const log = (...a) => console.log('[Home]', ...a);
@@ -30,6 +30,19 @@ function featuredSrc(post) {
     m?.media_details?.sizes?.large?.source_url ||
     m?.source_url || ''
   );
+}
+
+/* Exclude cartoons */
+function isCartoonPost(post) {
+  const terms = (post?._embedded?.['wp:term'] || []).flat();
+  for (const t of terms) {
+    if (t?.taxonomy === 'category') {
+      const slug = String(t.slug || '').toLowerCase();
+      const name = String(t.name || '').toLowerCase();
+      if (slug.includes('cartoon') || name.includes('cartoon')) return true;
+    }
+  }
+  return false;
 }
 
 /* Card HTML with safe stretched link — clicking anywhere routes to detail */
@@ -118,7 +131,7 @@ export default async function renderHome(mountOrId){
       <p>Loading posts…</p>
     </section>`;
 
-  // Fetch posts (keep your existing query; adjust per your app’s needs)
+  // Fetch posts
   let posts = [];
   try {
     posts = await apiJSON('posts', { _embed: 1, per_page: 20 });
@@ -132,8 +145,12 @@ export default async function renderHome(mountOrId){
     return;
   }
 
+  // 🔹 Filter out cartoons safely
+  const filtered = posts.filter(p => !isCartoonPost(p));
+  log('filtered posts (no cartoons):', filtered.length);
+
   // Render grid
-  await renderGrid(mount, posts);
+  await renderGrid(mount, filtered);
 
   log('renderHome done');
 }
