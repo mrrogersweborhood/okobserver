@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OkObserver</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
+  <link rel="stylesheet" href="/styles/override.css?v=0.1" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <img class="logo" src="/logo.png" alt="OkObserver" />
+      <div class="titles">
+        <h1 class="site-name">OkObserver</h1>
+        <p class="site-motto">To comfort the afflicted and afflict the comfortable.</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#/" data-link>Posts</a>
+      <a href="#/about" data-link>About</a>
+    </nav>
+  </header>
+
+  <main id="app" role="main" aria-live="polite"></main>
+
+  <footer class="site-footer">© <span id="year"></span> OkObserver</footer>
+
+  <script type="module">
+    import "/src/main.js?v=0.1";
+  </script>
+</body>
+</html>
