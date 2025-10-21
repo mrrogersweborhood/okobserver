@@ -49,17 +49,5 @@ on(window, 'hashchange', router);
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('year').textContent = new Date().getFullYear();
   router();
-  // Service worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js?ver='+BUILD_VERSION).then(reg => {
-      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing; nw && nw.addEventListener('statechange', () => {
-          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('[OkObserver] New SW installed');
-          }
-        });
-      });
-    }).catch(err => console.warn('SW register failed', err));
-  }
-});
+
+  // ✅ Service worker registration with relative path for GH Pages su
