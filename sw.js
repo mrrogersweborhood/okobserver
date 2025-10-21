@@ -1,15 +1,25 @@
 // /sw.js
 /* global self, caches, fetch */
 
-const BUILD_VERSION = '0.1';                 // bump on deploy
+const BUILD_VERSION = '0.1';                 // ⬅ bump on deploy
 const STATIC_CACHE = `okobs-static-${BUILD_VERSION}`;
 const RUNTIME_CACHE = `okobs-runtime-${BUILD_VERSION}`;
 
 /**
- * Use RELATIVE paths for GH Pages subfolder hosting.
+ * Compute a base-relative URL for pre-caching that works no matter where we’re hosted.
+ * - self.registration.scope is the absolute URL to the SW scope (e.g., https://domain.tld/okobserver/)
+ * - We join relative asset paths to that scope so they cache under the correct subpath.
  */
-const STATIC_ASSETS = [
-  './',
+function scopeURL(relativePath) {
+  return new URL(relativePath, self.registration.scope).toString();
+}
+
+/**
+ * List your app-shell assets here as RELATIVE paths (no leading slash).
+ * We’ll resolve them against the SW scope at install time.
+ */
+const SHELL_ASSETS = [
+  './',                         // index route
   './index.html',
   './styles/override.css?v=' + BUILD_VERSION,
   './src/main.js?v=' + BUILD_VERSION,
@@ -18,9 +28,14 @@ const STATIC_ASSETS = [
   './src/views/Home.js?v=' + BUILD_VERSION,
   './src/views/PostDetail.js?v=' + BUILD_VERSION,
   './src/views/About.js?v=' + BUILD_VERSION,
-  './src/views/Settings.js?v=' + BUILD_VERSION
+  './src/views/Settings.js?v=' + BUILD_VERSION,
+  './logo.png'
 ];
 
+// Resolve the shell list against our scope (done once at module init)
+const STATIC_ASSETS = SHELL_ASSETS.map(scopeURL);
+
+// --- INSTALL: pre-cache app shell ---
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(STATIC_CACHE);
@@ -29,6 +44,7 @@ self.addEventListener('install', (e) => {
   })());
 });
 
+// --- ACTIVATE: clean up old caches, take control ---
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const names = await caches.keys();
@@ -41,9 +57,9 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
+// --- MESSAGES: helper commands (skip waiting, clear runtime caches) ---
 self.addEventListener('message', (event) => {
   const data = event.data || {};
-  // Response channel if provided (for request/response style messaging)
   const port = event.ports && event.ports[0];
 
   if (data.type === 'SKIP_WAITING') {
@@ -63,22 +79,23 @@ self.addEventListener('message', (event) => {
         port && port.postMessage({ ok: false, error: err?.message || String(err) });
       }
     })();
-    return;
   }
 });
 
+// --- FETCH: network strategies ---
+//  - WordPress API: network-first with runtime cache fallback
+//  - Everything else: cache-first with runtime fill
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  const url = new URL(req.url);
   if (req.method !== 'GET') return;
 
+  const url = new URL(req.url);
   const isWPAPI =
     url.pathname.includes('/wp-json/wp/v2') ||
     url.pathname.includes('/wp-json/wp/') ||
     url.pathname.endsWith('/wp-json/');
 
   if (isWPAPI) {
-    // Network-first for JSON/API
     e.respondWith((async () => {
       try {
         const res = await fetch(req, { cache: 'no-store' });
@@ -88,11 +105,13 @@ self.addEventListener('fetch', (e) => {
       } catch (err) {
         const cached = await caches.match(req);
         if (cached) return cached;
-        return new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' }});
+        return new Response(
+          JSON.stringify({ error: 'offline' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
       }
     })());
   } else {
-    // Cache-first for static assets
     e.respondWith((async () => {
       const cached = await caches.match(req);
       if (cached) return cached;
@@ -102,6 +121,7 @@ self.addEventListener('fetch', (e) => {
         cache.put(req, res.clone());
         return res;
       } catch (err) {
+        // If both cache and network fail, just rethrow
         throw err;
       }
     })());
