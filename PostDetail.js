@@ -48,7 +48,7 @@ function sanitizeHTML(html = '') {
       if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(val)) node.removeAttribute(attr.name);
     }
 
-    if (tag === 'IFRAME')) {
+    if (tag === 'IFRAME') {
       try {
         const src = node.getAttribute('src') || '';
         const u = new URL(src, location.href);
