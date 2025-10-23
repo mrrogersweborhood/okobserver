@@ -2,30 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
   <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
-  <link rel="icon" href="favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="override.css?v=2025-10-23" />
-
-  <!-- Basic manifest & theme -->
   <meta name="theme-color" content="#1E90FF" />
-  <link rel="manifest" href="manifest.json" />
-
-  <!-- Safe preload to avoid flash of unstyled content -->
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="override.css?v=2025-10-23b" />
   <style>
-    body.loading {
-      opacity: 0;
-      transition: opacity .3s ease;
-    }
-    body.ready {
-      opacity: 1;
-    }
+    body.loading { opacity: 0; transition: opacity .25s ease; }
+    body.ready   { opacity: 1; }
   </style>
 </head>
 <body class="loading">
   <header>
-    <img src="okobserver-logo.png" alt="The Oklahoma Observer Logo" />
+    <img src="logo.png" alt="The Oklahoma Observer Logo" />
     <h1>OKOBSERVER</h1>
     <p>To comfort the afflicted and afflict the comfortable.</p>
     <nav>
@@ -36,27 +26,19 @@
   </header>
 
   <main id="app">
-    <div id="loading-msg" style="text-align:center;padding:2rem;font-size:1.2rem;">
-      Loading…
-    </div>
+    <div style="text-align:center;padding:2rem;font-size:1.1rem;">Loading…</div>
   </main>
 
   <footer>
     © <span id="year"></span> OkObserver
   </footer>
 
-  <!-- Core logic -->
-  <script src="util.js?v=2025-10-23"></script>
-  <script src="api.js?v=2025-10-23"></script>
-  <script src="Home.js?v=2025-10-23"></script>
-  <script src="PostDetail.js?v=2025-10-23"></script>
-  <script src="About.js?v=2025-10-23"></script>
-  <script src="Settings.js?v=2025-10-23"></script>
-  <script src="main.js?v=2025-10-23"></script>
+  <!-- Load the app as an ES module (main.js imports the rest) -->
+  <script type="module" src="main.js?v=2025-10-23b"></script>
 
-  <!-- Service Worker registration -->
+  <!-- Light bootstrap: SW + year + fade-in -->
   <script>
-    (function() {
+    (function () {
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
@@ -64,11 +46,7 @@
             .catch(err => console.warn('[OkObserver] SW failed:', err));
         });
       }
-
-      // Set footer year
       document.getElementById('year').textContent = new Date().getFullYear();
-
-      // Reveal after resources loaded
       window.addEventListener('load', () => {
         document.body.classList.remove('loading');
         document.body.classList.add('ready');
