@@ -48,7 +48,7 @@ function sanitizeHTML(html = '') {
       if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(val)) node.removeAttribute(attr.name);
     }
 
-    if (tag === 'IFRAME') {
+    if (tag === 'IFRAME')) {
       try {
         const src = node.getAttribute('src') || '';
         const u = new URL(src, location.href);
@@ -76,7 +76,7 @@ function sanitizeHTML(html = '') {
   return template.innerHTML;
 }
 
-/** Regex-free conversion of provider URLs to embeddable iframe URLs */
+/** Regex-free conversion of known provider URLs to embeddable iframe URLs */
 function toEmbedUrl(url) {
   try {
     const u = new URL(url, location.href);
@@ -113,6 +113,14 @@ function toEmbedUrl(url) {
   }
 }
 
+/** Detect if a post is actually 'playable' (has a provider URL or an embed iframe) */
+function hasPlayable(post) {
+  const url = detectProviderUrlFromPost(post);
+  if (url) return true;
+  const html = String(post?.content?.rendered || '');
+  return /<iframe[^>]+(?:youtube\.com|youtu\.be|vimeo\.com|facebook\.com)/i.test(html);
+}
+
 export default function PostDetail({ id }) {
   let aborter = new AbortController();
 
@@ -147,22 +155,24 @@ export default function PostDetail({ id }) {
         poster.replaceChildren('');
       }
 
-      // Optional play overlay (launches provider iframe over poster)
-      const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
-      btn.addEventListener('click', () => {
-        const mediaUrl = detectProviderUrlFromPost(post);
-        const iframeSrc = mediaUrl ? toEmbedUrl(mediaUrl) : null;
-        const iframe = el('iframe', {
-          width: '100%',
-          height: '100%',
-          allow: 'autoplay; fullscreen; picture-in-picture',
-          loading: 'lazy',
-          referrerPolicy: 'no-referrer-when-downgrade',
-          src: iframeSrc || 'about:blank'
+      // ▶ Only add a play overlay IF the post has a playable video
+      if (hasPlayable(post)) {
+        const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
+        btn.addEventListener('click', () => {
+          const mediaUrl = detectProviderUrlFromPost(post);
+          const iframeSrc = mediaUrl ? toEmbedUrl(mediaUrl) : null;
+          const iframe = el('iframe', {
+            width: '100%',
+            height: '100%',
+            allow: 'autoplay; fullscreen; picture-in-picture',
+            loading: 'lazy',
+            referrerPolicy: 'no-referrer-when-downgrade',
+            src: iframeSrc || 'about:blank'
+          });
+          poster.replaceChildren(iframe);
         });
-        poster.replaceChildren(iframe);
-      });
-      poster.append(btn);
+        poster.append(btn);
+      }
 
       // Headline & byline
       wrap.querySelector('.headline').textContent = cleanText(post?.title?.rendered || 'Untitled');
