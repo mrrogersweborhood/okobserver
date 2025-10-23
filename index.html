@@ -1,17 +1,11 @@
-<!-- /index.html — OkObserver v0.2 with explicit base path for GitHub Pages -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
-
-  <!-- 🔑 Force all relative URLs to resolve under /okobserver/ -->
-  <base href="/okobserver/">
-
-  <!-- With <base>, these can be plain relative paths (no ./ needed) -->
   <link rel="icon" href="logo.png" />
-  <link rel="stylesheet" href="styles/override.css?v=0.2" />
+  <link rel="stylesheet" href="styles/override.css?v=0.1" />
 </head>
 <body>
   <header class="site-header">
@@ -23,19 +17,22 @@
       </div>
     </div>
     <nav class="nav">
-      <a href="#/" data-link>Posts</a>
-      <a href="#/about" data-link>About</a>
-      <a href="#/settings" data-link>Settings</a>
+      <ul>
+        <li><a href="#/" data-link>Posts</a></li>
+        <li><a href="#/about" data-link>About</a></li>
+        <li><a href="#/settings" data-link>Settings</a></li>
+      </ul>
     </nav>
   </header>
 
-  <main id="app" role="main" aria-live="polite"></main>
+  <main id="app" role="main" aria-live="polite">
+    <!-- Main content will be injected here by the SPA script -->
+  </main>
 
   <footer class="site-footer">
     © <span id="year"></span> OkObserver
   </footer>
 
-  <!-- With <base>, this resolves to /okobserver/src/main.js -->
-  <script type="module" src="src/main.js?v=0.2"></script>
+  <script type="module" src="src/main.js?v=0.1"></script>
 </body>
 </html>
