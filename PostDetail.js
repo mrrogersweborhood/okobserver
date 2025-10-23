@@ -167,6 +167,11 @@ export default function PostDetail({ id }) {
         poster.append(btn);
       }
 
+      // Add first Back button (immediately after poster)
+      poster.insertAdjacentElement('afterend',
+        el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts')
+      );
+
       // Headline & byline
       wrap.querySelector('.headline').textContent = cleanText(post?.title?.rendered || 'Untitled');
       const authorName = cleanText(post?._embedded?.author?.[0]?.name || 'OkObserver');
@@ -194,8 +199,9 @@ export default function PostDetail({ id }) {
         iframe.style.height = 'auto';
       }
 
-      // Back link
+      // Add second Back button (beneath full article)
       wrap.append(el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts'));
+
     } catch (err) {
       console.error('[OkObserver] detail error', err);
       wrap.replaceChildren(errorView('Unable to load this article', err?.message || err));

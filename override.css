@@ -12,22 +12,27 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Header */
+/* Header (blue background) */
 header {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   padding: 1rem 0.5rem;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+  background: #1E90FF;                 /* brand blue */
   position: sticky;
   top: 0;
   z-index: 50;
+  border-bottom: none;
+  color: #fff;
 }
 
 header img {
   max-width: 380px;
   height: auto;
+  /* subtle lift so logo doesn’t sink into the blue */
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
 }
 
 header h1 {
@@ -36,34 +41,36 @@ header h1 {
   letter-spacing: 0.05em;
   margin-top: 0.25rem;
   text-transform: uppercase;
+  color: #fff;
 }
 
 header p {
   font-style: italic;
-  color: #555;
+  color: rgba(255,255,255,0.9);
   font-size: 0.9rem;
   margin: 0.25rem 0 0;
 }
 
-/* Navigation */
+/* Navigation (blue to match header) */
 nav {
   display: flex;
   justify-content: center;
   gap: 1.5rem;
   padding: 0.75rem 0;
-  border-top: 1px solid #eee;
-  border-bottom: 1px solid #eee;
-  background: #fff;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  background: #1E90FF;
 }
 
 nav a {
   text-decoration: none;
   font-weight: 500;
-  color: #1E90FF;
+  color: #fff;
 }
 
 nav a:hover {
   text-decoration: underline;
+  color: #e6f3ff;
 }
 
 /* ===============================
@@ -152,7 +159,7 @@ nav a:hover {
   font-size: 0.95rem;
   color: #666;
   margin: 0.75rem 0 1rem;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 3px solid #1E90FF;     /* blue divider */
   padding-bottom: 0.75rem;
 }
 
@@ -287,4 +294,22 @@ footer {
     flex-wrap: wrap;
     gap: 1rem;
   }
+}
+
+/* --- Back to Posts Button (blue variant) --- */
+.back {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #1E90FF;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.back:hover {
+  background: #187bdb;
+  transform: translateY(-1px);
 }
