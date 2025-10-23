@@ -1,4 +1,4 @@
-<!-- /index.html — OkObserver v0.2 (GitHub Pages–safe version) -->
+<!-- /index.html — OkObserver v0.2 with explicit base path for GitHub Pages -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,14 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
 
-  <!-- Relative asset paths so GitHub Pages resolves correctly under /okobserver/ -->
-  <link rel="icon" href="./logo.png" />
-  <link rel="stylesheet" href="./styles/override.css?v=0.2" />
+  <!-- 🔑 Force all relative URLs to resolve under /okobserver/ -->
+  <base href="/okobserver/">
+
+  <!-- With <base>, these can be plain relative paths (no ./ needed) -->
+  <link rel="icon" href="logo.png" />
+  <link rel="stylesheet" href="styles/override.css?v=0.2" />
 </head>
 <body>
   <header class="site-header">
     <div class="brand">
-      <img class="logo" src="./logo.png" alt="OkObserver" />
+      <img class="logo" src="logo.png" alt="OkObserver" />
       <div class="titles">
         <h1 class="site-name">OkObserver</h1>
         <p class="site-motto">To comfort the afflicted and afflict the comfortable.</p>
@@ -32,7 +35,7 @@
     © <span id="year"></span> OkObserver
   </footer>
 
-  <!-- Relative path ensures correct script loading on GitHub Pages -->
-  <script type="module" src="./src/main.js?v=0.2"></script>
+  <!-- With <base>, this resolves to /okobserver/src/main.js -->
+  <script type="module" src="src/main.js?v=0.2"></script>
 </body>
 </html>
