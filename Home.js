@@ -2,7 +2,7 @@
 import {
   el, fmtDate, gridEnforcer, mem,
   restoreScroll, persistMemToSession, restoreMemFromSession,
-  errorView, imgWH
+  errorView, imgWH, decodeHTML
 } from './util.js';
 import { getPosts, extractMedia } from './api.js';
 
@@ -11,6 +11,19 @@ function shouldExclude(post) {
   const title = (post?.title?.rendered || '').toLowerCase();
   const content = (post?.excerpt?.rendered || post?.content?.rendered || '').toLowerCase();
   return EXCLUDE_KEYWORDS.some(k => title.includes(k) || content.includes(k));
+}
+
+function cleanText(html = '') {
+  // Strip tags then decode entities from WP `rendered` fields
+  const stripped = html.replace(/<[^>]+>/g, '');
+  return decodeHTML(stripped).trim();
+}
+
+function short(text = '', max = 140) {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const last = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('—'));
+  return (last > 60 ? cut.slice(0, last) : cut) + '…';
 }
 
 export default function Home() {
@@ -23,6 +36,12 @@ export default function Home() {
   function renderCard(post) {
     const poster = extractMedia(post);
     const size = poster ? imgWH(poster) : null;
+
+    const title = cleanText(post?.title?.rendered || 'Untitled');
+    // prefer excerpt; fallback to content
+    const excerptHtml = post?.excerpt?.rendered || post?.content?.rendered || '';
+    const excerpt = short(cleanText(excerptHtml), 160);
+
     return el('article', { className: 'card' },
       el('a', { href: `#/post/${post.id}`, 'data-link': true },
         el('div', { className: 'media' },
@@ -38,9 +57,8 @@ export default function Home() {
         )
       ),
       el('div', { className: 'body' },
-        el('h2', { className: 'title' },
-          post.title?.rendered?.replace(/<[^>]+>/g, '') || 'Untitled'
-        ),
+        el('h2', { className: 'title' }, title),
+        excerpt ? el('p', { className: 'excerpt' }, excerpt) : null,
         el('div', { className: 'meta' }, fmtDate(post.date))
       )
     );

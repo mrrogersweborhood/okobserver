@@ -18,6 +18,14 @@ export const fmtDate = (iso) => {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+/** Decode HTML entities from WordPress `rendered` strings (e.g., &#8217; → ’) */
+export function decodeHTML(str = '') {
+  const tmp = document.createElement('textarea');
+  tmp.innerHTML = str;
+  // prefer .value to preserve text as entered; fallback to textContent
+  return tmp.value || tmp.textContent || '';
+}
+
 export const on = (target, type, handler, opts) => target.addEventListener(type, handler, opts);
 
 export function warnOnce(key, msg){

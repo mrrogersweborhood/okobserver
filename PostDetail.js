@@ -1,9 +1,16 @@
 // /PostDetail.js
-import { el, fmtDate, errorView, imgWH } from './util.js';
+import { el, fmtDate, errorView, imgWH, decodeHTML } from './util.js';
 import { getPost, extractMedia, detectProviderUrlFromPost } from './api.js';
+
+function cleanText(html = '') {
+  // Strip tags, then decode HTML entities from WordPress `rendered` strings
+  const stripped = html.replace(/<[^>]+>/g, '');
+  return decodeHTML(stripped).trim();
+}
 
 export default function PostDetail({ id }) {
   let aborter = new AbortController();
+
   const wrap = el('section', { className: 'detail' },
     el('div', { className: 'poster skeleton', id: 'poster' }),
     el('h1', { className: 'headline' }, '…'),
@@ -13,10 +20,12 @@ export default function PostDetail({ id }) {
   async function load() {
     try {
       const { data: post } = await getPost(id, { signal: aborter.signal, timeout: 10000, retries: 1 });
-      const posterUrl = extractMedia(post);
 
+      // Featured image
+      const posterUrl = extractMedia(post);
       const poster = wrap.querySelector('#poster');
       poster.classList.remove('skeleton');
+
       if (posterUrl) {
         const size = imgWH(posterUrl);
         poster.replaceChildren(
@@ -26,7 +35,7 @@ export default function PostDetail({ id }) {
         poster.replaceChildren('');
       }
 
-      // Play button overlay for embedded video content
+      // Optional play overlay for embedded providers
       const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
       btn.addEventListener('click', () => {
         const mediaUrl = detectProviderUrlFromPost(post);
@@ -36,7 +45,7 @@ export default function PostDetail({ id }) {
           const ytWatch = mediaUrl.match(/youtube\.com\/watch\?v=([^&]+)/i);
           const ytShort = mediaUrl.match(/youtu\.be\/([^?]+)/i);
           if (ytWatch) iframeSrc = `https://www.youtube.com/embed/${ytWatch[1]}?autoplay=1&rel=0`;
-          else if (ytShort) iframeSrc = `https://www.youtube.com/embed/${ytShort[1]}?autoplay=1&rel=0`;
+          else if (ytShort) iframeSrc = `https://www.youtube.com/embed/${ytShort[1]}?autoplay=1`;
 
           const vimeo = mediaUrl.match(/vimeo\.com\/(\d+)/i);
           if (!iframeSrc && vimeo) iframeSrc = `https://player.vimeo.com/video/${vimeo[1]}?autoplay=1`;
@@ -60,12 +69,15 @@ export default function PostDetail({ id }) {
       });
       poster.append(btn);
 
-      wrap.querySelector('.headline').textContent =
-        post.title?.rendered?.replace(/<[^>]+>/g, '') || 'Untitled';
+      // ✅ Decode HTML entities in title and byline
+      const titleText = cleanText(post?.title?.rendered || 'Untitled');
+      wrap.querySelector('.headline').textContent = titleText;
 
-      wrap.querySelector('.byline').textContent =
-        `By ${post._embedded?.author?.[0]?.name || 'OkObserver'} — ${fmtDate(post.date)}`;
+      const authorName = cleanText(post?._embedded?.author?.[0]?.name || 'OkObserver');
+      const dateText = fmtDate(post.date);
+      wrap.querySelector('.byline').textContent = `By ${authorName} — ${dateText}`;
 
+      // Back link
       wrap.append(
         el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts')
       );

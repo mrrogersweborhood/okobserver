@@ -254,3 +254,10 @@ img, svg, video, canvas, iframe {
 /* Optional: if you STILL see sideways scroll, uncomment this last resort.
    It hides overflow so you can ship while you hunt the exact cause.
    html, body { overflow-x: hidden; } */
+/* Excerpt styling for post cards */
+.card .excerpt {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
