@@ -1,73 +1,64 @@
-// /main.js
-import { qs, on, BUILD_VERSION, saveScroll } from './util.js';
-import Home from './Home.js';
-import PostDetail from './PostDetail.js';
-import About from './About.js';
-import Settings from './Settings.js';
+// main.js — OkObserver (v2025-10-23b)
+// Entry point: handles routing and dynamic rendering
 
-console.log('[OkObserver] Entry v', BUILD_VERSION);
+import { fetchPosts, fetchPost } from "./api.js?v=2025-10-23b";
+import { formatDate } from "./util.js?v=2025-10-23b";
+import { renderHome } from "./Home.js?v=2025-10-23b";
+import { renderPostDetail } from "./PostDetail.js?v=2025-10-23b";
+import { renderAbout } from "./About.js?v=2025-10-23b";
+import { renderSettings } from "./Settings.js?v=2025-10-23b";
 
-// Simple stateful router with teardown
-let current = null;
-function mount(view){
-  const app = qs('#app');
-  current?.unmount?.();
-  current = view;
-  view.mount(app);
-}
+console.log("[OkObserver] Entry loaded: v2025-10-23b");
 
-function parseHash(){
-  const m = location.hash.slice(1).split('/').filter(Boolean);
-  if (m.length === 0) return { route: 'home' };
-  if (m[0] === 'about') return { route: 'about' };
-  if (m[0] === 'settings') return { route: 'settings' };
-  if (m[0] === 'post' && m[1]) return { route: 'post', id: m[1] };
-  return { route: 'home' };
-}
+// Base API path
+export const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
 
-function router(){
-  const r = parseHash();
-  if (r.route === 'home') {
-    mount(Home());
-  }
-  else if (r.route === 'about') {
-    mount(About());
-  }
-  else if (r.route === 'settings') {
-    mount(Settings());
-  }
-  else if (r.route === 'post') {
-    // Save scroll so Back can restore it
-    try {
-      saveScroll && saveScroll();
-    } catch {}
-    mount(PostDetail({ id: r.id }));
+// Simple router for SPA navigation
+async function router() {
+  const path = window.location.hash.slice(1).toLowerCase() || "/";
+  const app = document.getElementById("app");
+  if (!app) return;
+
+  app.innerHTML = `<div style="text-align:center;padding:2rem;">Loading…</div>`;
+
+  try {
+    if (path === "/" || path === "/posts") {
+      await renderHome(app);
+    } else if (path.startsWith("/post/")) {
+      const id = path.split("/post/")[1];
+      await renderPostDetail(app, id);
+    } else if (path === "/about") {
+      renderAbout(app);
+    } else if (path === "/settings") {
+      renderSettings(app);
+    } else {
+      app.innerHTML = `<p style="text-align:center;margin-top:2rem;">Page not found.</p>`;
+    }
+  } catch (err) {
+    console.error("[OkObserver] Router error:", err);
+    app.innerHTML = `<p style="text-align:center;color:red;">Error loading content.</p>`;
   }
 }
 
-on(window, 'hashchange', router);
+// Event listeners for routing
+window.addEventListener("hashchange", router);
+window.addEventListener("load", router);
 
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('year').textContent = new Date().getFullYear();
-  router();
-
-  // ✅ Service worker registration (auto-detect scope for GitHub Pages or root)
-  if ('serviceWorker' in navigator) {
-    const swURL = new URL('./sw.js?ver=' + BUILD_VERSION, import.meta.url);
-    navigator.serviceWorker.register(swURL)
-      .then(reg => {
-        console.log('[OkObserver] SW registered at', swURL.href);
-        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          nw && nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[OkObserver] New SW installed');
-            }
-          });
-        });
-      })
-      .catch(err => console.warn('[OkObserver] SW register failed', err));
+// MutationObserver safeguard for grid consistency (enforce 3–4 columns)
+const observer = new MutationObserver(() => {
+  const grid = document.querySelector(".post-grid");
+  if (grid) {
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(280px, 1fr))";
+    grid.style.gap = "1.5rem";
   }
 });
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Service Worker registration (cache busting)
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("./sw.js?v=2025-10-23b")
+    .then(() => console.log("[OkObserver] SW registered (v2025-10-23b)"))
+    .catch((err) => console.warn("[OkObserver] SW registration failed:", err));
+}
