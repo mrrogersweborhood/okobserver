@@ -13,9 +13,8 @@ function isCartoon(post) {
 }
 
 /**
- * Minimal HTML sanitizer for WordPress-rendered content.
- * - Removes risky elements and event handlers.
- * - Allows <iframe> only for known hosts (YouTube, Vimeo, Facebook) and forces safe attrs.
+ * Sanitizes HTML safely for WP content.
+ * Removes risky tags and keeps allowed iframes (YouTube/Vimeo/Facebook).
  */
 function sanitizeHTML(html = '') {
   const template = document.createElement('template');
@@ -76,32 +75,26 @@ function sanitizeHTML(html = '') {
   return template.innerHTML;
 }
 
-/** Regex-free conversion of known provider URLs to embeddable iframe URLs */
+/** Convert known video URLs into iframe embed URLs */
 function toEmbedUrl(url) {
   try {
     const u = new URL(url, location.href);
     const host = u.hostname.replace(/^www\./, '');
 
-    // YouTube
     if (host === 'youtube.com') {
       const v = u.searchParams.get('v');
-      if (u.pathname === '/watch' && v) {
+      if (u.pathname === '/watch' && v)
         return `https://www.youtube.com/embed/${v}?autoplay=1&rel=0`;
-      }
     }
     if (host === 'youtu.be') {
       const id = u.pathname.slice(1);
       if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
     }
-
-    // Vimeo
     if (host === 'vimeo.com' || host === 'player.vimeo.com') {
       const parts = u.pathname.split('/').filter(Boolean);
       const id = parts.find(p => /^\d+$/.test(p));
       if (id) return `https://player.vimeo.com/video/${id}?autoplay=1`;
     }
-
-    // Facebook video
     if (host === 'facebook.com') {
       const enc = encodeURIComponent(u.href);
       return `https://www.facebook.com/plugins/video.php?href=${enc}&show_text=false&autoplay=true`;
@@ -113,7 +106,7 @@ function toEmbedUrl(url) {
   }
 }
 
-/** Detect if a post is actually 'playable' (has a provider URL or an embed iframe) */
+/** Detect if a post is playable (has video embed or provider link) */
 function hasPlayable(post) {
   const url = detectProviderUrlFromPost(post);
   if (url) return true;
@@ -135,7 +128,7 @@ export default function PostDetail({ id }) {
     try {
       const { data: post } = await getPost(id, { signal: aborter.signal, timeout: 10000, retries: 1 });
 
-      // Defense-in-depth: block cartoon-category posts
+      // Block cartoon-category posts
       if (isCartoon(post)) {
         wrap.replaceChildren(
           errorView('Not available', 'This article is not available here.'),
@@ -155,7 +148,7 @@ export default function PostDetail({ id }) {
         poster.replaceChildren('');
       }
 
-      // ▶ Only add a play overlay IF the post has a playable video
+      // ▶ Only add play overlay if the post has a playable video
       if (hasPlayable(post)) {
         const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
         btn.addEventListener('click', () => {
@@ -185,9 +178,20 @@ export default function PostDetail({ id }) {
       const safeContent = sanitizeHTML(post?.content?.rendered || '');
       contentBox.innerHTML = `<div class="article-body">${safeContent}</div>`;
 
-      // Ensure any iframes in content are responsive
+      // Normalize oversized inline media (fixes mobile overflow)
+      for (const img of contentBox.querySelectorAll('img')) {
+        img.removeAttribute('width');
+        img.removeAttribute('height');
+        img.style.width = '100%';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+      }
       for (const iframe of contentBox.querySelectorAll('iframe')) {
-        Object.assign(iframe.style, { width: '100%', height: '100%', border: '0' });
+        iframe.removeAttribute('width');
+        iframe.removeAttribute('height');
+        iframe.style.width = '100%';
+        iframe.style.maxWidth = '100%';
+        iframe.style.height = 'auto';
       }
 
       // Back link
