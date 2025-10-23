@@ -1,4 +1,4 @@
-// ● PostDetail.js  (FULL FILE REPLACEMENT)
+// /PostDetail.js
 import { el, fmtDate, errorView, imgWH, decodeHTML } from './util.js';
 import { getPost, extractMedia, detectProviderUrlFromPost } from './api.js';
 
@@ -53,7 +53,6 @@ function sanitizeHTML(html = '') {
         node.setAttribute('loading', 'lazy');
         node.setAttribute('allowfullscreen', '');
         node.removeAttribute('frameborder');
-        // Width/height handled by responsive wrapper we add later
         node.removeAttribute('width');
         node.removeAttribute('height');
         Object.assign(node.style, { width: '100%', height: '100%', border: '0' });
@@ -132,21 +131,32 @@ export default function PostDetail({ id }) {
         return;
       }
 
-      // Poster (featured image)
-      const posterUrl = extractMedia(post);
       const poster = wrap.querySelector('#poster');
       poster.classList.remove('skeleton');
 
-      if (posterUrl) {
-        const size = imgWH(posterUrl);
-        poster.replaceChildren(el('img', { src: posterUrl, alt: '', loading: 'lazy', decoding: 'async', ...size }));
-      } else {
-        // keep empty — CSS gives it a 16:9 box so the play overlay has space
-        poster.replaceChildren('');
-      }
+      // --- IMPORTANT: avoid flashing a black box while loading ---
+      // Hide poster until we know whether it's an image or playable video.
+      poster.style.display = 'none';
 
-      // Only add play overlay if playable
-      if (hasPlayable(post)) {
+      const posterUrl = extractMedia(post);
+      const playable = hasPlayable(post);
+
+      if (posterUrl) {
+        // IMAGE MODE: show image with no cropping
+        poster.style.display = '';
+        poster.classList.add('has-image');
+        poster.replaceChildren(el('img', {
+          src: posterUrl,
+          alt: '',
+          loading: 'lazy',
+          decoding: 'async',
+          ...imgWH(posterUrl)
+        }));
+      } else if (playable) {
+        // VIDEO MODE (lazy play until user clicks)
+        poster.style.display = '';
+        poster.classList.remove('has-image');
+
         const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
         btn.addEventListener('click', () => {
           const mediaUrl = detectProviderUrlFromPost(post);
@@ -159,11 +169,14 @@ export default function PostDetail({ id }) {
             src: iframeSrc || 'about:blank'
           });
 
-          // Responsive wrapper ensures full, non-tiny player
           const wrapper = el('div', { className: 'embed-16x9' }, iframe);
+          poster.classList.remove('has-image'); // ensure video style
           poster.replaceChildren(wrapper);
         });
         poster.append(btn);
+      } else {
+        // No media; remove placeholder entirely
+        poster.remove();
       }
 
       // Headline & byline
@@ -177,14 +190,14 @@ export default function PostDetail({ id }) {
       const safeContent = sanitizeHTML(post?.content?.rendered || '');
       contentBox.innerHTML = `<div class="article-body">${safeContent}</div>`;
 
-      // Normalize inline media
+      // Normalize inline media inside article
       for (const img of contentBox.querySelectorAll('img')) {
         img.removeAttribute('width');
         img.removeAttribute('height');
         Object.assign(img.style, { width: '100%', maxWidth: '100%', height: 'auto' });
       }
 
-      // Make any embedded iframes responsive inside article
+      // Make embedded iframes responsive inside article
       for (const iframe of [...contentBox.querySelectorAll('iframe')]) {
         if (!iframe.closest('.embed-16x9')) {
           const wrap16 = document.createElement('div');
@@ -210,4 +223,3 @@ export default function PostDetail({ id }) {
     unmount() { aborter.abort(); }
   };
 }
-// ● End PostDetail.js

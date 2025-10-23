@@ -1,8 +1,10 @@
-/* ● override.css  (FULL FILE REPLACEMENT) */
-/* ===============================
-   OKObserver Styles – 4/3/1 Grid Layout + Blue Header
-   =============================== */
+/* /override.css — OKObserver Styles
+   Exact 4/3/1 grid, blue header/nav, detail polish, responsive media.
+   Safe to replace entire file. */
 
+/* ===============================
+   Base
+   =============================== */
 html, body {
   margin: 0;
   padding: 0;
@@ -12,7 +14,9 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Header (blue) */
+/* ===============================
+   Header (brand blue) + Nav
+   =============================== */
 header {
   display: flex;
   flex-direction: column;
@@ -29,11 +33,13 @@ header {
 }
 header img { max-width: 380px; height: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
 header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: .05em; margin-top: .25rem; text-transform: uppercase; color: #fff; }
-header p { font-style: italic; color: rgba(255,255,255,.9); font-size: .9rem; margin: .25rem 0 0; }
+header p  { font-style: italic; color: rgba(255,255,255,.9); font-size: .9rem; margin: .25rem 0 0; }
 
-/* Nav (blue) */
 nav {
-  display: flex; justify-content: center; gap: 1.5rem; padding: .75rem 0;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: .75rem 0;
   border-top: 1px solid rgba(255,255,255,.2);
   border-bottom: 1px solid rgba(255,255,255,.2);
   background: #1E90FF;
@@ -41,60 +47,113 @@ nav {
 nav a { text-decoration: none; font-weight: 500; color: #fff; }
 nav a:hover { text-decoration: underline; color: #e6f3ff; }
 
-/* GRID 4/3/1 */
+/* ===============================
+   Grid: EXACT 4 / 3 / 1 columns
+   =============================== */
 .grid {
   display: grid;
-  grid-template-columns: repeat(1, 1fr);
+  grid-template-columns: repeat(1, 1fr);         /* mobile default: 1 */
   gap: 1.5rem;
   padding: 1.5rem;
   max-width: 1400px;
   margin: 0 auto;
   box-sizing: border-box;
 }
-@media (min-width: 700px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1100px){ .grid{ grid-template-columns: repeat(4, 1fr); } }
+/* Tablet ≥700px → 3 columns */
+@media (min-width: 700px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+/* Desktop ≥1100px → 4 columns */
+@media (min-width: 1100px) {
+  .grid { grid-template-columns: repeat(4, 1fr); }
+}
 
-/* Cards */
+/* ===============================
+   Post Cards
+   =============================== */
 .post-card, .card {
-  background: #fff; border-radius: 1rem;
+  background: #fff;
+  border-radius: 1rem;
   box-shadow: 0 2px 6px rgba(0,0,0,.08);
-  overflow: hidden; display: flex; flex-direction: column;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: transform .2s ease, box-shadow .2s ease;
 }
-.post-card:hover, .card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.post-card:hover, .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+}
 .post-card img, .card img { width: 100%; height: auto; border-bottom: 1px solid #eee; }
 .post-card h2, .card h2 { font-size: 1rem; font-weight: 600; color: #000; margin: .75rem 1rem .25rem; }
 .post-card .meta, .card .meta { font-size: .85rem; color: #555; margin: 0 1rem .75rem; }
 
-/* Detail */
+/* ===============================
+   Post Detail
+   =============================== */
 .detail { max-width: 880px; margin: 0 auto; padding: 1.25rem 1rem 4rem; line-height: 1.65; color: #222; }
 .detail .headline { font-size: 1.75rem; font-weight: 700; margin-top: 1.25rem; text-align: left; }
-.detail .byline { font-size: .95rem; color: #666; margin: .75rem 0 1rem; border-bottom: 3px solid #1E90FF; padding-bottom: .75rem; }
 
-/* Poster: give it real space so the player isn't tiny */
+/* Byline with blue divider */
+.detail .byline {
+  font-size: .95rem;
+  color: #666;
+  margin: .75rem 0 1rem;
+  border-bottom: 3px solid #1E90FF;
+  padding-bottom: .75rem;
+}
+
+/* Subtle rule before article body */
+.detail .content::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #e5e5e5;
+  margin: 1.5rem 0 1.25rem;
+}
+
+/* ===============================
+   Poster (image vs video states)
+   =============================== */
+/* Base poster box */
 .detail .poster {
   position: relative;
   margin-top: 1rem;
   border-radius: 16px;
   overflow: hidden;
-  background: #000;
-  /* This guarantees a responsive 16:9 box even when no image is present */
-  aspect-ratio: 16 / 9;
+  background: transparent;              /* default until state known */
   box-shadow: 0 4px 16px rgba(0,0,0,.08);
 }
-.detail .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-/* Responsive video wrapper */
+/* IMAGE state: we add .has-image from JS */
+.detail .poster.has-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;                   /* NO CROPPING */
+  background: #fff;
+  border-radius: 16px;
+}
+
+/* VIDEO state: poster has NO .has-image */
+.detail .poster:not(.has-image) {
+  background: #000;
+  aspect-ratio: 16 / 9;                  /* reserve a proper player box */
+}
+
+/* Responsive embed wrapper used for iframe players */
 .embed-16x9 { position: relative; width: 100%; padding-top: 56.25%; background: #000; }
 .embed-16x9 iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 
-/* Play overlay button */
-.play-overlay{
-  position: absolute; inset: 0; display: grid; place-items: center;
-  background: rgba(0,0,0,.20); border: 0; cursor: pointer;
+/* Play overlay button (only rendered for playable posts) */
+.play-overlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(0,0,0,.20);
+  border: 0; cursor: pointer;
 }
-.play-overlay:hover{ background: rgba(0,0,0,.30); }
-.play-overlay::before{
+.play-overlay:hover { background: rgba(0,0,0,.30); }
+.play-overlay::before {
   content: ""; width: 0; height: 0;
   border-left: 28px solid #fff;         /* triangle */
   border-top: 18px solid transparent;
@@ -102,32 +161,50 @@ nav a:hover { text-decoration: underline; color: #e6f3ff; }
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
 }
 
-/* Article */
+/* ===============================
+   Article Body
+   =============================== */
 .article-body { margin-top: 1.5rem; }
 .article-body p { margin: 1rem 0; }
 .article-body h2, .article-body h3, .article-body h4 { margin-top: 1.5rem; margin-bottom: .5rem; font-weight: 600; }
-.article-body img, .article-body figure, .article-body iframe { max-width: 100%; height: auto; border-radius: .75rem; display: block; margin: 1rem auto; }
+.article-body img, .article-body figure, .article-body iframe {
+  max-width: 100%; height: auto; border-radius: .75rem; display: block; margin: 1rem auto;
+}
 
-/* Footer */
+/* ===============================
+   Footer
+   =============================== */
 footer { text-align: center; color: #555; font-size: .85rem; padding: 1rem 0 3rem; }
 
-/* Mobile */
-@media (max-width: 640px){
+/* ===============================
+   Mobile Tweaks
+   =============================== */
+@media (max-width: 640px) {
   html, body { overflow-x: hidden; }
   .grid { grid-template-columns: 1fr !important; padding: 1rem !important; gap: 1.25rem !important; }
   .detail { padding-inline: 12px; }
   .detail .content { overflow-wrap: anywhere; word-break: break-word; }
+
   .detail .content .article-body img,
   .detail .content .article-body iframe,
-  .detail .content .article-body figure { width: 100% !important; max-width: 100% !important; height: auto !important; }
+  .detail .content .article-body figure {
+    width: 100% !important; max-width: 100% !important; height: auto !important;
+  }
 }
 
-/* Back button */
-.back{
-  display:inline-block; padding:10px 16px; border-radius:8px;
-  background:#1E90FF; color:#fff !important; text-decoration:none; font-weight:600;
-  box-shadow:0 3px 8px rgba(0,0,0,.15); transition:background .2s, transform .15s;
+/* ===============================
+   Buttons
+   =============================== */
+.back {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #1E90FF;
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 3px 8px rgba(0,0,0,.15);
+  transition: background .2s ease, transform .15s ease;
   margin-top: .75rem;
 }
-.back:hover{ background:#187bdb; transform: translateY(-1px); }
-/* ● End override.css */
+.back:hover { background: #187bdb; transform: translateY(-1px); }
