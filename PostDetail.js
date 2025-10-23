@@ -1,4 +1,4 @@
-// /PostDetail.js
+// ● PostDetail.js  (FULL FILE REPLACEMENT)
 import { el, fmtDate, errorView, imgWH, decodeHTML } from './util.js';
 import { getPost, extractMedia, detectProviderUrlFromPost } from './api.js';
 
@@ -12,22 +12,19 @@ function isCartoon(post) {
   return cats.some(c => String(c?.slug || '').toLowerCase() === 'cartoon');
 }
 
-/**
- * Sanitizes HTML safely for WP content.
- * Removes risky tags and keeps allowed iframes (YouTube/Vimeo/Facebook).
- */
+/** Basic sanitizer: strips risky tags and normalizes media */
 function sanitizeHTML(html = '') {
   const template = document.createElement('template');
   template.innerHTML = html;
 
   const ALLOW_IFRAME_HOSTS = [
-    'www.youtube.com', 'youtube.com', 'youtu.be',
-    'player.vimeo.com', 'vimeo.com',
-    'www.facebook.com', 'facebook.com'
+    'www.youtube.com','youtube.com','youtu.be',
+    'player.vimeo.com','vimeo.com',
+    'www.facebook.com','facebook.com'
   ];
   const BLOCK_TAGS = new Set([
-    'SCRIPT', 'STYLE', 'LINK', 'OBJECT', 'EMBED', 'FORM', 'INPUT',
-    'BUTTON', 'SELECT', 'TEXTAREA', 'NOSCRIPT', 'META'
+    'SCRIPT','STYLE','LINK','OBJECT','EMBED','FORM','INPUT',
+    'BUTTON','SELECT','TEXTAREA','NOSCRIPT','META'
   ]);
 
   const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT);
@@ -39,7 +36,6 @@ function sanitizeHTML(html = '') {
 
     if (BLOCK_TAGS.has(tag)) { toRemove.push(node); continue; }
 
-    // Strip event handlers & javascript: URLs
     for (const attr of [...node.attributes]) {
       const name = attr.name.toLowerCase();
       const val = attr.value || '';
@@ -52,13 +48,14 @@ function sanitizeHTML(html = '') {
         const src = node.getAttribute('src') || '';
         const u = new URL(src, location.href);
         if (!ALLOW_IFRAME_HOSTS.includes(u.hostname)) { toRemove.push(node); continue; }
-        node.setAttribute('width', '100%');
-        node.setAttribute('height', '100%');
         node.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
         node.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
         node.setAttribute('loading', 'lazy');
         node.setAttribute('allowfullscreen', '');
         node.removeAttribute('frameborder');
+        // Width/height handled by responsive wrapper we add later
+        node.removeAttribute('width');
+        node.removeAttribute('height');
         Object.assign(node.style, { width: '100%', height: '100%', border: '0' });
       } catch { toRemove.push(node); }
     }
@@ -75,7 +72,7 @@ function sanitizeHTML(html = '') {
   return template.innerHTML;
 }
 
-/** Convert known video URLs into iframe embed URLs */
+/** Turn common video URLs into embed URLs */
 function toEmbedUrl(url) {
   try {
     const u = new URL(url, location.href);
@@ -83,8 +80,7 @@ function toEmbedUrl(url) {
 
     if (host === 'youtube.com') {
       const v = u.searchParams.get('v');
-      if (u.pathname === '/watch' && v)
-        return `https://www.youtube.com/embed/${v}?autoplay=1&rel=0`;
+      if (u.pathname === '/watch' && v) return `https://www.youtube.com/embed/${v}?autoplay=1&rel=0`;
     }
     if (host === 'youtu.be') {
       const id = u.pathname.slice(1);
@@ -99,14 +95,12 @@ function toEmbedUrl(url) {
       const enc = encodeURIComponent(u.href);
       return `https://www.facebook.com/plugins/video.php?href=${enc}&show_text=false&autoplay=true`;
     }
-
     return null;
   } catch {
     return null;
   }
 }
 
-/** Detect if a post is playable (has video embed or provider link) */
 function hasPlayable(post) {
   const url = detectProviderUrlFromPost(post);
   if (url) return true;
@@ -119,6 +113,7 @@ export default function PostDetail({ id }) {
 
   const wrap = el('section', { className: 'detail' },
     el('div', { className: 'poster skeleton', id: 'poster' }),
+    el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts'),
     el('h1', { className: 'headline' }, '…'),
     el('div', { className: 'byline' }, '…'),
     el('div', { className: 'content', id: 'post-content' })
@@ -141,36 +136,35 @@ export default function PostDetail({ id }) {
       const posterUrl = extractMedia(post);
       const poster = wrap.querySelector('#poster');
       poster.classList.remove('skeleton');
+
       if (posterUrl) {
         const size = imgWH(posterUrl);
         poster.replaceChildren(el('img', { src: posterUrl, alt: '', loading: 'lazy', decoding: 'async', ...size }));
       } else {
+        // keep empty — CSS gives it a 16:9 box so the play overlay has space
         poster.replaceChildren('');
       }
 
-      // ▶ Only add play overlay if the post has a playable video
+      // Only add play overlay if playable
       if (hasPlayable(post)) {
         const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
         btn.addEventListener('click', () => {
           const mediaUrl = detectProviderUrlFromPost(post);
           const iframeSrc = mediaUrl ? toEmbedUrl(mediaUrl) : null;
+
           const iframe = el('iframe', {
-            width: '100%',
-            height: '100%',
             allow: 'autoplay; fullscreen; picture-in-picture',
             loading: 'lazy',
             referrerPolicy: 'no-referrer-when-downgrade',
             src: iframeSrc || 'about:blank'
           });
-          poster.replaceChildren(iframe);
+
+          // Responsive wrapper ensures full, non-tiny player
+          const wrapper = el('div', { className: 'embed-16x9' }, iframe);
+          poster.replaceChildren(wrapper);
         });
         poster.append(btn);
       }
-
-      // Add first Back button (immediately after poster)
-      poster.insertAdjacentElement('afterend',
-        el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts')
-      );
 
       // Headline & byline
       wrap.querySelector('.headline').textContent = cleanText(post?.title?.rendered || 'Untitled');
@@ -183,23 +177,24 @@ export default function PostDetail({ id }) {
       const safeContent = sanitizeHTML(post?.content?.rendered || '');
       contentBox.innerHTML = `<div class="article-body">${safeContent}</div>`;
 
-      // Normalize oversized inline media (fixes mobile overflow)
+      // Normalize inline media
       for (const img of contentBox.querySelectorAll('img')) {
         img.removeAttribute('width');
         img.removeAttribute('height');
-        img.style.width = '100%';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-      }
-      for (const iframe of contentBox.querySelectorAll('iframe')) {
-        iframe.removeAttribute('width');
-        iframe.removeAttribute('height');
-        iframe.style.width = '100%';
-        iframe.style.maxWidth = '100%';
-        iframe.style.height = 'auto';
+        Object.assign(img.style, { width: '100%', maxWidth: '100%', height: 'auto' });
       }
 
-      // Add second Back button (beneath full article)
+      // Make any embedded iframes responsive inside article
+      for (const iframe of [...contentBox.querySelectorAll('iframe')]) {
+        if (!iframe.closest('.embed-16x9')) {
+          const wrap16 = document.createElement('div');
+          wrap16.className = 'embed-16x9';
+          iframe.parentNode.insertBefore(wrap16, iframe);
+          wrap16.appendChild(iframe);
+        }
+      }
+
+      // Bottom Back button
       wrap.append(el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts'));
 
     } catch (err) {
@@ -215,3 +210,4 @@ export default function PostDetail({ id }) {
     unmount() { aborter.abort(); }
   };
 }
+// ● End PostDetail.js

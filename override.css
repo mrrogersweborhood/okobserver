@@ -1,8 +1,8 @@
+/* ● override.css  (FULL FILE REPLACEMENT) */
 /* ===============================
-   OKObserver Styles – 4/3/1 Grid Layout
+   OKObserver Styles – 4/3/1 Grid Layout + Blue Header
    =============================== */
 
-/* Base */
 html, body {
   margin: 0;
   padding: 0;
@@ -12,7 +12,7 @@ html, body {
   overflow-x: hidden;
 }
 
-/* Header (blue background) */
+/* Header (blue) */
 header {
   display: flex;
   flex-direction: column;
@@ -20,62 +20,28 @@ header {
   justify-content: center;
   text-align: center;
   padding: 1rem 0.5rem;
-  background: #1E90FF;                 /* brand blue */
+  background: #1E90FF;
   position: sticky;
   top: 0;
   z-index: 50;
   border-bottom: none;
   color: #fff;
 }
+header img { max-width: 380px; height: auto; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: .05em; margin-top: .25rem; text-transform: uppercase; color: #fff; }
+header p { font-style: italic; color: rgba(255,255,255,.9); font-size: .9rem; margin: .25rem 0 0; }
 
-header img {
-  max-width: 380px;
-  height: auto;
-  /* subtle lift so logo doesn’t sink into the blue */
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
-}
-
-header h1 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  margin-top: 0.25rem;
-  text-transform: uppercase;
-  color: #fff;
-}
-
-header p {
-  font-style: italic;
-  color: rgba(255,255,255,0.9);
-  font-size: 0.9rem;
-  margin: 0.25rem 0 0;
-}
-
-/* Navigation (blue to match header) */
+/* Nav (blue) */
 nav {
-  display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 0.75rem 0;
-  border-top: 1px solid rgba(255,255,255,0.2);
-  border-bottom: 1px solid rgba(255,255,255,0.2);
+  display: flex; justify-content: center; gap: 1.5rem; padding: .75rem 0;
+  border-top: 1px solid rgba(255,255,255,.2);
+  border-bottom: 1px solid rgba(255,255,255,.2);
   background: #1E90FF;
 }
+nav a { text-decoration: none; font-weight: 500; color: #fff; }
+nav a:hover { text-decoration: underline; color: #e6f3ff; }
 
-nav a {
-  text-decoration: none;
-  font-weight: 500;
-  color: #fff;
-}
-
-nav a:hover {
-  text-decoration: underline;
-  color: #e6f3ff;
-}
-
-/* ===============================
-   GRID: exact 4/3/1 layout
-   =============================== */
+/* GRID 4/3/1 */
 .grid {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
@@ -85,231 +51,83 @@ nav a:hover {
   margin: 0 auto;
   box-sizing: border-box;
 }
+@media (min-width: 700px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1100px){ .grid{ grid-template-columns: repeat(4, 1fr); } }
 
-/* Tablet (≥700px): 3 columns */
-@media (min-width: 700px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* Desktop (≥1100px): 4 columns */
-@media (min-width: 1100px) {
-  .grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-/* ===============================
-   Post Cards
-   =============================== */
+/* Cards */
 .post-card, .card {
-  background: #fff;
-  border-radius: 1rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #fff; border-radius: 1rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  overflow: hidden; display: flex; flex-direction: column;
+  transition: transform .2s ease, box-shadow .2s ease;
 }
+.post-card:hover, .card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.post-card img, .card img { width: 100%; height: auto; border-bottom: 1px solid #eee; }
+.post-card h2, .card h2 { font-size: 1rem; font-weight: 600; color: #000; margin: .75rem 1rem .25rem; }
+.post-card .meta, .card .meta { font-size: .85rem; color: #555; margin: 0 1rem .75rem; }
 
-.post-card:hover, .card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
+/* Detail */
+.detail { max-width: 880px; margin: 0 auto; padding: 1.25rem 1rem 4rem; line-height: 1.65; color: #222; }
+.detail .headline { font-size: 1.75rem; font-weight: 700; margin-top: 1.25rem; text-align: left; }
+.detail .byline { font-size: .95rem; color: #666; margin: .75rem 0 1rem; border-bottom: 3px solid #1E90FF; padding-bottom: .75rem; }
 
-.post-card img, .card img {
-  width: 100%;
-  height: auto;
-  border-bottom: 1px solid #eee;
-}
-
-.post-card h2, .card h2 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #000;
-  margin: 0.75rem 1rem 0.25rem;
-}
-
-.post-card .meta, .card .meta {
-  font-size: 0.85rem;
-  color: #555;
-  margin: 0 1rem 0.75rem;
-}
-
-/* ===============================
-   Post Detail
-   =============================== */
-.detail {
-  max-width: 880px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 4rem;
-  line-height: 1.65;
-  color: #222;
-}
-
-.detail .headline {
-  font-size: 1.75rem;
-  font-weight: 700;
-  margin-top: 1.25rem;
-  text-align: left;
-}
-
-.detail .byline {
-  font-size: 0.95rem;
-  color: #666;
-  margin: 0.75rem 0 1rem;
-  border-bottom: 3px solid #1E90FF;     /* blue divider */
-  padding-bottom: 0.75rem;
-}
-
-/* Subtle divider between byline and article */
-.detail .content::before {
-  content: "";
-  display: block;
-  height: 1px;
-  background: #e5e5e5;
-  margin: 1.5rem 0 1.25rem;
-}
-
-/* Featured image / video */
+/* Poster: give it real space so the player isn't tiny */
 .detail .poster {
-  text-align: center;
-  margin-top: 1rem;
   position: relative;
+  margin-top: 1rem;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  /* This guarantees a responsive 16:9 box even when no image is present */
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+.detail .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Responsive video wrapper */
+.embed-16x9 { position: relative; width: 100%; padding-top: 56.25%; background: #000; }
+.embed-16x9 iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
+/* Play overlay button */
+.play-overlay{
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(0,0,0,.20); border: 0; cursor: pointer;
+}
+.play-overlay:hover{ background: rgba(0,0,0,.30); }
+.play-overlay::before{
+  content: ""; width: 0; height: 0;
+  border-left: 28px solid #fff;         /* triangle */
+  border-top: 18px solid transparent;
+  border-bottom: 18px solid transparent;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
 }
 
-.detail .poster img,
-.detail .poster iframe {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.75rem;
-  display: block;
-  margin: 0 auto;
-}
+/* Article */
+.article-body { margin-top: 1.5rem; }
+.article-body p { margin: 1rem 0; }
+.article-body h2, .article-body h3, .article-body h4 { margin-top: 1.5rem; margin-bottom: .5rem; font-weight: 600; }
+.article-body img, .article-body figure, .article-body iframe { max-width: 100%; height: auto; border-radius: .75rem; display: block; margin: 1rem auto; }
 
-/* Play overlay (for videos only) */
-.play-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(30, 144, 255, 0.85);
-  border: none;
-  border-radius: 50%;
-  width: 68px;
-  height: 68px;
-  cursor: pointer;
-  color: #fff;
-  font-size: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease;
-}
+/* Footer */
+footer { text-align: center; color: #555; font-size: .85rem; padding: 1rem 0 3rem; }
 
-.play-overlay:hover {
-  background: rgba(30, 144, 255, 0.95);
-}
-
-/* ===============================
-   Article Body
-   =============================== */
-.article-body {
-  margin-top: 1.5rem;
-}
-
-.article-body p {
-  margin: 1rem 0;
-}
-
-.article-body h2,
-.article-body h3,
-.article-body h4 {
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-}
-
-.article-body img,
-.article-body figure,
-.article-body iframe {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.75rem;
-  display: block;
-  margin: 1rem auto;
-}
-
-/* ===============================
-   Footer
-   =============================== */
-footer {
-  text-align: center;
-  color: #555;
-  font-size: 0.85rem;
-  padding: 1rem 0 3rem;
-}
-
-/* ===============================
-   Mobile Fixes
-   =============================== */
-@media (max-width: 640px) {
-  html, body {
-    overflow-x: hidden;
-  }
-
-  .grid {
-    grid-template-columns: 1fr !important;
-    padding: 1rem !important;
-    gap: 1.25rem !important;
-  }
-
-  .detail {
-    padding-inline: 12px;
-  }
-
-  .detail .poster img,
-  .detail .poster iframe {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-  }
-
+/* Mobile */
+@media (max-width: 640px){
+  html, body { overflow-x: hidden; }
+  .grid { grid-template-columns: 1fr !important; padding: 1rem !important; gap: 1.25rem !important; }
+  .detail { padding-inline: 12px; }
+  .detail .content { overflow-wrap: anywhere; word-break: break-word; }
   .detail .content .article-body img,
   .detail .content .article-body iframe,
-  .detail .content .article-body figure {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-  }
-
-  .detail .content {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  nav {
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
+  .detail .content .article-body figure { width: 100% !important; max-width: 100% !important; height: auto !important; }
 }
 
-/* --- Back to Posts Button (blue variant) --- */
-.back {
-  display: inline-block;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: #1E90FF;
-  color: #fff !important;
-  text-decoration: none;
-  font-weight: 600;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
-  transition: background 0.2s ease, transform 0.15s ease;
+/* Back button */
+.back{
+  display:inline-block; padding:10px 16px; border-radius:8px;
+  background:#1E90FF; color:#fff !important; text-decoration:none; font-weight:600;
+  box-shadow:0 3px 8px rgba(0,0,0,.15); transition:background .2s, transform .15s;
+  margin-top: .75rem;
 }
-
-.back:hover {
-  background: #187bdb;
-  transform: translateY(-1px);
-}
+.back:hover{ background:#187bdb; transform: translateY(-1px); }
+/* ● End override.css */
