@@ -1,4 +1,4 @@
-<!-- /index.html -->
+<!-- /index.html — OkObserver v0.2 (GitHub Pages–safe version) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
 
-  <!-- Correct paths for GitHub Pages project site -->
-  <link rel="icon" href="/okobserver/logo.png" />
-  <link rel="stylesheet" href="/okobserver/styles/override.css?v=0.2" />
+  <!-- Relative asset paths so GitHub Pages resolves correctly under /okobserver/ -->
+  <link rel="icon" href="./logo.png" />
+  <link rel="stylesheet" href="./styles/override.css?v=0.2" />
 </head>
 <body>
   <header class="site-header">
     <div class="brand">
-      <img class="logo" src="/okobserver/logo.png" alt="OkObserver" />
+      <img class="logo" src="./logo.png" alt="OkObserver" />
       <div class="titles">
         <h1 class="site-name">OkObserver</h1>
         <p class="site-motto">To comfort the afflicted and afflict the comfortable.</p>
@@ -28,9 +28,11 @@
 
   <main id="app" role="main" aria-live="polite"></main>
 
-  <footer class="site-footer">© <span id="year"></span> OkObserver</footer>
+  <footer class="site-footer">
+    © <span id="year"></span> OkObserver
+  </footer>
 
-  <!-- Version bump and correct subfolder path for GH Pages -->
-  <script type="module" src="/okobserver/src/main.js?v=0.2"></script>
+  <!-- Relative path ensures correct script loading on GitHub Pages -->
+  <script type="module" src="./src/main.js?v=0.2"></script>
 </body>
 </html>
