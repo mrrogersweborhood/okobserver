@@ -82,4 +82,11 @@ export function detectProviderUrlFromPost(post) {
     /(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[A-Za-z0-9_\-]+)/i,
     /(https?:\/\/youtu\.be\/[A-Za-z0-9_\-]+)/i,
     /(https?:\/\/(?:www\.)?vimeo\.com\/\d+)/i,
-    /(https?:\/\/(?:www\.)?fa
+    /(https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+)/i
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}

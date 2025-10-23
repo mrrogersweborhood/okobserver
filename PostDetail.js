@@ -2,7 +2,7 @@
 import { el, fmtDate, errorView, imgWH } from '../lib/util.js';
 import { getPost, extractMedia, detectProviderUrlFromPost } from '../lib/api.js';
 
-export default function PostDetail({ id }){
+export default function PostDetail({ id }) {
   let aborter = new AbortController();
   const wrap = el('section', { className: 'detail' },
     el('div', { className: 'poster skeleton', id: 'poster' }),
@@ -10,8 +10,8 @@ export default function PostDetail({ id }){
     el('div', { className: 'byline' }, '…'),
   );
 
-  async function load(){
-    try{
+  async function load() {
+    try {
       const { data: post } = await getPost(id, { signal: aborter.signal, timeout: 10000, retries: 1 });
       const posterUrl = extractMedia(post);
 
@@ -19,11 +19,14 @@ export default function PostDetail({ id }){
       poster.classList.remove('skeleton');
       if (posterUrl) {
         const size = imgWH(posterUrl);
-        poster.replaceChildren(el('img', { src: posterUrl, alt: '', loading: 'lazy', decoding: 'async', ...size }));
+        poster.replaceChildren(
+          el('img', { src: posterUrl, alt: '', loading: 'lazy', decoding: 'async', ...size })
+        );
       } else {
         poster.replaceChildren('');
       }
 
+      // Play button overlay for embedded video content
       const btn = el('button', { className: 'play-overlay', ariaLabel: 'Play video' });
       btn.addEventListener('click', () => {
         const mediaUrl = detectProviderUrlFromPost(post);
@@ -57,12 +60,17 @@ export default function PostDetail({ id }){
       });
       poster.append(btn);
 
-      wrap.querySelector('.headline').textContent = post.title?.rendered?.replace(/<[^>]+>/g,'') || 'Untitled';
-      wrap.querySelector('.byline').textContent = `By ${post._embedded?.author?.[0]?.name || 'OkObserver'} — ${fmtDate(post.date)}`;
+      wrap.querySelector('.headline').textContent =
+        post.title?.rendered?.replace(/<[^>]+>/g, '') || 'Untitled';
 
-      wrap.append(el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts'));
-    } catch(err){ 
-      console.error('[OkObserver] detail error', err); 
+      wrap.querySelector('.byline').textContent =
+        `By ${post._embedded?.author?.[0]?.name || 'OkObserver'} — ${fmtDate(post.date)}`;
+
+      wrap.append(
+        el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts')
+      );
+    } catch (err) {
+      console.error('[OkObserver] detail error', err);
       wrap.replaceChildren(errorView('Unable to load this article', err?.message || err));
     }
   }
@@ -70,7 +78,7 @@ export default function PostDetail({ id }){
   load();
 
   return {
-    mount(el){ el.replaceChildren(wrap); },
-    unmount(){ aborter.abort(); }
+    mount(el) { el.replaceChildren(wrap); },
+    unmount() { aborter.abort(); }
   };
 }

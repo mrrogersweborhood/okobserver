@@ -1,7 +1,7 @@
-// /sw.js
+// /sw.js — OkObserver v0.2
 /* global self, caches, fetch */
 
-const BUILD_VERSION = '0.1';                 // ⬅ bump on deploy
+const BUILD_VERSION = '0.2';                 // ⬅ bump on deploy
 const STATIC_CACHE = `okobs-static-${BUILD_VERSION}`;
 const RUNTIME_CACHE = `okobs-runtime-${BUILD_VERSION}`;
 
@@ -19,7 +19,7 @@ function scopeURL(relativePath) {
  * We’ll resolve them against the SW scope at install time.
  */
 const SHELL_ASSETS = [
-  './',                         // index route
+  './',
   './index.html',
   './styles/override.css?v=' + BUILD_VERSION,
   './src/main.js?v=' + BUILD_VERSION,
@@ -40,6 +40,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(STATIC_CACHE);
     await cache.addAll(STATIC_ASSETS);
+    console.log('[OkObserver] Installed SW v' + BUILD_VERSION);
     self.skipWaiting();
   })());
 });
@@ -54,6 +55,7 @@ self.addEventListener('activate', (e) => {
         .map(n => caches.delete(n))
     );
     await self.clients.claim();
+    console.log('[OkObserver] Activated SW v' + BUILD_VERSION);
   })());
 });
 
@@ -75,6 +77,7 @@ self.addEventListener('message', (event) => {
         const toDelete = names.filter(n => n.startsWith('okobs-runtime-'));
         await Promise.all(toDelete.map(n => caches.delete(n)));
         port && port.postMessage({ ok: true });
+        console.log('[OkObserver] Runtime caches cleared');
       } catch (err) {
         port && port.postMessage({ ok: false, error: err?.message || String(err) });
       }

@@ -1,5 +1,5 @@
 // /src/lib/util.js
-export const BUILD_VERSION = "0.1";
+export const BUILD_VERSION = "0.2"; // ⬅ version bump
 export const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
 
 export const qs = (sel, el=document) => el.querySelector(sel);
@@ -111,7 +111,7 @@ export function imgWH(src, fallback = { width: 640, height: 360 }) {
   return fallback;
 }
 
-// --- new: clearing helpers for Settings ---
+// --- clearing helpers for Settings page ---
 export function clearMem(){
   mem.postsPage = 1;
   mem.posts = [];

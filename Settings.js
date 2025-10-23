@@ -1,12 +1,12 @@
 // /src/views/Settings.js
 import { el, clearMem, clearSession } from '../lib/util.js';
 
-export default function Settings(){
+export default function Settings() {
   const statusSS = el('div', { className: 'meta', style: 'margin-top:8px;' });
   const statusSW = el('div', { className: 'meta', style: 'margin-top:8px;' });
 
   // --- Clear session cache (posts + scroll) ---
-  const btnSS = el('button', { 
+  const btnSS = el('button', {
     className: 'back',
     type: 'button',
     style: 'cursor:pointer'
@@ -15,11 +15,11 @@ export default function Settings(){
   btnSS.addEventListener('click', () => {
     clearSession();
     clearMem();
-    statusSS.textContent = 'Session cache cleared. Posts will reload from scratch.';
+    statusSS.textContent = '✅ Session cache cleared. Posts will reload from scratch.';
   });
 
   // --- Clear Service Worker runtime caches ---
-  const btnSW = el('button', { 
+  const btnSW = el('button', {
     className: 'back',
     type: 'button',
     style: 'cursor:pointer'
@@ -27,14 +27,14 @@ export default function Settings(){
 
   btnSW.addEventListener('click', async () => {
     if (!('serviceWorker' in navigator)) {
-      statusSW.textContent = 'Service Worker not supported in this browser.';
+      statusSW.textContent = ⚠️ Service Worker not supported in this browser.';
       return;
     }
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       const sw = navigator.serviceWorker.controller || (reg && reg.active);
       if (!sw) {
-        statusSW.textContent = 'No active Service Worker yet. Reload the page and try again.';
+        statusSW.textContent = 'ℹ️ No active Service Worker yet — reload the page and try again.';
         return;
       }
 
@@ -43,17 +43,17 @@ export default function Settings(){
         const channel = new MessageChannel();
         channel.port1.onmessage = (event) => resolve(event.data);
         sw.postMessage({ type: 'CLEAR_RUNTIME_CACHES' }, [channel.port2]);
-        // Add a 5s timeout in case the SW can’t respond
-        setTimeout(() => resolve({ ok: false, error: 'Timeout waiting for SW.' }), 5000);
+        // Timeout safety (5 s)
+        setTimeout(() => resolve({ ok: false, error: 'Timeout waiting for Service Worker response.' }), 5000);
       });
 
       if (reply?.ok) {
-        statusSW.textContent = 'Service Worker runtime caches cleared.';
+        statusSW.textContent = '🧹 Service Worker runtime caches cleared.';
       } else {
-        statusSW.textContent = 'Could not clear SW caches: ' + (reply?.error || 'Unknown error');
+        statusSW.textContent = '❌ Could not clear SW caches: ' + (reply?.error || 'Unknown error');
       }
     } catch (err) {
-      statusSW.textContent = 'SW error: ' + err.message;
+      statusSW.textContent = '⚠️ SW error: ' + err.message;
     }
   });
 
@@ -70,7 +70,7 @@ export default function Settings(){
 
     el('div', { className: 'card', style: 'padding:16px; display:grid; gap:8px; margin-top:12px;' },
       el('strong', {}, 'Service Worker caches'),
-      el('p', { className: 'meta', style: 'margin:0' }, 'Asks the Service Worker to purge its runtime caches. Useful after deploys.'),
+      el('p', { className: 'meta', style: 'margin:0' }, 'Asks the Service Worker to purge its runtime caches. Useful after deploys or version updates.'),
       btnSW,
       statusSW
     ),
@@ -79,7 +79,7 @@ export default function Settings(){
   );
 
   return {
-    mount(el){ el.replaceChildren(root); },
-    unmount(){ /* nothing */ }
+    mount(el) { el.replaceChildren(root); },
+    unmount() { /* nothing */ }
   };
 }

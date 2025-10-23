@@ -46,8 +46,28 @@ function router(){
 }
 
 on(window, 'hashchange', router);
+
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('year').textContent = new Date().getFullYear();
   router();
 
-  // ✅ Service worker registration with relative path for GH Pages su
+  // ✅ Service worker registration (auto-detect scope for GitHub Pages or root)
+  if ('serviceWorker' in navigator) {
+    const swURL = new URL('./sw.js?ver=' + BUILD_VERSION, import.meta.url);
+    navigator.serviceWorker.register(swURL)
+      .then(reg => {
+        console.log('[OkObserver] SW registered at', swURL.href);
+        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          nw && nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[OkObserver] New SW installed');
+            }
+          });
+        });
+      })
+      .catch(err => console.warn('[OkObserver] SW register failed', err));
+  }
+});
