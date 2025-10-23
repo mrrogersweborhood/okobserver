@@ -1,6 +1,6 @@
-// /src/views/PostDetail.js
-import { el, fmtDate, errorView, imgWH } from '../lib/util.js';
-import { getPost, extractMedia, detectProviderUrlFromPost } from '../lib/api.js';
+// /PostDetail.js
+import { el, fmtDate, errorView, imgWH } from './util.js';
+import { getPost, extractMedia, detectProviderUrlFromPost } from './api.js';
 
 export default function PostDetail({ id }) {
   let aborter = new AbortController();

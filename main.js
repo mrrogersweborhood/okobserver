@@ -1,9 +1,9 @@
-// /src/main.js
-import { qs, on, BUILD_VERSION } from './lib/util.js';
-import Home from './views/Home.js';
-import PostDetail from './views/PostDetail.js';
-import About from './views/About.js';
-import Settings from './views/Settings.js';
+// /main.js
+import { qs, on, BUILD_VERSION, saveScroll } from './util.js';
+import Home from './Home.js';
+import PostDetail from './PostDetail.js';
+import About from './About.js';
+import Settings from './Settings.js';
 
 console.log('[OkObserver] Entry v', BUILD_VERSION);
 
@@ -38,8 +38,8 @@ function router(){
   }
   else if (r.route === 'post') {
     // Save scroll so Back can restore it
-    try { 
-      import('./lib/util.js').then(m => m.saveScroll && m.saveScroll());
+    try {
+      saveScroll && saveScroll();
     } catch {}
     mount(PostDetail({ id: r.id }));
   }

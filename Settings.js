@@ -1,5 +1,5 @@
-// /src/views/Settings.js
-import { el, clearMem, clearSession } from '../lib/util.js';
+// /Settings.js
+import { el, clearMem, clearSession } from './util.js';
 
 export default function Settings() {
   const statusSS = el('div', { className: 'meta', style: 'margin-top:8px;' });
@@ -27,7 +27,7 @@ export default function Settings() {
 
   btnSW.addEventListener('click', async () => {
     if (!('serviceWorker' in navigator)) {
-      statusSW.textContent = ⚠️ Service Worker not supported in this browser.';
+      statusSW.textContent = '⚠️ Service Worker not supported in this browser.';
       return;
     }
     try {

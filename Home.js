@@ -1,8 +1,11 @@
-// /src/views/Home.js
-import { el, fmtDate, gridEnforcer, mem, restoreScroll, persistMemToSession, restoreMemFromSession, errorView, imgWH } from '../lib/util.js';
-import { getPosts, extractMedia } from '../lib/api.js';
+// /Home.js
+import {
+  el, fmtDate, gridEnforcer, mem,
+  restoreScroll, persistMemToSession, restoreMemFromSession,
+  errorView, imgWH
+} from './util.js';
+import { getPosts, extractMedia } from './api.js';
 
-// Filter to exclude cartoon-like posts.
 const EXCLUDE_KEYWORDS = ['cartoon', 'comic', 'toon'];
 function shouldExclude(post) {
   const title = (post?.title?.rendered || '').toLowerCase();
@@ -20,7 +23,7 @@ export default function Home() {
   function renderCard(post) {
     const poster = extractMedia(post);
     const size = poster ? imgWH(poster) : null;
-    const card = el('article', { className: 'card' },
+    return el('article', { className: 'card' },
       el('a', { href: `#/post/${post.id}`, 'data-link': true },
         el('div', { className: 'media' },
           poster
@@ -41,16 +44,14 @@ export default function Home() {
         el('div', { className: 'meta' }, fmtDate(post.date))
       )
     );
-    return card;
   }
 
   async function load() {
-    if (loading || done) return; // Prevent duplicate loads
+    if (loading || done) return;
     loading = true;
     aborter?.abort();
     aborter = new AbortController();
 
-    // Try restoring from session cache on first load
     if (page === 1) {
       const hadSession = restoreMemFromSession();
       if (hadSession || mem.posts.length) {

@@ -1,4 +1,4 @@
-// /src/lib/api.js
+// /api.js
 import { API_BASE, BUILD_VERSION } from './util.js';
 
 function withVersion(url){
@@ -24,7 +24,7 @@ async function fetchWithTimeout(input, { timeout = 10000, retries = 1, signal, h
       clearTimeout(tid);
       const isLast = attempt === retries;
       const aborted = err?.name === 'AbortError';
-      if (aborted && !isLast) continue; // retry timeouts/aborts once
+      if (aborted && !isLast) continue;
       if (isLast) throw err;
     }
   }
@@ -75,7 +75,6 @@ export function extractMedia(post){
 }
 
 // --- simple provider detector ---
-// Expects post content HTML (post.content?.rendered) and tries to find the first media URL.
 export function detectProviderUrlFromPost(post) {
   const html = post?.content?.rendered || '';
   const patterns = [

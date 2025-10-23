@@ -1,41 +1,33 @@
-// /sw.js — OkObserver v0.2
+// /sw.js — OkObserver v0.2 (flat layout)
 /* global self, caches, fetch */
 
-const BUILD_VERSION = '0.2';                 // ⬅ bump on deploy
+const BUILD_VERSION = '0.2';
 const STATIC_CACHE = `okobs-static-${BUILD_VERSION}`;
 const RUNTIME_CACHE = `okobs-runtime-${BUILD_VERSION}`;
 
-/**
- * Compute a base-relative URL for pre-caching that works no matter where we’re hosted.
- * - self.registration.scope is the absolute URL to the SW scope (e.g., https://domain.tld/okobserver/)
- * - We join relative asset paths to that scope so they cache under the correct subpath.
- */
 function scopeURL(relativePath) {
   return new URL(relativePath, self.registration.scope).toString();
 }
 
-/**
- * List your app-shell assets here as RELATIVE paths (no leading slash).
- * We’ll resolve them against the SW scope at install time.
- */
+// --- App shell asset list ---
+// Adjusted to reflect flat GitHub Pages layout
 const SHELL_ASSETS = [
   './',
   './index.html',
-  './styles/override.css?v=' + BUILD_VERSION,
-  './src/main.js?v=' + BUILD_VERSION,
-  './src/lib/util.js?v=' + BUILD_VERSION,
-  './src/lib/api.js?v=' + BUILD_VERSION,
-  './src/views/Home.js?v=' + BUILD_VERSION,
-  './src/views/PostDetail.js?v=' + BUILD_VERSION,
-  './src/views/About.js?v=' + BUILD_VERSION,
-  './src/views/Settings.js?v=' + BUILD_VERSION,
+  './override.css?v=' + BUILD_VERSION,
+  './main.js?v=' + BUILD_VERSION,
+  './util.js?v=' + BUILD_VERSION,
+  './api.js?v=' + BUILD_VERSION,
+  './Home.js?v=' + BUILD_VERSION,
+  './PostDetail.js?v=' + BUILD_VERSION,
+  './About.js?v=' + BUILD_VERSION,
+  './Settings.js?v=' + BUILD_VERSION,
   './logo.png'
 ];
 
-// Resolve the shell list against our scope (done once at module init)
 const STATIC_ASSETS = SHELL_ASSETS.map(scopeURL);
 
-// --- INSTALL: pre-cache app shell ---
+// --- INSTALL ---
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const cache = await caches.open(STATIC_CACHE);
@@ -45,7 +37,7 @@ self.addEventListener('install', (e) => {
   })());
 });
 
-// --- ACTIVATE: clean up old caches, take control ---
+// --- ACTIVATE ---
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const names = await caches.keys();
@@ -59,7 +51,7 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-// --- MESSAGES: helper commands (skip waiting, clear runtime caches) ---
+// --- MESSAGE HANDLER ---
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   const port = event.ports && event.ports[0];
@@ -85,9 +77,9 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// --- FETCH: network strategies ---
-//  - WordPress API: network-first with runtime cache fallback
-//  - Everything else: cache-first with runtime fill
+// --- FETCH HANDLER ---
+//  • WP API = network-first
+//  • Everything else = cache-first
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -108,10 +100,10 @@ self.addEventListener('fetch', (e) => {
       } catch (err) {
         const cached = await caches.match(req);
         if (cached) return cached;
-        return new Response(
-          JSON.stringify({ error: 'offline' }),
-          { status: 503, headers: { 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: 'offline' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     })());
   } else {
@@ -124,7 +116,6 @@ self.addEventListener('fetch', (e) => {
         cache.put(req, res.clone());
         return res;
       } catch (err) {
-        // If both cache and network fail, just rethrow
         throw err;
       }
     })());

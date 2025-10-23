@@ -1,4 +1,4 @@
-// /src/lib/util.js
+// /util.js
 export const BUILD_VERSION = "0.2"; // ⬅ version bump
 export const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
 

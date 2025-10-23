@@ -1,32 +1,40 @@
-<!DOCTYPE html>
+<!-- /index.html — OkObserver v0.2 (flat layout, GH Pages–safe) -->
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
-  <link rel="stylesheet" href="override.css" />
+
+  <!-- Favicon/Logo at repo root -->
+  <link rel="icon" href="logo.png" />
+
+  <!-- Flat, relative path (no leading slash) with version for cache-busting -->
+  <link rel="stylesheet" href="override.css?v=0.2" />
 </head>
 <body>
-  <header>
-    <img src="logo.png" alt="The Oklahoma Observer" style="max-width: 100%; height: auto;" />
-    <h1>OkObserver</h1>
-    <p>To comfort the afflicted and afflict the comfortable.</p>
+  <header class="site-header">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="OkObserver" />
+      <div class="titles">
+        <h1 class="site-name">OkObserver</h1>
+        <p class="site-motto">To comfort the afflicted and afflict the comfortable.</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#/" data-link>Posts</a>
+      <a href="#/about" data-link>About</a>
+      <a href="#/settings" data-link>Settings</a>
+    </nav>
   </header>
 
-  <nav>
-    <ul>
-      <li><a href="#/posts">Posts</a></li>
-      <li><a href="#/about">About</a></li>
-      <li><a href="#/settings">Settings</a></li>
-    </ul>
-  </nav>
+  <main id="app" role="main" aria-live="polite"></main>
 
-  <main id="app"></main>
-
-  <footer>
-    <p>© OkObserver</p>
+  <footer class="site-footer">
+    © <span id="year"></span> OkObserver
   </footer>
 
-  <script src="main.js" type="module"></script>
+  <!-- Flat, relative module path (no leading slash) with version for cache-busting -->
+  <script type="module" src="main.js?v=0.2"></script>
 </body>
 </html>
