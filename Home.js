@@ -6,15 +6,26 @@ import {
 } from './util.js';
 import { getPosts, extractMedia } from './api.js';
 
+// WordPress categories and content filters
+// Filter out anything from the "cartoon" category or containing keywords
 const EXCLUDE_KEYWORDS = ['cartoon', 'comic', 'toon'];
+const EXCLUDE_CATEGORY_SLUGS = ['cartoon'];
+
 function shouldExclude(post) {
   const title = (post?.title?.rendered || '').toLowerCase();
   const content = (post?.excerpt?.rendered || post?.content?.rendered || '').toLowerCase();
-  return EXCLUDE_KEYWORDS.some(k => title.includes(k) || content.includes(k));
+
+  // Exclude by title/content keyword
+  if (EXCLUDE_KEYWORDS.some(k => title.includes(k) || content.includes(k))) return true;
+
+  // Exclude by category slug (requires embedded category info)
+  const cats = post?._embedded?.['wp:term']?.[0] || [];
+  if (cats.some(c => EXCLUDE_CATEGORY_SLUGS.includes(c.slug?.toLowerCase()))) return true;
+
+  return false;
 }
 
 function cleanText(html = '') {
-  // Strip tags then decode entities from WP `rendered` fields
   const stripped = html.replace(/<[^>]+>/g, '');
   return decodeHTML(stripped).trim();
 }
@@ -36,9 +47,8 @@ export default function Home() {
   function renderCard(post) {
     const poster = extractMedia(post);
     const size = poster ? imgWH(poster) : null;
-
     const title = cleanText(post?.title?.rendered || 'Untitled');
-    // prefer excerpt; fallback to content
+
     const excerptHtml = post?.excerpt?.rendered || post?.content?.rendered || '';
     const excerpt = short(cleanText(excerptHtml), 160);
 
@@ -86,9 +96,15 @@ export default function Home() {
     grid.append(el('div', { className: 'card skeleton', style: 'height:200px' }));
     try {
       const { data } = await getPosts(
-        { page, per_page: 12 },
+        {
+          page,
+          per_page: 12,
+          _embed: true
+        },
         { signal: aborter.signal, timeout: 10000, retries: 1 }
       );
+
+      // ✅ filter out excluded posts by keyword and category
       const allowed = data.filter(p => !shouldExclude(p));
 
       const frag = document.createDocumentFragment();
@@ -120,7 +136,6 @@ export default function Home() {
   io.observe(sentinel);
 
   detachEnforcer = gridEnforcer(grid);
-
   load();
 
   return {
