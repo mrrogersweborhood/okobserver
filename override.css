@@ -68,7 +68,7 @@ nav a:hover {
   text-decoration: underline;
 }
 
-/* --- Grid Layout (with enforced spacing) --- */
+/* --- Grid Layout (max 4 columns) --- */
 .grid {
   display: grid !important;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
@@ -76,8 +76,16 @@ nav a:hover {
   padding: 1.5rem 2rem !important;
   justify-items: stretch !important;
   align-items: start !important;
+  max-width: 1600px; /* Limit to 4 columns max */
+  margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+}
+
+@media (min-width: 1700px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
 }
 
 /* --- Post Cards --- */
@@ -140,9 +148,20 @@ nav a:hover {
   padding-bottom: 0.75rem;
 }
 
+/* --- Subtle divider between byline and article --- */
+.detail .content::before {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #e5e5e5;
+  margin: 1.5rem 0 1.25rem;
+}
+
+/* --- Poster (Featured Image or Video) --- */
 .detail .poster {
   text-align: center;
   margin-top: 1rem;
+  position: relative;
 }
 
 .detail .poster img,
@@ -155,7 +174,7 @@ nav a:hover {
   margin: 0 auto;
 }
 
-/* --- Play overlay (only appears on video posts) --- */
+/* --- Play overlay (video posts only) --- */
 .play-overlay {
   position: absolute;
   top: 50%;
@@ -204,15 +223,6 @@ nav a:hover {
   border-radius: 0.75rem;
   display: block;
   margin: 1rem auto;
-}
-
-/* --- Divider between byline and article body --- */
-.detail .content::before {
-  content: "";
-  display: block;
-  height: 1px;
-  background: #e5e5e5;
-  margin: 1.5rem 0 1.25rem;
 }
 
 /* --- Footer --- */
