@@ -68,14 +68,16 @@ nav a:hover {
   text-decoration: underline;
 }
 
-/* --- Grid Layout --- */
+/* --- Grid Layout (with enforced spacing) --- */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.25rem;
-  padding: 1.5rem;
-  justify-items: center;
-  align-items: start;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 1.5rem !important;
+  padding: 1.5rem 2rem !important;
+  justify-items: stretch !important;
+  align-items: start !important;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* --- Post Cards --- */
@@ -87,7 +89,7 @@ nav a:hover {
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  max-width: 400px;
+  max-width: 420px;
 }
 
 .post-card:hover {
@@ -224,6 +226,12 @@ footer {
 /* --- Mobile Responsiveness --- */
 @media (max-width: 640px) {
   html, body { overflow-x: hidden; }
+
+  .grid {
+    grid-template-columns: 1fr !important;
+    padding: 1rem !important;
+    gap: 1.25rem !important;
+  }
 
   .detail {
     padding-inline: 12px;
