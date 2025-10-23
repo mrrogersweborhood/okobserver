@@ -1,14 +1,15 @@
-// main.js — OkObserver (v2025-10-23b)
+// main.js — OkObserver (v2025-10-24a)
 // Entry point: handles routing and dynamic rendering
 
-import { fetchPosts, fetchPost } from "./api.js?v=2025-10-23b";
-import { formatDate } from "./util.js?v=2025-10-23b";
-import { renderHome } from "./Home.js?v=2025-10-23b";
-import { renderPostDetail } from "./PostDetail.js?v=2025-10-23b";
-import { renderAbout } from "./About.js?v=2025-10-23b";
-import { renderSettings } from "./Settings.js?v=2025-10-23b";
+// ⬇️ BUMP THESE VERSIONS IN IMPORTS
+import { fetchPosts, fetchPost } from "./api.js?v=2025-10-24a";
+import { formatDate } from "./util.js?v=2025-10-24a";
+import { renderHome } from "./Home.js?v=2025-10-24a";
+import { renderPostDetail } from "./PostDetail.js?v=2025-10-24a";
+import { renderAbout } from "./About.js?v=2025-10-24a";
+import { renderSettings } from "./Settings.js?v=2025-10-24a";
 
-console.log("[OkObserver] Entry loaded: v2025-10-23b");
+console.log("[OkObserver] Entry loaded: v2025-10-24a");
 
 // Base API path
 export const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
@@ -44,7 +45,7 @@ async function router() {
 window.addEventListener("hashchange", router);
 window.addEventListener("load", router);
 
-// MutationObserver safeguard for grid consistency (enforce 3–4 columns)
+// MutationObserver safeguard for grid consistency (enforce spacing)
 const observer = new MutationObserver(() => {
   const grid = document.querySelector(".post-grid");
   if (grid) {
@@ -55,10 +56,11 @@ const observer = new MutationObserver(() => {
 });
 observer.observe(document.body, { childList: true, subtree: true });
 
-// Service Worker registration (cache busting)
+// Service Worker registration (cache busting) — keep in sync with index.html
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    .register("./sw.js?v=2025-10-23b")
-    .then(() => console.log("[OkObserver] SW registered (v2025-10-23b)"))
+    // ⬇️ BUMP THIS VERSION
+    .register("./sw.js?v=2025-10-24a")
+    .then(() => console.log("[OkObserver] SW registered (v2025-10-24a)"))
     .catch((err) => console.warn("[OkObserver] SW registration failed:", err));
 }
