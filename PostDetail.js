@@ -1,8 +1,8 @@
-// PostDetail.js — Post detail view (v2025-10-24a)
+// PostDetail.js — Post detail view (v2025-10-24b)
 // Renders a single post (image or video), headline, byline, and article body.
 
-import { fetchPost, extractMedia, detectProviderUrlFromPost } from "./api.js?v=2025-10-24a";
-import { decodeHTML } from "./util.js?v=2025-10-24a";
+import { fetchPost, extractMedia, detectProviderUrlFromPost } from "./api.js?v=2025-10-24b";
+import { decodeHTML } from "./util.js?v=2025-10-24b";
 
 /* ------------------------- helpers ------------------------- */
 
@@ -75,9 +75,9 @@ export async function renderPostDetail(rootEl, id) {
       </article>
     `;
 
-    // Ensure any wide media inside content stays within bounds on mobile
-    const imgs = rootEl.querySelectorAll(".article-body img, .article-body iframe, .article-body figure");
-    imgs.forEach(el => {
+    // Keep embedded media within bounds on mobile
+    const mediaEls = rootEl.querySelectorAll(".article-body img, .article-body iframe, .article-body figure, .article-body video");
+    mediaEls.forEach(el => {
       el.style.maxWidth = "100%";
       el.style.height = "auto";
     });

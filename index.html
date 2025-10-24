@@ -7,8 +7,7 @@
   <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
   <meta name="theme-color" content="#1E90FF" />
   <link rel="icon" href="favicon.ico" />
-  <!-- ⬇️ BUMP THIS VERSION -->
-  <link rel="stylesheet" href="override.css?v=2025-10-24a" />
+  <link rel="stylesheet" href="override.css?v=2025-10-24b" />
   <style>
     body.loading { opacity: 0; transition: opacity .25s ease; }
     body.ready   { opacity: 1; }
@@ -34,15 +33,13 @@
     © <span id="year"></span> OkObserver
   </footer>
 
-  <!-- ⬇️ BUMP THIS VERSION -->
-  <script type="module" src="main.js?v=2025-10-24a"></script>
+  <script type="module" src="main.js?v=2025-10-24b"></script>
 
   <script>
     (function () {
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // ⬇️ BUMP THIS VERSION (SW URL)
-          navigator.serviceWorker.register('./sw.js?v=2025-10-24a')
+          navigator.serviceWorker.register('./sw.js?v=2025-10-24b')
             .then(() => console.log('[OkObserver] SW registered'))
             .catch(err => console.warn('[OkObserver] SW failed:', err));
         });
