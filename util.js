@@ -45,9 +45,8 @@ export function formatDate(dateStr) {
 
 /**
  * Clear in-browser app cache/state (non-destructive to SW).
- * - Clears sessionStorage entirely.
- * - Removes localStorage keys that look like they belong to OkObserver.
- *   (prefix match: "okobserver", "okob_", "okobs_")
+ * - Clears sessionStorage items that look app-related
+ * - Removes localStorage keys that look app-related
  * Returns an object with counts for visibility in Settings UI.
  */
 export function clearMem() {
@@ -55,28 +54,37 @@ export function clearMem() {
   let removedSession = 0;
 
   try {
-    // session
-    removedSession = sessionStorage.length;
-    sessionStorage.clear();
+    const sKeys = [];
+    for (let i = 0; i < sessionStorage.length; i++) sKeys.push(sessionStorage.key(i));
+    sKeys.forEach((k) => {
+      if (/^(okobserver|okob_|okobs_)/i.test(k || "")) {
+        try { sessionStorage.removeItem(k); removedSession++; } catch {}
+      }
+    });
   } catch {}
 
   try {
-    // local
-    const prefixes = ["okobserver", "okob_", "okobs_"];
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      keys.push(k);
-    }
-    keys.forEach((k) => {
-      if (prefixes.some((p) => (k || "").toLowerCase().startsWith(p))) {
-        try {
-          localStorage.removeItem(k);
-          removedLocal++;
-        } catch {}
+    const lKeys = [];
+    for (let i = 0; i < localStorage.length; i++) lKeys.push(localStorage.key(i));
+    lKeys.forEach((k) => {
+      if (/^(okobserver|okob_|okobs_)/i.test(k || "")) {
+        try { localStorage.removeItem(k); removedLocal++; } catch {}
       }
     });
   } catch {}
 
   return { removedLocal, removedSession };
+}
+
+/**
+ * Clear ALL sessionStorage (quick “session cache” nuke).
+ * Returns number of items cleared.
+ */
+export function clearSession() {
+  let count = 0;
+  try {
+    count = sessionStorage.length;
+    sessionStorage.clear();
+  } catch {}
+  return count;
 }
