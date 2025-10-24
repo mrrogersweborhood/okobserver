@@ -1,119 +1,98 @@
-// /Home.js
-import {
-  el, fmtDate, gridEnforcer, mem,
-  restoreScroll, persistMemToSession, restoreMemFromSession,
-  errorView, imgWH, decodeHTML
-} from './util.js';
-import { getPosts, extractMedia } from './api.js';
+// Home.js — Posts grid (v2025-10-24a)
+// Renders the home feed with 4/3/1 responsive columns (CSS handles layout).
+// Shows: poster image (if available), decoded title, and plain-text excerpt.
+// Filters out posts in the "cartoon" category.
 
-const EXCLUDE_KEYWORDS = ['cartoon', 'comic', 'toon'];
-const EXCLUDE_CATEGORY_SLUGS = ['cartoon'];
+import { fetchPosts, extractMedia } from "./api.js?v=2025-10-24a";
+import { decodeHTML } from "./util.js?v=2025-10-24a";
 
-function shouldExclude(post) {
-  const title = (post?.title?.rendered || '').toLowerCase();
-  const content = (post?.excerpt?.rendered || post?.content?.rendered || '').toLowerCase();
-  if (EXCLUDE_KEYWORDS.some(k => title.includes(k) || content.includes(k))) return true;
-  const cats = post?._embedded?.['wp:term']?.[0] || [];
-  return cats.some(c => EXCLUDE_CATEGORY_SLUGS.includes(c.slug?.toLowerCase()));
+/* ----------------------------- Helpers ----------------------------- */
+
+function isCartoon(post) {
+  // WP REST: categories embedded at _embedded['wp:term'][0]
+  const cats = post?._embedded?.["wp:term"]?.[0] || [];
+  return cats.some(c => String(c?.slug || "").toLowerCase() === "cartoon");
 }
 
-function cleanText(html = '') {
-  const stripped = html.replace(/<[^>]+>/g, '');
-  return decodeHTML(stripped).trim();
+function stripTags(html = "") {
+  return html.replace(/<[^>]*>/g, "");
 }
 
-function short(text = '', max = 140) {
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max);
-  const last = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('—'));
-  return (last > 60 ? cut.slice(0, last) : cut) + '…';
+function cleanText(input = "") {
+  // Strip HTML, then decode entities (e.g., &#8217; → ’)
+  return decodeHTML(stripTags(String(input))).trim();
 }
 
-export default function Home() {
-  let page = 1, loading = false, done = false, aborter = null, detachEnforcer = null;
+function safeExcerpt(post) {
+  // Prefer excerpt; fall back to truncated content
+  const src = post?.excerpt?.rendered || post?.content?.rendered || "";
+  const txt = cleanText(src);
+  // Light clamp in case the theme CSS doesn’t line-clamp
+  return txt.length > 220 ? txt.slice(0, 217) + "…" : txt;
+}
 
-  const grid = el('section', { className: 'grid', id: 'post-grid' });
-  const sentinel = el('div', { id: 'sentinel', style: 'height:1px' });
-  const root = el('div', {}, grid, sentinel);
+function cardHTML(post) {
+  const href = `#/post/${post.id}`;
+  const title = cleanText(post?.title?.rendered || "Untitled");
+  const excerpt = safeExcerpt(post);
+  const poster = extractMedia(post);
 
-  function renderCard(post) {
-    const poster = extractMedia(post);
-    const size = poster ? imgWH(poster) : null;
-    const title = cleanText(post?.title?.rendered || 'Untitled');
-    const excerptHtml = post?.excerpt?.rendered || post?.content?.rendered || '';
-    const excerpt = short(cleanText(excerptHtml), 160);
+  const figure = poster
+    ? `<img src="${poster}" alt="" loading="lazy" decoding="async">`
+    : `<div style="height:180px;background:#f3f4f6;border-bottom:1px solid #eee;"></div>`;
 
-    return el('article', { className: 'card' },
-      el('a', { href: `#/post/${post.id}`, 'data-link': true },
-        el('div', { className: 'media' },
-          poster ? el('img', { src: poster, alt: '', loading: 'lazy', decoding: 'async', ...(size || {}) }) : ''
-        )
-      ),
-      el('div', { className: 'body' },
-        el('h2', { className: 'title' }, title),
-        excerpt ? el('p', { className: 'excerpt' }, excerpt) : null,
-        el('div', { className: 'meta' }, fmtDate(post.date))
-      )
-    );
+  return `
+    <article class="post-card">
+      <a href="${href}" data-link aria-label="${title}">
+        ${figure}
+        <h2>${title}</h2>
+      </a>
+      <div class="meta">${excerpt}</div>
+    </article>
+  `;
+}
+
+/* ----------------------------- Render ------------------------------ */
+
+export async function renderHome(rootEl) {
+  // Lightweight skeleton while we fetch
+  rootEl.innerHTML = `
+    <section class="grid" aria-busy="true" aria-live="polite">
+      ${Array.from({ length: 8 }).map(() => `
+        <article class="post-card" aria-hidden="true">
+          <div style="height:180px;background:#e5e7eb;border-bottom:1px solid #eee;"></div>
+          <h2 style="height:1.1rem;margin:.75rem 1rem .25rem;background:#eee;border-radius:6px;"></h2>
+          <div class="meta" style="height:3rem;margin:0 1rem 1rem;background:#f5f5f5;border-radius:6px;"></div>
+        </article>
+      `).join("")}
+    </section>
+  `;
+
+  try {
+    const posts = await fetchPosts(1, 24);
+
+    // Business rule: hide "cartoon" category posts from the feed.
+    const filtered = posts.filter(p => !isCartoon(p));
+
+    const html = `
+      <section class="grid" aria-busy="false">
+        ${filtered.map(cardHTML).join("")}
+      </section>
+    `;
+
+    rootEl.innerHTML = html;
+
+  } catch (err) {
+    console.error("[Home] Failed to render posts:", err);
+    rootEl.innerHTML = `
+      <section class="grid">
+        <article class="card" style="padding:1.25rem;">
+          <h2 style="margin:0 0 .5rem;">Unable to load posts</h2>
+          <p style="margin:0;">${cleanText(err?.message) || "Please try again."}</p>
+        </article>
+      </section>
+    `;
   }
-
-  async function load() {
-    if (loading || done) return;
-    loading = true;
-    aborter?.abort();
-    aborter = new AbortController();
-
-    if (page === 1) {
-      const hadSession = restoreMemFromSession();
-      if (hadSession || mem.posts.length) {
-        const frag = document.createDocumentFragment();
-        mem.posts.forEach(p => frag.append(renderCard(p)));
-        grid.append(frag);
-        page = mem.postsPage + 1;
-        loading = false;
-        requestAnimationFrame(restoreScroll);
-        return;
-      }
-    }
-
-    grid.append(el('div', { className: 'card skeleton', style: 'height:200px' }));
-    try {
-      const { data } = await getPosts({ page, per_page: 12, _embed: true },
-        { signal: aborter.signal, timeout: 10000, retries: 1 });
-      const allowed = data.filter(p => !shouldExclude(p));
-      const frag = document.createDocumentFragment();
-      allowed.forEach(p => {
-        mem.posts.push(p);
-        frag.append(renderCard(p));
-      });
-      [...grid.querySelectorAll('.skeleton')].forEach(n => n.remove());
-      grid.append(frag);
-      mem.postsPage = page;
-      persistMemToSession();
-      page++;
-      if (!data.length) done = true;
-    } catch (err) {
-      console.error('[OkObserver] load error', err);
-      [...grid.querySelectorAll('.skeleton')].forEach(n => n.remove());
-      grid.append(errorView('Unable to load posts', err?.message || err));
-    } finally {
-      loading = false;
-    }
-  }
-
-  const io = new IntersectionObserver((entries) => {
-    if (entries.some(e => e.isIntersecting)) load();
-  }, { rootMargin: '800px 0px' });
-  io.observe(sentinel);
-  detachEnforcer = gridEnforcer(grid);
-  load();
-
-  return {
-    mount(el) { el.replaceChildren(root); },
-    unmount() {
-      io.disconnect();
-      detachEnforcer && detachEnforcer();
-      aborter?.abort();
-    }
-  };
 }
+
+export default { renderHome };
