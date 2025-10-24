@@ -1,68 +1,33 @@
-// Settings.js — OkObserver (v2025-10-24b)
+// Settings.js — v2025-10-24e
+import { el } from './util.js?v=2025-10-24e';
 
-import { el, clearSession, clearMem } from "./util.js?v=2025-10-24b";
+export async function renderSettings(mount) {
+  mount.innerHTML = '';
 
-/**
- * Public API: renderSettings(rootEl)
- */
-export function renderSettings(rootEl) {
-  const target = rootEl || el("#app");
-  if (!target) return;
-
-  target.innerHTML = `
-    <section class="page page-settings">
-      <h1>Settings</h1>
-      <p class="muted">Maintenance tools for this device only.</p>
-
-      <div class="card">
-        <h2>Cache &amp; Storage</h2>
-        <div class="settings-actions">
-          <button id="btn-clear-session" class="btn btn-primary">
-            Clear Session Cache
-          </button>
-          <button id="btn-clear-mem" class="btn btn-outline">
-            Deep Clean (local + session)
-          </button>
-        </div>
-        <p id="settings-result" class="settings-result" aria-live="polite"></p>
-      </div>
-
-      <p style="margin-top:1.25rem">
-        <a class="back btn btn-outline" href="#/" data-link>Back to Posts</a>
-      </p>
-    </section>
-  `;
-
-  const resEl = el("#settings-result", target);
-
-  const btnSession = el("#btn-clear-session", target);
-  if (btnSession) {
-    btnSession.addEventListener("click", () => {
-      try {
-        const n = clearSession();
-        resEl && (resEl.textContent = `Cleared ${n} item(s) from session storage.`);
-      } catch {
-        resEl && (resEl.textContent = "Could not clear session storage.");
+  const clearCache = el('button', {
+    class: 'btn btn-primary',
+    onclick: async () => {
+      // Clear service worker caches
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
       }
-    });
-  }
+      // Clear local/session storage
+      localStorage.clear();
+      sessionStorage.clear();
 
-  const btnMem = el("#btn-clear-mem", target);
-  if (btnMem) {
-    btnMem.addEventListener("click", () => {
-      try {
-        const r = clearMem();
-        const parts = [];
-        if (r.removedSession) parts.push(`${r.removedSession} session`);
-        if (r.removedLocal) parts.push(`${r.removedLocal} local`);
-        resEl && (resEl.textContent = parts.length
-          ? `Removed ${parts.join(" + ")} item(s).`
-          : "No app-related keys found.");
-      } catch {
-        resEl && (resEl.textContent = "Could not perform deep clean.");
-      }
-    });
-  }
+      alert('Cache and local storage cleared. The app will now reload.');
+      location.reload(true);
+    }
+  }, 'Clear Session Cache');
+
+  const section = el('section', { class: 'container content' },
+    el('h2', {}, 'Settings'),
+    el('p', {}, 'Use this panel for local maintenance tasks.'),
+    el('div', { class: 'settings-item' },
+      clearCache
+    )
+  );
+
+  mount.appendChild(section);
 }
-
-export default { renderSettings };

@@ -1,37 +1,14 @@
-// About.js — OkObserver (v2025-10-24b)
+// About.js — v2025-10-24e
+import { el } from './util.js?v=2025-10-24e';
 
-import { el } from "./util.js?v=2025-10-24b";
-
-/**
- * Public API: renderAbout(rootEl)
- */
-export function renderAbout(rootEl) {
-  const target = rootEl || el("#app");
-  if (!target) return;
-
-  target.innerHTML = `
-    <section class="page page-about">
-      <h1>About OkObserver</h1>
-      <p>
-        OkObserver is a fast, single-page reader for The Oklahoma Observer.
-        Our aim is simple: <em>to comfort the afflicted and afflict the comfortable.</em>
-      </p>
-      <p>
-        This app is a lightweight client that pulls public posts via the Observer’s WordPress API,
-        adds a clean reading layout, and optimizes media for phones and desktops.
-      </p>
-
-      <h2>Credits</h2>
-      <ul>
-        <li>Design &amp; Build: OkObserver</li>
-        <li>Content: The Oklahoma Observer</li>
-      </ul>
-
-      <p style="margin-top:1.25rem;">
-        <a class="back btn btn-outline" href="#/" data-link>Back to Posts</a>
-      </p>
-    </section>
-  `;
+export async function renderAbout(mount) {
+  mount.innerHTML = '';
+  mount.appendChild(
+    el('section', { class: 'container content' },
+      el('h2', {}, 'About'),
+      el('p', {}, 'OkObserver is an independent publication dedicated to comforting the afflicted and afflicting the comfortable.'),
+      el('p', {}, 'Founded in 1969, it remains a vital voice for progressive commentary and investigative journalism in Oklahoma.'),
+      el('p', {}, 'For subscriptions, contact editor@okobserver.org or visit okobserver.org.')
+    )
+  );
 }
-
-export default { renderAbout };

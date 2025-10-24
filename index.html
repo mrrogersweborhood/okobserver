@@ -1,55 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver</title>
-  <meta name="description" content="To comfort the afflicted and afflict the comfortable." />
-  <meta name="theme-color" content="#1E90FF" />
-  <link rel="icon" href="favicon.ico" />
-  <link rel="stylesheet" href="override.css?v=2025-10-24b" />
-  <style>
-    body.loading { opacity: 0; transition: opacity .25s ease; }
-    body.ready   { opacity: 1; }
-  </style>
+  <link rel="stylesheet" href="./override.css?v=2025-10-24e" />
+  <link rel="icon" href="./favicon.ico" />
 </head>
-<body class="loading">
-  <header>
-    <img src="logo.png" alt="The Oklahoma Observer Logo" />
-    <h1>OKOBSERVER</h1>
-    <p>To comfort the afflicted and afflict the comfortable.</p>
-    <nav>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <img src="./logo.png" alt="The Oklahoma Observer Logo" class="brand-logo" />
+      <h1 class="brand-title">OKOBSERVER</h1>
+      <p class="brand-tag">To comfort the afflicted and afflict the comfortable.</p>
+    </div>
+
+    <nav class="main-nav">
       <a href="#/" data-link>Posts</a>
       <a href="#/about" data-link>About</a>
       <a href="#/settings" data-link>Settings</a>
     </nav>
   </header>
 
-  <main id="app">
-    <div style="text-align:center;padding:2rem;font-size:1.1rem;">Loading…</div>
-  </main>
+  <main id="app" class="app"></main>
 
-  <footer>
-    © <span id="year"></span> OkObserver
+  <footer class="site-footer">
+    <small>© <span id="y"></span> OkObserver</small>
   </footer>
 
-  <script type="module" src="main.js?v=2025-10-24b"></script>
-
   <script>
-    (function () {
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js?v=2025-10-24b')
-            .then(() => console.log('[OkObserver] SW registered'))
-            .catch(err => console.warn('[OkObserver] SW failed:', err));
-        });
-      }
-      document.getElementById('year').textContent = new Date().getFullYear();
-      window.addEventListener('load', () => {
-        document.body.classList.remove('loading');
-        document.body.classList.add('ready');
-      });
-    })();
+    document.addEventListener('DOMContentLoaded', () => {
+      const y = document.getElementById('y');
+      if (y) y.textContent = new Date().getFullYear();
+    });
   </script>
+  <script type="module" src="./main.js?v=2025-10-24e"></script>
 </body>
 </html>
