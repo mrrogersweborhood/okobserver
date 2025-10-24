@@ -73,3 +73,31 @@ img{max-width:100%;height:auto;display:block}
 /* Loading / error */
 .loading{padding:36px;text-align:center;color:var(--muted)}
 .error{color:#b91c1c}
+/* --- Video hero play overlay + spacing fixes (v2025-10-24e) --- */
+
+/* Ensure no mysterious gap when embeds are removed */
+.post-body > :first-child { margin-top: 0.25rem; }
+
+/* Video hero overlay on featured image */
+.hero-image.video-hero { position: relative; cursor: pointer; }
+.hero-image.video-hero .play-badge {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+}
+.hero-image.video-hero .play-badge::before {
+  content: "";
+  width: 84px; height: 84px; border-radius: 50%;
+  background: rgba(0,0,0,.45);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.1);
+  transition: background .2s ease, transform .06s ease;
+}
+.hero-image.video-hero .play-badge::after {
+  content: "";
+  margin-left: 4px;
+  border-left: 22px solid #fff;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+}
+.hero-image.video-hero:hover .play-badge::before { background: rgba(0,0,0,.60); }
+.hero-image.video-hero:active .play-badge::before { transform: translateY(1px); }
