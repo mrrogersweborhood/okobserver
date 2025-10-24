@@ -1,85 +1,70 @@
-// /Settings.js
-import { el, clearMem, clearSession } from './util.js';
+// Settings.js — OkObserver (v2025-10-24b)
 
-export default function Settings() {
-  const statusSS = el('div', { className: 'meta', style: 'margin-top:8px;' });
-  const statusSW = el('div', { className: 'meta', style: 'margin-top:8px;' });
+import { el, clearSession, clearMem } from "./util.js?v=2025-10-24b";
 
-  // --- Clear session cache (posts + scroll) ---
-  const btnSS = el('button', {
-    className: 'back',
-    type: 'button',
-    style: 'cursor:pointer'
-  }, 'Clear session cache');
+/**
+ * Render the tiny settings panel with cache tools.
+ * @param {HTMLElement} rootEl Optional mount; defaults to #app
+ */
+export function renderSettings(rootEl) {
+  const target = rootEl || el("#app");
+  if (!target) return;
 
-  btnSS.addEventListener('click', () => {
-    clearSession();
-    clearMem();
-    statusSS.textContent = '✅ Session cache cleared. Posts will reload from scratch.';
-  });
+  target.innerHTML = `
+    <section class="page page-settings">
+      <h1>Settings</h1>
+      <p class="muted">Maintenance tools for this device only.</p>
 
-  // --- Clear Service Worker runtime caches ---
-  const btnSW = el('button', {
-    className: 'back',
-    type: 'button',
-    style: 'cursor:pointer'
-  }, 'Clear Service Worker caches');
+      <div class="card">
+        <h2>Cache &amp; Storage</h2>
+        <div class="settings-actions">
+          <button id="btn-clear-session" class="btn btn-primary">
+            Clear Session Cache
+          </button>
+          <button id="btn-clear-mem" class="btn btn-outline">
+            Deep Clean (local + session)
+          </button>
+        </div>
+        <p id="settings-result" class="settings-result" aria-live="polite"></p>
+      </div>
 
-  btnSW.addEventListener('click', async () => {
-    if (!('serviceWorker' in navigator)) {
-      statusSW.textContent = '⚠️ Service Worker not supported in this browser.';
-      return;
-    }
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      const sw = navigator.serviceWorker.controller || (reg && reg.active);
-      if (!sw) {
-        statusSW.textContent = 'ℹ️ No active Service Worker yet — reload the page and try again.';
-        return;
+      <p style="margin-top:1.25rem">
+        <a class="back" href="#/" data-link>Back to Posts</a>
+      </p>
+    </section>
+  `;
+
+  // Wire: Clear only sessionStorage (fast)
+  const resEl = el("#settings-result", target);
+  const btnSession = el("#btn-clear-session", target);
+  if (btnSession) {
+    btnSession.addEventListener("click", () => {
+      try {
+        const n = clearSession();
+        resEl && (resEl.textContent = `Cleared ${n} item(s) from session storage.`);
+      } catch {
+        resEl && (resEl.textContent = "Could not clear session storage.");
       }
+    });
+  }
 
-      // Send a message and wait for a one-time response
-      const reply = await new Promise((resolve) => {
-        const channel = new MessageChannel();
-        channel.port1.onmessage = (event) => resolve(event.data);
-        sw.postMessage({ type: 'CLEAR_RUNTIME_CACHES' }, [channel.port2]);
-        // Timeout safety (5 s)
-        setTimeout(() => resolve({ ok: false, error: 'Timeout waiting for Service Worker response.' }), 5000);
-      });
-
-      if (reply?.ok) {
-        statusSW.textContent = '🧹 Service Worker runtime caches cleared.';
-      } else {
-        statusSW.textContent = '❌ Could not clear SW caches: ' + (reply?.error || 'Unknown error');
+  // Wire: Clear app-looking keys from localStorage + sessionStorage
+  const btnMem = el("#btn-clear-mem", target);
+  if (btnMem) {
+    btnMem.addEventListener("click", () => {
+      try {
+        const r = clearMem();
+        const parts = [];
+        if (r.removedSession) parts.push(`${r.removedSession} session`);
+        if (r.removedLocal) parts.push(`${r.removedLocal} local`);
+        resEl && (resEl.textContent = parts.length
+          ? `Removed ${parts.join(" + ")} item(s).`
+          : "No app-related keys found.");
+      } catch {
+        resEl && (resEl.textContent = "Could not perform deep clean.");
       }
-    } catch (err) {
-      statusSW.textContent = '⚠️ SW error: ' + err.message;
-    }
-  });
-
-  const root = el('section', { className: 'detail' },
-    el('h1', { className: 'headline' }, 'Settings'),
-    el('p', {}, 'Manage local data and caches used for speed and offline behavior.'),
-
-    el('div', { className: 'card', style: 'padding:16px; display:grid; gap:8px;' },
-      el('strong', {}, 'Session cache'),
-      el('p', { className: 'meta', style: 'margin:0' }, 'Clears cached post list and scroll position stored in sessionStorage.'),
-      btnSS,
-      statusSS
-    ),
-
-    el('div', { className: 'card', style: 'padding:16px; display:grid; gap:8px; margin-top:12px;' },
-      el('strong', {}, 'Service Worker caches'),
-      el('p', { className: 'meta', style: 'margin:0' }, 'Asks the Service Worker to purge its runtime caches. Useful after deploys or version updates.'),
-      btnSW,
-      statusSW
-    ),
-
-    el('a', { href: '#/', className: 'back', 'data-link': true }, 'Back to Posts')
-  );
-
-  return {
-    mount(el) { el.replaceChildren(root); },
-    unmount() { /* nothing */ }
-  };
+    });
+  }
 }
+
+export default { renderSettings };
