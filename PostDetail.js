@@ -1,137 +1,147 @@
-// PostDetail.js — OkObserver (v2025-10-24b)
+// PostDetail.js
+// v2025-10-24c
 
-import { el, decodeHTML, formatDate } from "./util.js?v=2025-10-24b";
+import { el, html, stripTags, decodeHTMLEntities } from './util.js?v=2025-10-24c';
+import { getPost } from './api.js?v=2025-10-24c';
 
-/* ===========================
-   EMBED HELPERS (Vimeo/YouTube)
-   =========================== */
+/**
+ * Very small helper: tries to detect a youtube/vimeo URL in content and return an embeddable src.
+ */
+function extractVideoSrcFromContent(content) {
+  if (!content) return null;
+  const txt = content.rendered || content; // WP gives { rendered }
+  // Look for <iframe src="..."> first
+  const iframeMatch = txt.match(/<iframe[^>]+src=["']([^"']+)["'][^>]*><\/iframe>/i);
+  if (iframeMatch) return iframeMatch[1];
 
-function vimeoIdFromUrl(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "vimeo.com" || u.hostname.endsWith(".vimeo.com")) {
-      const parts = u.pathname.split("/").filter(Boolean);
-      const last = parts[parts.length - 1];
-      if (/^\d+$/.test(last)) return last;
+  // Fallback to raw links
+  const urlMatch = txt.match(/https?:\/\/[^\s"'<>]+/g);
+  if (urlMatch) {
+    const first = urlMatch.find(u => /youtube\.com|youtu\.be|vimeo\.com/.test(u));
+    if (!first) return null;
+
+    // Normalize YouTube
+    if (/youtu\.be\/([A-Za-z0-9_\-\=]+)/.test(first)) {
+      const id = first.split('/').pop();
+      return `https://www.youtube.com/embed/${id}`;
     }
-  } catch {}
+    if (/youtube\.com\/watch\?/.test(first)) {
+      const params = new URL(first).searchParams;
+      const id = params.get('v');
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+
+    // Normalize Vimeo
+    const vimeoId = first.match(/vimeo\.com\/(\d+)/);
+    if (vimeoId) return `https://player.vimeo.com/video/${vimeoId[1]}`;
+  }
   return null;
 }
 
-function ytIdFromUrl(url) {
+/**
+ * Create a responsive 16:9 wrapper for iframes
+ */
+function videoEmbed(src, title = 'Video player') {
+  const wrapper = el('div', { class: 'video-embed' });
+  const iframe = el('iframe', {
+    src,
+    title,
+    allow:
+      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+    allowfullscreen: 'true',
+    loading: 'lazy',
+    referrerpolicy: 'no-referrer-when-downgrade',
+  });
+  wrapper.appendChild(iframe);
+  return wrapper;
+}
+
+function featuredImageBlock(post) {
+  const media = post._embedded?.['wp:featuredmedia']?.[0];
+  const url =
+    media?.source_url ||
+    media?.media_details?.sizes?.large?.source_url ||
+    media?.media_details?.sizes?.medium_large?.source_url ||
+    media?.media_details?.sizes?.full?.source_url;
+
+  if (!url) return null;
+
+  const img = el('img', {
+    src: url,
+    alt: stripTags(media?.alt_text) || stripTags(post.title?.rendered) || 'Featured image',
+    class: 'post-hero-image',
+    loading: 'lazy',
+    decoding: 'async',
+  });
+  const box = el('div', { class: 'post-hero' });
+  box.appendChild(img);
+  return box;
+}
+
+export async function renderPostDetail(root, postId) {
+  // Wipe the target clean
+  root.innerHTML = '';
+
+  // Container
+  const page = el('div', { class: 'container post-detail' });
+  root.appendChild(page);
+
+  // Back button top
+  const backTop = el(
+    'a',
+    { href: '#/', class: 'btn btn-primary back-btn' },
+    html`<span>Back to Posts</span>`
+  );
+  page.appendChild(backTop);
+
+  // Fetch
+  let post;
   try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") return u.pathname.slice(1);
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return id;
-      const m = u.pathname.match(/\/embed\/([^/?#]+)/);
-      if (m) return m[1];
-    }
-  } catch {}
-  return null;
-}
-
-function buildEmbedIframe({ type, id, title = "Embedded media" }) {
-  if (!id) return "";
-  if (type === "vimeo") {
-    const src = `https://player.vimeo.com/video/${id}`;
-    return `<div class="media-embed ratio-16x9">
-      <iframe src="${src}" title="${title}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
-    </div>`;
+    post = await getPost(postId);
+  } catch (e) {
+    page.appendChild(el('p', { class: 'error' }, 'Unable to load post.'));
+    return;
   }
-  if (type === "youtube") {
-    const src = `https://www.youtube.com/embed/${id}`;
-    return `<div class="media-embed ratio-16x9">
-      <iframe src="${src}" title="${title}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>
-    </div>`;
+  if (!post) {
+    page.appendChild(el('p', { class: 'error' }, 'Post not found.'));
+    return;
   }
-  return "";
+
+  // Decide the one-and-only top media block
+  // Priority: video from content → featured image
+  const possibleVideo = extractVideoSrcFromContent(post.content?.rendered);
+  const hero =
+    (possibleVideo && videoEmbed(possibleVideo, stripTags(post.title?.rendered))) ||
+    featuredImageBlock(post);
+
+  if (hero) page.appendChild(hero);
+
+  // Title band
+  const titleBand = el(
+    'div',
+    { class: 'post-title-band' },
+    html`<h1 class="post-title">${decodeHTMLEntities(post.title?.rendered || '')}</h1>
+      <div class="post-byline">
+        <span>${stripTags(post._embedded?.author?.[0]?.name || 'Oklahoma Observer')}</span>
+        <span aria-hidden="true"> • </span>
+        <time datetime="${post.date}">${new Date(post.date).toLocaleDateString()}</time>
+      </div>`
+  );
+  page.appendChild(titleBand);
+
+  // Excerpt (summary page only; here we skip duplicate — you asked for detail only on detail page)
+  // If you *do* want a short dek here, uncomment below:
+  // if (post.excerpt?.rendered) {
+  //   const dek = el('p', { class: 'post-dek' }, decodeHTMLEntities(stripTags(post.excerpt.rendered)));
+  //   page.appendChild(dek);
+  // }
+
+  // Body
+  const body = el('article', { class: 'post-body' });
+  body.innerHTML = decodeHTMLEntities(post.content?.rendered || '');
+  page.appendChild(body);
+
+  // Back button bottom
+  const backBottom = backTop.cloneNode(true);
+  page.appendChild(backBottom);
 }
-
-/**
- * Rewrites Vimeo/YouTube anchors/iframes inside HTML to proper embed players.
- */
-function rewriteEmbeds(html) {
-  if (!html) return html;
-  const container = document.createElement("div");
-  container.innerHTML = html;
-
-  // Links → embeds
-  container.querySelectorAll("a[href]").forEach((a) => {
-    const href = a.getAttribute("href") || "";
-    const vid = vimeoIdFromUrl(href);
-    const yid = ytIdFromUrl(href);
-    if (vid) {
-      a.outerHTML = buildEmbedIframe({ type: "vimeo", id: vid, title: a.textContent || "Vimeo video" });
-    } else if (yid) {
-      a.outerHTML = buildEmbedIframe({ type: "youtube", id: yid, title: a.textContent || "YouTube video" });
-    }
-  });
-
-  // Iframes → proper players
-  container.querySelectorAll("iframe[src]").forEach((ifr) => {
-    const src = ifr.getAttribute("src") || "";
-    const vid = vimeoIdFromUrl(src);
-    const yid = ytIdFromUrl(src);
-    if (vid) {
-      ifr.outerHTML = buildEmbedIframe({ type: "vimeo", id: vid, title: ifr.getAttribute("title") || "Vimeo video" });
-    } else if (yid) {
-      ifr.outerHTML = buildEmbedIframe({ type: "youtube", id: yid, title: ifr.getAttribute("title") || "YouTube video" });
-    }
-  });
-
-  return container.innerHTML;
-}
-
-/* ===========================
-   RENDER DETAIL
-   =========================== */
-
-/**
- * Public API: renderPostDetail(rootEl, post)
- * Expects `post` from your API layer with fields:
- *   { title, date, content, author, categories, featured_media_url? }
- */
-export function renderPostDetail(rootEl, post) {
-  const target = rootEl || el("#app");
-  if (!target) return;
-
-  const title = decodeHTML(post?.title || "");
-  const dateStr = formatDate(post?.date || "");
-  const author = decodeHTML(post?.author || "");
-  const featured = post?.featured_media_url ? `
-    <figure class="post-hero">
-      <img src="${post.featured_media_url}" alt="${title}">
-    </figure>` : "";
-
-  // Prepare body with embed fixes
-  const fixedBody = rewriteEmbeds(decodeHTML(post?.content || ""));
-
-  target.innerHTML = `
-    <article class="post-detail">
-      <p><a class="btn btn-primary back" href="#/" data-link>Back to Posts</a></p>
-
-      ${featured}
-
-      <header class="post-header">
-        <h1 class="post-title">${title}</h1>
-        <div class="byline">
-          <span class="byline-author">${author || "Oklahoma Observer"}</span>
-          <span class="divider">•</span>
-          <time datetime="${post?.date || ""}">${dateStr}</time>
-        </div>
-      </header>
-
-      <hr class="post-divider" />
-
-      <section class="post-body">
-        ${fixedBody}
-      </section>
-
-      <p><a class="btn btn-primary back" href="#/" data-link>Back to Posts</a></p>
-    </article>
-  `;
-}
-
-export default { renderPostDetail };
