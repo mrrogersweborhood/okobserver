@@ -42,3 +42,41 @@ export function formatDate(dateStr) {
     return dateStr || "";
   }
 }
+
+/**
+ * Clear in-browser app cache/state (non-destructive to SW).
+ * - Clears sessionStorage entirely.
+ * - Removes localStorage keys that look like they belong to OkObserver.
+ *   (prefix match: "okobserver", "okob_", "okobs_")
+ * Returns an object with counts for visibility in Settings UI.
+ */
+export function clearMem() {
+  let removedLocal = 0;
+  let removedSession = 0;
+
+  try {
+    // session
+    removedSession = sessionStorage.length;
+    sessionStorage.clear();
+  } catch {}
+
+  try {
+    // local
+    const prefixes = ["okobserver", "okob_", "okobs_"];
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      keys.push(k);
+    }
+    keys.forEach((k) => {
+      if (prefixes.some((p) => (k || "").toLowerCase().startsWith(p))) {
+        try {
+          localStorage.removeItem(k);
+          removedLocal++;
+        } catch {}
+      }
+    });
+  } catch {}
+
+  return { removedLocal, removedSession };
+}
