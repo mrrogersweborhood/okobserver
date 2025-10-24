@@ -45,9 +45,9 @@ export function formatDate(dateStr) {
 
 /**
  * Clear in-browser app cache/state (non-destructive to SW).
- * - Clears sessionStorage items that look app-related
- * - Removes localStorage keys that look app-related
- * Returns an object with counts for visibility in Settings UI.
+ * - Removes localStorage keys that look app-related (okobserver/okob_/okobs_)
+ * - Removes sessionStorage keys that look app-related
+ * Returns an object with counts for UI feedback.
  */
 export function clearMem() {
   let removedLocal = 0;
@@ -77,8 +77,8 @@ export function clearMem() {
 }
 
 /**
- * Clear ALL sessionStorage (quick “session cache” nuke).
- * Returns number of items cleared.
+ * Clear ALL sessionStorage (fast “session cache” nuke).
+ * @returns {number} count of items cleared
  */
 export function clearSession() {
   let count = 0;

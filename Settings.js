@@ -3,8 +3,7 @@
 import { el, clearSession, clearMem } from "./util.js?v=2025-10-24b";
 
 /**
- * Render the tiny settings panel with cache tools.
- * @param {HTMLElement} rootEl Optional mount; defaults to #app
+ * Public API: renderSettings(rootEl)
  */
 export function renderSettings(rootEl) {
   const target = rootEl || el("#app");
@@ -29,13 +28,13 @@ export function renderSettings(rootEl) {
       </div>
 
       <p style="margin-top:1.25rem">
-        <a class="back" href="#/" data-link>Back to Posts</a>
+        <a class="back btn btn-outline" href="#/" data-link>Back to Posts</a>
       </p>
     </section>
   `;
 
-  // Wire: Clear only sessionStorage (fast)
   const resEl = el("#settings-result", target);
+
   const btnSession = el("#btn-clear-session", target);
   if (btnSession) {
     btnSession.addEventListener("click", () => {
@@ -48,7 +47,6 @@ export function renderSettings(rootEl) {
     });
   }
 
-  // Wire: Clear app-looking keys from localStorage + sessionStorage
   const btnMem = el("#btn-clear-mem", target);
   if (btnMem) {
     btnMem.addEventListener("click", () => {

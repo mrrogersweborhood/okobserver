@@ -2,6 +2,9 @@
 
 import { el } from "./util.js?v=2025-10-24b";
 
+/**
+ * Public API: renderAbout(rootEl)
+ */
 export function renderAbout(rootEl) {
   const target = rootEl || el("#app");
   if (!target) return;
@@ -25,7 +28,7 @@ export function renderAbout(rootEl) {
       </ul>
 
       <p style="margin-top:1.25rem;">
-        <a class="back" href="#/" data-link>Back to Posts</a>
+        <a class="back btn btn-outline" href="#/" data-link>Back to Posts</a>
       </p>
     </section>
   `;
