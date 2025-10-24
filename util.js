@@ -1,90 +1,72 @@
-// util.js — Utility helpers (v2025-10-24b)
+// util.js
+// v2025-10-24d
 
 /**
- * Shorthand DOM selector
- * @param {string} selector
- * @param {ParentNode} [scope=document]
- * @returns {Element|null}
+ * Tiny, safe DOM factory.
  */
-export function el(selector, scope = document) {
-  try {
-    return (scope || document).querySelector(selector);
-  } catch {
-    return null;
+export function el(tag, attrs = {}, children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null) continue;
+    if (k === 'class' || k === 'className') node.className = String(v);
+    else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, String(v));
   }
-}
-
-/**
- * Decode WordPress / HTML entities safely
- * @param {string} str
- * @returns {string}
- */
-export function decodeHTML(str = "") {
-  const txt = document.createElement("textarea");
-  txt.innerHTML = str;
-  return txt.value;
-}
-
-/**
- * Format an ISO/WP date string as "Mon DD, YYYY"
- * @param {string} dateStr
- * @returns {string}
- */
-export function formatDate(dateStr) {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr || "";
+  if (children != null) {
+    if (children instanceof Node) node.appendChild(children);
+    else if (Array.isArray(children)) children.forEach(c => (c instanceof Node ? node.appendChild(c) : node.insertAdjacentHTML('beforeend', String(c))));
+    else node.insertAdjacentHTML('beforeend', String(children));
   }
+  return node;
 }
 
 /**
- * Clear in-browser app cache/state (non-destructive to SW).
- * - Removes localStorage keys that look app-related (okobserver/okob_/okobs_)
- * - Removes sessionStorage keys that look app-related
- * Returns an object with counts for UI feedback.
+ * Markup helper.
  */
-export function clearMem() {
-  let removedLocal = 0;
-  let removedSession = 0;
-
-  try {
-    const sKeys = [];
-    for (let i = 0; i < sessionStorage.length; i++) sKeys.push(sessionStorage.key(i));
-    sKeys.forEach((k) => {
-      if (/^(okobserver|okob_|okobs_)/i.test(k || "")) {
-        try { sessionStorage.removeItem(k); removedSession++; } catch {}
-      }
-    });
-  } catch {}
-
-  try {
-    const lKeys = [];
-    for (let i = 0; i < localStorage.length; i++) lKeys.push(localStorage.key(i));
-    lKeys.forEach((k) => {
-      if (/^(okobserver|okob_|okobs_)/i.test(k || "")) {
-        try { localStorage.removeItem(k); removedLocal++; } catch {}
-      }
-    });
-  } catch {}
-
-  return { removedLocal, removedSession };
+export function html(strings, ...vals) {
+  return strings.reduce((acc, s, i) => acc + s + (i < vals.length ? String(vals[i]) : ''), '');
 }
 
 /**
- * Clear ALL sessionStorage (fast “session cache” nuke).
- * @returns {number} count of items cleared
+ * Remove HTML tags from a string (keeps text).
  */
-export function clearSession() {
-  let count = 0;
+export function stripTags(input = '') {
+  const s = String(input);
+  // Quick bail if there are obviously no tags
+  if (!/[<>]/.test(s)) return s;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = s;
+  return tmp.textContent || tmp.innerText || '';
+}
+
+/**
+ * Decode basic HTML entities (&amp; &lt; &gt; &quot; &#039;)
+ * Falls back to browser parser for anything else.
+ */
+export function decodeHTMLEntities(input = '') {
+  const s = String(input);
+  // Fast-track common entities
+  const quick = s
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&#039;', "'");
+  if (quick.indexOf('&') === -1) return quick; // done
+  // Fallback decode via DOM for any remaining entities
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = quick;
+  return textarea.value;
+}
+
+/**
+ * Optional: consistent short date (kept because some places use it).
+ */
+export function formatDate(iso, opts) {
   try {
-    count = sessionStorage.length;
-    sessionStorage.clear();
-  } catch {}
-  return count;
+    return new Date(iso).toLocaleDateString(undefined, opts || { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return iso ?? '';
+  }
 }
