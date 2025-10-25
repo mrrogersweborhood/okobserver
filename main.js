@@ -22,7 +22,7 @@ import { renderHome }     from './Home.js?v=2025-10-24e';
 import { renderAbout }    from './About.js?v=2025-10-24e';
 import { renderSettings } from './Settings.js?v=2025-10-24e';
 // IMPORTANT: bump PostDetail to the new version so the browser/SW fetches fresh code
-import { renderPost }     from './PostDetail.js?v=2025-10-24f';
+import { renderPost }     from './PostDetail.js?v=2025-10-24g';
 
 const app = document.getElementById('app');
 

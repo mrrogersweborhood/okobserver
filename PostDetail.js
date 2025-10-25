@@ -1,4 +1,4 @@
-// PostDetail.js — v2025-10-24f
+// PostDetail.js — v2025-10-24g
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost } from './api.js?v=2025-10-24e';
 
@@ -56,12 +56,12 @@ function findVideoSrcInHTML(html = '') {
   return null;
 }
 
-/** remove duplicated embeds & empty wrappers to kill the big white gap */
+/** Remove video embeds/links + ALL common WP/Jetpack wrappers that leave blank space */
 function stripVideoEmbedsFrom(html = '') {
   const div = document.createElement('div');
   div.innerHTML = html;
 
-  // remove video iframes
+  // 1) remove iframes to youtube/vimeo
   div.querySelectorAll('iframe[src]').forEach((ifr) => {
     const src = (ifr.getAttribute('src') || '').toLowerCase();
     if (src.includes('youtube.com') || src.includes('youtu.be') || src.includes('vimeo.com')) {
@@ -69,17 +69,32 @@ function stripVideoEmbedsFrom(html = '') {
     }
   });
 
-  // remove obvious embed wrappers (WP block embeds often leave whitespace)
-  div.querySelectorAll('.wp-block-embed, figure.wp-block-embed, .jetpack-video-wrapper').forEach(n => n.remove());
-
-  // remove link-only embeds
+  // 2) remove link-only embeds
   div.querySelectorAll('a[href]').forEach((a) => {
     const href = (a.getAttribute('href') || '').toLowerCase();
     if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) a.remove();
   });
 
-  // tidy blank paragraphs / figures
-  div.querySelectorAll('p,figure').forEach((n) => {
+  // 3) nuke common wrapper classes (these often reserve aspect-ratio space)
+  const WRAPPER_CLS = [
+    'wp-block-embed',
+    'wp-block-embed__wrapper',
+    'wp-embed-aspect-16-9',
+    'wp-embed-aspect-4-3',
+    'jetpack-video-wrapper',
+    'wp-block-video',
+    'wp-block-embed-youtube',
+    'wp-block-embed-vimeo'
+  ];
+  div.querySelectorAll('*').forEach((node) => {
+    const cls = (node.className || '').toString();
+    if (WRAPPER_CLS.some(c => cls.includes(c))) {
+      node.remove();
+    }
+  });
+
+  // 4) collapse empty paragraphs/figures/divs left behind
+  div.querySelectorAll('p, figure, div').forEach((n) => {
     const text = (n.textContent || '').trim();
     if (!text && n.children.length === 0) n.remove();
   });
@@ -114,7 +129,7 @@ export async function renderPost(mount, id) {
     );
   })();
 
-  // Build hero:
+  // Build hero
   let hero;
   if (videoSrc && featured) {
     // Featured image with play overlay; click -> swap to iframe
@@ -162,18 +177,16 @@ export async function renderPost(mount, id) {
     el('div', { class: 'byline-divider' })
   );
 
+  // Clean the article body of any video wrappers to eliminate the gap
+  const cleanedBody = videoSrc ? stripVideoEmbedsFrom(bodyHTML) : bodyHTML;
   const article = el('article', { class: 'post-body container' });
-  article.innerHTML = videoSrc ? stripVideoEmbedsFrom(bodyHTML) : bodyHTML;
+  article.innerHTML = cleanedBody;
 
   const topBack    = el('div', { class: 'container back-top' }, backButton());
   const bottomBack = el('div', { class: 'container back-bottom' }, backButton());
 
-  // Mount
   mount.innerHTML = '';
   mount.append(hero, topBack, header, article, bottomBack);
 
-  // Debug markers so we can confirm this version is live
-  console.info('[OkObserver] PostDetail v2025-10-24f', { id, videoSrc, featuredLoaded: !!featured });
+  console.info('[OkObserver] PostDetail v2025-10-24g', { id, videoSrc, featuredLoaded: !!featured });
 }
-
-export default { renderPost };

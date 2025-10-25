@@ -132,3 +132,18 @@ img{max-width:100%;height:auto;display:block}
 }
 .hero-image.video-hero:hover .play-badge::before { background: rgba(0,0,0,.60); }
 .hero-image.video-hero:active .play-badge::before { transform: translateY(1px); }
+/* v2025-10-24g: collapse stray WP/Jetpack video wrappers */
+.post-body .wp-block-embed,
+.post-body .wp-block-embed__wrapper,
+.post-body .wp-embed-aspect-16-9,
+.post-body .wp-embed-aspect-4-3,
+.post-body .jetpack-video-wrapper,
+.post-body .wp-block-video {
+  display: none !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* ensure first element after byline isn't offset by earlier embed margins */
+.post-body > :first-child { margin-top: 0.25rem; }
