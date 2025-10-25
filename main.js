@@ -1,11 +1,16 @@
-// main.js — v2025-10-24e
-const VER = '2025-10-24e';
+// main.js — v2025-10-24f
+// Notes:
+// - PostDetail bumped to ?v=2025-10-24f to force fresh load of the new hero-video logic.
+// - Other modules remain on 2025-10-24e.
+// After replacing, Unregister the SW and hard refresh.
+
+const VER = '2025-10-24f';
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=' + VER);
+      const reg = await navigator.serviceWorker.register('./sw.js?v=' + '2025-10-24e');
       console.log('[OkObserver] SW registered', reg);
     } catch (e) {
       console.warn('[OkObserver] SW registration failed', e);
@@ -14,9 +19,10 @@ if ('serviceWorker' in navigator) {
 }
 
 import { renderHome }     from './Home.js?v=2025-10-24e';
-import { renderPost }     from './PostDetail.js?v=2025-10-24e';
 import { renderAbout }    from './About.js?v=2025-10-24e';
 import { renderSettings } from './Settings.js?v=2025-10-24e';
+// IMPORTANT: bump PostDetail to the new version so the browser/SW fetches fresh code
+import { renderPost }     from './PostDetail.js?v=2025-10-24f';
 
 const app = document.getElementById('app');
 
