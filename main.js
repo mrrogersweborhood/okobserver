@@ -1,7 +1,7 @@
-// main.js — v2025-10-27c
-// Notes:
-// - SW and Home bumped to ?v=2025-10-27c to ensure the latest shell & Home feed logic load.
-// - About/Settings/PostDetail remain on their current versions (see imports below).
+// main.js — v2025-10-27d
+// Updates:
+// - Adds hamburger menu injection + toggle (no index.html edits needed)
+// - Keeps SW token at 2025-10-27c; PostDetail import bumped to 2025-10-27e
 
 const VER = '2025-10-27c';
 
@@ -20,7 +20,7 @@ if ('serviceWorker' in navigator) {
 import { renderHome }     from './Home.js?v=2025-10-27c';
 import { renderAbout }    from './About.js?v=2025-10-27a';
 import { renderSettings } from './Settings.js?v=2025-10-27a';
-// IMPORTANT: keep PostDetail on the latest token to force-refresh the file in browsers/SW
+// IMPORTANT: keep PostDetail on latest token to force-refresh
 import { renderPost }     from './PostDetail.js?v=2025-10-27e';
 
 const app = document.getElementById('app');
@@ -29,6 +29,52 @@ function parseHash() {
   const h = location.hash || '#/';
   const [, route, id] = h.match(/^#\/?([^\/]+)?\/?([^\/]+)?/) || [];
   return { route: route || '', id };
+}
+
+/* =========================
+   Hamburger menu (no HTML changes)
+   ========================= */
+function setupHamburger() {
+  const brand = document.querySelector('.brand');
+  const nav   = document.querySelector('.main-nav');
+  if (!brand || !nav) return;
+
+  // Avoid duplicate button if hot-reloading
+  if (document.getElementById('nav-toggle')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'nav-toggle';
+  btn.className = 'nav-toggle';
+  btn.setAttribute('aria-label', 'Menu');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = `
+    <span class="nav-toggle-bar"></span>
+    <span class="nav-toggle-bar"></span>
+    <span class="nav-toggle-bar"></span>
+  `;
+  // insert at start of .brand so logo stays left, button near it on small screens
+  brand.insertBefore(btn, brand.firstChild);
+
+  btn.addEventListener('click', () => {
+    const open = document.body.classList.toggle('nav-open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+
+  // Close menu when a nav link is clicked (small screens)
+  nav.addEventListener('click', (e) => {
+    if (e.target.closest('a')) {
+      document.body.classList.remove('nav-open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // On resize to desktop, ensure menu state is reset
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) {
+      document.body.classList.remove('nav-open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
 }
 
 async function router() {
@@ -59,4 +105,7 @@ async function router() {
 }
 
 window.addEventListener('hashchange', router);
-window.addEventListener('load', router);
+window.addEventListener('load', () => {
+  setupHamburger();
+  router();
+});
