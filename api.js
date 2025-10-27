@@ -1,6 +1,6 @@
-// api.js — v2025-10-27b
-// Safer field trimming: only top-level _fields + scoped _embed types.
-// No nested _fields paths (prevents 400s on some WP installs).
+// api.js — v2025-10-27c
+// Fixes: restore full embedded fields (drop _fields), robust featured image picker,
+// and stronger cartoon filter across list/detail responses.
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
@@ -15,49 +15,28 @@ function u(path, params = {}) {
   return url.toString();
 }
 
-/* -------- Posts list (Home / infinite scroll) -------- */
+/* -------- Posts list (Home / infinite scroll) --------
+   Note: no _fields so _embedded contains full featuredmedia sizes + term names.
+*/
 export async function getPosts({ page = 1, per_page = 24 } = {}) {
-  // Request only top-level fields we render + scoped embed
   const url = u('/posts', {
     page,
     per_page,
-    _embed: 'author,wp:featuredmedia,wp:term',
-    _fields: 'id,date,title,excerpt,categories,tags,_embedded'
+    _embed: 'author,wp:featuredmedia,wp:term'
   });
-
-  let res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
-
-  // Fallback: if server still objects, retry without _fields (last resort)
-  if (!res.ok && res.status === 400) {
-    console.warn('[OkObserver] getPosts 400 with _fields; retrying without _fields');
-    const url2 = u('/posts', {
-      page, per_page,
-      _embed: 'author,wp:featuredmedia,wp:term'
-    });
-    res = await fetch(url2, { cache: 'no-store', credentials: 'omit' });
-  }
-
+  const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
   if (!res.ok) throw new Error(`getPosts ${res.status}`);
   return res.json();
 }
 
-/* -------- Single post (detail) -------- */
+/* -------- Single post (detail) --------
+   Same approach to guarantee tags/categories and media are present.
+*/
 export async function getPost(id) {
   const url = u(`/posts/${id}`, {
-    _embed: 'author,wp:featuredmedia,wp:term',
-    _fields: 'id,date,title,content,categories,tags,_embedded'
+    _embed: 'author,wp:featuredmedia,wp:term'
   });
-
-  let res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
-
-  if (!res.ok && res.status === 400) {
-    console.warn('[OkObserver] getPost 400 with _fields; retrying without _fields');
-    const url2 = u(`/posts/${id}`, {
-      _embed: 'author,wp:featuredmedia,wp:term'
-    });
-    res = await fetch(url2, { cache: 'no-store', credentials: 'omit' });
-  }
-
+  const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
   if (!res.ok) throw new Error(`getPost ${res.status}`);
   return res.json();
 }
@@ -66,23 +45,61 @@ export async function getPost(id) {
 export function getFeaturedImage(post) {
   try {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
+    if (!media) return '';
+
     const sizes = media?.media_details?.sizes || {};
-    return (
-      sizes?.large?.source_url ||
-      sizes?.medium_large?.source_url ||
-      media?.source_url || ''
-    );
+    // Try a bunch of likely size keys, then fall back to source_url
+    const candidates = [
+      sizes.large?.source_url,
+      sizes.medium_large?.source_url,
+      sizes['1536x1536']?.source_url,
+      sizes['2048x2048']?.source_url,
+      sizes.full?.source_url,
+      media.source_url
+    ];
+    for (const url of candidates) {
+      if (url) return url;
+    }
+    return '';
   } catch { return ''; }
 }
 
+/* Robust cartoon filter:
+   - Checks embedded term name/slug contains 'cartoon'
+   - ALSO intersects post.categories with any embedded category terms that include 'cartoon'
+*/
 export function isCartoon(post) {
-  const terms = post?._embedded?.['wp:term'] || [];
-  for (const group of terms) {
-    for (const term of group || []) {
-      const tax = term?.taxonomy || '';
-      const name = (term?.name || term?.slug || '').toString().toLowerCase();
-      if (tax === 'category' && name.includes('cartoon')) return true;
+  try {
+    const termsGroups = post?._embedded?.['wp:term'] || [];
+    const catIdsWithCartoon = new Set();
+    let nameMatch = false;
+
+    for (const group of termsGroups) {
+      for (const term of group || []) {
+        const tax = (term?.taxonomy || '').toLowerCase();
+        const name = (term?.name || '').toLowerCase();
+        const slug = (term?.slug || '').toLowerCase();
+        const has = name.includes('cartoon') || slug.includes('cartoon');
+        if (tax === 'category' && has) {
+          if (typeof term.id === 'number') catIdsWithCartoon.add(term.id);
+          nameMatch = true;
+        }
+        if (tax === 'post_tag' && has) {
+          nameMatch = true;
+        }
+      }
     }
+
+    // If names/slugs show cartoon anywhere, treat as cartoon.
+    if (nameMatch) return true;
+
+    // Fallback: intersect explicit category IDs
+    const cats = Array.isArray(post?.categories) ? post.categories : [];
+    for (const id of cats) {
+      if (catIdsWithCartoon.has(id)) return true;
+    }
+    return false;
+  } catch {
+    return false;
   }
-  return false;
 }

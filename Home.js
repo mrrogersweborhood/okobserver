@@ -3,7 +3,7 @@
 // and robust infinite scroll behavior.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-27b';
+import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-27c';
 
 // ------- helpers -------
 function toText(html = '') {
