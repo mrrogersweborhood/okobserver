@@ -17,11 +17,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-import { renderHome }     from './Home.js?v=2025-10-24i';
-import { renderAbout }    from './About.js?v=2025-10-24e';
-import { renderSettings } from './Settings.js?v=2025-10-24e';
+import { renderHome }     from './Home.js?v=2025-10-27b';
+import { renderAbout }    from './About.js?v=2025-10-27a';
+import { renderSettings } from './Settings.js?v=2025-10-27a';
 // IMPORTANT: keep PostDetail on the latest token to force-refresh the file in browsers/SW
-import { renderPost }     from './PostDetail.js?v=2025-10-24h';
+import { renderPost }     from './PostDetail.js?v=2025-10-27a';
 
 const app = document.getElementById('app');
 

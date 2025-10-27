@@ -1,5 +1,5 @@
-// Home.js — v2025-10-24i (adds infinite scroll)
-// Layout: Title → Byline → Excerpt on cards; filters out 'cartoon' category
+// Home.js — v2025-10-27b
+// Infinite scroll via IntersectionObserver
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-24e';
 
@@ -38,61 +38,47 @@ function createPostCard(post) {
 }
 
 export async function renderHome(mount) {
-  // Teardown any prior infinite-scroll listener
-  if (window._okobsScrollHandler) {
-    window.removeEventListener('scroll', window._okobsScrollHandler);
-    window._okobsScrollHandler = null;
-  }
+  mount.innerHTML = `<div class="loading">Loading posts…</div>`;
+  let page = 1;
+  let loading = false;
+  let done = false;
 
-  // Reset paging flags at entry to Home
-  window._okobsPage = 1;
-  window._okobsLoading = false;
-
-  // Initial fetch
-  const posts = await getPosts({ per_page: 24, page: window._okobsPage });
-  const filtered = posts.filter(p => !isCartoon(p));
-  const cards = filtered.map(createPostCard);
-
-  const grid = el('section', { class: 'post-grid container' }, ...cards);
+  const grid = el('section', { class: 'post-grid container' });
   mount.innerHTML = '';
   mount.appendChild(grid);
 
-  // Infinite scroll (append-only)
-  const onScroll = async () => {
-    // If navigated away or grid missing, stop listening
-    const gridNode = document.querySelector('.post-grid');
-    if (!gridNode || !location.hash || location.hash.startsWith('#/post') || location.hash.startsWith('#/about') || location.hash.startsWith('#/settings')) {
-      window.removeEventListener('scroll', onScroll);
-      window._okobsScrollHandler = null;
-      return;
-    }
-
-    if (window._okobsLoading) return;
-    const scrollPosition = window.innerHeight + window.scrollY;
-    const threshold = document.body.offsetHeight - 600;
-
-    if (scrollPosition >= threshold) {
-      window._okobsLoading = true;
-      try {
-        window._okobsPage += 1;
-        const more = await getPosts({ per_page: 24, page: window._okobsPage });
-        const moreFiltered = more.filter(p => !isCartoon(p));
-        if (moreFiltered.length === 0) {
-          // No more results; stop listening
-          window.removeEventListener('scroll', onScroll);
-          window._okobsScrollHandler = null;
-          return;
-        }
-        const newCards = moreFiltered.map(createPostCard);
-        newCards.forEach(card => gridNode.appendChild(card));
-      } catch (e) {
-        console.warn('[OkObserver] Infinite scroll halted:', e);
-      } finally {
-        window._okobsLoading = false;
+  async function loadPage() {
+    if (loading || done) return;
+    loading = true;
+    try {
+      const posts = await getPosts({ per_page: 24, page });
+      const filtered = posts.filter(p => !isCartoon(p));
+      if (filtered.length === 0) {
+        done = true;
+        observer.disconnect();
+        return;
       }
+      const cards = filtered.map(createPostCard);
+      cards.forEach(card => grid.appendChild(card));
+      page++;
+    } catch (e) {
+      console.warn('[OkObserver] Infinite scroll failed:', e);
+      done = true;
+    } finally {
+      loading = false;
     }
-  };
+  }
 
-  window._okobsScrollHandler = onScroll;
-  window.addEventListener('scroll', onScroll, { passive: true });
+  await loadPage();
+
+  const sentinel = el('div', { id: 'scroll-sentinel', style: 'height:40px' });
+  mount.appendChild(sentinel);
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) loadPage();
+    });
+  }, { rootMargin: '400px' });
+
+  observer.observe(sentinel);
 }
