@@ -232,3 +232,245 @@ img{max-width:100%;height:auto;display:block}
   margin-top: 2rem;
   margin-bottom: 3rem;
 }
+/* override.css — v2025-10-27f (consolidated, header/menu fixed) */
+
+:root{
+  --blue:#2085f5;
+  --ink:#111;
+  --muted:#6b7280;
+  --bg:#fff;
+  --card:#ffffff;
+  --shadow:0 1px 4px rgba(0,0,0,.08);
+  --radius:14px;
+  --max:1200px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+img{max-width:100%;height:auto;display:block}
+
+.container{max-width:var(--max);margin:0 auto;padding:0 16px}
+.app{min-height:50vh}
+
+/* ========================================
+   HEADER (logo left, menu right, clean)
+   ======================================== */
+.site-header{
+  background:var(--blue);
+  color:#fff;
+  padding:24px 0 12px;
+  margin:0 0 12px;
+}
+
+.brand{
+  max-width:var(--max);
+  margin:0 auto;
+  padding:0 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.brand-logo{
+  height:64px;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.2));
+  margin:0;
+}
+
+/* hide redundant title and tagline */
+.brand-title,
+.brand-tag{display:none !important}
+
+/* menu right-aligned */
+.main-nav{
+  display:flex;
+  gap:18px;
+  justify-content:flex-end;
+  margin:0;
+}
+.main-nav a{
+  color:#fff;
+  text-decoration:none;
+  padding:6px 10px;
+  border-radius:8px;
+}
+.main-nav a:hover{background:rgba(255,255,255,.15)}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+.site-footer{padding:36px 0;text-align:center;color:var(--muted)}
+
+/* ========================================
+   GRID (4/3/1 cols)
+   ======================================== */
+.post-grid{display:grid;gap:18px;grid-template-columns:repeat(4,1fr)}
+@media (max-width:1100px){.post-grid{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.post-grid{grid-template-columns:1fr}}
+
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card-media img{width:100%;aspect-ratio:16/10;object-fit:cover}
+.card-body{padding:12px 14px}
+.card-title{margin:0 0 4px;font-size:1.05rem}
+.card-title a{color:inherit;text-decoration:none}
+.card-title a:hover{text-decoration:underline}
+.meta{color:var(--muted);font-size:.9rem}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+.btn{display:inline-block;text-decoration:none;border-radius:10px;padding:10px 14px;cursor:pointer}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{filter:brightness(1.05)}
+
+/* always left-aligned back buttons */
+.back-top,
+.back-bottom{
+  text-align:left;
+  margin:1.5rem 0;
+}
+.back-btn{
+  display:inline-block;
+  padding:0.6rem 1.4rem;
+  border-radius:999px;
+  font-weight:600;
+}
+
+/* ========================================
+   POST DETAIL: layout & media
+   ======================================== */
+.hero-image{margin:0}
+.hero-image img{width:100%;height:auto;border-radius:var(--radius);box-shadow:var(--shadow)}
+
+.post-header{padding:10px 0 0;margin-top:0.5rem}
+.post-title{margin:8px 0 6px}
+.post-byline{color:var(--muted);font-size:.95rem}
+.byline-divider{height:1px;background:linear-gradient(to right,transparent,#e5e7eb,transparent);margin:.5rem 0 1rem}
+
+.post-body{padding:10px 0 34px}
+.post-body p{margin:1rem 0;line-height:1.7}
+.post-body figure{margin:1.2rem 0}
+.post-body img{border-radius:12px;box-shadow:var(--shadow)}
+.post-body iframe{max-width:100%}
+
+.loading{padding:36px;text-align:center;color:var(--muted)}
+.error{color:#b91c1c}
+
+/* collapse stray embed wrappers */
+.post-body .wp-block-embed,
+.post-body .wp-block-embed__wrapper,
+.post-body .wp-embed-aspect-16-9,
+.post-body .wp-embed-aspect-4-3,
+.post-body .jetpack-video-wrapper,
+.post-body .wp-block-video,
+.post-body .wp-block-embed-youtube,
+.post-body .wp-block-embed-vimeo{
+  display:none!important;
+  height:0!important;
+  padding:0!important;
+  margin:0!important;
+}
+.post-body .wp-block-embed:empty,
+.post-body figure.wp-block-embed:empty,
+.post-body p:empty{display:none;margin:0}
+
+.post-excerpt{color:#374151;font-size:.98rem;margin:.35rem 0 0;line-height:1.55}
+
+.end-cap{
+  margin:2rem auto 4rem;
+  text-align:center;
+  font-size:.95rem;
+  opacity:.7;
+}
+
+/* video/media */
+.hero-media{
+  position:relative;
+  margin:0 auto 1.5rem;
+  max-width:980px;
+  text-align:center;
+}
+.video-hero{
+  position:relative;
+  cursor:pointer;
+  overflow:hidden;
+  border-radius:.5rem;
+  transition:transform .25s ease-in-out;
+}
+.video-hero:hover img{transform:scale(1.02)}
+
+.play-badge{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(0,0,0,.6);
+  border-radius:50%;
+  width:70px;
+  height:70px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+}
+.play-badge::before{
+  content:'';
+  width:0;
+  height:0;
+  border-left:22px solid #fff;
+  border-top:14px solid transparent;
+  border-bottom:14px solid transparent;
+  margin-left:6px;
+}
+
+.video-wrap{
+  position:relative;
+  padding-bottom:56.25%;
+  height:0;
+  overflow:hidden;
+  border-radius:.5rem;
+  box-shadow:var(--shadow);
+  background:#000;
+}
+.video-wrap iframe{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  border:none;
+}
+
+.media-fallback{
+  background:#f5f5f5;
+  color:#888;
+  font-size:.95rem;
+  padding:2rem;
+  border-radius:.5rem;
+  text-align:center;
+}
+
+/* sentinel spacer */
+#scroll-sentinel{height:40px}
+
+/* =========================================
+   MOBILE padding fixes for PostDetail
+   ========================================= */
+@media (max-width:768px){
+  .post-body.container,
+  .post-header.container,
+  .hero-media.container,
+  .back-top.container,
+  .back-bottom.container{
+    padding-left:1rem;
+    padding-right:1rem;
+  }
+  .post-body.container{line-height:1.6}
+}
+@media (max-width:480px){
+  .post-body.container,
+  .post-header.container{
+    padding-left:.9rem;
+    padding-right:.9rem;
+  }
+}
