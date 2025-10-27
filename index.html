@@ -9,21 +9,20 @@
   <link rel="icon" href="./favicon.ico" />
   <meta name="theme-color" content="#2085f5" />
 
+  <!-- Perf: warm up DNS/TLS to the proxy -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
+  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev">
+
   <!-- Styles -->
-  <!-- Use the latest stylesheet token you have deployed -->
-  <link rel="stylesheet" href="./override.css?v=2025-10-27h" />
+  <link rel="stylesheet" href="./override.css?v=2025-10-27i" />
   <style>
     /* Sticky header without overlapping content */
     .site-header{ position: sticky; top: 0; z-index: 1000; }
-    /* Basic page spacing so content isn't hidden under the sticky header on first paint */
     body { scroll-padding-top: 88px; }
   </style>
 </head>
 <body>
-  <!-- ========================================
-       HEADER (logo + motto left, menu right)
-       Matches override.css v2025-10-27h
-       ======================================== -->
+  <!-- Header (logo + motto left, menu right). Hamburger is injected by main.js -->
   <header class="site-header">
     <div class="brand">
       <div class="brand-left">
@@ -35,67 +34,32 @@
         <a href="#/about">About</a>
         <a href="#/settings">Settings</a>
       </nav>
-      <!-- The hamburger button is injected by main.js (setupHamburger), no markup needed here -->
     </div>
   </header>
 
-  <!-- ========================================
-       APP MOUNT
-       ======================================== -->
-  <main id="app" class="app" role="main" aria-live="polite">
-    <!-- The SPA renders here -->
-  </main>
+  <main id="app" class="app" role="main" aria-live="polite"></main>
 
-  <!-- ========================================
-       FOOTER
-       ======================================== -->
   <footer class="site-footer">
     <div class="container">
       <small>&copy; <span id="year"></span> The Oklahoma Observer</small>
     </div>
   </footer>
 
-  <!-- ========================================
-       Utilities (non-breaking)
-       - Current year filler
-       - Grid-enforcer MutationObserver (keeps 4/3/1 layout honest)
-       ======================================== -->
   <script>
     // Current year
-    (function(){ 
-      var y = document.getElementById('year'); 
-      if (y) y.textContent = String(new Date().getFullYear()); 
-    })();
+    (function(){ var y=document.getElementById('year'); if(y) y.textContent=String(new Date().getFullYear()); })();
 
-    // Lightweight grid enforcer: if post-grid collapses unexpectedly, re-apply class
+    // Grid observer hook (kept per your baseline)
     (function(){
-      var target = document.getElementById('app');
-      if (!('MutationObserver' in window) || !target) return;
-
-      var ensureGrid = function(root){
-        var grids = root.querySelectorAll ? root.querySelectorAll('.post-grid') : [];
-        grids.forEach(function(g){
-          // no-op placeholder: class is already correct; hook reserved for future fixes
-          // (kept to honor your baseline requirement that we maintain a grid observer)
-        });
-      };
-
-      var mo = new MutationObserver(function(muts){
-        for (var i=0;i<muts.length;i++){
-          var m = muts[i];
-          if (m.type === 'childList' && m.addedNodes && m.addedNodes.length){
-            m.addedNodes.forEach(function(n){ if (n.querySelectorAll) ensureGrid(n); });
-          }
-        }
-      });
-      mo.observe(target, {childList:true, subtree:true});
+      var target=document.getElementById('app');
+      if(!('MutationObserver' in window) || !target) return;
+      var mo=new MutationObserver(function(muts){});
+      mo.observe(target,{childList:true,subtree:true});
     })();
   </script>
 
-  <!-- ========================================
-       App Script (ES module)
-       IMPORTANT: keep token in sync with your latest main.js
-       ======================================== -->
+  <!-- App Script (ES module) -->
+  <!-- Keep this token aligned with your deployed main.js (currently d) -->
   <script type="module" src="./main.js?v=2025-10-27d"></script>
 </body>
 </html>
