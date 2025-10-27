@@ -1,4 +1,7 @@
-// PostDetail.js — v2025-10-24h
+// PostDetail.js — v2025-10-27c
+// Updates: safer fallback media handling, confirmed single video overlay logic,
+// accessibility cleanup, cache-busting alignment.
+
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost } from './api.js?v=2025-10-24e';
 
@@ -119,15 +122,13 @@ function stripVideoEmbedsFrom(html = '') {
     if (!text && n.children.length === 0) n.remove();
   });
 
-  // 6) trim leading empties at very start (prevents a tall first-child)
+  // 6) trim leading empties
   while (div.firstElementChild) {
     const n = div.firstElementChild;
     const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
     if (text === '' && n.children.length === 0) {
       n.remove();
-    } else {
-      break;
-    }
+    } else break;
   }
 
   return div.innerHTML;
@@ -149,11 +150,9 @@ export async function renderPost(mount, id) {
   if (mount) mount.innerHTML = '<div class="loading">Loading…</div>';
 
   const post = await getPost(id);
-
   const title  = decodeHTML(post.title?.rendered || 'Untitled');
   const date   = formatDate(post.date);
   const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-
   const bodyHTML = post.content?.rendered || '';
   const videoSrc = findVideoSrcInHTML(bodyHTML);
 
@@ -167,12 +166,11 @@ export async function renderPost(mount, id) {
     );
   })();
 
-  // Build hero
+  // Build hero media block
   let hero;
   if (videoSrc && featured) {
-    // Click-to-play featured image with overlay
-    const fig = el('figure', { class: 'hero-image video-hero' },
-      el('img', { src: featured, alt: title }),
+    const fig = el('figure', { class: 'hero-image video-hero', title: 'Click to play video' },
+      el('img', { src: featured, alt: title, loading: 'lazy' }),
       el('span', { class: 'play-badge', title: 'Play video' })
     );
     fig.addEventListener('click', () => {
@@ -183,7 +181,8 @@ export async function renderPost(mount, id) {
             allowfullscreen: true,
             frameborder: '0',
             loading: 'lazy',
-            referrerpolicy: 'no-referrer-when-downgrade'
+            referrerpolicy: 'no-referrer-when-downgrade',
+            title: 'Embedded video'
           })
         )
       );
@@ -197,16 +196,20 @@ export async function renderPost(mount, id) {
           allowfullscreen: true,
           frameborder: '0',
           loading: 'lazy',
-          referrerpolicy: 'no-referrer-when-downgrade'
+          referrerpolicy: 'no-referrer-when-downgrade',
+          title: 'Embedded video'
         })
       )
     );
   } else if (featured) {
     hero = el('div', { class: 'hero-media container' },
-      el('figure', { class: 'hero-image' }, el('img', { src: featured, alt: title }))
+      el('figure', { class: 'hero-image' }, el('img', { src: featured, alt: title, loading: 'lazy' }))
     );
   } else {
-    hero = el('div', { class: 'hero-media container' }, el('div', { class: 'media-fallback' }, ''));
+    // graceful fallback
+    hero = el('div', { class: 'hero-media container' },
+      el('div', { class: 'media-fallback' }, 'No featured media')
+    );
   }
 
   const header = el('header', { class: 'post-header container' },
@@ -215,7 +218,6 @@ export async function renderPost(mount, id) {
     el('div', { class: 'byline-divider' })
   );
 
-  // Clean the article body of any video wrappers to eliminate the gap
   const cleanedBody = videoSrc ? stripVideoEmbedsFrom(bodyHTML) : bodyHTML;
   const article = el('article', { class: 'post-body container' });
   article.innerHTML = cleanedBody;
@@ -226,5 +228,5 @@ export async function renderPost(mount, id) {
   mount.innerHTML = '';
   mount.append(hero, topBack, header, article, bottomBack);
 
-  console.info('[OkObserver] PostDetail v2025-10-24h', { id, videoSrc, featuredLoaded: !!featured });
+  console.info('[OkObserver] PostDetail v2025-10-27c', { id, videoSrc, featuredLoaded: !!featured });
 }
