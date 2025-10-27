@@ -1,9 +1,9 @@
-// main.js — v2025-10-24h
+// main.js — v2025-10-27c
 // Notes:
-// - SW and PostDetail bumped to ?v=2025-10-24h so the new code is guaranteed to load.
-// - Home/About/Settings remain on 2025-10-24e (no change needed).
+// - SW and Home bumped to ?v=2025-10-27c to ensure the latest shell & Home feed logic load.
+// - About/Settings/PostDetail remain on their current versions (see imports below).
 
-const VER = '2025-10-24h';
+const VER = '2025-10-27c';
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
@@ -17,7 +17,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-import { renderHome }     from './Home.js?v=2025-10-27b';
+import { renderHome }     from './Home.js?v=2025-10-27c';
 import { renderAbout }    from './About.js?v=2025-10-27a';
 import { renderSettings } from './Settings.js?v=2025-10-27a';
 // IMPORTANT: keep PostDetail on the latest token to force-refresh the file in browsers/SW

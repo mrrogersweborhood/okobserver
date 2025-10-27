@@ -1,8 +1,12 @@
-// Home.js — v2025-10-27b
-// Infinite scroll via IntersectionObserver
+// Home.js — v2025-10-27c
+// Infinite scroll hardened: earlier trigger, strict request lock, idempotent render,
+// scroll-position persistence, graceful completion.
+// NOTE: Update your dynamic import in main.js to ?v=2025-10-27c to bust caches.
+
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-24e';
 
+// ------- helpers -------
 function toText(html = '') {
   const div = document.createElement('div');
   div.innerHTML = html;
@@ -37,48 +41,165 @@ function createPostCard(post) {
   );
 }
 
+// ------- state persistence (for back/forward to preserve scroll) -------
+const HOME_STATE_KEY = 'okobserver.home.state.v1';
+
+// Safely parse JSON
+function readState() {
+  try {
+    const raw = sessionStorage.getItem(HOME_STATE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeState(state) {
+  try {
+    sessionStorage.setItem(HOME_STATE_KEY, JSON.stringify(state));
+  } catch { /* ignore quota/errors */ }
+}
+
+function clearState() {
+  try {
+    sessionStorage.removeItem(HOME_STATE_KEY);
+  } catch { /* ignore */ }
+}
+
 export async function renderHome(mount) {
+  // Initial skeleton
   mount.innerHTML = `<div class="loading">Loading posts…</div>`;
-  let page = 1;
+
+  // Restore state if returning from a post
+  const restored = readState();
+  // Internal cursors/flags
+  let page = Math.max(1, restored?.page || 1);
   let loading = false;
   let done = false;
+  let lastLoadTs = 0;
+  let observer = null;
 
+  // Track rendered IDs to prevent duplicates
+  const renderedIds = new Set();
+
+  // Grid container
   const grid = el('section', { class: 'post-grid container' });
   mount.innerHTML = '';
   mount.appendChild(grid);
 
+  // Save state when navigating to a post (delegated on mount)
+  mount.addEventListener('click', (e) => {
+    const a = e.target?.closest?.('a[href^="#/post/"]');
+    if (a) {
+      writeState({ page: page - 0, scrollY: window.scrollY });
+    }
+  });
+
   async function loadPage() {
     if (loading || done) return;
+
+    // simple debounce: ignore requests fired <250ms apart
+    const now = performance.now();
+    if (now - lastLoadTs < 250) return;
+    lastLoadTs = now;
+
     loading = true;
     try {
       const posts = await getPosts({ per_page: 24, page });
-      const filtered = posts.filter(p => !isCartoon(p));
-      if (filtered.length === 0) {
+      // If API returns empty array, mark done.
+      if (!Array.isArray(posts) || posts.length === 0) {
         done = true;
-        observer.disconnect();
+        if (observer) observer.disconnect();
+        appendEndCap();
         return;
       }
-      const cards = filtered.map(createPostCard);
-      cards.forEach(card => grid.appendChild(card));
+
+      // Filter: remove cartoons + already-rendered IDs
+      const filtered = posts.filter(
+        (p) => !isCartoon(p) && !renderedIds.has(p.id)
+      );
+
+      // If nothing new after filtering, we still advance the page
+      if (filtered.length === 0) {
+        page++;
+        return;
+      }
+
+      // Append cards + record IDs
+      const frag = document.createDocumentFragment();
+      for (const post of filtered) {
+        renderedIds.add(post.id);
+        frag.appendChild(createPostCard(post));
+      }
+      grid.appendChild(frag);
+
       page++;
     } catch (e) {
       console.warn('[OkObserver] Infinite scroll failed:', e);
+      // Stop further attempts to avoid tight error loop
       done = true;
+      appendEndCap('Something went wrong loading more posts.');
     } finally {
       loading = false;
     }
   }
 
-  await loadPage();
+  function appendEndCap(message = 'No more posts.') {
+    // Add a gentle footer message only once
+    if (mount.querySelector('#end-cap')) return;
+    const cap = el('div', { id: 'end-cap', class: 'end-cap' }, message);
+    mount.appendChild(cap);
+  }
 
-  const sentinel = el('div', { id: 'scroll-sentinel', style: 'height:40px' });
-  mount.appendChild(sentinel);
+  // Boot: if we have a saved page, load up to that page before restoring scroll
+  async function boot() {
+    // Always load at least one page
+    if (page === 1) {
+      await loadPage();
+    } else {
+      // Load pages 1..restored.page
+      const target = page;
+      page = 1;
+      while (!done && page <= target) {
+        await loadPage();
+      }
+    }
 
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) loadPage();
-    });
-  }, { rootMargin: '400px' });
+    // Create sentinel & observer after initial content is in place
+    const sentinel = el('div', { id: 'scroll-sentinel', style: 'height:40px' });
+    mount.appendChild(sentinel);
 
-  observer.observe(sentinel);
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            // Queue exactly one load (lock prevents overlap)
+            loadPage();
+          }
+        }
+      },
+      {
+        root: null,
+        // Earlier trigger so users rarely see a hard stop near the bottom
+        rootMargin: '800px 0px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    // Restore scroll position if we have it
+    if (restored?.scrollY != null) {
+      // Two RAFs ensures layout is painted before scrolling
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo(0, Math.max(0, restored.scrollY));
+          // Clear once we’ve restored
+          clearState();
+        });
+      });
+    }
+  }
+
+  await boot();
 }

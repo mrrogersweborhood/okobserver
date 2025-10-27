@@ -120,3 +120,10 @@ img{max-width:100%;height:auto;display:block}
 .hero-image.video-hero:active .play-badge::before{transform:translateY(1px)}
 /* Subtle styling for summary excerpt under byline */
 .post-excerpt{ color:#374151; font-size:.98rem; margin:.35rem 0 0; line-height:1.55 }
+/* End-cap footer for home feed */
+.end-cap{
+  margin: 2rem auto 4rem;
+  text-align: center;
+  font-size: 0.95rem;
+  opacity: 0.7;
+}

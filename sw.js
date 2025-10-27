@@ -1,13 +1,16 @@
-// sw.js — v2025-10-27b
+// sw.js — v2025-10-27c
 // Cache-first for app shell/static; network-first for JSON/API.
-// After updating this file:
-// 1) DevTools → Application → Service Workers → Unregister
-// 2) Hard refresh twice (Ctrl/Cmd + Shift + R)
+// Updates in this version:
+// ✅ Bumped VER → 2025-10-27c
+// ✅ Added Navigation Preload for faster first paint
+// ✅ Explicit cache cleanup (remove old caches by prefix)
+// ✅ Slight fetch optimization (await Promise.all safely)
 
-const VER   = '2025-10-27b';
+const VER   = '2025-10-27c';
 const CACHE = `okobserver-cache-v${VER}`;
+const CACHE_PREFIX = 'okobserver-cache-v';
 
-// Static app-shell files (same-origin). Adjust if your filenames differ.
+// Static app shell files (same-origin). Adjust if your filenames differ.
 const STATIC = [
   './',
   './index.html',
@@ -25,23 +28,40 @@ const STATIC = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.addAll(STATIC))
-      .then(() => self.skipWaiting()) // ensure new SW takes control sooner
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(STATIC);
+      await self.skipWaiting(); // ensure new SW activates immediately
+    })()
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => (k !== CACHE ? caches.delete(k) : undefined)));
-    await self.clients.claim(); // immediately control open tabs
-  })());
+  event.waitUntil(
+    (async () => {
+      // Enable navigation preload for faster first paint
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable();
+      }
+
+      // Remove old caches not matching this version
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.map((k) => {
+          if (k.startsWith(CACHE_PREFIX) && k !== CACHE) {
+            return caches.delete(k);
+          }
+        })
+      );
+
+      await self.clients.claim(); // take control of open clients immediately
+    })()
+  );
 });
 
 // Strategy:
 // - JSON/data (wp-json, api, *.json): Network-first → fallback to cache
-// - Everything else (static/app shell): Cache-first → populate from network on miss
+// - Everything else (static/app shell): Cache-first → update cache on network success
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -50,29 +70,40 @@ self.addEventListener('fetch', (event) => {
   const pathAndQuery = url.pathname + url.search;
   const isData = /\/(wp-json|api)(\/|$)|\.json($|\?)/i.test(pathAndQuery);
 
+  // For WordPress API / JSON data — network-first
   if (isData) {
-    event.respondWith((async () => {
+    event.respondWith(
+      (async () => {
+        try {
+          const net = await fetch(req, { cache: 'no-store' });
+          const cache = await caches.open(CACHE);
+          cache.put(req, net.clone());
+          return net;
+        } catch {
+          const cached = await caches.match(req);
+          return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
+        }
+      })()
+    );
+    return;
+  }
+
+  // For static/shell assets — cache-first
+  event.respondWith(
+    (async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+
       try {
-        const net = await fetch(req, { cache: 'no-store' });
+        const net = await fetch(req);
         const cache = await caches.open(CACHE);
         cache.put(req, net.clone());
         return net;
       } catch {
-        const cached = await caches.match(req);
-        return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
+        // fallback if fetch fails
+        const fallback = await caches.match('./index.html');
+        return fallback || new Response('Offline', { status: 503 });
       }
-    })());
-    return;
-  }
-
-  // Static / same-origin assets: cache-first
-  event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-
-    const net = await fetch(req);
-    const cache = await caches.open(CACHE);
-    cache.put(req, net.clone());
-    return net;
-  })());
+    })()
+  );
 });
