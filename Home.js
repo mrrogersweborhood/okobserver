@@ -1,7 +1,6 @@
-// Home.js — v2025-10-27c
-// Infinite scroll hardened: earlier trigger, strict request lock, idempotent render,
-// scroll-position persistence, graceful completion.
-// NOTE: Update your dynamic import in main.js to ?v=2025-10-27c to bust caches.
+// Home.js — v2025-10-27d
+// Hardened boot + visible diagnostics. Guarantees first page render, clear errors,
+// and robust infinite scroll behavior.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-24e';
@@ -12,12 +11,10 @@ function toText(html = '') {
   div.innerHTML = html;
   return (div.textContent || '').trim();
 }
-
 function clamp(str = '', max = 220) {
   if (str.length <= max) return str;
   return str.slice(0, max - 1).trimEnd() + '…';
 }
-
 function createPostCard(post) {
   const href   = `#/post/${post.id}`;
   const imgUrl = getFeaturedImage(post);
@@ -41,43 +38,38 @@ function createPostCard(post) {
   );
 }
 
-// ------- state persistence (for back/forward to preserve scroll) -------
+// ------- state persistence -------
 const HOME_STATE_KEY = 'okobserver.home.state.v1';
+const readState = () => {
+  try { const raw = sessionStorage.getItem(HOME_STATE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+};
+const writeState = (state) => { try { sessionStorage.setItem(HOME_STATE_KEY, JSON.stringify(state)); } catch {} };
+const clearState = () => { try { sessionStorage.removeItem(HOME_STATE_KEY); } catch {} };
 
-// Safely parse JSON
-function readState() {
-  try {
-    const raw = sessionStorage.getItem(HOME_STATE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+// ------- ui helpers -------
+function showMessage(mount, msg) {
+  const box = el('div', { class: 'container', style: 'margin:1rem 0;color:#6b7280' }, msg);
+  mount.appendChild(box);
 }
-
-function writeState(state) {
-  try {
-    sessionStorage.setItem(HOME_STATE_KEY, JSON.stringify(state));
-  } catch { /* ignore quota/errors */ }
-}
-
-function clearState() {
-  try {
-    sessionStorage.removeItem(HOME_STATE_KEY);
-  } catch { /* ignore */ }
+function showError(mount, msg) {
+  const box = el('div', { class: 'container error' }, msg);
+  mount.appendChild(box);
 }
 
 export async function renderHome(mount) {
   // Initial skeleton
   mount.innerHTML = `<div class="loading">Loading posts…</div>`;
-
-  // Restore state if returning from a post
   const restored = readState();
+
   // Internal cursors/flags
   let page = Math.max(1, restored?.page || 1);
   let loading = false;
   let done = false;
   let lastLoadTs = 0;
   let observer = null;
+  let pagesTried = 0;    // for diagnostics
+  let totalRendered = 0; // count of cards added
 
   // Track rendered IDs to prevent duplicates
   const renderedIds = new Set();
@@ -87,114 +79,108 @@ export async function renderHome(mount) {
   mount.innerHTML = '';
   mount.appendChild(grid);
 
-  // Save state when navigating to a post (delegated on mount)
+  // Save state when navigating to a post
   mount.addEventListener('click', (e) => {
     const a = e.target?.closest?.('a[href^="#/post/"]');
-    if (a) {
-      writeState({ page: page - 0, scrollY: window.scrollY });
-    }
+    if (a) writeState({ page, scrollY: window.scrollY });
   });
 
   async function loadPage() {
     if (loading || done) return;
 
-    // simple debounce: ignore requests fired <250ms apart
     const now = performance.now();
     if (now - lastLoadTs < 250) return;
     lastLoadTs = now;
 
     loading = true;
+    pagesTried++;
+
     try {
       const posts = await getPosts({ per_page: 24, page });
-      // If API returns empty array, mark done.
-      if (!Array.isArray(posts) || posts.length === 0) {
+
+      if (!Array.isArray(posts)) {
+        showError(mount, 'Unexpected response while loading posts.');
         done = true;
-        if (observer) observer.disconnect();
-        appendEndCap();
         return;
       }
 
-      // Filter: remove cartoons + already-rendered IDs
-      const filtered = posts.filter(
-        (p) => !isCartoon(p) && !renderedIds.has(p.id)
-      );
+      if (posts.length === 0) {
+        done = true;
+        if (observer) observer.disconnect();
+        appendEndCap(totalRendered === 0 ? 'No posts found.' : 'No more posts.');
+        return;
+      }
 
-      // If nothing new after filtering, we still advance the page
+      // Filter cartoons + duplicates
+      const filtered = posts.filter(p => !isCartoon(p) && !renderedIds.has(p.id));
+
+      // If nothing new after filtering, still advance the page
       if (filtered.length === 0) {
         page++;
         return;
       }
 
-      // Append cards + record IDs
       const frag = document.createDocumentFragment();
       for (const post of filtered) {
         renderedIds.add(post.id);
         frag.appendChild(createPostCard(post));
       }
       grid.appendChild(frag);
+      totalRendered += filtered.length;
 
       page++;
     } catch (e) {
-      console.warn('[OkObserver] Infinite scroll failed:', e);
-      // Stop further attempts to avoid tight error loop
-      done = true;
-      appendEndCap('Something went wrong loading more posts.');
+      console.warn('[OkObserver] Home load failed:', e);
+      showError(mount, 'Network error while loading posts. Please retry.');
+      done = true; // avoid tight loop
     } finally {
       loading = false;
     }
   }
 
   function appendEndCap(message = 'No more posts.') {
-    // Add a gentle footer message only once
     if (mount.querySelector('#end-cap')) return;
     const cap = el('div', { id: 'end-cap', class: 'end-cap' }, message);
     mount.appendChild(cap);
   }
 
-  // Boot: if we have a saved page, load up to that page before restoring scroll
+  // Boot: always try at least the first 2 pages to avoid over-aggressive filtering
   async function boot() {
-    // Always load at least one page
+    let target = page;
     if (page === 1) {
       await loadPage();
+      if (totalRendered === 0) await loadPage(); // preemptively try page 2
     } else {
-      // Load pages 1..restored.page
-      const target = page;
+      const saved = page;
       page = 1;
-      while (!done && page <= target) {
+      while (!done && page <= saved) {
         await loadPage();
       }
     }
 
-    // Create sentinel & observer after initial content is in place
+    // If still nothing after 2 attempts, surface a clear hint for diagnostics
+    if (totalRendered === 0) {
+      showMessage(mount, 'No posts rendered yet. If this persists, hard-refresh twice and check network connectivity to okobserver-proxy.');
+    }
+
     const sentinel = el('div', { id: 'scroll-sentinel', style: 'height:40px' });
     mount.appendChild(sentinel);
 
     observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            // Queue exactly one load (lock prevents overlap)
-            loadPage();
-          }
+          if (entry.isIntersecting) loadPage();
         }
       },
-      {
-        root: null,
-        // Earlier trigger so users rarely see a hard stop near the bottom
-        rootMargin: '800px 0px',
-        threshold: 0,
-      }
+      { root: null, rootMargin: '800px 0px', threshold: 0 }
     );
-
     observer.observe(sentinel);
 
-    // Restore scroll position if we have it
+    // Restore scroll position, if any
     if (restored?.scrollY != null) {
-      // Two RAFs ensures layout is painted before scrolling
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           window.scrollTo(0, Math.max(0, restored.scrollY));
-          // Clear once we’ve restored
           clearState();
         });
       });

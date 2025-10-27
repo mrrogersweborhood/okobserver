@@ -17,7 +17,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-import { renderHome }     from './Home.js?v=2025-10-27c';
+import { renderHome }     from './Home.js?v=2025-10-27d';
 import { renderAbout }    from './About.js?v=2025-10-27a';
 import { renderSettings } from './Settings.js?v=2025-10-27a';
 // IMPORTANT: keep PostDetail on latest token to force-refresh
