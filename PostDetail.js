@@ -1,6 +1,6 @@
-// PostDetail.js — v2025-10-27e
-// Changes vs 2025-10-27c: remove top back button; keep single bottom left-aligned button.
-// Also tightened syntax to avoid any mismatched parens/commas.
+// PostDetail.js — v2025-10-27f
+// Adds tag chips after the post body. Keeps single bottom Back button (left-aligned).
+// Assumes getPost(id) returns _embedded terms (wp:term) including post_tag.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost } from './api.js?v=2025-10-24e';
@@ -33,9 +33,7 @@ function normalizeVideoSrc(url) {
       if (/^\d+$/.test(last)) return `https://player.vimeo.com/video/${last}`;
     }
     if (host === 'player.vimeo.com') return url;
-  } catch {
-    /* ignore */
-  }
+  } catch { /* ignore */ }
   return null;
 }
 
@@ -52,7 +50,7 @@ function findVideoSrcInHTML(html = '') {
   }
 
   // anchor next
-  const a = Array.from(div.querySelectorAll('a[href]')).find((node) => {
+  const a = Array.from(div.querySelectorAll('a[href]')).find(node => {
     const h = (node.getAttribute('href') || '').toLowerCase();
     return h.includes('youtube.com') || h.includes('youtu.be') || h.includes('vimeo.com');
   });
@@ -62,7 +60,7 @@ function findVideoSrcInHTML(html = '') {
   }
 
   // plain-text URL paragraph
-  const p = Array.from(div.querySelectorAll('p')).find((node) =>
+  const p = Array.from(div.querySelectorAll('p')).find(node =>
     vimeoOrYT.test((node.textContent || '').trim())
   );
   if (p) {
@@ -94,14 +92,11 @@ function stripVideoEmbedsFrom(html = '') {
   // 2) remove anchor links to youtube/vimeo
   div.querySelectorAll('a[href]').forEach((a) => {
     const href = (a.getAttribute('href') || '').toLowerCase();
-    if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) {
-      a.remove();
-    }
+    if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) a.remove();
   });
 
   // 3) remove plain-text URL paragraphs/blocks (oEmbed)
-  const urlRe =
-    /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)\s*$/i;
+  const urlRe = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)\s*$/i;
   div.querySelectorAll('p, blockquote, pre').forEach((n) => {
     const t = (n.textContent || '').trim();
     if (urlRe.test(t)) n.remove();
@@ -129,18 +124,38 @@ function stripVideoEmbedsFrom(html = '') {
     if (!text && n.children.length === 0) n.remove();
   });
 
-  // 6) trim leading empties at very start (prevents a tall first-child)
+  // 6) trim leading empties
   while (div.firstElementChild) {
     const n = div.firstElementChild;
     const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
-    if (text === '' && n.children.length === 0) {
-      n.remove();
-    } else {
-      break;
-    }
+    if (text === '' && n.children.length === 0) n.remove();
+    else break;
   }
 
   return div.innerHTML;
+}
+
+/* =========================
+   Tags extraction (from _embedded)
+   ========================= */
+
+function extractTags(post) {
+  const groups = post?._embedded?.['wp:term'] || [];
+  const out = [];
+  for (const group of groups) {
+    for (const term of group || []) {
+      if (term && term.taxonomy === 'post_tag') {
+        out.push({ id: term.id, name: term.name, slug: term.slug });
+      }
+    }
+  }
+  // de-dupe by id
+  const seen = new Set();
+  return out.filter(t => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
 }
 
 /* =========================
@@ -156,13 +171,11 @@ function backButton() {
    ========================= */
 
 export async function renderPost(mount, id) {
-  if (mount) {
-    mount.innerHTML = '<div class="loading">Loading…</div>';
-  }
+  if (mount) mount.innerHTML = '<div class="loading">Loading…</div>';
 
   const post = await getPost(id);
-  const title = decodeHTML(post.title?.rendered || 'Untitled');
-  const date = formatDate(post.date);
+  const title  = decodeHTML(post.title?.rendered || 'Untitled');
+  const date   = formatDate(post.date);
   const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
   const bodyHTML = post.content?.rendered || '';
   const videoSrc = findVideoSrcInHTML(bodyHTML);
@@ -171,26 +184,37 @@ export async function renderPost(mount, id) {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
     const sizes = media?.media_details?.sizes;
     return (
-      (sizes && sizes.large && sizes.large.source_url) ||
-      (sizes && sizes.medium_large && sizes.medium_large.source_url) ||
-      (media && media.source_url) ||
-      ''
+      sizes?.large?.source_url ||
+      sizes?.medium_large?.source_url ||
+      media?.source_url || ''
     );
   })();
 
-  // Build hero
+  // === Hero ===
   let hero;
   if (videoSrc && featured) {
-    const fig = el(
-      'figure',
-      { class: 'hero-image video-hero', title: 'Click to play video' },
+    const fig = el('figure', { class: 'hero-image video-hero', title: 'Click to play video' },
       el('img', { src: featured, alt: title, loading: 'lazy' }),
       el('span', { class: 'play-badge', title: 'Play video' })
     );
     fig.addEventListener('click', () => {
-      const wrap = el(
-        'div',
-        { class: 'video-wrap' },
+      fig.replaceWith(
+        el('div', { class: 'video-wrap' },
+          el('iframe', {
+            src: videoSrc,
+            allowfullscreen: true,
+            frameborder: '0',
+            loading: 'lazy',
+            referrerpolicy: 'no-referrer-when-downgrade',
+            title: 'Embedded video'
+          })
+        )
+      );
+    });
+    hero = el('div', { class: 'hero-media container' }, fig);
+  } else if (videoSrc) {
+    hero = el('div', { class: 'hero-media container' },
+      el('div', { class: 'video-wrap' },
         el('iframe', {
           src: videoSrc,
           allowfullscreen: true,
@@ -199,41 +223,19 @@ export async function renderPost(mount, id) {
           referrerpolicy: 'no-referrer-when-downgrade',
           title: 'Embedded video'
         })
-      );
-      fig.replaceWith(wrap);
-    });
-    hero = el('div', { class: 'hero-media container' }, fig);
-  } else if (videoSrc) {
-    const wrap = el(
-      'div',
-      { class: 'video-wrap' },
-      el('iframe', {
-        src: videoSrc,
-        allowfullscreen: true,
-        frameborder: '0',
-        loading: 'lazy',
-        referrerpolicy: 'no-referrer-when-downgrade',
-        title: 'Embedded video'
-      })
+      )
     );
-    hero = el('div', { class: 'hero-media container' }, wrap);
   } else if (featured) {
-    hero = el(
-      'div',
-      { class: 'hero-media container' },
+    hero = el('div', { class: 'hero-media container' },
       el('figure', { class: 'hero-image' }, el('img', { src: featured, alt: title, loading: 'lazy' }))
     );
   } else {
-    hero = el(
-      'div',
-      { class: 'hero-media container' },
+    hero = el('div', { class: 'hero-media container' },
       el('div', { class: 'media-fallback' }, 'No featured media')
     );
   }
 
-  const header = el(
-    'header',
-    { class: 'post-header container' },
+  const header = el('header', { class: 'post-header container' },
     el('h1', { class: 'post-title' }, title),
     el('div', { class: 'post-byline' }, `${author} • ${date}`),
     el('div', { class: 'byline-divider' })
@@ -243,16 +245,28 @@ export async function renderPost(mount, id) {
   const article = el('article', { class: 'post-body container' });
   article.innerHTML = cleanedBody;
 
+  // === Tags block (after article) ===
+  const tags = extractTags(post);
+  const tagsBlock = tags.length
+    ? el('div', { class: 'post-tags container', 'aria-label': 'Tags' },
+        el('div', { class: 'tags' },
+          ...tags.map(t => el('span', { class: 'tag-chip' }, `#${t.name}`))
+        )
+      )
+    : null;
+
   // Only bottom back button
   const bottomBack = el('div', { class: 'container back-bottom' }, backButton());
 
   // Compose
   mount.innerHTML = '';
-  mount.append(hero, header, article, bottomBack);
+  if (tagsBlock) {
+    mount.append(hero, header, article, tagsBlock, bottomBack);
+  } else {
+    mount.append(hero, header, article, bottomBack);
+  }
 
-  console.info('[OkObserver] PostDetail v2025-10-27e', {
-    id,
-    videoSrc,
-    featuredLoaded: !!featured
+  console.info('[OkObserver] PostDetail v2025-10-27f', {
+    id, videoSrc, featuredLoaded: !!featured, tags: tags.map(t => t.name)
   });
 }

@@ -21,7 +21,7 @@ import { renderHome }     from './Home.js?v=2025-10-27c';
 import { renderAbout }    from './About.js?v=2025-10-27a';
 import { renderSettings } from './Settings.js?v=2025-10-27a';
 // IMPORTANT: keep PostDetail on latest token to force-refresh
-import { renderPost }     from './PostDetail.js?v=2025-10-27e';
+import { renderPost }     from './PostDetail.js?v=2025-10-27f';
 
 const app = document.getElementById('app');
 
