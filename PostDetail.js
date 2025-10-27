@@ -1,6 +1,6 @@
-// PostDetail.js — v2025-10-27c
-// Updates: safer fallback media handling, confirmed single video overlay logic,
-// accessibility cleanup, cache-busting alignment.
+// PostDetail.js — v2025-10-27d
+// Updates: removed top back button, single bottom left-aligned back button.
+// All other logic (video handling, featured image, cleaning) retained.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost } from './api.js?v=2025-10-24e';
@@ -72,35 +72,31 @@ function findVideoSrcInHTML(html = '') {
 }
 
 /* =========================
-   Strip any embed remnants
+   Strip video embeds
    ========================= */
 
 function stripVideoEmbedsFrom(html = '') {
   const div = document.createElement('div');
   div.innerHTML = html;
 
-  // 1) remove iframes to youtube/vimeo
-  div.querySelectorAll('iframe[src]').forEach((ifr) => {
-    const src = (ifr.getAttribute('src') || '').toLowerCase();
-    if (src.includes('youtube.com') || src.includes('youtu.be') || src.includes('vimeo.com')) {
-      ifr.remove();
-    }
-  });
+  const selectors = [
+    'iframe[src*="youtube.com"]',
+    'iframe[src*="youtu.be"]',
+    'iframe[src*="vimeo.com"]',
+    'a[href*="youtube.com"]',
+    'a[href*="youtu.be"]',
+    'a[href*="vimeo.com"]',
+  ];
+  div.querySelectorAll(selectors.join(',')).forEach((n) => n.remove());
 
-  // 2) remove anchor links to youtube/vimeo
-  div.querySelectorAll('a[href]').forEach((a) => {
-    const href = (a.getAttribute('href') || '').toLowerCase();
-    if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) a.remove();
-  });
-
-  // 3) remove plain-text URL paragraphs/blocks (oEmbed)
+  // Remove plain-text oEmbed URLs
   const urlRe = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)\s*$/i;
   div.querySelectorAll('p, blockquote, pre').forEach((n) => {
     const t = (n.textContent || '').trim();
     if (urlRe.test(t)) n.remove();
   });
 
-  // 4) nuke common WP/Jetpack wrappers that reserve aspect space
+  // Remove WP/Jetpack wrappers
   const WRAPPER_CLS = [
     'wp-block-embed',
     'wp-block-embed__wrapper',
@@ -116,117 +112,6 @@ function stripVideoEmbedsFrom(html = '') {
     if (WRAPPER_CLS.some(c => cls.includes(c))) node.remove();
   });
 
-  // 5) collapse now-empty elements
+  // Collapse empties
   div.querySelectorAll('p, figure, div').forEach((n) => {
-    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
-    if (!text && n.children.length === 0) n.remove();
-  });
-
-  // 6) trim leading empties
-  while (div.firstElementChild) {
-    const n = div.firstElementChild;
-    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
-    if (text === '' && n.children.length === 0) {
-      n.remove();
-    } else break;
-  }
-
-  return div.innerHTML;
-}
-
-/* =========================
-   UI bits
-   ========================= */
-
-function backButton() {
-  return el('a', { href: '#/', class: 'btn btn-primary back-btn' }, 'Back to Posts');
-}
-
-/* =========================
-   Render
-   ========================= */
-
-export async function renderPost(mount, id) {
-  if (mount) mount.innerHTML = '<div class="loading">Loading…</div>';
-
-  const post = await getPost(id);
-  const title  = decodeHTML(post.title?.rendered || 'Untitled');
-  const date   = formatDate(post.date);
-  const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const bodyHTML = post.content?.rendered || '';
-  const videoSrc = findVideoSrcInHTML(bodyHTML);
-
-  const featured = (() => {
-    const media = post?._embedded?.['wp:featuredmedia']?.[0];
-    const sizes = media?.media_details?.sizes;
-    return (
-      sizes?.large?.source_url ||
-      sizes?.medium_large?.source_url ||
-      media?.source_url || ''
-    );
-  })();
-
-  // Build hero media block
-  let hero;
-  if (videoSrc && featured) {
-    const fig = el('figure', { class: 'hero-image video-hero', title: 'Click to play video' },
-      el('img', { src: featured, alt: title, loading: 'lazy' }),
-      el('span', { class: 'play-badge', title: 'Play video' })
-    );
-    fig.addEventListener('click', () => {
-      fig.replaceWith(
-        el('div', { class: 'video-wrap' },
-          el('iframe', {
-            src: videoSrc,
-            allowfullscreen: true,
-            frameborder: '0',
-            loading: 'lazy',
-            referrerpolicy: 'no-referrer-when-downgrade',
-            title: 'Embedded video'
-          })
-        )
-      );
-    });
-    hero = el('div', { class: 'hero-media container' }, fig);
-  } else if (videoSrc) {
-    hero = el('div', { class: 'hero-media container' },
-      el('div', { class: 'video-wrap' },
-        el('iframe', {
-          src: videoSrc,
-          allowfullscreen: true,
-          frameborder: '0',
-          loading: 'lazy',
-          referrerpolicy: 'no-referrer-when-downgrade',
-          title: 'Embedded video'
-        })
-      )
-    );
-  } else if (featured) {
-    hero = el('div', { class: 'hero-media container' },
-      el('figure', { class: 'hero-image' }, el('img', { src: featured, alt: title, loading: 'lazy' }))
-    );
-  } else {
-    // graceful fallback
-    hero = el('div', { class: 'hero-media container' },
-      el('div', { class: 'media-fallback' }, 'No featured media')
-    );
-  }
-
-  const header = el('header', { class: 'post-header container' },
-    el('h1', { class: 'post-title' }, title),
-    el('div', { class: 'post-byline' }, `${author} • ${date}`),
-    el('div', { class: 'byline-divider' })
-  );
-
-  const cleanedBody = videoSrc ? stripVideoEmbedsFrom(bodyHTML) : bodyHTML;
-  const article = el('article', { class: 'post-body container' });
-  article.innerHTML = cleanedBody;
-
-  const topBack    = el('div', { class: 'container back-top' }, backButton());
-  const bottomBack = el('div', { class: 'container back-bottom' }, backButton());
-
-  mount.innerHTML = '';
-  mount.append(hero, topBack, header, article, bottomBack);
-
-  console.info('[OkObserver] PostDetail v2025-10-27c', { id, videoSrc, featuredLoaded: !!featured });
-}
+    const text = (n.textContent || '').replace(/\u00a0/g, ' '

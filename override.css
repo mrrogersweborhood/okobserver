@@ -1,4 +1,4 @@
-/* override.css — v2025-10-24h (consolidated & deduplicated) */
+/* override.css — v2025-10-27c (consolidated) */
 
 :root{
   --blue:#2085f5;
@@ -51,10 +51,7 @@ img{max-width:100%;height:auto;display:block}
 .back-top,.back-bottom{margin:14px 0}
 .back-btn{display:inline-block}
 
-/* Post detail: media */
-.hero-media{margin:18px auto 8px}
-.video-wrap{position:relative;padding-top:56.25%;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#000}
-.video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+/* --- Post detail: media (base) --- */
 .hero-image{margin:0}
 .hero-image img{width:100%;height:auto;border-radius:var(--radius);box-shadow:var(--shadow)}
 
@@ -65,7 +62,7 @@ img{max-width:100%;height:auto;display:block}
 .byline-divider{height:1px;background:linear-gradient(to right,transparent,#e5e7eb,transparent);margin:.5rem 0 1rem}
 
 /* Article body spacing */
-.post-body{padding:10px 0 34px}
+.post-body{padding:10px 0 34px} /* vertical only; inline padding comes from .container */
 .post-body p{margin:1rem 0;line-height:1.7}
 .post-body figure{margin:1.2rem 0}
 .post-body img{border-radius:12px;box-shadow:var(--shadow)}
@@ -100,26 +97,9 @@ img{max-width:100%;height:auto;display:block}
 .post-body figure.wp-block-embed:empty,
 .post-body p:empty{display:none;margin:0}
 
-/* Hero: click-to-play overlay on featured image for video posts */
-.hero-image.video-hero{position:relative;cursor:pointer}
-.hero-image.video-hero .play-badge{
-  position:absolute;inset:0;display:grid;place-items:center;
-}
-.hero-image.video-hero .play-badge::before{
-  content:"";width:84px;height:84px;border-radius:50%;
-  background:rgba(0,0,0,.45);
-  box-shadow:0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.1);
-  transition:background .2s ease,transform .06s ease;
-}
-.hero-image.video-hero .play-badge::after{
-  content:"";margin-left:4px;
-  border-left:22px solid #fff;border-top:14px solid transparent;border-bottom:14px solid transparent;
-  filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));
-}
-.hero-image.video-hero:hover .play-badge::before{background:rgba(0,0,0,.60)}
-.hero-image.video-hero:active .play-badge::before{transform:translateY(1px)}
 /* Subtle styling for summary excerpt under byline */
 .post-excerpt{ color:#374151; font-size:.98rem; margin:.35rem 0 0; line-height:1.55 }
+
 /* End-cap footer for home feed */
 .end-cap{
   margin: 2rem auto 4rem;
@@ -127,8 +107,10 @@ img{max-width:100%;height:auto;display:block}
   font-size: 0.95rem;
   opacity: 0.7;
 }
+
 /* ================================
    PostDetail video / media styles
+   (consolidated — single source of truth)
    ================================ */
 
 /* Container for all hero media (image or video) */
@@ -139,7 +121,7 @@ img{max-width:100%;height:auto;display:block}
   text-align: center;
 }
 
-/* Featured image for video posts */
+/* Featured image wrapper for video posts (click-to-play) */
 .video-hero {
   position: relative;
   cursor: pointer;
@@ -147,11 +129,9 @@ img{max-width:100%;height:auto;display:block}
   border-radius: 0.5rem;
   transition: transform 0.25s ease-in-out;
 }
-.video-hero:hover img {
-  transform: scale(1.02);
-}
+.video-hero:hover img { transform: scale(1.02); }
 
-/* Play badge overlay */
+/* Play badge overlay (simple circle + triangle) */
 .play-badge {
   position: absolute;
   top: 50%;
@@ -184,6 +164,8 @@ img{max-width:100%;height:auto;display:block}
   height: 0;
   overflow: hidden;
   border-radius: 0.5rem;
+  box-shadow: var(--shadow);
+  background:#000;
 }
 .video-wrap iframe {
   position: absolute;
@@ -215,4 +197,38 @@ img{max-width:100%;height:auto;display:block}
   padding: 0.6rem 1.4rem;
   border-radius: 999px;
   font-weight: 600;
+}
+
+/* --- Tiny helper for sentinel (no layout jank) --- */
+#scroll-sentinel{ height:40px }
+
+/* =========================================
+   Mobile padding fix for PostDetail content
+   ========================================= */
+@media (max-width: 768px) {
+  .post-body.container,
+  .post-header.container,
+  .hero-media.container,
+  .back-top.container,
+  .back-bottom.container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .post-body.container { line-height: 1.6; }
+}
+
+@media (max-width: 480px) {
+  .post-body.container,
+  .post-header.container {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+}
+/* ================================
+   Back to Posts button alignment
+   ================================ */
+.back-bottom {
+  text-align: left !important;
+  margin-top: 2rem;
+  margin-bottom: 3rem;
 }
