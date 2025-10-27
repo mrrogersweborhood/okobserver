@@ -4,7 +4,7 @@
 // 1) DevTools → Application → Service Workers → Unregister
 // 2) Hard refresh (Ctrl/Cmd + Shift + R)
 
-const VER   = '2025-10-24e';
+const VER   = '2025-10-24h';
 const CACHE = `okobserver-cache-v${VER}`;
 
 const STATIC = [

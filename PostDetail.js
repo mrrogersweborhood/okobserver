@@ -1,10 +1,11 @@
-// PostDetail.js — v2025-10-24g
+// PostDetail.js — v2025-10-24h
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost } from './api.js?v=2025-10-24e';
 
-/* -------------------------------
-   Helpers: normalize + detect embeds
-----------------------------------*/
+/* =========================
+   Video helpers
+   ========================= */
+
 function normalizeVideoSrc(url) {
   try {
     const u = new URL(url);
@@ -29,12 +30,12 @@ function normalizeVideoSrc(url) {
       if (/^\d+$/.test(last)) return `https://player.vimeo.com/video/${last}`;
     }
     if (host === 'player.vimeo.com') return url;
-
   } catch {}
   return null;
 }
 
 function findVideoSrcInHTML(html = '') {
+  const vimeoOrYT = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)/i;
   const div = document.createElement('div');
   div.innerHTML = html;
 
@@ -44,7 +45,8 @@ function findVideoSrcInHTML(html = '') {
     const n = normalizeVideoSrc(ifr.getAttribute('src') || '');
     if (n) return n;
   }
-  // anchors next
+
+  // anchor next
   const a = Array.from(div.querySelectorAll('a[href]')).find(a => {
     const h = (a.getAttribute('href') || '').toLowerCase();
     return h.includes('youtube.com') || h.includes('youtu.be') || h.includes('vimeo.com');
@@ -53,10 +55,23 @@ function findVideoSrcInHTML(html = '') {
     const n = normalizeVideoSrc(a.getAttribute('href') || '');
     if (n) return n;
   }
+
+  // plain-text URL paragraph
+  const p = Array.from(div.querySelectorAll('p')).find(p => vimeoOrYT.test((p.textContent || '').trim()));
+  if (p) {
+    const m = (p.textContent || '').trim().match(vimeoOrYT);
+    if (m) {
+      const n = normalizeVideoSrc(m[0]);
+      if (n) return n;
+    }
+  }
   return null;
 }
 
-/** Remove video embeds/links + ALL common WP/Jetpack wrappers that leave blank space */
+/* =========================
+   Strip any embed remnants
+   ========================= */
+
 function stripVideoEmbedsFrom(html = '') {
   const div = document.createElement('div');
   div.innerHTML = html;
@@ -69,13 +84,20 @@ function stripVideoEmbedsFrom(html = '') {
     }
   });
 
-  // 2) remove link-only embeds
+  // 2) remove anchor links to youtube/vimeo
   div.querySelectorAll('a[href]').forEach((a) => {
     const href = (a.getAttribute('href') || '').toLowerCase();
     if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) a.remove();
   });
 
-  // 3) nuke common wrapper classes (these often reserve aspect-ratio space)
+  // 3) remove plain-text URL paragraphs/blocks (oEmbed)
+  const urlRe = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)\s*$/i;
+  div.querySelectorAll('p, blockquote, pre').forEach((n) => {
+    const t = (n.textContent || '').trim();
+    if (urlRe.test(t)) n.remove();
+  });
+
+  // 4) nuke common WP/Jetpack wrappers that reserve aspect space
   const WRAPPER_CLS = [
     'wp-block-embed',
     'wp-block-embed__wrapper',
@@ -88,29 +110,44 @@ function stripVideoEmbedsFrom(html = '') {
   ];
   div.querySelectorAll('*').forEach((node) => {
     const cls = (node.className || '').toString();
-    if (WRAPPER_CLS.some(c => cls.includes(c))) {
-      node.remove();
-    }
+    if (WRAPPER_CLS.some(c => cls.includes(c))) node.remove();
   });
 
-  // 4) collapse empty paragraphs/figures/divs left behind
+  // 5) collapse now-empty elements
   div.querySelectorAll('p, figure, div').forEach((n) => {
-    const text = (n.textContent || '').trim();
+    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
     if (!text && n.children.length === 0) n.remove();
   });
+
+  // 6) trim leading empties at very start (prevents a tall first-child)
+  while (div.firstElementChild) {
+    const n = div.firstElementChild;
+    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
+    if (text === '' && n.children.length === 0) {
+      n.remove();
+    } else {
+      break;
+    }
+  }
 
   return div.innerHTML;
 }
 
-/* -------------------------------
-   Render
-----------------------------------*/
+/* =========================
+   UI bits
+   ========================= */
+
 function backButton() {
   return el('a', { href: '#/', class: 'btn btn-primary back-btn' }, 'Back to Posts');
 }
 
+/* =========================
+   Render
+   ========================= */
+
 export async function renderPost(mount, id) {
   if (mount) mount.innerHTML = '<div class="loading">Loading…</div>';
+
   const post = await getPost(id);
 
   const title  = decodeHTML(post.title?.rendered || 'Untitled');
@@ -119,6 +156,7 @@ export async function renderPost(mount, id) {
 
   const bodyHTML = post.content?.rendered || '';
   const videoSrc = findVideoSrcInHTML(bodyHTML);
+
   const featured = (() => {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
     const sizes = media?.media_details?.sizes;
@@ -132,7 +170,7 @@ export async function renderPost(mount, id) {
   // Build hero
   let hero;
   if (videoSrc && featured) {
-    // Featured image with play overlay; click -> swap to iframe
+    // Click-to-play featured image with overlay
     const fig = el('figure', { class: 'hero-image video-hero' },
       el('img', { src: featured, alt: title }),
       el('span', { class: 'play-badge', title: 'Play video' })
@@ -188,5 +226,5 @@ export async function renderPost(mount, id) {
   mount.innerHTML = '';
   mount.append(hero, topBack, header, article, bottomBack);
 
-  console.info('[OkObserver] PostDetail v2025-10-24g', { id, videoSrc, featuredLoaded: !!featured });
+  console.info('[OkObserver] PostDetail v2025-10-24h', { id, videoSrc, featuredLoaded: !!featured });
 }

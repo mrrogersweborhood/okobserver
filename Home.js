@@ -1,4 +1,4 @@
-// Home.js — v2025-10-24f
+// Home.js — v2025-10-24h
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-24e';
 
@@ -22,6 +22,7 @@ function createPostCard(post) {
   const rawExcerpt = post.excerpt?.rendered || post.content?.rendered || '';
   const excerpt = clamp(toText(rawExcerpt));
 
+  // Final markup layout: Title → Byline → Excerpt
   return el('article', { class: 'card' },
     el('a', { href, class: 'card-media' },
       imgUrl
@@ -38,7 +39,7 @@ function createPostCard(post) {
 
 export async function renderHome(mount) {
   const posts = await getPosts({ per_page: 24, page: 1 });
-  const filtered = posts.filter(p => !isCartoon(p));
+  const filtered = posts.filter(p => !isCartoon(p)); // hide cartoon category
 
   const cards = filtered.map(createPostCard);
   const grid = el('section', { class: 'post-grid container' }, ...cards);

@@ -1,4 +1,4 @@
-/* override.css — v2025-10-24e */
+/* override.css — v2025-10-24h (consolidated & deduplicated) */
 
 :root{
   --blue:#2085f5;
@@ -51,17 +51,18 @@ img{max-width:100%;height:auto;display:block}
 .back-top,.back-bottom{margin:14px 0}
 .back-btn{display:inline-block}
 
-/* Post detail */
+/* Post detail: media */
 .hero-media{margin:18px auto 8px}
 .video-wrap{position:relative;padding-top:56.25%;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#000}
 .video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .hero-image{margin:0}
 .hero-image img{width:100%;height:auto;border-radius:var(--radius);box-shadow:var(--shadow)}
 
-.post-header{padding:10px 0 0}
+/* Post header / byline */
+.post-header{padding:10px 0 0; margin-top:0.5rem}
 .post-title{margin:8px 0 6px}
 .post-byline{color:var(--muted);font-size:.95rem}
-.byline-divider{height:1px;background:linear-gradient(to right,transparent,#e5e7eb,transparent);margin:10px 0 0}
+.byline-divider{height:1px;background:linear-gradient(to right,transparent,#e5e7eb,transparent);margin:.5rem 0 1rem}
 
 /* Article body spacing */
 .post-body{padding:10px 0 34px}
@@ -73,77 +74,49 @@ img{max-width:100%;height:auto;display:block}
 /* Loading / error */
 .loading{padding:36px;text-align:center;color:var(--muted)}
 .error{color:#b91c1c}
-/* --- Video hero play overlay + spacing fixes (v2025-10-24e) --- */
 
-/* Ensure no mysterious gap when embeds are removed */
+/* ==== Detail view fixes: overlay + byline + gap ==== */
+
+/* Ensure the first real element after the byline doesn't start with a big top gap */
 .post-body > :first-child { margin-top: 0.25rem; }
 
-/* Video hero overlay on featured image */
-.hero-image.video-hero { position: relative; cursor: pointer; }
-.hero-image.video-hero .play-badge {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-}
-.hero-image.video-hero .play-badge::before {
-  content: "";
-  width: 84px; height: 84px; border-radius: 50%;
-  background: rgba(0,0,0,.45);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.1);
-  transition: background .2s ease, transform .06s ease;
-}
-.hero-image.video-hero .play-badge::after {
-  content: "";
-  margin-left: 4px;
-  border-left: 22px solid #fff;
-  border-top: 14px solid transparent;
-  border-bottom: 14px solid transparent;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
-}
-.hero-image.video-hero:hover .play-badge::before { background: rgba(0,0,0,.60); }
-.hero-image.video-hero:active .play-badge::before { transform: translateY(1px); }
-/* --- Fix byline gap + hero play overlay (v2025-10-24f) --- */
-
-/* prevent big whitespace if first body node was an embed we removed */
-.post-body > :first-child { margin-top: 0.25rem; }
-
-/* collapse empty WP embed wrappers that sometimes remain */
-.post-body .wp-block-embed:empty,
-.post-body figure.wp-block-embed:empty,
-.post-body p:empty { display: none; margin: 0; }
-
-/* video overlay on featured image */
-.hero-image.video-hero { position: relative; cursor: pointer; }
-.hero-image.video-hero .play-badge {
-  position: absolute; inset: 0; display: grid; place-items: center;
-}
-.hero-image.video-hero .play-badge::before {
-  content: ""; width: 84px; height: 84px; border-radius: 50%;
-  background: rgba(0,0,0,.45);
-  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.1);
-  transition: background .2s ease, transform .06s ease;
-}
-.hero-image.video-hero .play-badge::after {
-  content: "";
-  margin-left: 4px;
-  border-left: 22px solid #fff;
-  border-top: 14px solid transparent;
-  border-bottom: 14px solid transparent;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
-}
-.hero-image.video-hero:hover .play-badge::before { background: rgba(0,0,0,.60); }
-.hero-image.video-hero:active .play-badge::before { transform: translateY(1px); }
-/* v2025-10-24g: collapse stray WP/Jetpack video wrappers */
+/* Collapse stray WP/Jetpack video wrappers that leave tall whitespace */
 .post-body .wp-block-embed,
 .post-body .wp-block-embed__wrapper,
 .post-body .wp-embed-aspect-16-9,
 .post-body .wp-embed-aspect-4-3,
 .post-body .jetpack-video-wrapper,
-.post-body .wp-block-video {
-  display: none !important;
-  height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
+.post-body .wp-block-video,
+.post-body .wp-block-embed-youtube,
+.post-body .wp-block-embed-vimeo{
+  display:none !important;
+  height:0 !important;
+  padding:0 !important;
+  margin:0 !important;
 }
 
-/* ensure first element after byline isn't offset by earlier embed margins */
-.post-body > :first-child { margin-top: 0.25rem; }
+/* Also collapse auto-empty wrappers (after JS removes children) */
+.post-body .wp-block-embed:empty,
+.post-body figure.wp-block-embed:empty,
+.post-body p:empty{display:none;margin:0}
+
+/* Hero: click-to-play overlay on featured image for video posts */
+.hero-image.video-hero{position:relative;cursor:pointer}
+.hero-image.video-hero .play-badge{
+  position:absolute;inset:0;display:grid;place-items:center;
+}
+.hero-image.video-hero .play-badge::before{
+  content:"";width:84px;height:84px;border-radius:50%;
+  background:rgba(0,0,0,.45);
+  box-shadow:0 6px 18px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.1);
+  transition:background .2s ease,transform .06s ease;
+}
+.hero-image.video-hero .play-badge::after{
+  content:"";margin-left:4px;
+  border-left:22px solid #fff;border-top:14px solid transparent;border-bottom:14px solid transparent;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));
+}
+.hero-image.video-hero:hover .play-badge::before{background:rgba(0,0,0,.60)}
+.hero-image.video-hero:active .play-badge::before{transform:translateY(1px)}
+/* Subtle styling for summary excerpt under byline */
+.post-excerpt{ color:#374151; font-size:.98rem; margin:.35rem 0 0; line-height:1.55 }
