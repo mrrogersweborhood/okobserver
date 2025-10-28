@@ -3,7 +3,7 @@
 // - Adds hamburger menu injection + toggle (no index.html edits needed)
 // - Keeps SW token at 2025-10-27c; PostDetail import bumped to 2025-10-27e
 
-const VER = '2025-10-27e';
+const VER = '2025-10-27f';
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
