@@ -1,12 +1,36 @@
-// api.js — v2025-10-28e
-// Faster UX: in-memory caches for list + detail, CORS-safe fetches.
-// Lists are cacheable by edge/SW (no _t). Details keep cache-bust (_t) for freshness.
+// api.js — v2025-10-28f
+// Faster navigation to detail:
+// - In-memory page cache (lists) and post cache (details)
+// - NEW: lightweight "hint" cache seeded from list items for instant detail paint
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
-// ----- tiny in-memory caches (cleared on reload/tab close) -----
-const postsPageCache = new Map();  // key: page number -> array of posts
-const postCache      = new Map();  // key: post id -> post object
+// ----- in-memory caches -----
+const postsPageCache = new Map();  // page -> posts[]
+const postCache      = new Map();  // id -> full post
+const postHint       = new Map();  // id -> partial post (from list item)
+
+/** Public: seed a lightweight hint (from Home list item) */
+export function seedPostHint(post) {
+  if (!post || !post.id) return;
+  // Keep just what we need for the header/hero
+  const minimal = {
+    id: post.id,
+    date: post.date,
+    title: post.title,
+    excerpt: post.excerpt,
+    _embedded: {
+      author: post?._embedded?.author || [],
+      'wp:featuredmedia': post?._embedded?.['wp:featuredmedia'] || []
+    }
+  };
+  postHint.set(post.id, minimal);
+}
+
+/** Public: read the hint back */
+export function getPostHint(id) {
+  return postHint.get(Number(id));
+}
 
 function buildURL(path, params = {}, { cacheBust = false } = {}) {
   const url = new URL(path.replace(/^\//, ''), API_BASE);
@@ -25,10 +49,7 @@ async function jfetch(url) {
   return res.json();
 }
 
-/* ---------------- Posts list (Home / infinite scroll) ----------------
-   - No cache-bust so SW + Cloudflare can serve warm responses.
-   - Memory cache returns instantly on repeat views.
------------------------------------------------------------------------- */
+/* ---------------- Posts list ---------------- */
 export async function getPosts({ page = 1, per_page = 12 } = {}) {
   if (postsPageCache.has(page)) return postsPageCache.get(page);
 
@@ -40,20 +61,17 @@ export async function getPosts({ page = 1, per_page = 12 } = {}) {
     console.warn('[OkObserver] getPosts primary failed:', e);
     posts = await jfetch(buildURL('/posts', { page, per_page }, { cacheBust: false }));
   }
-
   if (!Array.isArray(posts)) posts = [];
 
-  // Filter cartoons immediately (defensive; Home also filters)
+  // Filter cartoons immediately (defensive)
   const filtered = posts.filter(p => !isCartoon(p));
   postsPageCache.set(page, filtered);
   return filtered;
 }
 
-/* ---------------- Single post (detail) ----------------
-   - Keep cache-bust to avoid stale article bodies.
-   - Memory cache avoids re-fetch when navigating back/forward.
--------------------------------------------------------- */
+/* ---------------- Single post ---------------- */
 export async function getPost(id) {
+  id = Number(id);
   if (postCache.has(id)) return postCache.get(id);
 
   let post;
@@ -67,10 +85,7 @@ export async function getPost(id) {
   return post;
 }
 
-/* -------------- Image helpers --------------
-   getFeaturedImage: keep simple best-pick URL.
-   getImageCandidates: build src/srcset/sizes + intrinsic width/height.
--------------------------------------------- */
+/* -------- Image helpers (responsive) -------- */
 export function getFeaturedImage(post) {
   try {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
@@ -84,16 +99,12 @@ export function getFeaturedImage(post) {
   return '';
 }
 
-/** Build responsive candidates for <img>:
- *  returns { src, srcset, sizes, width, height }
- */
 export function getImageCandidates(post) {
-  const out = { src: '', srcset: '', sizes: '(min-width:1100px) 25vw, (min-width:720px) 33vw, 100vw', width: undefined, height: undefined };
+  const out = { src: '', srcset: '', sizes: '(min-width:1100px) 60ch, 100vw', width: undefined, height: undefined };
   try {
     const media = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!media) return out;
     const s = media.media_details?.sizes || {};
-    // Collect known sizes with widths (fallback to full if absent)
     const entries = [];
     for (const key of Object.keys(s)) {
       const item = s[key];
@@ -101,28 +112,19 @@ export function getImageCandidates(post) {
         entries.push({ w: item.width, url: item.source_url, h: item.height });
       }
     }
-    if (media.source_url && !entries.length) {
-      // no size metadata; use the original as single source
+    if (!entries.length && media.source_url) {
       out.src = media.source_url;
       return out;
     }
     entries.sort((a,b) => a.w - b.w);
-    // build srcset
     out.srcset = entries.map(e => `${e.url} ${e.w}w`).join(', ');
-    // pick a reasonable default src (mid/high)
-    const pick = entries.find(e => e.w >= 1024) || entries[entries.length - 1] || entries[0];
-    if (pick) {
-      out.src = pick.url;
-      out.width = pick.w;
-      out.height = pick.h;
-    }
+    const pick = entries.find(e => e.w >= 1280) || entries[entries.length - 1] || entries[0];
+    if (pick) { out.src = pick.url; out.width = pick.w; out.height = pick.h; }
     return out;
-  } catch {
-    return out;
-  }
+  } catch { return out; }
 }
 
-/* -------------- Cartoon filter -------------- */
+/* -------- Cartoon filter -------- */
 export function isCartoon(post) {
   try {
     const groups = post?._embedded?.['wp:term'];

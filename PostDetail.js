@@ -1,272 +1,119 @@
-// PostDetail.js — v2025-10-27f
-// Adds tag chips after the post body. Keeps single bottom Back button (left-aligned).
-// Assumes getPost(id) returns _embedded terms (wp:term) including post_tag.
+// PostDetail.js — v2025-10-28i
+// Instant detail: render from hint immediately, then hydrate with full content.
+// Keeps: single "Back to Posts" button (bottom), clean media, tags display.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { getPost } from './api.js?v=2025-10-28d';
+import { getPost, getFeaturedImage, getImageCandidates, getPostHint } from './api.js?v=2025-10-28f';
 
-/* =========================
-   Video helpers
-   ========================= */
-
-function normalizeVideoSrc(url) {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-
-    // YouTube
-    if (host.includes('youtu.be')) {
-      const id = u.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (host.includes('youtube.com')) {
-      const id = u.searchParams.get('v');
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      const m = u.pathname.match(/\/embed\/([^/?#]+)/);
-      if (m) return `https://www.youtube.com/embed/${m[1]}`;
-    }
-
-    // Vimeo
-    if (host === 'vimeo.com' || host.endsWith('.vimeo.com')) {
-      const parts = u.pathname.split('/').filter(Boolean);
-      const last = parts[parts.length - 1];
-      if (/^\d+$/.test(last)) return `https://player.vimeo.com/video/${last}`;
-    }
-    if (host === 'player.vimeo.com') return url;
-  } catch { /* ignore */ }
-  return null;
+function byline(post) {
+  const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+  const date = formatDate(post.date);
+  return `${author} • ${date}`;
 }
 
-function findVideoSrcInHTML(html = '') {
-  const vimeoOrYT = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)/i;
-  const div = document.createElement('div');
-  div.innerHTML = html;
-
-  // iframe first
-  const ifr = div.querySelector('iframe[src]');
-  if (ifr) {
-    const n = normalizeVideoSrc(ifr.getAttribute('src') || '');
-    if (n) return n;
-  }
-
-  // anchor next
-  const a = Array.from(div.querySelectorAll('a[href]')).find(node => {
-    const h = (node.getAttribute('href') || '').toLowerCase();
-    return h.includes('youtube.com') || h.includes('youtu.be') || h.includes('vimeo.com');
+function heroImage(post, priority = 'high') {
+  const img = getImageCandidates(post);
+  if (!img.src) return null;
+  return el('img', {
+    src: img.src,
+    srcset: img.srcset || undefined,
+    sizes: img.sizes || undefined,
+    width: img.width || undefined,
+    height: img.height || undefined,
+    alt: decodeHTML(post.title?.rendered || 'Featured image'),
+    loading: 'eager',
+    decoding: 'async',
+    fetchpriority: priority
   });
-  if (a) {
-    const n = normalizeVideoSrc(a.getAttribute('href') || '');
-    if (n) return n;
-  }
+}
 
-  // plain-text URL paragraph
-  const p = Array.from(div.querySelectorAll('p')).find(node =>
-    vimeoOrYT.test((node.textContent || '').trim())
+function renderSkeleton(mount) {
+  mount.innerHTML = `
+    <article class="post container">
+      <div class="skeleton hero"></div>
+      <h1 class="skeleton title"></h1>
+      <div class="skeleton byline"></div>
+      <div class="skeleton para"></div>
+      <div class="skeleton para"></div>
+    </article>`;
+}
+
+function applyHint(mount, hint) {
+  // Paint above-the-fold instantly from the hint
+  const title = decodeHTML(hint?.title?.rendered || 'Untitled');
+  const article = el('article', { class: 'post container' },
+    el('div', { class: 'post-hero' }, heroImage(hint) || el('div', { class: 'media-fallback' }, '')),
+    el('h1', { class: 'post-title' }, title),
+    el('div', { class: 'meta' }, byline(hint)),
   );
-  if (p) {
-    const m = (p.textContent || '').trim().match(vimeoOrYT);
-    if (m) {
-      const n = normalizeVideoSrc(m[0]);
-      if (n) return n;
-    }
-  }
-  return null;
+  mount.innerHTML = '';
+  mount.appendChild(article);
+  // keep space for future content
+  const body = el('div', { class: 'post-body' });
+  article.appendChild(body);
+  return { article, body };
 }
 
-/* =========================
-   Strip any embed remnants
-   ========================= */
+function renderFull({ article, body }, fullPost) {
+  const html = fullPost?.content?.rendered || '';
+  body.innerHTML = `<div class="post-content">${html}</div>`;
 
-function stripVideoEmbedsFrom(html = '') {
-  const div = document.createElement('div');
-  div.innerHTML = html;
-
-  // 1) remove iframes to youtube/vimeo
-  div.querySelectorAll('iframe[src]').forEach((ifr) => {
-    const src = (ifr.getAttribute('src') || '').toLowerCase();
-    if (src.includes('youtube.com') || src.includes('youtu.be') || src.includes('vimeo.com')) {
-      ifr.remove();
-    }
-  });
-
-  // 2) remove anchor links to youtube/vimeo
-  div.querySelectorAll('a[href]').forEach((a) => {
-    const href = (a.getAttribute('href') || '').toLowerCase();
-    if (href.includes('youtube.com') || href.includes('youtu.be') || href.includes('vimeo.com')) a.remove();
-  });
-
-  // 3) remove plain-text URL paragraphs/blocks (oEmbed)
-  const urlRe = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+|vimeo\.com\/\d+)\s*$/i;
-  div.querySelectorAll('p, blockquote, pre').forEach((n) => {
-    const t = (n.textContent || '').trim();
-    if (urlRe.test(t)) n.remove();
-  });
-
-  // 4) nuke common WP/Jetpack wrappers that reserve aspect space
-  const WRAPPER_CLS = [
-    'wp-block-embed',
-    'wp-block-embed__wrapper',
-    'wp-embed-aspect-16-9',
-    'wp-embed-aspect-4-3',
-    'jetpack-video-wrapper',
-    'wp-block-video',
-    'wp-block-embed-youtube',
-    'wp-block-embed-vimeo'
-  ];
-  div.querySelectorAll('*').forEach((node) => {
-    const cls = (node.className || '').toString();
-    if (WRAPPER_CLS.some((c) => cls.includes(c))) node.remove();
-  });
-
-  // 5) collapse now-empty elements
-  div.querySelectorAll('p, figure, div').forEach((n) => {
-    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
-    if (!text && n.children.length === 0) n.remove();
-  });
-
-  // 6) trim leading empties
-  while (div.firstElementChild) {
-    const n = div.firstElementChild;
-    const text = (n.textContent || '').replace(/\u00a0/g, ' ').trim();
-    if (text === '' && n.children.length === 0) n.remove();
-    else break;
+  // add tags after article (if present)
+  const tags = (fullPost.tags || []);
+  if (Array.isArray(tags) && tags.length) {
+    const tagWrap = el('div', { class: 'post-tags container' },
+      el('h4', { class: 'tag-title' }, 'Tags'),
+      el('ul', { class: 'tag-list' }, ...tags.map(id => el('li', {}, `#${id}`))) // numeric IDs; WP tag names require extra fetch
+    );
+    article.appendChild(tagWrap);
   }
 
-  return div.innerHTML;
-}
+  // Single "Back to Posts" at bottom only
+  const back = el('p', { class: 'container' },
+    el('a', { class: 'btn btn-primary', href: '#/' }, 'Back to Posts')
+  );
+  article.appendChild(back);
 
-/* =========================
-   Tags extraction (from _embedded)
-   ========================= */
-
-function extractTags(post) {
-  const groups = post?._embedded?.['wp:term'] || [];
-  const out = [];
-  for (const group of groups) {
-    for (const term of group || []) {
-      if (term && term.taxonomy === 'post_tag') {
-        out.push({ id: term.id, name: term.name, slug: term.slug });
-      }
-    }
+  // Lazy up heavy embeds inside post-content (YouTube, iframe)
+  for (const iframe of body.querySelectorAll('iframe')) {
+    iframe.setAttribute('loading', 'lazy');
   }
-  // de-dupe by id
-  const seen = new Set();
-  return out.filter(t => {
-    if (seen.has(t.id)) return false;
-    seen.add(t.id);
-    return true;
-  });
 }
-
-/* =========================
-   UI bits
-   ========================= */
-
-function backButton() {
-  return el('a', { href: '#/', class: 'btn btn-primary back-btn' }, 'Back to Posts');
-}
-
-/* =========================
-   Render
-   ========================= */
 
 export async function renderPost(mount, id) {
-  if (mount) mount.innerHTML = '<div class="loading">Loading…</div>';
+  renderSkeleton(mount);
 
-  const post = await getPost(id);
-  const title  = decodeHTML(post.title?.rendered || 'Untitled');
-  const date   = formatDate(post.date);
-  const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-  const bodyHTML = post.content?.rendered || '';
-  const videoSrc = findVideoSrcInHTML(bodyHTML);
+  // 1) Try hint for instant paint
+  const hint = getPostHint(id);
+  let dom = null;
+  if (hint) {
+    dom = applyHint(mount, hint);
+  }
 
-  const featured = (() => {
-    const media = post?._embedded?.['wp:featuredmedia']?.[0];
-    const sizes = media?.media_details?.sizes;
-    return (
-      sizes?.large?.source_url ||
-      sizes?.medium_large?.source_url ||
-      media?.source_url || ''
-    );
-  })();
-
-  // === Hero ===
-  let hero;
-  if (videoSrc && featured) {
-    const fig = el('figure', { class: 'hero-image video-hero', title: 'Click to play video' },
-      el('img', { src: featured, alt: title, loading: 'lazy' }),
-      el('span', { class: 'play-badge', title: 'Play video' })
-    );
-    fig.addEventListener('click', () => {
-      fig.replaceWith(
-        el('div', { class: 'video-wrap' },
-          el('iframe', {
-            src: videoSrc,
-            allowfullscreen: true,
-            frameborder: '0',
-            loading: 'lazy',
-            referrerpolicy: 'no-referrer-when-downgrade',
-            title: 'Embedded video'
-          })
-        )
+  // 2) Fetch full post in background and hydrate
+  try {
+    const post = await getPost(id);
+    if (!dom) {
+      // no hint available; build header now
+      const title = decodeHTML(post?.title?.rendered || 'Untitled');
+      const article = el('article', { class: 'post container' },
+        el('div', { class: 'post-hero' }, heroImage(post) || el('div', { class: 'media-fallback' }, '')),
+        el('h1', { class: 'post-title' }, title),
+        el('div', { class: 'meta' }, byline(post)),
       );
-    });
-    hero = el('div', { class: 'hero-media container' }, fig);
-  } else if (videoSrc) {
-    hero = el('div', { class: 'hero-media container' },
-      el('div', { class: 'video-wrap' },
-        el('iframe', {
-          src: videoSrc,
-          allowfullscreen: true,
-          frameborder: '0',
-          loading: 'lazy',
-          referrerpolicy: 'no-referrer-when-downgrade',
-          title: 'Embedded video'
-        })
-      )
-    );
-  } else if (featured) {
-    hero = el('div', { class: 'hero-media container' },
-      el('figure', { class: 'hero-image' }, el('img', { src: featured, alt: title, loading: 'lazy' }))
-    );
-  } else {
-    hero = el('div', { class: 'hero-media container' },
-      el('div', { class: 'media-fallback' }, 'No featured media')
-    );
+      mount.innerHTML = '';
+      mount.appendChild(article);
+      dom = { article, body: el('div', { class: 'post-body' }) };
+      article.appendChild(dom.body);
+    }
+    renderFull(dom, post);
+  } catch (e) {
+    console.warn('[OkObserver] renderPost failed:', e);
+    mount.innerHTML = `
+      <div class="container error">
+        <p>Failed to load this article.</p>
+        <p style="opacity:.8">${(e && e.message) ? e.message : e}</p>
+        <p><a class="btn btn-primary" href="#/">Back to Posts</a></p>
+      </div>`;
   }
-
-  const header = el('header', { class: 'post-header container' },
-    el('h1', { class: 'post-title' }, title),
-    el('div', { class: 'post-byline' }, `${author} • ${date}`),
-    el('div', { class: 'byline-divider' })
-  );
-
-  const cleanedBody = videoSrc ? stripVideoEmbedsFrom(bodyHTML) : bodyHTML;
-  const article = el('article', { class: 'post-body container' });
-  article.innerHTML = cleanedBody;
-
-  // === Tags block (after article) ===
-  const tags = extractTags(post);
-  const tagsBlock = tags.length
-    ? el('div', { class: 'post-tags container', 'aria-label': 'Tags' },
-        el('div', { class: 'tags' },
-          ...tags.map(t => el('span', { class: 'tag-chip' }, `#${t.name}`))
-        )
-      )
-    : null;
-
-  // Only bottom back button
-  const bottomBack = el('div', { class: 'container back-bottom' }, backButton());
-
-  // Compose
-  mount.innerHTML = '';
-  if (tagsBlock) {
-    mount.append(hero, header, article, tagsBlock, bottomBack);
-  } else {
-    mount.append(hero, header, article, bottomBack);
-  }
-
-  console.info('[OkObserver] PostDetail v2025-10-27f', {
-    id, videoSrc, featuredLoaded: !!featured, tags: tags.map(t => t.name)
-  });
 }
