@@ -1,16 +1,40 @@
-// Home.js — v2025-10-28d
-// Seeds post hints for instant detail view, keeps perf wins.
+// Home.js — v2025-10-28e
+// Seeds post hints, adds HOVER/VIEWPORT PREFETCH for instant detail nav.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { getPosts, getFeaturedImage, getImageCandidates, isCartoon, seedPostHint } from './api.js?v=2025-10-28f';
+import {
+  getPosts,
+  getFeaturedImage,
+  getImageCandidates,
+  isCartoon,
+  seedPostHint,
+  prefetchPost
+} from './api.js?v=2025-10-28g';
 
 function toText(html = '') { const d = document.createElement('div'); d.innerHTML = html; return (d.textContent || '').trim(); }
 function clamp(s = '', n = 220) { return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…'; }
 
-function createPostCard(post, idx = 0) {
-  // Seed a lightweight hint so PostDetail can render instantly
-  seedPostHint(post);
+/* Attach low-friction prefetch to a card:
+   - mouseenter (desktop hover)
+   - touchstart (mobile tap intent)
+   - viewport proximity (IO)
+*/
+function installPrefetchTriggers(cardEl, postId) {
+  let warmed = false;
+  const warm = () => { if (!warmed) { warmed = true; prefetchPost(postId).catch(()=>{}); } };
 
+  cardEl.addEventListener('mouseenter', warm, { passive: true });
+  cardEl.addEventListener('touchstart', warm, { passive: true });
+
+  // Prefetch when the card comes near viewport
+  const io = new IntersectionObserver((ents, obs) => {
+    for (const e of ents) if (e.isIntersecting) { warm(); obs.disconnect(); break; }
+  }, { rootMargin: '300px 0px', threshold: 0.01 });
+  io.observe(cardEl);
+}
+
+function createPostCard(post, idx = 0) {
+  seedPostHint(post);                   // instant paint for detail
   const href   = `#/post/${post.id}`;
   const title  = decodeHTML(post.title?.rendered || 'Untitled');
   const date   = formatDate(post.date);
@@ -35,7 +59,7 @@ function createPostCard(post, idx = 0) {
       })
     : el('div', { class: 'media-fallback' }, 'No image');
 
-  return el('article', { class: 'card' },
+  const card = el('article', { class: 'card' },
     el('a', { href, class: 'card-media' }, mediaEl),
     el('div', { class: 'card-body' },
       el('h3', { class: 'card-title' }, el('a', { href }, title)),
@@ -43,6 +67,10 @@ function createPostCard(post, idx = 0) {
       excerpt ? el('p', { class: 'post-excerpt' }, excerpt) : null
     )
   );
+
+  // Wire up prefetch triggers
+  installPrefetchTriggers(card, post.id);
+  return card;
 }
 
 const HOME_STATE_KEY = 'okobserver.home.state.v1';
@@ -89,7 +117,7 @@ export async function renderHome(mount) {
       }
       page++;
 
-      // idle prefetch next page (will warm api.js memory cache)
+      // idle prefetch the next page (warms memory cache too)
       const prefetch = () => getPosts({ page, per_page: 12 }).catch(()=>{});
       if ('requestIdleCallback' in window) requestIdleCallback(prefetch, { timeout: 1500 });
       else setTimeout(prefetch, 600);

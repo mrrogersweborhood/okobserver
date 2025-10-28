@@ -1,19 +1,16 @@
-// api.js — v2025-10-28f
-// Faster navigation to detail:
-// - In-memory page cache (lists) and post cache (details)
-// - NEW: lightweight "hint" cache seeded from list items for instant detail paint
+// api.js — v2025-10-28g
+// Detail-speed pack: memory caches + prefetch/refresh paths (CORS-safe).
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
 // ----- in-memory caches -----
-const postsPageCache = new Map();  // page -> posts[]
-const postCache      = new Map();  // id -> full post
-const postHint       = new Map();  // id -> partial post (from list item)
+const postsPageCache = new Map();   // page -> posts[]
+const postCache      = new Map();   // id   -> full post (may be prefetched)
+const postHint       = new Map();   // id   -> minimal post from list card
 
-/** Public: seed a lightweight hint (from Home list item) */
+/** Seed a lightweight hint (from Home list item) for instant paint on detail. */
 export function seedPostHint(post) {
   if (!post || !post.id) return;
-  // Keep just what we need for the header/hero
   const minimal = {
     id: post.id,
     date: post.date,
@@ -27,7 +24,6 @@ export function seedPostHint(post) {
   postHint.set(post.id, minimal);
 }
 
-/** Public: read the hint back */
 export function getPostHint(id) {
   return postHint.get(Number(id));
 }
@@ -49,7 +45,7 @@ async function jfetch(url) {
   return res.json();
 }
 
-/* ---------------- Posts list ---------------- */
+/* ---------------- Posts list (Home / infinite scroll) ---------------- */
 export async function getPosts({ page = 1, per_page = 12 } = {}) {
   if (postsPageCache.has(page)) return postsPageCache.get(page);
 
@@ -62,27 +58,47 @@ export async function getPosts({ page = 1, per_page = 12 } = {}) {
     posts = await jfetch(buildURL('/posts', { page, per_page }, { cacheBust: false }));
   }
   if (!Array.isArray(posts)) posts = [];
-
-  // Filter cartoons immediately (defensive)
   const filtered = posts.filter(p => !isCartoon(p));
   postsPageCache.set(page, filtered);
   return filtered;
 }
 
-/* ---------------- Single post ---------------- */
+/* ---------------- Post detail (standard) ----------------
+   - Uses cache if present, otherwise fetches fresh (with cacheBust).
+---------------------------------------------------------- */
 export async function getPost(id) {
   id = Number(id);
   if (postCache.has(id)) return postCache.get(id);
-
-  let post;
-  try {
-    post = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: true }));
-  } catch (e) {
-    console.warn('[OkObserver] getPost fallback:', e);
-    post = await jfetch(buildURL(`/posts/${id}`, {}, { cacheBust: true }));
-  }
+  const post = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: true }));
   postCache.set(id, post);
   return post;
+}
+
+/* ---------------- Prefetch / Refresh ----------------
+   prefetchPost: low-risk warm (no _t), used on hover/touchstart.
+   refreshPost:  strong fresh (with _t) after navigation; updates cache.
+------------------------------------------------------ */
+export async function prefetchPost(id) {
+  id = Number(id);
+  if (postCache.has(id)) return postCache.get(id);
+  try {
+    const post = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: false }));
+    postCache.set(id, post);
+    return post;
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshPost(id) {
+  id = Number(id);
+  try {
+    const fresh = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: true }));
+    postCache.set(id, fresh);
+    return fresh;
+  } catch {
+    return postCache.get(id) || null;
+  }
 }
 
 /* -------- Image helpers (responsive) -------- */
