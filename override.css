@@ -238,3 +238,9 @@ img{max-width:100%;height:auto;display:block}
 .post-grid .card { content-visibility: auto; contain-intrinsic-size: 300px 220px; }
 /* Skip layout/paint for off-screen cards (big win on long feeds) */
 .post-grid .card{ content-visibility:auto; contain-intrinsic-size:300px 220px; }
+/* --- Thumbnail crop bias: keep the top visible on post cards --- */
+.card-media img{
+  /* keep the fixed frame, but anchor the visible area to the top */
+  object-fit: cover;
+  object-position: center top; /* was default center; this prevents cutting off heads/logos */
+}
