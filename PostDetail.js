@@ -3,7 +3,7 @@
 // Assumes getPost(id) returns _embedded terms (wp:term) including post_tag.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { getPost } from './api.js?v=2025-10-27d';
+import { getPost } from './api.js?v=2025-10-28c';
 
 /* =========================
    Video helpers
