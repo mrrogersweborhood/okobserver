@@ -236,3 +236,5 @@ img{max-width:100%;height:auto;display:block}
 }
 /* Huge paint win on feeds with lots of cards */
 .post-grid .card { content-visibility: auto; contain-intrinsic-size: 300px 220px; }
+/* Skip layout/paint for off-screen cards (big win on long feeds) */
+.post-grid .card{ content-visibility:auto; contain-intrinsic-size:300px 220px; }

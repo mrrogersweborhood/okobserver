@@ -1,145 +1,135 @@
-// sw.js — v2025-10-27e
-// Perf-focused SW:
-// - Uses Navigation Preload properly for HTML navigations
-// - Stale-While-Revalidate for the posts list endpoint (fast feels on repeat/page loads)
-// - Network-first for other JSON/data
-// - Cache-first for static shell
-// - Cleans old caches by prefix
+// sw.js — v2025-10-27f
+// Fix: prevent blank page caching by skipping cache on first navigation.
+// Adds smarter shell revalidation + safer stale-while-revalidate.
 
-const VER = '2025-10-27e';
+const VER = '2025-10-27f';
 const CACHE = `okobserver-cache-v${VER}`;
 const CACHE_PREFIX = 'okobserver-cache-v';
 
-// --- Static app shell (versions matched to your current deploy) ---
 const STATIC = [
   './',
   './index.html',
   './override.css?v=2025-10-27i',
-  './main.js?v=2025-10-27d',
-  './Home.js?v=2025-10-27d',
+  './main.js?v=2025-10-28a',
+  './Home.js?v=2025-10-28a',
   './PostDetail.js?v=2025-10-27f',
   './About.js?v=2025-10-27a',
   './Settings.js?v=2025-10-27a',
   './util.js?v=2025-10-24e',
-  './api.js?v=2025-10-27a',
+  './api.js?v=2025-10-27d',
   './logo.png',
   './favicon.ico'
 ];
 
-// Helper: detect the WP posts list endpoint (used by Home/infinite scroll)
-function isPostsList(url) {
-  // e.g. https://…/wp-json/wp/v2/posts?per_page=24&page=2&_embed=1&_fields=…
+function isPostList(url) {
   return url.pathname.endsWith('/wp-json/wp/v2/posts');
 }
 
-self.addEventListener('install', (event) => {
-  event.waitUntil((async () => {
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
     const cache = await caches.open(CACHE);
     await cache.addAll(STATIC);
     await self.skipWaiting();
   })());
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    // Enable navigation preload (faster first paint on cold start)
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
     if (self.registration.navigationPreload) {
       try { await self.registration.navigationPreload.enable(); } catch {}
     }
-    // Remove old versions
     const keys = await caches.keys();
-    await Promise.all(keys.map(k => (k.startsWith(CACHE_PREFIX) && k !== CACHE) ? caches.delete(k) : undefined));
+    await Promise.all(keys.map(k =>
+      (k.startsWith(CACHE_PREFIX) && k !== CACHE) ? caches.delete(k) : null
+    ));
     await self.clients.claim();
   })());
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
+self.addEventListener('fetch', e => {
+  const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   const isJSON = url.pathname.includes('/wp-json/') || url.pathname.endsWith('.json');
 
-  // 1) HTML navigations: use preload → network → cached shell
+  // HTML navigations: network-first (never cache blank shell)
   if (req.mode === 'navigate') {
-    event.respondWith((async () => {
+    e.respondWith((async () => {
       try {
-        const preloaded = await event.preloadResponse;
-        if (preloaded) return preloaded;
-      } catch {}
-      try {
-        const net = await fetch(req);
-        // keep a hot copy of index.html
+        const net = await fetch(req, { cache: 'no-store' });
         const cache = await caches.open(CACHE);
-        cache.put('./index.html', net.clone());
-        return net;
-      } catch {
-        const shell = await caches.match('./index.html');
-        return shell || new Response('Offline', { status: 503, statusText: 'Offline' });
-      }
+        // cache only if HTML body contains app shell marker
+        if (net.ok) {
+          const clone = net.clone();
+          const text = await clone.text();
+          if (text.includes('<main id="app"')) {
+            cache.put('./index.html', new Response(text, { headers: { 'Content-Type': 'text/html' } }));
+          }
+          return new Response(text, { headers: { 'Content-Type': 'text/html' } });
+        }
+      } catch {}
+      const cached = await caches.match('./index.html');
+      return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
     })());
     return;
   }
 
-  // 2) Posts list (Home / infinite scroll): Stale-While-Revalidate
-  if (isJSON && isPostsList(url)) {
-    event.respondWith((async () => {
+  // Posts list: stale-while-revalidate
+  if (isJSON && isPostList(url)) {
+    e.respondWith((async () => {
       const cache = await caches.open(CACHE);
       const cached = await cache.match(req);
-      // start revalidate in background
       const revalidate = (async () => {
         try {
           const net = await fetch(req, { cache: 'no-store' });
-          // only store successful responses
           if (net && net.ok) await cache.put(req, net.clone());
         } catch {}
       })();
-
       if (cached) {
-        // return cached immediately, and revalidate silently
-        event.waitUntil(revalidate);
+        e.waitUntil(revalidate);
         return cached;
       }
-      // no cached → go to network
       try {
         const net = await fetch(req, { cache: 'no-store' });
-        if (net && net.ok) await cache.put(req, net.clone());
+        if (net.ok) await cache.put(req, net.clone());
         return net;
       } catch {
-        // last resort: nothing to show
-        return new Response('Offline', { status: 503, statusText: 'Offline' });
+        return new Response('Offline', { status: 503 });
       }
     })());
     return;
   }
 
-  // 3) Other JSON/data: network-first with cache fallback
+  // Other JSON: network-first
   if (isJSON) {
-    event.respondWith((async () => {
+    e.respondWith((async () => {
       try {
         const net = await fetch(req, { cache: 'no-store' });
-        const cache = await caches.open(CACHE);
-        if (net && net.ok) await cache.put(req, net.clone());
+        if (net.ok) {
+          const cache = await caches.open(CACHE);
+          await cache.put(req, net.clone());
+        }
         return net;
       } catch {
-        const cached = await caches.match(req);
-        return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
+        return await caches.match(req) || new Response('Offline', { status: 503 });
       }
     })());
     return;
   }
 
-  // 4) Static assets: cache-first
-  event.respondWith((async () => {
+  // Static assets: cache-first
+  e.respondWith((async () => {
     const cached = await caches.match(req);
     if (cached) return cached;
     try {
       const net = await fetch(req);
-      const cache = await caches.open(CACHE);
-      if (net && net.ok) await cache.put(req, net.clone());
+      if (net.ok) {
+        const cache = await caches.open(CACHE);
+        cache.put(req, net.clone());
+      }
       return net;
     } catch {
-      const shell = await caches.match('./index.html');
-      return shell || new Response('Offline', { status: 503 });
+      return await caches.match('./index.html') || new Response('Offline', { status: 503 });
     }
   })());
 });

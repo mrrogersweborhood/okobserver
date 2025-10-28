@@ -1,111 +1,153 @@
-// main.js — v2025-10-27d
-// Updates:
-// - Adds hamburger menu injection + toggle (no index.html edits needed)
-// - Keeps SW token at 2025-10-27c; PostDetail import bumped to 2025-10-27e
+// main.js — v2025-10-28a
+// Router with step-by-step console tracing, safe boot, and hamburger wiring.
+// Modules:
+//   Home.js        v2025-10-28a   (robust state handling)
+//   PostDetail.js  v2025-10-27f   (tags, single back button)
+//   About.js       v2025-10-27a
+//   Settings.js    v2025-10-27a
+// Service Worker:  v2025-10-27f
+// CSS:             v2025-10-27i
 
-const VER = '2025-10-27f';
+const VER = '2025-10-27f'; // keep in sync with sw.js token
 
-// Register Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=' + VER);
-      console.log('[OkObserver] SW registered', reg);
-    } catch (e) {
-      console.warn('[OkObserver] SW registration failed', e);
-    }
-  });
+/* ------------------------------
+   Utilities
+------------------------------ */
+const log  = (...a) => console.log('[OkObserver]', ...a);
+const warn = (...a) => console.warn('[OkObserver]', ...a);
+const err  = (...a) => console.error('[OkObserver]', ...a);
+
+function $(sel, root = document) { return root.querySelector(sel); }
+function mountEl() {
+  const m = $('#app');
+  if (!m) throw new Error('#app mount not found');
+  return m;
 }
 
-import { renderHome }     from './Home.js?v=2025-10-27d';
-import { renderAbout }    from './About.js?v=2025-10-27a';
-import { renderSettings } from './Settings.js?v=2025-10-27a';
-// IMPORTANT: keep PostDetail on latest token to force-refresh
-import { renderPost }     from './PostDetail.js?v=2025-10-27f';
+/* ------------------------------
+   Service Worker
+------------------------------ */
+(function registerSW(){
+  if (!('serviceWorker' in navigator)) { warn('SW not supported'); return; }
+  try {
+    navigator.serviceWorker.register(`./sw.js?v=${VER}`)
+      .then(r => log('SW registered ▸', r))
+      .catch(e => warn('SW failed', e));
+  } catch(e){ warn('SW exception', e); }
+})();
 
-const app = document.getElementById('app');
-
-function parseHash() {
-  const h = location.hash || '#/';
-  const [, route, id] = h.match(/^#\/?([^\/]+)?\/?([^\/]+)?/) || [];
-  return { route: route || '', id };
-}
-
-/* =========================
-   Hamburger menu (no HTML changes)
-   ========================= */
+/* ------------------------------
+   Hamburger (injected button)
+------------------------------ */
 function setupHamburger() {
-  const brand = document.querySelector('.brand');
-  const nav   = document.querySelector('.main-nav');
-  if (!brand || !nav) return;
-
-  // Avoid duplicate button if hot-reloading
-  if (document.getElementById('nav-toggle')) return;
+  const header = $('.site-header .brand');
+  if (!header || $('.nav-toggle', header)) return;
 
   const btn = document.createElement('button');
-  btn.id = 'nav-toggle';
   btn.className = 'nav-toggle';
   btn.setAttribute('aria-label', 'Menu');
-  btn.setAttribute('aria-expanded', 'false');
-  btn.innerHTML = `
-    <span class="nav-toggle-bar"></span>
-    <span class="nav-toggle-bar"></span>
-    <span class="nav-toggle-bar"></span>
-  `;
-  // insert at start of .brand so logo stays left, button near it on small screens
-  brand.insertBefore(btn, brand.firstChild);
+  btn.innerHTML = '<span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span>';
+  header.appendChild(btn);
 
-  btn.addEventListener('click', () => {
+  const toggle = () => {
     const open = document.body.classList.toggle('nav-open');
-    btn.setAttribute('aria-expanded', String(open));
-  });
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
 
-  // Close menu when a nav link is clicked (small screens)
-  nav.addEventListener('click', (e) => {
-    if (e.target.closest('a')) {
-      document.body.classList.remove('nav-open');
-      btn.setAttribute('aria-expanded', 'false');
-    }
+  btn.addEventListener('click', toggle);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.body.classList.remove('nav-open');
   });
-
-  // On resize to desktop, ensure menu state is reset
   window.addEventListener('resize', () => {
-    if (window.innerWidth > 900) {
-      document.body.classList.remove('nav-open');
-      btn.setAttribute('aria-expanded', 'false');
-    }
+    if (window.innerWidth > 900) document.body.classList.remove('nav-open');
+  });
+
+  // Close menu when navigating via header links
+  document.addEventListener('click', (e) => {
+    const a = e.target?.closest?.('a[href^="#/"]');
+    if (a) document.body.classList.remove('nav-open');
   });
 }
 
-async function router() {
-  const { route, id } = parseHash();
-  if (!app) return;
+/* ------------------------------
+   Simple router
+------------------------------ */
+let navigating = false;
 
-  app.innerHTML = `<div class="loading">Loading…</div>`;
+async function router() {
+  if (navigating) return;
+  navigating = true;
+
+  const t0 = performance.now();
+  const hash = (location.hash || '#/').replace(/\/+$/,''); // normalize trailing slash
+  const mount = mountEl();
+
+  log('route start', { hash });
 
   try {
-    if (!route || route === '') {
-      await renderHome(app);
-    } else if (route === 'post' && id) {
-      await renderPost(app, id);
-    } else if (route === 'about') {
-      await renderAbout(app);
-    } else if (route === 'settings') {
-      await renderSettings(app);
-    } else {
-      app.innerHTML = `<div class="container"><h2>Not found</h2></div>`;
+    // basic route parsing
+    // #/post/123, #/about, #/settings, default: home
+    if (hash.startsWith('#/post/')) {
+      const id = hash.split('/')[2];
+      if (!id) throw new Error('Missing post id');
+      mount.innerHTML = '<div class="loading">Loading post…</div>';
+      const { renderPost } = await import(`./PostDetail.js?v=2025-10-27f`);
+      await renderPost(mount, id);
+      log('route done: post', { id, ms: Math.round(performance.now() - t0) });
+    }
+    else if (hash === '#/about') {
+      mount.innerHTML = '<div class="loading">Loading…</div>';
+      const { renderAbout } = await import(`./About.js?v=2025-10-27a`);
+      await renderAbout(mount);
+      log('route done: about', { ms: Math.round(performance.now() - t0) });
+    }
+    else if (hash === '#/settings') {
+      mount.innerHTML = '<div class="loading">Loading…</div>';
+      const { renderSettings } = await import(`./Settings.js?v=2025-10-27a`);
+      await renderSettings(mount);
+      log('route done: settings', { ms: Math.round(performance.now() - t0) });
+    }
+    else {
+      // Home
+      mount.innerHTML = '<div class="loading">Loading posts…</div>';
+      const { renderHome } = await import(`./Home.js?v=2025-10-28a`);
+      await renderHome(mount);
+      log('route done: home', { ms: Math.round(performance.now() - t0) });
     }
   } catch (e) {
-    console.error(e);
-    app.innerHTML = `<div class="container error">
-      <h2>Something went wrong</h2>
-      <pre>${(e && e.message) || e}</pre>
-    </div>`;
+    err('route error', e);
+    mount.innerHTML = `
+      <div class="container error">
+        <p>Something went wrong loading this view.</p>
+        <p style="opacity:.8">${(e && e.message) ? e.message : e}</p>
+        <p><a class="btn btn-primary" href="#/">Back to Posts</a></p>
+      </div>`;
+  } finally {
+    navigating = false;
   }
 }
 
-window.addEventListener('hashchange', router);
-window.addEventListener('load', () => {
+/* ------------------------------
+   Boot
+------------------------------ */
+function boot() {
   setupHamburger();
+
+  // Route changes
+  window.addEventListener('hashchange', router, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // optional place to refresh lightweight data in future
+    }
+  });
+
+  // First route
   router();
-});
+}
+
+// Start when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
