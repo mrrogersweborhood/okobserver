@@ -264,3 +264,45 @@ img{max-width:100%;height:auto;display:block}
   border-radius: 0.5rem;
   background-color: #fff;     /* fills any letterbox space cleanly */
 }
+/* === Center the motto beneath the logo === */
+.site-header .brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;       /* centers horizontally */
+  justify-content: center;
+  text-align: center;
+}
+
+.site-header .motto {
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #f0f0f0;            /* soft white for dark-blue header */
+  text-align: center;
+}
+/* === Center the motto beneath the logo (responsive) === */
+.site-header .brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;      /* center horizontally */
+  justify-content: center;
+  text-align: center;
+}
+
+.site-header .motto {
+  margin-top: 0.25rem;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #f0f0f0;           /* soft white for dark-blue header */
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* smaller, tighter motto on phones */
+@media (max-width: 600px) {
+  .site-header .motto {
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+    line-height: 1.2;
+  }
+}
