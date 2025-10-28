@@ -244,3 +244,23 @@ img{max-width:100%;height:auto;display:block}
   object-fit: cover;
   object-position: center top; /* was default center; this prevents cutting off heads/logos */
 }
+/* === Post summary card images: fit naturally, no cropping === */
+.card-media {
+  display: block;
+  width: 100%;
+  height: auto;               /* allow the container to size to the image */
+  aspect-ratio: auto;         /* remove any fixed ratio */
+  overflow: visible;
+  background: #fff;           /* neutral backdrop for transparent images */
+  border-radius: 0.5rem;
+}
+
+.card-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;        /* show full image, no crop */
+  object-position: center;
+  border-radius: 0.5rem;
+  background-color: #fff;     /* fills any letterbox space cleanly */
+}
