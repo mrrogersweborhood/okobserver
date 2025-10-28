@@ -1,6 +1,6 @@
-// PostDetail.js — v2025-10-28i
+// PostDetail.js — v2025-10-28j
 // Instant detail: render from hint immediately, then hydrate with full content.
-// Keeps: single "Back to Posts" button (bottom), clean media, tags display.
+// Now with properly formatted tag names (no more numeric IDs).
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost, getFeaturedImage, getImageCandidates, getPostHint } from './api.js?v=2025-10-28f';
@@ -39,7 +39,6 @@ function renderSkeleton(mount) {
 }
 
 function applyHint(mount, hint) {
-  // Paint above-the-fold instantly from the hint
   const title = decodeHTML(hint?.title?.rendered || 'Untitled');
   const article = el('article', { class: 'post container' },
     el('div', { class: 'post-hero' }, heroImage(hint) || el('div', { class: 'media-fallback' }, '')),
@@ -48,33 +47,59 @@ function applyHint(mount, hint) {
   );
   mount.innerHTML = '';
   mount.appendChild(article);
-  // keep space for future content
   const body = el('div', { class: 'post-body' });
   article.appendChild(body);
   return { article, body };
+}
+
+function extractTagNames(post) {
+  try {
+    const termGroups = post?._embedded?.['wp:term'];
+    if (!Array.isArray(termGroups)) return [];
+    const tags = [];
+    for (const group of termGroups) {
+      for (const term of group || []) {
+        if (term.taxonomy === 'post_tag') {
+          const name = (term.name || '').trim();
+          if (name && !tags.includes(name)) tags.push(name);
+        }
+      }
+    }
+    return tags;
+  } catch {
+    return [];
+  }
+}
+
+function renderTags(article, post) {
+  const tagNames = extractTagNames(post);
+  if (!tagNames.length) return;
+
+  const tagList = el('ul', { class: 'tag-list' },
+    ...tagNames.map(name =>
+      el('li', {}, el('span', { class: 'tag-pill' }, `#${decodeHTML(name)}`))
+    )
+  );
+
+  const wrap = el('div', { class: 'post-tags container' },
+    el('h4', { class: 'tag-title' }, 'Tags'),
+    tagList
+  );
+
+  article.appendChild(wrap);
 }
 
 function renderFull({ article, body }, fullPost) {
   const html = fullPost?.content?.rendered || '';
   body.innerHTML = `<div class="post-content">${html}</div>`;
 
-  // add tags after article (if present)
-  const tags = (fullPost.tags || []);
-  if (Array.isArray(tags) && tags.length) {
-    const tagWrap = el('div', { class: 'post-tags container' },
-      el('h4', { class: 'tag-title' }, 'Tags'),
-      el('ul', { class: 'tag-list' }, ...tags.map(id => el('li', {}, `#${id}`))) // numeric IDs; WP tag names require extra fetch
-    );
-    article.appendChild(tagWrap);
-  }
+  renderTags(article, fullPost);
 
-  // Single "Back to Posts" at bottom only
   const back = el('p', { class: 'container' },
     el('a', { class: 'btn btn-primary', href: '#/' }, 'Back to Posts')
   );
   article.appendChild(back);
 
-  // Lazy up heavy embeds inside post-content (YouTube, iframe)
   for (const iframe of body.querySelectorAll('iframe')) {
     iframe.setAttribute('loading', 'lazy');
   }
@@ -83,18 +108,13 @@ function renderFull({ article, body }, fullPost) {
 export async function renderPost(mount, id) {
   renderSkeleton(mount);
 
-  // 1) Try hint for instant paint
   const hint = getPostHint(id);
   let dom = null;
-  if (hint) {
-    dom = applyHint(mount, hint);
-  }
+  if (hint) dom = applyHint(mount, hint);
 
-  // 2) Fetch full post in background and hydrate
   try {
     const post = await getPost(id);
     if (!dom) {
-      // no hint available; build header now
       const title = decodeHTML(post?.title?.rendered || 'Untitled');
       const article = el('article', { class: 'post container' },
         el('div', { class: 'post-hero' }, heroImage(post) || el('div', { class: 'media-fallback' }, '')),

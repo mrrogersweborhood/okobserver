@@ -372,3 +372,31 @@ img{max-width:100%;height:auto;display:block}
     line-height: 1.2;
   }
 }
+/* Tag pills under posts */
+.post-tags {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #ddd;
+}
+
+.tag-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.tag-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-pill {
+  background: #e9f2ff;
+  color: #1e90ff;
+  border-radius: 12px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
