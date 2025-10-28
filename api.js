@@ -1,12 +1,13 @@
-// api.js — v2025-10-28g
-// Detail-speed pack: memory caches + prefetch/refresh paths (CORS-safe).
+// api.js — v2025-10-28h
+// Detail-speed pack: in-memory caches + CORS-safe prefetch via list endpoint.
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
 // ----- in-memory caches -----
 const postsPageCache = new Map();   // page -> posts[]
-const postCache      = new Map();   // id   -> full post (may be prefetched)
+const postCache      = new Map();   // id   -> full post (prefetched or fresh)
 const postHint       = new Map();   // id   -> minimal post from list card
+const prefetching    = new Set();   // ids currently warming (debounce)
 
 /** Seed a lightweight hint (from Home list item) for instant paint on detail. */
 export function seedPostHint(post) {
@@ -18,7 +19,8 @@ export function seedPostHint(post) {
     excerpt: post.excerpt,
     _embedded: {
       author: post?._embedded?.author || [],
-      'wp:featuredmedia': post?._embedded?.['wp:featuredmedia'] || []
+      'wp:featuredmedia': post?._embedded?.['wp:featuredmedia'] || [],
+      'wp:term': post?._embedded?.['wp:term'] || []
     }
   };
   postHint.set(post.id, minimal);
@@ -49,7 +51,11 @@ async function jfetch(url) {
 export async function getPosts({ page = 1, per_page = 12 } = {}) {
   if (postsPageCache.has(page)) return postsPageCache.get(page);
 
-  const url = buildURL('/posts', { page, per_page, _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: false });
+  const url = buildURL('/posts', {
+    page, per_page,
+    _embed: 'author,wp:featuredmedia,wp:term'
+  }, { cacheBust: false });
+
   let posts;
   try {
     posts = await jfetch(url);
@@ -57,6 +63,7 @@ export async function getPosts({ page = 1, per_page = 12 } = {}) {
     console.warn('[OkObserver] getPosts primary failed:', e);
     posts = await jfetch(buildURL('/posts', { page, per_page }, { cacheBust: false }));
   }
+
   if (!Array.isArray(posts)) posts = [];
   const filtered = posts.filter(p => !isCartoon(p));
   postsPageCache.set(page, filtered);
@@ -64,37 +71,61 @@ export async function getPosts({ page = 1, per_page = 12 } = {}) {
 }
 
 /* ---------------- Post detail (standard) ----------------
-   - Uses cache if present, otherwise fetches fresh (with cacheBust).
+   Uses cache if present; otherwise fetches fresh with cache-bust.
 ---------------------------------------------------------- */
 export async function getPost(id) {
   id = Number(id);
   if (postCache.has(id)) return postCache.get(id);
-  const post = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: true }));
+  const post = await jfetch(buildURL(`/posts/${id}`, {
+    _embed: 'author,wp:featuredmedia,wp:term'
+  }, { cacheBust: true }));
   postCache.set(id, post);
   return post;
 }
 
 /* ---------------- Prefetch / Refresh ----------------
-   prefetchPost: low-risk warm (no _t), used on hover/touchstart.
-   refreshPost:  strong fresh (with _t) after navigation; updates cache.
+   CORS-safe prefetch: use LIST endpoint with include=<id> (proxy allows CORS here).
+   Strong refresh after navigation keeps the article body fresh.
 ------------------------------------------------------ */
+
+/** Warm a post in memory without triggering the proxy’s CORS issue. */
 export async function prefetchPost(id) {
   id = Number(id);
-  if (postCache.has(id)) return postCache.get(id);
+  if (postCache.has(id) || prefetching.has(id)) return postCache.get(id) || null;
+
+  prefetching.add(id);
   try {
-    const post = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: false }));
-    postCache.set(id, post);
-    return post;
-  } catch {
-    return null;
+    // NOTE: list endpoint with include=<id> returns an array with that post
+    const arr = await jfetch(buildURL('/posts', {
+      include: id,
+      per_page: 1,
+      _embed: 'author,wp:featuredmedia,wp:term'
+    }, { cacheBust: false }));
+    const post = Array.isArray(arr) ? arr[0] : null;
+    if (post && post.id) {
+      postCache.set(id, post);
+      // Also seed/upgrade the hint so detail header is richer
+      seedPostHint(post);
+      return post;
+    }
+  } catch (e) {
+    // swallow prefetch errors; they’re best-effort
+    console.debug('[OkObserver] prefetchPost skipped:', e?.message || e);
+  } finally {
+    prefetching.delete(id);
   }
+  return null;
 }
 
+/** After navigation, try to refresh with a cache-busting single-post call. */
 export async function refreshPost(id) {
   id = Number(id);
   try {
-    const fresh = await jfetch(buildURL(`/posts/${id}`, { _embed: 'author,wp:featuredmedia,wp:term' }, { cacheBust: true }));
+    const fresh = await jfetch(buildURL(`/posts/${id}`, {
+      _embed: 'author,wp:featuredmedia,wp:term'
+    }, { cacheBust: true }));
     postCache.set(id, fresh);
+    seedPostHint(fresh);
     return fresh;
   } catch {
     return postCache.get(id) || null;
