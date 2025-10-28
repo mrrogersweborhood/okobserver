@@ -1,5 +1,5 @@
-// 🟢 api.js — v2025-10-28a
-// Always-fresh fetch with aggressive no-cache and server-side cartoon filtering.
+// 🟢 api.js — v2025-10-28b
+// CORS-safe, always-fresh fetch layer (no disallowed headers)
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
@@ -11,19 +11,18 @@ function u(path, params = {}) {
     if (Array.isArray(v)) v.forEach(val => url.searchParams.append(k, val));
     else url.searchParams.set(k, v);
   }
-  // Bust any Cloudflare edge cache
+  // Bust Cloudflare cache safely
   url.searchParams.set('_t', Date.now());
   return url.toString();
 }
 
 /* ---------------- Safe JSON fetch ---------------- */
-async function jfetch(url, opts) {
+async function jfetch(url, opts = {}) {
   const res = await fetch(url, {
-    cache: 'no-store',
-    credentials: 'omit',
+    ...opts,
     mode: 'cors',
-    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
-    ...opts
+    credentials: 'omit',
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
@@ -38,13 +37,11 @@ export async function getPosts({ page = 1, per_page = 24 } = {}) {
   try { posts = await jfetch(url); }
   catch (e) {
     console.warn('[OkObserver] getPosts primary failed:', e);
-    // fallback minimal mode
+    // fallback minimal request (no embed)
     posts = await jfetch(u('/posts', { page, per_page }));
   }
 
   if (!Array.isArray(posts)) return [];
-
-  // Filter out cartoons immediately
   return posts.filter(p => !isCartoon(p));
 }
 

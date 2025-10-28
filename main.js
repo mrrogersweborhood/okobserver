@@ -1,14 +1,14 @@
-// main.js — v2025-10-28a
+// main.js — v2025-10-28b
 // Router with step-by-step console tracing, safe boot, and hamburger wiring.
 // Modules:
 //   Home.js        v2025-10-28a   (robust state handling)
 //   PostDetail.js  v2025-10-27f   (tags, single back button)
 //   About.js       v2025-10-27a
 //   Settings.js    v2025-10-27a
-// Service Worker:  v2025-10-27f
+// Service Worker:  v2025-10-28c
 // CSS:             v2025-10-27i
 
-const VER = '2025-10-27f'; // keep in sync with sw.js token
+const VER = '2025-10-28c'; // keep in sync with sw.js token
 
 /* ------------------------------
    Utilities

@@ -5,7 +5,7 @@
 // - Clear diagnostics in UI when fetch fails
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-28a';
+import { getPosts, getFeaturedImage, isCartoon } from './api.js?v=2025-10-28b';
 
 /* ---------- small helpers ---------- */
 function toText(html = '') {
