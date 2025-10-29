@@ -1,18 +1,18 @@
-// main.js — v2025-10-28b
-// Router with step-by-step console tracing, safe boot, and hamburger wiring.
+// 🟢 main.js — v2025-10-28j
+// Router with console tracing, safe boot, and hamburger wiring.
 // Modules:
-//   Home.js        v2025-10-28a   (robust state handling)
-//   PostDetail.js  v2025-10-27f   (tags, single back button)
+//   Home.js        v2025-10-28f   (throttled prefetch scheduler)
+//   PostDetail.js  v2025-10-28n   (defensive video + body fallback + tags)
 //   About.js       v2025-10-27a
 //   Settings.js    v2025-10-27a
-// Service Worker:  v2025-10-28c
+// Service Worker:  v2025-10-28j
 // CSS:             v2025-10-27i
 
-const VER = '2025-10-28c'; // keep in sync with sw.js token
+const VER = '2025-10-28j'; // keep in sync with sw.js token and index.html ?v=
 
-/* ------------------------------
-   Utilities
------------------------------- */
+// ------------------------------
+// Utilities
+// ------------------------------
 const log  = (...a) => console.log('[OkObserver]', ...a);
 const warn = (...a) => console.warn('[OkObserver]', ...a);
 const err  = (...a) => console.error('[OkObserver]', ...a);
@@ -24,9 +24,9 @@ function mountEl() {
   return m;
 }
 
-/* ------------------------------
-   Service Worker
------------------------------- */
+// ------------------------------
+// Service Worker
+// ------------------------------
 (function registerSW(){
   if (!('serviceWorker' in navigator)) { warn('SW not supported'); return; }
   try {
@@ -36,9 +36,9 @@ function mountEl() {
   } catch(e){ warn('SW exception', e); }
 })();
 
-/* ------------------------------
-   Hamburger (injected button)
------------------------------- */
+// ------------------------------
+// Hamburger (injected button)
+// ------------------------------
 function setupHamburger() {
   const header = $('.site-header .brand');
   if (!header || $('.nav-toggle', header)) return;
@@ -69,9 +69,9 @@ function setupHamburger() {
   });
 }
 
-/* ------------------------------
-   Simple router
------------------------------- */
+// ------------------------------
+// Simple router
+// ------------------------------
 let navigating = false;
 
 async function router() {
@@ -85,13 +85,12 @@ async function router() {
   log('route start', { hash });
 
   try {
-    // basic route parsing
-    // #/post/123, #/about, #/settings, default: home
+    // Routes: #/post/123, #/about, #/settings, default: home
     if (hash.startsWith('#/post/')) {
       const id = hash.split('/')[2];
       if (!id) throw new Error('Missing post id');
       mount.innerHTML = '<div class="loading">Loading post…</div>';
-      const { renderPost } = await import(`./PostDetail.js?v=2025-10-27f`);
+      const { renderPost } = await import(`./PostDetail.js?v=2025-10-28n`);
       await renderPost(mount, id);
       log('route done: post', { id, ms: Math.round(performance.now() - t0) });
     }
@@ -110,7 +109,7 @@ async function router() {
     else {
       // Home
       mount.innerHTML = '<div class="loading">Loading posts…</div>';
-      const { renderHome } = await import(`./Home.js?v=2025-10-28a`);
+      const { renderHome } = await import(`./Home.js?v=2025-10-28f`);
       await renderHome(mount);
       log('route done: home', { ms: Math.round(performance.now() - t0) });
     }
@@ -127,9 +126,9 @@ async function router() {
   }
 }
 
-/* ------------------------------
-   Boot
------------------------------- */
+// ------------------------------
+// Boot
+// ------------------------------
 function boot() {
   setupHamburger();
 
@@ -137,7 +136,7 @@ function boot() {
   window.addEventListener('hashchange', router, { passive: true });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      // optional place to refresh lightweight data in future
+      // place to refresh lightweight data in future
     }
   });
 
@@ -151,3 +150,4 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
+// 🔴 main.js

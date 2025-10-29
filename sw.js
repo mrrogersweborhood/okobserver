@@ -1,164 +1,159 @@
-// sw.js — v2025-10-28d
-// Remove cache hints that inject Cache-Control on requests (CORS-safe).
-// Keep fast strategies, normalize _t to avoid cache bloat.
+/*  sw.js — v2025-10-28j
+    OkObserver PWA service worker
+    - Cache-first for app shell
+    - Network-first (with timeout) for API
+    - Versioned caches; old ones cleaned on activate
+*/
 
-const VER = '2025-10-28d';
-const CACHE = `okobserver-cache-v${VER}`;
-const CACHE_PREFIX = 'okobserver-cache-v';
+const VERSION = '2025-10-28j';
+const PREFIX  = 'okobserver:';
+const SHELL   = `${PREFIX}${VERSION}:shell`;
+const RUNTIME = `${PREFIX}${VERSION}:runtime`;
 
-const STATIC = [
-  './',
-  './index.html',
-  './override.css?v=2025-10-27i',
-  './main.js?v=2025-10-28a',     // keep in sync with your file
-  './Home.js?v=2025-10-28a',
-  './PostDetail.js?v=2025-10-27f',
-  './About.js?v=2025-10-27a',
-  './Settings.js?v=2025-10-27a',
-  './util.js?v=2025-10-24e',
-  './api.js?v=2025-10-28c',
-  './logo.png',
-  './favicon.ico',
+const API_HOST = 'okobserver-proxy.bob-b5c.workers.dev';
+const API_PATH = '/wp-json/wp/v2/';
+
+// Build URL relative to this SW scope (so it works under /okobserver/)
+const scopeURL = new URL(self.registration.scope);
+const r = (path) => new URL(path, scopeURL).toString();
+
+// App shell to precache (minimal but complete)
+const SHELL_URLS = [
+  r('./'),
+  r('./index.html'),
+  r('./override.css?v=2025-10-27i'),
+  r('./main.js?v=2025-10-28j'),
+  r('./Home.js?v=2025-10-28f'),
+  r('./PostDetail.js?v=2025-10-28n'),
+  r('./About.js?v=2025-10-27a'),
+  r('./Settings.js?v=2025-10-27a'),
+  r('./logo.png'),
+  r('./favicon.ico'),
 ];
 
-function isJSON(url) {
-  return url.pathname.includes('/wp-json/') || url.pathname.endsWith('.json');
-}
-function isPostsList(url) {
-  return url.pathname.endsWith('/wp-json/wp/v2/posts');
-}
-function normalizedRequest(req) {
-  try {
-    const url = new URL(req.url);
-    if (url.searchParams.has('_t')) {
-      url.searchParams.delete('_t');
-      return new Request(url.toString(), {
-        method: req.method,
-        headers: req.headers,
-        mode: req.mode,
-        credentials: req.credentials,
-        redirect: req.redirect,
-        referrer: req.referrer,
-        referrerPolicy: req.referrerPolicy,
-        integrity: req.integrity,
-      });
-    }
-  } catch {}
-  return req;
-}
-
+// ---- Install: pre-cache the shell and take over ASAP
 self.addEventListener('install', (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    await cache.addAll(STATIC);
-    await self.skipWaiting();
-  })());
+  event.waitUntil(
+    caches.open(SHELL).then((cache) => cache.addAll(SHELL_URLS))
+  );
+  self.skipWaiting();
 });
 
+// ---- Activate: cleanup old caches, enable nav preload, claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    if (self.registration.navigationPreload) {
+    // Navigation preload helps the first navigation while the SW starts
+    if ('navigationPreload' in self.registration) {
       try { await self.registration.navigationPreload.enable(); } catch {}
     }
+
     const keys = await caches.keys();
-    await Promise.all(keys.map(k => (k.startsWith(CACHE_PREFIX) && k !== CACHE) ? caches.delete(k) : null));
+    await Promise.all(
+      keys
+        .filter((k) => k.startsWith(PREFIX) && !k.includes(VERSION))
+        .map((k) => caches.delete(k))
+    );
     await self.clients.claim();
   })());
 });
 
+// ---- Helpers
+const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms));
+
+async function networkFirstWithTimeout(request, cacheName, ms = 6000) {
+  const cache = await caches.open(cacheName);
+  try {
+    const res = await Promise.race([fetch(request), timeout(ms)]);
+    if (res && res.ok && request.method === 'GET') {
+      // Clone before put (response streams are one-use)
+      cache.put(request, res.clone());
+    }
+    return res;
+  } catch {
+    const cached = await cache.match(request, { ignoreVary: true });
+    if (cached) return cached;
+    // If nothing cached and network failed, rethrow so caller can decide
+    throw new Error('network-first failed and no cache');
+  }
+}
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request, { ignoreVary: true });
+  if (cached) return cached;
+  const res = await fetch(request);
+  if (res && res.ok && request.method === 'GET') {
+    cache.put(request, res.clone());
+  }
+  return res;
+}
+
+// ---- Fetch strategy router
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+
+  // Only handle GET requests
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
 
-  // HTML navigations: network-first (no cache hints)
+  // 1) API requests → network-first with timeout (cache as fallback)
+  const isAPI =
+    url.hostname === API_HOST &&
+    url.pathname.startsWith(API_PATH);
+
+  if (isAPI) {
+    event.respondWith(
+      networkFirstWithTimeout(req, RUNTIME, 6000).catch(async () => {
+        // As a very last resort, return a tiny JSON error (so UI can show a message)
+        return new Response(
+          JSON.stringify({ error: 'offline', message: 'API unavailable' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      })
+    );
+    return;
+  }
+
+  // 2) Navigations → serve app shell (index.html) from cache
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const pre = await event.preloadResponse;
-        if (pre) return pre;
-
-        const net = await fetch(req);
-        if (net && net.ok) {
-          const text = await net.clone().text();
-          if (text.includes('<main id="app"')) {
-            const cache = await caches.open(CACHE);
-            cache.put('./index.html', new Response(text, { headers: { 'Content-Type': 'text/html' } }));
-          }
-          return new Response(text, { headers: { 'Content-Type': 'text/html' } });
-        }
+        // If navigation preload is available, prefer it
+        const preload = await event.preloadResponse;
+        if (preload) return preload;
       } catch {}
-      const cached = await caches.match('./index.html');
-      return cached || new Response('Offline', { status: 503, statusText: 'Offline' });
+      const cache = await caches.open(SHELL);
+      const cached = await cache.match(r('./index.html'));
+      if (cached) return cached;
+      return fetch(req);
     })());
     return;
   }
 
-  const normReq = normalizedRequest(req);
-  const normURL = new URL(normReq.url);
-  const json = isJSON(normURL);
-
-  // Posts list: stale-while-revalidate (no cache hints)
-  if (json && isPostsList(normURL)) {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE);
-      const cached = await cache.match(normReq);
-
-      const revalidate = (async () => {
-        try {
-          const net = await fetch(req); // original request (may include _t)
-          if (net && net.ok) await cache.put(normReq, net.clone());
-        } catch {}
-      })();
-
-      if (cached) {
-        event.waitUntil(revalidate);
-        return cached;
-      }
-      try {
-        const net = await fetch(req);
-        if (net && net.ok) await cache.put(normReq, net.clone());
-        return net;
-      } catch {
-        return new Response('Offline', { status: 503 });
-      }
-    })());
-    return;
+  // 3) Same-origin static assets with versioned URLs → cache-first
+  const isSameOrigin = url.origin === scopeURL.origin;
+  if (isSameOrigin) {
+    // Heuristic: treat files that carry a ?v= token or end with a known static extension as shell assets.
+    const isVersioned = url.searchParams.has('v');
+    const isStaticExt = /\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(url.pathname);
+    if (isVersioned || isStaticExt) {
+      event.respondWith(cacheFirst(req, SHELL));
+      return;
+    }
   }
 
-  // Other JSON: network-first with cache fallback (no cache hints)
-  if (json) {
-    event.respondWith((async () => {
-      try {
-        const net = await fetch(req);
-        if (net && net.ok) {
-          const cache = await caches.open(CACHE);
-          await cache.put(normReq, net.clone());
-        }
-        return net;
-      } catch {
-        const cached = await caches.match(normReq);
-        return cached || new Response('Offline', { status: 503 });
-      }
-    })());
-    return;
-  }
-
-  // Static assets: cache-first
+  // 4) Everything else → try network, fallback to cache if present
   event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
     try {
-      const net = await fetch(req);
-      if (net && net.ok) {
-        const cache = await caches.open(CACHE);
-        await cache.put(req, net.clone());
-      }
-      return net;
+      const res = await fetch(req);
+      return res;
     } catch {
-      const shell = await caches.match('./index.html');
-      return shell || new Response('Offline', { status: 503 });
+      const cache = await caches.open(RUNTIME);
+      const cached = await cache.match(req, { ignoreVary: true });
+      if (cached) return cached;
+      // default fallback: empty 504
+      return new Response('Gateway Timeout', { status: 504 });
     }
   })());
 });
