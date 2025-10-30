@@ -90,7 +90,7 @@ async function router() {
       const id = hash.split('/')[2];
       if (!id) throw new Error('Missing post id');
       mount.innerHTML = '<div class="loading">Loading post…</div>';
-      const { renderPost } = await import(`./PostDetail.js?v=2025-10-29a`);
+      const { renderPost } = await import(`./PostDetail.js?v=2025-10-30b`);
       await renderPost(mount, id);
       log('route done: post', { id, ms: Math.round(performance.now() - t0) });
     }
