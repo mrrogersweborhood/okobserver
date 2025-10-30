@@ -2,7 +2,7 @@
 // Router with console tracing, safe boot, and hamburger wiring.
 // Modules:
 //   Home.js        v2025-10-28f   (throttled prefetch scheduler)
-//   PostDetail.js  v2025-10-28n   (defensive video + body fallback + tags)
+//   PostDetail.js  v2025-10-29a   (defensive video + body fallback + tags)
 //   About.js       v2025-10-27a
 //   Settings.js    v2025-10-27a
 // Service Worker:  v2025-10-28j
@@ -90,7 +90,7 @@ async function router() {
       const id = hash.split('/')[2];
       if (!id) throw new Error('Missing post id');
       mount.innerHTML = '<div class="loading">Loading post…</div>';
-      const { renderPost } = await import(`./PostDetail.js?v=2025-10-28n`);
+      const { renderPost } = await import(`./PostDetail.js?v=2025-10-29a`);
       await renderPost(mount, id);
       log('route done: post', { id, ms: Math.round(performance.now() - t0) });
     }

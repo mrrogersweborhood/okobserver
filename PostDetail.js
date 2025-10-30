@@ -1,8 +1,7 @@
-/* 🟢 PostDetail.js (v2025-10-28n) — robust body fallback + clear logging
-   - If post.content.rendered is missing/empty, we render the excerpt instead.
-   - Never leaves an empty page; shows a helpful note for paywalled/teaser posts.
-   - Keeps safe video/image hero logic and tag pills.
-*/
+// PostDetail.js — v2025-10-29a (friendly fallback note + permalink)
+// - If WP API omits full body or marks it protected, we show the excerpt AND
+//   a small note with a direct link to the original article.
+// - Keeps defensive video/image hero, tags, and single Back button.
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost, getImageCandidates, getPostHint } from './api.js?v=2025-10-28i';
@@ -65,7 +64,6 @@ function buildIframe(src){
     allowfullscreen:'true', referrerpolicy:'no-referrer-when-downgrade', frameborder:'0'
   });
   const wrap = el('div',{ class:'video-wrapper' }, iframe);
-  // Fail-safe: if it never loads (blocked), we can fallback.
   const t=setTimeout(()=>wrap.dispatchEvent(new CustomEvent('embed-timeout')),4000);
   iframe.addEventListener('load',()=>clearTimeout(t),{once:true});
   return wrap;
@@ -97,7 +95,6 @@ function renderTags(article, post){
   article.appendChild(el('div',{ class:'post-tags container' }, el('h4',{ class:'tag-title' },'Tags'), list));
 }
 
-/* ---------- Skeleton / Hint ---------- */
 function renderSkeleton(mount){
   mount.innerHTML=`
     <article class="post container">
@@ -143,25 +140,25 @@ function applyHint(mount, hint){
   return { article, body };
 }
 
-/* ---------- Full render with safe fallbacks ---------- */
 function renderFull(dom, post){
   const title = decodeHTML(post?.title?.rendered || 'Untitled');
   const contentHTML = post?.content?.rendered || '';
   const excerptHTML = post?.excerpt?.rendered || '';
+  const isProtected = !!post?.content?.protected || !contentHTML || !contentHTML.trim();
+  const permalink = post?.link || `https://okobserver.org/?p=${post?.id || ''}`;
 
-  if (!contentHTML || !contentHTML.trim()){
-    console.warn('[OkObserver] detail: content.rendered was empty; falling back to excerpt.');
-  }
-
-  const htmlToUse = contentHTML && contentHTML.trim() ? contentHTML : `
-    <div class="paywall-note" style="margin:1rem 0; opacity:.8">
-      <em>This article’s full text is not available via the public API. Showing summary instead.</em>
-    </div>
-    ${excerptHTML || ''}`;
+  const htmlToUse = (!isProtected)
+    ? contentHTML
+    : `
+      <div class="paywall-note">
+        <em>This article’s full text isn’t available via the public API.</em>
+        &nbsp;<a href="${permalink}" target="_blank" rel="noopener">Read on okobserver.org</a>.
+      </div>
+      ${excerptHTML || ''}`;
 
   dom.body.innerHTML = `<div class="post-content">${htmlToUse}</div>`;
 
-  // Upgrade hero with real content context
+  // Upgrade hero if the real content has an iframe
   const heroWrap = dom.article.querySelector('.post-hero');
   const embed = firstIframeSrc(contentHTML);
   const selfV = selfHostedVideo(post);
@@ -176,7 +173,7 @@ function renderFull(dom, post){
   } else if (selfV.src){
     const n = buildVideoTag(selfV);
     if (n) heroWrap.replaceChildren(n);
-  } // else keep existing (image or fallback)
+  }
 
   renderTags(dom.article, post);
 
@@ -184,7 +181,6 @@ function renderFull(dom, post){
     el('p',{ class:'container' }, el('a',{ class:'btn btn-primary', href:'#/' }, 'Back to Posts'))
   );
 
-  // Light embed hygiene
   for (const f of dom.body.querySelectorAll('iframe')){
     f.setAttribute('loading','lazy');
     f.setAttribute('referrerpolicy','no-referrer-when-downgrade');
@@ -224,4 +220,3 @@ export async function renderPost(mount, id){
       </div>`;
   }
 }
-/* 🔴 PostDetail.js */
