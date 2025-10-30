@@ -448,3 +448,15 @@ img{max-width:100%;height:auto;display:block}
 @media (max-width: 600px) {
   .play-overlay::after { width: 48px; height: 48px; border-left-width: 18px; }
 }
+.paywall-note {
+  background: #f7f9ff;
+  border: 1px solid #cdd9ff;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 14px 0 22px;
+}
+.paywall-list { margin: 8px 0 12px 20px; line-height: 1.5; }
+.paywall-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 10px; }
+.paywall-actions .btn { padding: 8px 14px; border-radius: 8px; }
+.paywall-actions .btn-outline { border: 1px solid #2d6cdf; color: #2d6cdf; background: transparent; }
+.paywall-actions .plain-link { opacity: .85; }

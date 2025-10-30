@@ -1,13 +1,13 @@
-// PostDetail.js — v2025-10-30c
-// - Classic paywall message (Login / Subscription / Open on okobserver.org)
-// - Poster-first media: show poster immediately, upgrade to iframe only after it loads
-// - Graceful fallback: if iframe times out, keep clickable poster (no black box)
-// - Tag pills + single "Back to Posts" button
+// PostDetail.js — v2025-10-30d
+// - Restores original OkObserver paywall message with full subscription details
+// - Retains login and subscription buttons
+// - Poster-first video loading and graceful iframe fallback retained
+// - Tags and single "Back to Posts" button intact
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost, getImageCandidates, getPostHint } from './api.js?v=2025-10-28i';
 
-const IFRAME_TIMEOUT_MS = 2500; // Keeps UI snappy if embeds are slow/blocked
+const IFRAME_TIMEOUT_MS = 2500;
 
 /* ---------------- utilities ---------------- */
 
@@ -28,7 +28,7 @@ function firstIframeSrc(html=''){
 
 function youTubeThumb(src=''){
   try{
-    const m = src.match(/(?:youtube\.com\/(?:embed|watch\?v=)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+    const m = src.match(/(?:youtube\\.com\\/(?:embed|watch\\?v=)|youtu\\.be\\/)([A-Za-z0-9_-]{6,})/);
     const id = m && m[1];
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '';
   }catch{ return ''; }
@@ -187,12 +187,17 @@ function renderFull(dom, post){
   const isProtected = !!post?.content?.protected || !contentHTML || !contentHTML.trim();
   const permalink = post?.link || `https://okobserver.org/?p=${post?.id || ''}`;
 
-  // Classic paywall note (replaces the previous "public API" message)
+  // Restored full paywall message
   const htmlToUse = (!isProtected)
     ? contentHTML
     : `
       <div class="paywall-note paywall-classic">
-        <strong>This article is for subscribers.</strong>
+        <strong>To access this content, you must log in or purchase:</strong>
+        <ul class="paywall-list">
+          <li><b>PRINT ONLY</b> – The Oklahoma Observer Print Edition</li>
+          <li><b>DIGITAL ONLY</b> – The Oklahoma Observer on-line</li>
+          <li><b>TOTAL ACCESS</b> – The Oklahoma Observer on-line and in print</li>
+        </ul>
         <div class="paywall-actions">
           <a class="btn btn-primary" href="https://okobserver.org/my-account/" target="_blank" rel="noopener">Log in</a>
           <a class="btn btn-outline" href="https://okobserver.org/subscribe/" target="_blank" rel="noopener">Purchase a subscription</a>
@@ -203,7 +208,6 @@ function renderFull(dom, post){
 
   dom.body.innerHTML = `<div class="post-content">${htmlToUse}</div>`;
 
-  // Upgrade hero to real iframe ONLY after it loads; keep poster otherwise
   const heroWrap = dom.article.querySelector('.post-hero');
   const currentPoster = heroWrap.querySelector('img');
 
@@ -213,19 +217,16 @@ function renderFull(dom, post){
   if (embed){
     buildIframe(
       embed,
-      // onReady: swap in the loaded iframe
       (loaded) => {
         const wrap = el('div', { class:'video-wrapper' }, loaded);
         heroWrap.replaceChildren(wrap);
       },
-      // onTimeout: keep poster; clicking opens provider
       () => {
         if (currentPoster) {
           heroWrap.replaceChildren(posterBlock(currentPoster.src, embed, title));
         }
       }
     );
-    // We do NOT replace the poster immediately; we wait for onReady.
   } else if (selfV.src){
     const v = el('video',{ controls:true, playsinline:true, preload:'metadata', poster:selfV.poster || undefined },
       el('source',{ src:selfV.src, type:'video/mp4' })
@@ -239,7 +240,6 @@ function renderFull(dom, post){
     el('p', { class:'container' }, el('a', { class:'btn btn-primary', href:'#/' }, 'Back to Posts'))
   );
 
-  // Sanitize iframes in body
   for (const f of dom.body.querySelectorAll('iframe')){
     f.setAttribute('loading','lazy');
     f.setAttribute('referrerpolicy','no-referrer-when-downgrade');
@@ -250,7 +250,6 @@ function renderFull(dom, post){
 
 export async function renderPost(mount, id){
   renderSkeleton(mount);
-
   const hint = getPostHint(id);
   let dom = hint ? applyHint(mount, hint) : null;
 
