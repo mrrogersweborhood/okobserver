@@ -1,7 +1,7 @@
-// main.js — v2025-10-30g
+// main.js — v2025-10-30p
 // Router, SW registration, dynamic imports, and hard 4/3/1 grid lock
 
-const VER = '2025-10-30g';
+const VER = '2025-10-30p';
 console.log(`[OkObserver] App version ${VER} loaded`);
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
@@ -14,14 +14,14 @@ async function router() {
   if (!mount) return console.warn('[OkObserver] No mount point found.');
 
   if (hash === '#/' || hash === '#') {
-    const { renderHome } = await import('./Home.js?v=2025-10-28f');
+    const { renderHome } = await import('./Home.js?v=2025-10-30p');
     renderHome(mount);
     return;
   }
 
   if (hash.startsWith('#/post/')) {
     const id = hash.split('/')[2];
-    const { renderPost } = await import('./PostDetail.js?v=2025-10-30k');
+    const { renderPost } = await import('./PostDetail.js?v=2025-10-30p');
     renderPost(mount, id);
     return;
   }
