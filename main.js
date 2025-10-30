@@ -21,7 +21,7 @@ async function router() {
 
   if (hash.startsWith('#/post/')) {
     const id = hash.split('/')[2];
-    const { renderPost } = await import('./PostDetail.js?v=2025-10-30e');
+    const { renderPost } = await import('./PostDetail.js?v=2025-10-30k');
     renderPost(mount, id);
     return;
   }
