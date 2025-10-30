@@ -1,11 +1,15 @@
-// PostDetail.js — v2025-10-30b
-// Bullet-proof media rendering: poster-first, upgrade-on-load, graceful fallback.
-// Friendly protected/teaser note + link. Tag pills + single Back button kept.
+// PostDetail.js — v2025-10-30c
+// - Classic paywall message (Login / Subscription / Open on okobserver.org)
+// - Poster-first media: show poster immediately, upgrade to iframe only after it loads
+// - Graceful fallback: if iframe times out, keep clickable poster (no black box)
+// - Tag pills + single "Back to Posts" button
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { getPost, getImageCandidates, getPostHint } from './api.js?v=2025-10-28i';
 
-const IFRAME_TIMEOUT_MS = 2500; // shorter = less chance of black box
+const IFRAME_TIMEOUT_MS = 2500; // Keeps UI snappy if embeds are slow/blocked
+
+/* ---------------- utilities ---------------- */
 
 function byline(post){
   const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
@@ -14,8 +18,12 @@ function byline(post){
 }
 
 function firstIframeSrc(html=''){
-  try{ const d=document.createElement('div'); d.innerHTML=html; const f=d.querySelector('iframe[src]'); return f?f.getAttribute('src'):''; }
-  catch{ return ''; }
+  try {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    const f = d.querySelector('iframe[src]');
+    return f ? f.getAttribute('src') : '';
+  } catch { return ''; }
 }
 
 function youTubeThumb(src=''){
@@ -44,15 +52,21 @@ function imageHero(post, { alt='Featured image' } = {}){
   const img = getImageCandidates(post);
   if(!img.src) return null;
   return el('img',{
-    src:img.src, srcset:img.srcset||undefined, sizes:img.sizes||undefined,
-    width:img.width||undefined, height:img.height||undefined,
-    alt, loading:'eager', decoding:'async', fetchpriority:'high'
+    src: img.src,
+    srcset: img.srcset || undefined,
+    sizes: img.sizes || undefined,
+    width: img.width || undefined,
+    height: img.height || undefined,
+    alt,
+    loading: 'eager',
+    decoding: 'async',
+    fetchpriority: 'high'
   });
 }
 
-/* ---------- Poster-first strategy ---------- */
+/* -------- poster-first strategy -------- */
 
-function posterBlock(src, clickHref = '', title = 'Play') {
+function posterBlock(src, clickHref = '', title = 'Play'){
   const img = el('img', { src, alt: title, loading: 'eager', decoding: 'async' });
   const btn = el('button', { class: 'play-overlay', 'aria-label': 'Play video' });
   const block = el('div', { class: 'hero-media is-image' }, img, btn);
@@ -60,7 +74,7 @@ function posterBlock(src, clickHref = '', title = 'Play') {
   return block;
 }
 
-function buildIframe(src, onReady, onTimeout) {
+function buildIframe(src, onReady, onTimeout){
   const iframe = el('iframe', {
     src,
     loading: 'lazy',
@@ -81,20 +95,23 @@ function buildIframe(src, onReady, onTimeout) {
     done = true;
     clearTimeout(timer);
     onReady?.(iframe);
-  }, { once: true });
+  }, { once:true });
 
   return iframe;
 }
 
-/* ---------- Tags ---------- */
+/* ---------------- tags ---------------- */
 
 function extractTagNames(post){
   try{
     const groups = post?._embedded?.['wp:term'];
-    if(!Array.isArray(groups)) return [];
-    const tags=[];
-    for(const g of groups) for(const t of g||[]){
-      if(t.taxonomy==='post_tag'){ const n=(t.name||'').trim(); if(n && !tags.includes(n)) tags.push(n); }
+    if (!Array.isArray(groups)) return [];
+    const tags = [];
+    for (const g of groups) for (const t of g || []){
+      if (t.taxonomy === 'post_tag'){
+        const n = (t.name || '').trim();
+        if (n && !tags.includes(n)) tags.push(n);
+      }
     }
     return tags;
   }catch{ return []; }
@@ -102,15 +119,22 @@ function extractTagNames(post){
 
 function renderTags(article, post){
   const names = extractTagNames(post);
-  if(!names.length) return;
-  const list = el('ul',{ class:'tag-list' }, ...names.map(n=>el('li',{}, el('span',{ class:'tag-pill' }, `#${decodeHTML(n)}`))));
-  article.appendChild(el('div',{ class:'post-tags container' }, el('h4',{ class:'tag-title' },'Tags'), list));
+  if (!names.length) return;
+  const list = el('ul', { class:'tag-list' },
+    ...names.map(n => el('li', {}, el('span', { class:'tag-pill' }, `#${decodeHTML(n)}`)))
+  );
+  article.appendChild(
+    el('div', { class:'post-tags container' },
+      el('h4', { class:'tag-title' }, 'Tags'),
+      list
+    )
+  );
 }
 
-/* ---------- Skeleton & Hint ---------- */
+/* --------------- skeleton & hint --------------- */
 
 function renderSkeleton(mount){
-  mount.innerHTML=`
+  mount.innerHTML = `
     <article class="post container">
       <div class="skeleton hero"></div>
       <h1 class="skeleton title"></h1>
@@ -126,35 +150,35 @@ function buildSafeHeroFrom(post){
   const embed = firstIframeSrc(html);
   const selfV = selfHostedVideo(post);
 
-  // Prefer embed (YouTube/Vimeo). Poster-first; upgrade after iframe load.
   if (embed){
     const poster = youTubeThumb(embed) || getImageCandidates(post).src || '';
-    return poster ? posterBlock(poster, embed, title) : imageHero(post, { alt: title });
+    return poster ? posterBlock(poster, embed, title) : imageHero(post, { alt:title });
   }
-  // Self-hosted <video> (rare): use native player
   if (selfV.src){
-    const v = el('video',{ controls:true, playsinline:true, preload:'metadata', poster:selfV.poster||undefined },
-      el('source',{ src:selfV.src, type:'video/mp4' })
+    const v = el('video', { controls:true, playsinline:true, preload:'metadata', poster:selfV.poster || undefined },
+      el('source', { src:selfV.src, type:'video/mp4' })
     );
-    return el('div',{ class:'video-wrapper' }, v);
+    return el('div', { class:'video-wrapper' }, v);
   }
-  return imageHero(post, { alt: title });
+  return imageHero(post, { alt:title });
 }
 
 function applyHint(mount, hint){
   const title = decodeHTML(hint?.title?.rendered || 'Untitled');
   const hero  = buildSafeHeroFrom(hint);
-  const article = el('article',{ class:'post container' },
-    el('div',{ class:'post-hero' }, hero || el('div',{ class:'media-fallback' },'')),
-    el('h1',{ class:'post-title' }, title),
-    el('div',{ class:'meta' }, byline(hint)),
+  const article = el('article', { class:'post container' },
+    el('div', { class:'post-hero' }, hero || el('div', { class:'media-fallback' }, '')),
+    el('h1', { class:'post-title' }, title),
+    el('div', { class:'meta' }, byline(hint)),
   );
-  mount.innerHTML=''; mount.appendChild(article);
-  const body = el('div',{ class:'post-body' }); article.appendChild(body);
+  mount.innerHTML = '';
+  mount.appendChild(article);
+  const body = el('div', { class:'post-body' });
+  article.appendChild(body);
   return { article, body };
 }
 
-/* ---------- Full render ---------- */
+/* ---------------- main render ---------------- */
 
 function renderFull(dom, post){
   const title = decodeHTML(post?.title?.rendered || 'Untitled');
@@ -163,18 +187,23 @@ function renderFull(dom, post){
   const isProtected = !!post?.content?.protected || !contentHTML || !contentHTML.trim();
   const permalink = post?.link || `https://okobserver.org/?p=${post?.id || ''}`;
 
-  // Body
+  // Classic paywall note (replaces the previous "public API" message)
   const htmlToUse = (!isProtected)
     ? contentHTML
     : `
-      <div class="paywall-note">
-        <em>This article’s full text isn’t available via the public API.</em>
-        &nbsp;<a href="${permalink}" target="_blank" rel="noopener">Read on okobserver.org</a>.
+      <div class="paywall-note paywall-classic">
+        <strong>This article is for subscribers.</strong>
+        <div class="paywall-actions">
+          <a class="btn btn-primary" href="https://okobserver.org/my-account/" target="_blank" rel="noopener">Log in</a>
+          <a class="btn btn-outline" href="https://okobserver.org/subscribe/" target="_blank" rel="noopener">Purchase a subscription</a>
+          <a class="plain-link" href="${permalink}" target="_blank" rel="noopener">Open on okobserver.org</a>
+        </div>
       </div>
       ${excerptHTML || ''}`;
+
   dom.body.innerHTML = `<div class="post-content">${htmlToUse}</div>`;
 
-  // Upgrade hero with *real* iframe only after it loads; until then keep poster
+  // Upgrade hero to real iframe ONLY after it loads; keep poster otherwise
   const heroWrap = dom.article.querySelector('.post-hero');
   const currentPoster = heroWrap.querySelector('img');
 
@@ -182,25 +211,23 @@ function renderFull(dom, post){
   const selfV = selfHostedVideo(post);
 
   if (embed){
-    const iframe = buildIframe(
+    buildIframe(
       embed,
-      // onReady -> replace poster with loaded iframe
+      // onReady: swap in the loaded iframe
       (loaded) => {
-        const wrap = el('div',{ class:'video-wrapper' }, loaded);
+        const wrap = el('div', { class:'video-wrapper' }, loaded);
         heroWrap.replaceChildren(wrap);
       },
-      // onTimeout -> keep poster; clicking opens provider in new tab
+      // onTimeout: keep poster; clicking opens provider
       () => {
         if (currentPoster) {
           heroWrap.replaceChildren(posterBlock(currentPoster.src, embed, title));
         }
       }
     );
-    // Begin load attempt, but don't swap DOM until onReady fires
-    // (we leave the poster visible meanwhile)
-    // no-op here; the act of creating the iframe starts the load
+    // We do NOT replace the poster immediately; we wait for onReady.
   } else if (selfV.src){
-    const v = el('video',{ controls:true, playsinline:true, preload:'metadata', poster:selfV.poster||undefined },
+    const v = el('video',{ controls:true, playsinline:true, preload:'metadata', poster:selfV.poster || undefined },
       el('source',{ src:selfV.src, type:'video/mp4' })
     );
     heroWrap.replaceChildren(el('div',{ class:'video-wrapper' }, v));
@@ -209,9 +236,10 @@ function renderFull(dom, post){
   renderTags(dom.article, post);
 
   dom.article.appendChild(
-    el('p',{ class:'container' }, el('a',{ class:'btn btn-primary', href:'#/' }, 'Back to Posts'))
+    el('p', { class:'container' }, el('a', { class:'btn btn-primary', href:'#/' }, 'Back to Posts'))
   );
 
+  // Sanitize iframes in body
   for (const f of dom.body.querySelectorAll('iframe')){
     f.setAttribute('loading','lazy');
     f.setAttribute('referrerpolicy','no-referrer-when-downgrade');
@@ -222,6 +250,7 @@ function renderFull(dom, post){
 
 export async function renderPost(mount, id){
   renderSkeleton(mount);
+
   const hint = getPostHint(id);
   let dom = hint ? applyHint(mount, hint) : null;
 
@@ -230,13 +259,14 @@ export async function renderPost(mount, id){
     if (!dom){
       const title = decodeHTML(post?.title?.rendered || 'Untitled');
       const hero  = buildSafeHeroFrom(post);
-      const article = el('article',{ class:'post container' },
-        el('div',{ class:'post-hero' }, hero || el('div',{ class:'media-fallback' },'')),
-        el('h1',{ class:'post-title' }, title),
-        el('div',{ class:'meta' }, byline(post)),
+      const article = el('article', { class:'post container' },
+        el('div', { class:'post-hero' }, hero || el('div', { class:'media-fallback' }, '')),
+        el('h1', { class:'post-title' }, title),
+        el('div', { class:'meta' }, byline(post)),
       );
-      mount.innerHTML=''; mount.appendChild(article);
-      dom = { article, body: el('div',{ class:'post-body' }) };
+      mount.innerHTML = '';
+      mount.appendChild(article);
+      dom = { article, body: el('div', { class:'post-body' }) };
       article.appendChild(dom.body);
     }
     renderFull(dom, post);
