@@ -1,80 +1,49 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1E90FF">
+  <title>The Oklahoma Observer</title>
 
-  <title>OkObserver</title>
-  <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
-  <meta name="theme-color" content="#1976d2" />
+  <!-- ✅ Correct CSS version -->
+  <link rel="stylesheet" href="./override.css?v=2025-10-30q">
 
-  <!-- PWA manifest (GitHub Pages path-aware) -->
-  <link rel="manifest" href="./manifest.json?v=2025-10-31a" crossorigin="use-credentials" />
+  <!-- ✅ Optional Manifest (comment out if missing to silence 404) -->
+  <!-- <link rel="manifest" href="./manifest.json?v=2025-10-31a"> -->
 
-  <!-- Icons (already in your repo) -->
-  <link rel="icon" href="./favicon.ico" />
-  <link rel="apple-touch-icon" href="./icon-192.png" />
-
-  <!-- Styles -->
-  <link rel="preload" as="style" href="./override.css?v=2025-10-30q" />
-  <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
-
-  <!-- Preconnect to proxy for faster first fetch -->
-  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin />
-
-  <!-- Prevent GH Pages transform issues -->
-  <meta http-equiv="Cache-Control" content="no-transform" />
+  <link rel="icon" type="image/png" href="./favicon.ico">
+  <link rel="apple-touch-icon" href="./icon-192.png">
 </head>
-<body>
-  <!-- Header -->
-  <header class="oo-header">
-    <div class="oo-header-inner">
-      <a class="oo-brand" href="./#/" aria-label="OkObserver home">
-        <img class="oo-logo" src="./logo.png" alt="The Oklahoma Observer" decoding="async" />
-      </a>
-      <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
 
-      <!-- Right-justified nav / hamburger -->
-      <nav class="oo-nav" aria-label="Primary">
-        <ul class="oo-nav-list">
-          <li><a href="#/" data-link="posts">Posts</a></li>
-          <li><a href="#/about" data-link="about">About</a></li>
-          <li><a href="#/settings" data-link="settings">Settings</a></li>
-        </ul>
-        <button id="oo-menu" class="oo-menu" aria-label="Open menu" aria-haspopup="true" aria-expanded="false">☰</button>
-      </nav>
+<body>
+  <header class="site-header">
+    <div class="header-content">
+      <img src="./logo.png" alt="The Oklahoma Observer" class="site-logo">
+      <p class="site-motto">To comfort the afflicted and afflict the comfortable</p>
     </div>
+    <nav class="site-nav">
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+      <a href="#/settings">Settings</a>
+      <button class="hamburger" id="menuToggle">☰</button>
+    </nav>
   </header>
 
-  <!-- App Root -->
-  <main id="app" role="main" tabindex="-1"></main>
+  <main id="app"></main>
 
-  <!-- Footer -->
-  <footer class="oo-footer">
-    <div class="oo-footer-inner">© 2025 The Oklahoma Observer</div>
+  <footer class="site-footer">
+    <p>© 2025 The Oklahoma Observer</p>
   </footer>
 
-  <!-- Offline toast (shown when api.js dispatches okobserver:api-fail) -->
-  <div id="oo-offline" class="oo-offline" hidden>
-    Network issue — showing cached content if available…
-  </div>
-
-  <!-- Scripts (avoid ES module to keep GH Pages happy) -->
-  <script src="./main.js?v=2025-10-30q" defer></script>
-
-  <!-- Service Worker registration -->
+  <!-- ✅ Correct JS references -->
+  <script src="./main.js?v=2025-10-30q"></script>
   <script>
-    (function registerSW() {
-      if (!('serviceWorker' in navigator)) return;
-      window.addEventListener('load', function () {
-        const ver = '2025-10-31a';
-        const url = `./sw.js?v=${ver}`;
-        navigator.serviceWorker.register(url).then(reg => {
-          console.log('[OkObserver] SW registered', reg);
-        }).catch(err => console.error('[OkObserver] SW registration failed', err));
-      });
-    }());
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js?v=2025-10-31c')
+        .then(reg => console.log('[OkObserver] SW registered:', reg))
+        .catch(err => console.warn('[OkObserver] SW registration failed:', err));
+    }
   </script>
 </body>
 </html>
