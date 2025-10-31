@@ -1,15 +1,10 @@
 /* OkObserver Home Grid
-   Version: 2025-10-31k
+   Version: 2025-10-31l
    Contract: renderHome($app, { VER })
-   Notes:
-   - Reads user prefs from localStorage:
-       okobsv.hideCartoons (boolean)
-       okobsv.hideTests    (boolean)
-   - Applies filters BEFORE rendering.
-   - Renders a resilient grid container that matches your CSS selectors:
-       id="postsGrid" and class="post-grid posts-grid grid"
-   - Uses lazy images and async decoding for perf.
-   - No assumptions about your header or MutationObserver.
+   Changes in 2025-10-31l:
+   - DEFAULT FILTERS ON: cartoons/tests are hidden by default
+     (users can explicitly turn them back on in Settings).
+   - Everything else stays the same; no header/grid/MO changes.
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -23,8 +18,11 @@ export async function renderHome($app, { VER } = {}) {
   }
 
   // --- Preferences ---
-  const hideCartoons = localStorage.getItem("okobsv.hideCartoons") === "true";
-  const hideTests    = localStorage.getItem("okobsv.hideTests") === "true";
+  // DEFAULT-HIDE behavior:
+  // If the key is absent, we treat it as "true" (hidden).
+  // Users can flip it in Settings, which stores "false" to show them.
+  const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
+  const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
   // --- UI shell ---
   $app.innerHTML = `
@@ -36,7 +34,7 @@ export async function renderHome($app, { VER } = {}) {
   `;
   const $grid = document.getElementById("postsGrid");
 
-  // --- Fetch posts (first page; keeps behavior conservative & stable) ---
+  // --- Fetch posts (first page, conservative & stable) ---
   let posts = [];
   try {
     const url = `${API_BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=1`;
@@ -84,7 +82,6 @@ export async function renderHome($app, { VER } = {}) {
   function isCartoon(post) {
     const t = (stripTags(post?.title?.rendered || "").toLowerCase());
     if (t.includes("cartoon") || t.includes("illustration")) return true;
-    // Try tag/category names if embedded
     try {
       const tax = [
         ...(post?._embedded?.["wp:term"]?.flat?.() || []),
