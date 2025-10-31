@@ -1,13 +1,14 @@
 {
+  "id": "/okobserver/",
+  "scope": "/okobserver/",
   "name": "The Oklahoma Observer",
   "short_name": "OkObserver",
-  "description": "To comfort the afflicted and afflict the comfortable. A reader-friendly mirror of okobserver.org.",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "To comfort the afflicted and afflict the comfortable.",
+  "start_url": "/okobserver/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1E90FF",
-  "orientation": "any",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "./icon-192.png",
