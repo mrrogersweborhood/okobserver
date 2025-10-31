@@ -1,21 +1,41 @@
-/* OkObserver Home Grid
-   Version: 2025-10-31p
-   Guarantees visible Title • Byline • Excerpt.
-   Default-hide cartoons/tests; user can opt in via Settings.
+/* OkObserver Home Grid (DIAGNOSTIC BUILD)
+   Version: 2025-10-31p-D1
+   Purpose:
+   - Visibly confirm this file is executing (banner + console log).
+   - Force-render Title • Byline • Excerpt with inline !important styles.
+   - Keep default-on filters (cartoons/tests hidden unless user opts in).
 */
+
 export async function renderHome($app, { VER } = {}) {
-  console.log("[Home] boot", VER, "2025-10-31p");
+  console.log("[Home] DIAG v2025-10-31p-D1 • app VER:", VER);
+
   const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
   const PER_PAGE = 20;
 
-  if (!$app) { console.warn("[Home] missing mount; abort."); return; }
+  if (!$app) {
+    console.warn("[Home] missing mount; abort.");
+    return;
+  }
 
   // Default-hide until user opts out in Settings
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
+  // DIAGNOSTIC BANNER (visible)
+  const banner = `
+    <div id="OKO-HOME-DIAG" style="
+      grid-column:1/-1; margin:8px 0 10px 0; padding:8px 10px;
+      background:#fff7cc; border:1px solid #f0d35b; color:#5a4b00;
+      font: 600 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+      border-radius:10px;
+    ">
+      Home.js loaded: <strong>2025-10-31p-D1</strong> (if you don’t see this, the old Home.js is still being used)
+    </div>
+  `;
+
   // Shell
   $app.innerHTML = `
+    ${banner}
     <div id="postsGrid" class="post-grid posts-grid grid">
       <div class="loading" style="grid-column: 1/-1; text-align:center; padding:1.25rem 0;">
         Loading…
@@ -24,10 +44,10 @@ export async function renderHome($app, { VER } = {}) {
   `;
   const $grid = document.getElementById("postsGrid");
 
-  // Fetch (never use cached payload here)
+  // Fetch fresh
   let posts = [];
   try {
-    const url = `${API_BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=1&_=${encodeURIComponent(VER)}`;
+    const url = `${API_BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=1&_=${encodeURIComponent(VER + "-D1")}`;
     const res = await fetch(url, { credentials: "omit", cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     posts = await res.json();
@@ -85,7 +105,6 @@ export async function renderHome($app, { VER } = {}) {
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const escapeAttr = (s) => escapeHtml(s).replace(/`/g,"&#96;");
 
-  // Fallback title/excerpt
   const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   const buildExcerpt = (p) => {
     let ex = textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "";
@@ -94,7 +113,6 @@ export async function renderHome($app, { VER } = {}) {
     return ex;
   };
 
-  // Card
   function cardHTML(p) {
     const f = getFeatured(p);
     const title = buildTitle(p);
@@ -104,27 +122,28 @@ export async function renderHome($app, { VER } = {}) {
     const href = `#/post/${p?.id}`;
     const img = f ? `<img src="${f.url}" alt="${escapeAttr(f.alt||title)}" loading="lazy" decoding="async" />` : "";
 
-    // Inline text styles to guarantee visibility
+    // FORCE-VISIBLE text with inline !important; add data-test hooks
     return `
-      <article class="post-card card">
+      <article class="post-card card" data-test="card">
         <a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}">${img}</a>
-        <div class="body" style="padding:14px 16px 16px;">
-          <h3 style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem;">
-            <a href="${href}" style="color:#111; text-decoration:none;">${escapeHtml(title)}</a>
+        <div class="body" style="padding:14px 16px 16px; display:block !important;">
+          <h3 data-test="title" style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem; display:block !important;">
+            <a href="${href}" style="color:#111 !important; text-decoration:none; display:inline !important;">${escapeHtml(title)}</a>
           </h3>
-          <div class="byline" style="color:#667; font-size:.9rem; margin:0 0 .35rem 0;">
+          <div data-test="byline" style="color:#111 !important; font-size:.9rem; margin:0 0 .35rem 0; display:block !important;">
             ${author ? `${escapeHtml(author)} • ` : ""}${date}
           </div>
-          ${excerpt ? `<p style="margin:.25rem 0 0 0; color:#455; font-size:.95rem; line-height:1.45;">${escapeHtml(excerpt)}</p>` : ``}
+          ${excerpt ? `<p data-test="excerpt" style="margin:.25rem 0 0 0; color:#111 !important; font-size:.95rem; line-height:1.45; display:block !important;">${escapeHtml(excerpt)}</p>` : ``}
         </div>
       </article>
     `;
   }
 
   if (!filtered.length) {
-    $grid.innerHTML = `<div style="grid-column:1/-1; padding:1rem 0; color:#667;">No posts match your filters.</div>`;
+    $grid.innerHTML = `<div style="grid-column:1/-1; padding:1rem 0; color:#111 !important; display:block !important;">No posts match your filters.</div>`;
     return;
   }
+
   $grid.innerHTML = filtered.map(cardHTML).join("");
 }
 
