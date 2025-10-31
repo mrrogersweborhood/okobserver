@@ -4,42 +4,81 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OkObserver — Offline</title>
-  <meta name="theme-color" content="#1E73BE" />
+  <meta name="theme-color" content="#1976d2" />
   <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
   <style>
-    :root { --brand:#1E73BE; --text:#222; --muted:#666; }
-    html,body {height:100%;}
-    body {
-      margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      color:var(--text); background:#fff; display:flex; align-items:center; justify-content:center;
+    :root {
+      --brand: #1976d2;
+      --text: #222;
+      --muted: #666;
     }
-    .card {
-      max-width: 640px; padding:32px 28px; border:1px solid #eee; border-radius:16px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.06); text-align:center;
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: #fff;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .logo { height:48px; margin-bottom:12px; opacity:.95 }
-    h1 { margin:8px 0 6px; font-size:22px }
-    p  { margin:8px 0; color:var(--muted) }
-    .actions { margin-top:16px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
+    .offline-card {
+      max-width: 620px;
+      padding: 32px 28px;
+      border: 1px solid #e5e5e5;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
+    }
+    .offline-logo {
+      height: 64px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 10px 0 6px;
+    }
+    p {
+      color: var(--muted);
+      margin: 6px 0 20px;
+    }
     .btn {
-      appearance:none; border:0; background:var(--brand); color:#fff; padding:10px 16px; border-radius:10px;
-      font-weight:600; cursor:pointer;
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s ease;
     }
-    .link { color:var(--brand); text-decoration:none; font-weight:600 }
-    footer { margin-top:18px; font-size:13px; color:#999 }
+    .btn:hover {
+      background: #1259a5;
+    }
+    footer {
+      margin-top: 18px;
+      font-size: 13px;
+      color: #999;
+    }
   </style>
 </head>
 <body>
-  <main class="card" role="main" aria-live="polite">
-    <img class="logo" src="./logo.png" alt="The Oklahoma Observer" />
-    <h1>You're offline</h1>
-    <p>We couldn’t reach OkObserver. You can return to Posts or try loading again once you’re back online.</p>
-    <div class="actions">
+  <main class="offline-card" role="main" aria-live="polite">
+    <img class="offline-logo" src="./logo.png" alt="The Oklahoma Observer logo" />
+    <h1>You’re offline</h1>
+    <p>We couldn’t reach the OkObserver servers. You can return to Posts or try again once your connection is restored.</p>
+    <div>
       <a class="btn" href="#/">Back to Posts</a>
       <button class="btn" onclick="location.reload()">Try again</button>
     </div>
-    <footer>&copy; <span id="y"></span> The Oklahoma Observer</footer>
+    <footer>&copy; <span id="year"></span> The Oklahoma Observer</footer>
   </main>
-  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>

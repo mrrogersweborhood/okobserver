@@ -1,86 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Oklahoma Observer</title>
 
-  <!-- Brand & Theme -->
-  <meta name="theme-color" content="#1E73BE" />
-  <meta name="description" content="To comfort the afflicted and afflict the comfortable. The Oklahoma Observer – independent journalism since 1969." />
+  <title>OkObserver</title>
+  <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
+  <meta name="theme-color" content="#1976d2" />
 
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="./manifest.json?v=2025-10-30q" />
+  <!-- PWA manifest (GitHub Pages path-aware) -->
+  <link rel="manifest" href="./manifest.json?v=2025-10-31a" crossorigin="use-credentials" />
 
-  <!-- Icons -->
+  <!-- Icons (already in your repo) -->
   <link rel="icon" href="./favicon.ico" />
-  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
-  <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
-
-  <!-- Preconnect (faster proxy access) -->
-  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin />
-  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
 
   <!-- Styles -->
+  <link rel="preload" as="style" href="./override.css?v=2025-10-30q" />
   <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
 
-  <!-- Social Metadata -->
-  <meta property="og:title" content="The Oklahoma Observer" />
-  <meta property="og:description" content="Independent journalism since 1969." />
-  <meta property="og:image" content="./icon-512.png" />
-  <meta property="og:type" content="website" />
+  <!-- Preconnect to proxy for faster first fetch -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin />
+
+  <!-- Prevent GH Pages transform issues -->
+  <meta http-equiv="Cache-Control" content="no-transform" />
 </head>
 <body>
   <!-- Header -->
-  <header class="site-header">
-    <div class="brand">
-      <img src="./logo.png" alt="The Oklahoma Observer logo" class="logo" />
-      <p class="motto">To comfort the afflicted and afflict the comfortable</p>
+  <header class="oo-header">
+    <div class="oo-header-inner">
+      <a class="oo-brand" href="./#/" aria-label="OkObserver home">
+        <img class="oo-logo" src="./logo.png" alt="The Oklahoma Observer" decoding="async" />
+      </a>
+      <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
+
+      <!-- Right-justified nav / hamburger -->
+      <nav class="oo-nav" aria-label="Primary">
+        <ul class="oo-nav-list">
+          <li><a href="#/" data-link="posts">Posts</a></li>
+          <li><a href="#/about" data-link="about">About</a></li>
+          <li><a href="#/settings" data-link="settings">Settings</a></li>
+        </ul>
+        <button id="oo-menu" class="oo-menu" aria-label="Open menu" aria-haspopup="true" aria-expanded="false">☰</button>
+      </nav>
     </div>
-
-    <!-- Hamburger Toggle -->
-    <button id="navToggle" class="nav-toggle" aria-label="Toggle navigation" aria-controls="mainNav" aria-expanded="false">
-      <span class="nav-toggle-bar"></span>
-      <span class="nav-toggle-bar"></span>
-      <span class="nav-toggle-bar"></span>
-    </button>
-
-    <!-- Navigation -->
-    <nav class="main-nav" id="mainNav">
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-      <a href="#/settings">Settings</a>
-    </nav>
   </header>
 
-  <main id="app" class="app fade-in" role="main"></main>
+  <!-- App Root -->
+  <main id="app" role="main" tabindex="-1"></main>
 
-  <footer>
-    <div class="build-tag">OkObserver Build v2025-10-30q</div>
+  <!-- Footer -->
+  <footer class="oo-footer">
+    <div class="oo-footer-inner">© 2025 The Oklahoma Observer</div>
   </footer>
 
-  <!-- Passive offline toast -->
-  <div id="net-toast" class="net-toast" role="status" aria-live="polite" hidden>
-    You’re offline. Showing cached content.
+  <!-- Offline toast (shown when api.js dispatches okobserver:api-fail) -->
+  <div id="oo-offline" class="oo-offline" hidden>
+    Network issue — showing cached content if available…
   </div>
 
-  <!-- Navigation JS -->
-  <script>
-    const navToggle = document.getElementById('navToggle');
-    const mainNav = document.getElementById('mainNav');
-    navToggle.addEventListener('click', () => {
-      const open = document.body.classList.toggle('nav-open');
-      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    });
-    mainNav.querySelectorAll('a').forEach(a =>
-      a.addEventListener('click', () => {
-        document.body.classList.remove('nav-open');
-        navToggle.setAttribute('aria-expanded', 'false');
-      })
-    );
-  </script>
+  <!-- Scripts (avoid ES module to keep GH Pages happy) -->
+  <script src="./main.js?v=2025-10-30q" defer></script>
 
-  <!-- App Logic -->
-  <script src="./main.js?v=2025-10-30q"></script>
+  <!-- Service Worker registration -->
+  <script>
+    (function registerSW() {
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function () {
+        const ver = '2025-10-31a';
+        const url = `./sw.js?v=${ver}`;
+        navigator.serviceWorker.register(url).then(reg => {
+          console.log('[OkObserver] SW registered', reg);
+        }).catch(err => console.error('[OkObserver] SW registration failed', err));
+      });
+    }());
+  </script>
 </body>
 </html>

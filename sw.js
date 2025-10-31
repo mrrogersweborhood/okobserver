@@ -1,4 +1,4 @@
-/* sw.js — v2025-10-30s
+/* sw.js — v2025-10-31b
    OkObserver service worker
    ---------------------------------------
    • Cache-first app shell (+ offline.html)
@@ -6,10 +6,10 @@
    • Navigation fallback to offline page
    • Immediate activation (skipWaiting + claim)
    • Auto-cleans old caches
-   • PRECACHE includes api.js?v=2025-10-30s
+   • PRECACHE includes api.js and manifest.json
 */
 
-const CACHE_VERSION = '2025-10-30s';
+const CACHE_VERSION = '2025-10-31b';
 const STATIC_CACHE = `okobserver-static-${CACHE_VERSION}`;
 const DATA_CACHE   = `okobserver-data-${CACHE_VERSION}`;
 
@@ -17,6 +17,7 @@ const APP_SHELL = [
   './',
   './index.html',
   './offline.html',
+  './manifest.json?v=2025-10-31a',
   './main.js?v=2025-10-30q',
   './Home.js?v=2025-10-30s',
   './PostDetail.js?v=2025-10-30q',
@@ -59,7 +60,6 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Only GET is cached/handled
   if (req.method !== 'GET') return;
 
   // 1) API requests → network-first
@@ -68,16 +68,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) Navigations (HTML pages) → try network, fall back to offline page
-  if (req.mode === 'navigate' || (req.destination === 'document')) {
+  // 2) Navigations → try network, fall back to offline page
+  if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
-        return fresh;
-      } catch (err) {
+        return await fetch(req);
+      } catch {
         const cache = await caches.open(STATIC_CACHE);
         const offline = await cache.match('./offline.html', { ignoreSearch: true });
-        return offline || new Response('Offline', { status: 503 });
+        if (offline) {
+          console.log('[SW] Serving offline.html (no network)');
+          return offline;
+        }
+        return new Response('Offline', { status: 503 });
       }
     })());
     return;
@@ -96,8 +99,7 @@ async function cacheFirst(req) {
     const fresh = await fetch(req);
     if (fresh.ok) cache.put(req, fresh.clone());
     return fresh;
-  } catch (err) {
-    console.warn('[SW] Offline fallback (static) for', req.url);
+  } catch {
     return cached || new Response('Offline', { status: 503 });
   }
 }
@@ -108,10 +110,9 @@ async function networkFirst(req) {
     const fresh = await fetch(req);
     if (fresh.ok) cache.put(req, fresh.clone());
     return fresh;
-  } catch (err) {
+  } catch {
     const cached = await cache.match(req);
     if (cached) return cached;
-    console.warn('[SW] Network error, no cache', req.url);
     return new Response('Network error', { status: 500 });
   }
 }
