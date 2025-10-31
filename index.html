@@ -8,7 +8,8 @@
     <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
     <meta name="theme-color" content="#1E90FF" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="./manifest.json?v=2025-10-31k" />
+    <!-- Bump manifest version to pull latest -->
+    <link rel="manifest" href="./manifest.json?v=2025-10-31p" />
 
     <title>The Oklahoma Observer</title>
 
@@ -100,13 +101,13 @@
       })();
     </script>
 
-    <!-- App main -->
-    <script src="main.js?v=2025-10-31m"></script>
+    <!-- App main (BUMPED) -->
+    <script src="main.js?v=2025-10-31p"></script>
 
     <!-- Grid enforcer -->
     <script src="grid-enforcer.js?v=2025-10-31c"></script>
 
-    <!-- SW registration -->
+    <!-- SW registration (BUMPED) -->
     <script>
       // Hamburger toggle
       (function(){
@@ -124,15 +125,15 @@
       // Service Worker
       if("serviceWorker" in navigator){
         window.addEventListener("load",()=>{
-          navigator.serviceWorker.register("./sw.js?v=2025-10-31m")
+          navigator.serviceWorker.register("./sw.js?v=2025-10-31p")
             .then(()=>console.log("[OkObserver] SW registered"))
             .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
         });
       }
 
-      // Footer info
+      // Footer info (BUMPED)
       document.getElementById("year").textContent=new Date().getFullYear();
-      document.getElementById("build").textContent="2025-10-31m";
+      document.getElementById("build").textContent="2025-10-31p";
     </script>
   </body>
 </html>
