@@ -1,33 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1E90FF">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer</title>
 
-  <!-- ✅ Correct CSS version -->
-  <link rel="stylesheet" href="./override.css?v=2025-10-30q">
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
 
-  <!-- ✅ Optional Manifest (comment out if missing to silence 404) -->
-  <!-- <link rel="manifest" href="./manifest.json?v=2025-10-31a"> -->
+  <!-- ✅ Manifest now active -->
+  <link rel="manifest" href="./manifest.json?v=2025-10-31a" />
 
-  <link rel="icon" type="image/png" href="./favicon.ico">
-  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <style>
+    .site-header { background:#1e90ff; color:#fff; }
+    .site-header .wrap{
+      max-width:1200px; margin:0 auto; padding:16px 16px 10px;
+      display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px;
+    }
+    .brand{display:flex; align-items:center; gap:14px; min-width:0;}
+    .site-logo{height:54px; width:auto; display:block;}
+    .site-motto{margin:0; font-size:14px; opacity:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .site-nav{position:relative; display:flex; align-items:center; gap:18px;}
+    .hamburger{
+      border:0; background:transparent; color:#fff; font-size:24px; line-height:1;
+      cursor:pointer; padding:6px 8px; border-radius:8px;
+    }
+    .hamburger:focus-visible{outline:2px solid #fff; outline-offset:2px;}
+    .menu-dropdown{
+      position:absolute; right:0; top:calc(100% + 8px);
+      min-width:180px; background:#fff; color:#111;
+      border-radius:12px; box-shadow:0 8px 30px rgba(17,24,39,.08);
+      padding:8px; display:none; z-index:50;
+    }
+    .menu-dropdown.open{display:block;}
+    .menu-dropdown a{
+      display:block; padding:10px 12px; border-radius:8px;
+      color:#111; text-decoration:none; font-weight:600;
+    }
+    .menu-dropdown a:hover,.menu-dropdown a:focus{background:#f1f5ff;outline:none;}
+    .menu-caret{
+      position:absolute; right:12px; top:-6px; width:12px; height:12px;
+      background:#fff; transform:rotate(45deg);
+      box-shadow:-2px -2px 4px rgba(0,0,0,.06);
+    }
+    @media(max-width:900px){
+      .site-logo{height:46px;}
+      .site-motto{font-size:13px;}
+    }
+  </style>
 </head>
 
 <body>
   <header class="site-header">
-    <div class="header-content">
-      <img src="./logo.png" alt="The Oklahoma Observer" class="site-logo">
-      <p class="site-motto">To comfort the afflicted and afflict the comfortable</p>
+    <div class="wrap">
+      <div class="brand">
+        <img src="./logo.png" alt="The Oklahoma Observer" class="site-logo" />
+        <p class="site-motto">To comfort the afflicted and afflict the comfortable</p>
+      </div>
+
+      <nav class="site-nav" aria-label="Primary">
+        <!-- Hamburger (always visible) -->
+        <button id="menuToggle"
+                class="hamburger"
+                aria-label="Open menu"
+                aria-expanded="false"
+                aria-controls="menuDropdown">☰</button>
+
+        <!-- Compact dropdown -->
+        <div id="menuDropdown" class="menu-dropdown" role="menu" hidden>
+          <span class="menu-caret" aria-hidden="true"></span>
+          <a href="#/" role="menuitem" data-menu-close>Posts</a>
+          <a href="#/about" role="menuitem" data-menu-close>About</a>
+          <a href="#/settings" role="menuitem" data-menu-close>Settings</a>
+        </div>
+      </nav>
     </div>
-    <nav class="site-nav">
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-      <a href="#/settings">Settings</a>
-      <button class="hamburger" id="menuToggle">☰</button>
-    </nav>
   </header>
 
   <main id="app"></main>
@@ -36,13 +87,39 @@
     <p>© 2025 The Oklahoma Observer</p>
   </footer>
 
-  <!-- ✅ Correct JS references -->
   <script src="./main.js?v=2025-10-30q"></script>
+
   <script>
-    if ('serviceWorker' in navigator) {
+    (function(){
+      const btn=document.getElementById('menuToggle');
+      const dd=document.getElementById('menuDropdown');
+      if(!btn||!dd)return;
+
+      let open=false;
+      const set=(s)=>{
+        open=s;
+        btn.setAttribute('aria-expanded',String(open));
+        btn.setAttribute('aria-label',open?'Close menu':'Open menu');
+        dd.hidden=!open; dd.classList.toggle('open',open);
+      };
+      const toggle=()=>set(!open);
+      const close=()=>set(false);
+
+      btn.addEventListener('click',toggle);
+      document.addEventListener('click',e=>{
+        if(!open)return;
+        if(!dd.contains(e.target)&&!btn.contains(e.target))close();
+      });
+      document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+      dd.querySelectorAll('[data-menu-close]').forEach(a=>a.addEventListener('click',close));
+      window.addEventListener('hashchange',close);
+      window.addEventListener('popstate',close);
+    })();
+
+    if('serviceWorker' in navigator){
       navigator.serviceWorker.register('./sw.js?v=2025-10-31c')
-        .then(reg => console.log('[OkObserver] SW registered:', reg))
-        .catch(err => console.warn('[OkObserver] SW registration failed:', err));
+        .then(reg=>console.log('[OkObserver] SW registered:',reg))
+        .catch(err=>console.warn('[OkObserver] SW registration failed:',err));
     }
   </script>
 </body>
