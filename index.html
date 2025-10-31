@@ -1,66 +1,86 @@
-<!-- 🟢 index.html -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OkObserver</title>
+  <title>The Oklahoma Observer</title>
 
-  <!-- Favicon & Branding -->
+  <!-- Brand & Theme -->
+  <meta name="theme-color" content="#1E73BE" />
+  <meta name="description" content="To comfort the afflicted and afflict the comfortable. The Oklahoma Observer – independent journalism since 1969." />
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="./manifest.json?v=2025-10-30q" />
+
+  <!-- Icons -->
   <link rel="icon" href="./favicon.ico" />
-  <meta name="theme-color" content="#2085f5" />
+  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
 
-  <!-- Perf: warm up DNS/TLS to the proxy -->
-  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
-  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev">
+  <!-- Preconnect (faster proxy access) -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin />
+  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
   <!-- Styles -->
-  <link rel="stylesheet" href="./override.css?v=2025-10-27i" />
-  <style>
-    /* Sticky header without overlapping content */
-    .site-header{ position: sticky; top: 0; z-index: 1000; }
-    body { scroll-padding-top: 88px; }
-  </style>
+  <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
+
+  <!-- Social Metadata -->
+  <meta property="og:title" content="The Oklahoma Observer" />
+  <meta property="og:description" content="Independent journalism since 1969." />
+  <meta property="og:image" content="./icon-512.png" />
+  <meta property="og:type" content="website" />
 </head>
 <body>
-  <!-- Header (logo + motto left, menu right). Hamburger is injected by main.js -->
+  <!-- Header -->
   <header class="site-header">
     <div class="brand">
-      <div class="brand-left">
-        <img src="./logo.png" alt="The Oklahoma Observer" class="brand-logo" />
-        <p class="brand-tag">To comfort the afflicted and afflict the comfortable</p>
-      </div>
-      <nav class="main-nav" aria-label="Primary">
-        <a href="#/">Posts</a>
-        <a href="#/about">About</a>
-        <a href="#/settings">Settings</a>
-      </nav>
+      <img src="./logo.png" alt="The Oklahoma Observer logo" class="logo" />
+      <p class="motto">To comfort the afflicted and afflict the comfortable</p>
     </div>
+
+    <!-- Hamburger Toggle -->
+    <button id="navToggle" class="nav-toggle" aria-label="Toggle navigation" aria-controls="mainNav" aria-expanded="false">
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+      <span class="nav-toggle-bar"></span>
+    </button>
+
+    <!-- Navigation -->
+    <nav class="main-nav" id="mainNav">
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+      <a href="#/settings">Settings</a>
+    </nav>
   </header>
 
-  <main id="app" class="app" role="main" aria-live="polite"></main>
+  <main id="app" class="app fade-in" role="main"></main>
 
-  <footer class="site-footer">
-    <div class="container">
-      <small>&copy; <span id="year"></span> The Oklahoma Observer</small>
-    </div>
+  <footer>
+    <div class="build-tag">OkObserver Build v2025-10-30q</div>
   </footer>
 
-  <script>
-    // Current year
-    (function(){ var y=document.getElementById('year'); if(y) y.textContent=String(new Date().getFullYear()); })();
+  <!-- Passive offline toast -->
+  <div id="net-toast" class="net-toast" role="status" aria-live="polite" hidden>
+    You’re offline. Showing cached content.
+  </div>
 
-    // Grid observer hook (kept per your baseline)
-    (function(){
-      var target=document.getElementById('app');
-      if(!('MutationObserver' in window) || !target) return;
-      var mo=new MutationObserver(function(muts){});
-      mo.observe(target,{childList:true,subtree:true});
-    })();
+  <!-- Navigation JS -->
+  <script>
+    const navToggle = document.getElementById('navToggle');
+    const mainNav = document.getElementById('mainNav');
+    navToggle.addEventListener('click', () => {
+      const open = document.body.classList.toggle('nav-open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    mainNav.querySelectorAll('a').forEach(a =>
+      a.addEventListener('click', () => {
+        document.body.classList.remove('nav-open');
+        navToggle.setAttribute('aria-expanded', 'false');
+      })
+    );
   </script>
 
-  <!-- App Script (ES module) -->
-  <script type="module" src="./main.js?v=2025-10-28j"></script>
+  <!-- App Logic -->
+  <script src="./main.js?v=2025-10-30q"></script>
 </body>
 </html>
-<!-- 🔴 index.html -->

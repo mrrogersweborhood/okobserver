@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OkObserver — Offline</title>
+  <meta name="theme-color" content="#1E73BE" />
+  <link rel="icon" href="./favicon.ico" />
+  <style>
+    :root { --brand:#1E73BE; --text:#222; --muted:#666; }
+    html,body {height:100%;}
+    body {
+      margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color:var(--text); background:#fff; display:flex; align-items:center; justify-content:center;
+    }
+    .card {
+      max-width: 640px; padding:32px 28px; border:1px solid #eee; border-radius:16px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.06); text-align:center;
+    }
+    .logo { height:48px; margin-bottom:12px; opacity:.95 }
+    h1 { margin:8px 0 6px; font-size:22px }
+    p  { margin:8px 0; color:var(--muted) }
+    .actions { margin-top:16px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap }
+    .btn {
+      appearance:none; border:0; background:var(--brand); color:#fff; padding:10px 16px; border-radius:10px;
+      font-weight:600; cursor:pointer;
+    }
+    .link { color:var(--brand); text-decoration:none; font-weight:600 }
+    footer { margin-top:18px; font-size:13px; color:#999 }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-live="polite">
+    <img class="logo" src="./logo.png" alt="The Oklahoma Observer" />
+    <h1>You're offline</h1>
+    <p>We couldn’t reach OkObserver. You can return to Posts or try loading again once you’re back online.</p>
+    <div class="actions">
+      <a class="btn" href="#/">Back to Posts</a>
+      <button class="btn" onclick="location.reload()">Try again</button>
+    </div>
+    <footer>&copy; <span id="y"></span> The Oklahoma Observer</footer>
+  </main>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
+</body>
+</html>

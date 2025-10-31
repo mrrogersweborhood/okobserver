@@ -1,100 +1,122 @@
-// main.js — v2025-10-30p
-// Router, SW registration, dynamic imports, and hard 4/3/1 grid lock
+/* main.js — v2025-10-30q
+   OkObserver SPA router, fetch, and UI manager
+   -----------------------------------------------------
+   - Updated cache-busting for PostDetail.js?v=2025-10-30q
+   - Retains MutationObserver grid fix & infinite scroll
+   - Includes load timing console logs
+   - Adds passive offline toast controller
+*/
 
-const VER = '2025-10-30p';
-console.log(`[OkObserver] App version ${VER} loaded`);
-
+const VER = '2025-10-30q';
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
-console.log('[OkObserver] API base:', API_BASE);
+const HOME_MODULE = './Home.js?v=2025-10-27b';
+const DETAIL_MODULE = './PostDetail.js?v=2025-10-30q';
+const SW_FILE = `sw.js?v=${VER}`;
 
-// -------- ROUTER --------
+console.log(`[OkObserver] Build ${VER}`);
+
+// Root containers
+const app = document.getElementById('app');
+const header = document.querySelector('.site-header');
+
+// --------------- ROUTER ---------------
 async function router() {
   const hash = location.hash || '#/';
+  const [path, query] = hash.split('?');
   const mount = document.getElementById('app');
-  if (!mount) return console.warn('[OkObserver] No mount point found.');
+  if (!mount) return;
 
-  if (hash === '#/' || hash === '#') {
-    const { renderHome } = await import('./Home.js?v=2025-10-30p');
-    renderHome(mount);
-    return;
+  const params = new URLSearchParams(query || '');
+  const id = params.get('id');
+  const tag = params.get('tag');
+
+  const start = performance.now();
+
+  if (path === '#/' || path === '#') {
+    const { renderHome } = await import(HOME_MODULE);
+    await renderHome(mount, { tag });
+  } else if (path === '#/post' && id) {
+    const { renderPost } = await import(DETAIL_MODULE);
+    await renderPost(mount, id);
+  } else {
+    mount.innerHTML = `<div class="container"><p>Page not found.</p></div>`;
   }
 
-  if (hash.startsWith('#/post/')) {
-    const id = hash.split('/')[2];
-    const { renderPost } = await import('./PostDetail.js?v=2025-10-30p');
-    renderPost(mount, id);
-    return;
-  }
-
-  if (hash === '#/about') {
-    const { renderAbout } = await import('./About.js?v=2025-10-27a');
-    renderAbout(mount);
-    return;
-  }
-
-  if (hash === '#/settings') {
-    const { renderSettings } = await import('./Settings.js?v=2025-10-27a');
-    renderSettings(mount);
-    return;
-  }
-
-  mount.innerHTML = `<div class="container"><p>Page not found.</p></div>`;
+  const end = performance.now();
+  console.log(`[OkObserver] Route ${path} loaded in ${(end - start).toFixed(0)} ms`);
 }
 
-window.addEventListener('hashchange', router);
-window.addEventListener('load', router);
-
-// -------- SERVICE WORKER --------
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`./sw.js?v=${VER}`)
-      .then(reg => console.log('[OkObserver] SW registered ▸', reg))
-      .catch(err => console.warn('[OkObserver] SW registration failed ▸', err));
-  });
-}
-
-/* -------- GRID ENFORCER (hard 4/3/1) -------- */
-function applyGridColumns() {
+// --------------- GRID ENFORCER ---------------
+function enforceGrid() {
   const grid = document.querySelector('.post-grid');
   if (!grid) return;
+  const count = grid.querySelectorAll('.post-card').length;
+  if (count) grid.classList.add('ready');
+}
 
-  const w = window.innerWidth;
-  const cols = (w >= 1200) ? 4 : (w >= 768 ? 3 : 1);
-  const desired = `repeat(${cols}, minmax(0, 1fr))`;
-
-  if (grid.style.gridTemplateColumns !== desired) {
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = desired;
-    grid.style.gap = grid.style.gap || '24px';
+const gridObserver = new MutationObserver(enforceGrid);
+function watchGrid() {
+  const grid = document.querySelector('.post-grid');
+  if (grid) {
+    gridObserver.observe(grid, { childList: true });
+    enforceGrid();
   }
 }
 
-function throttle(fn, ms) {
-  let t = 0;
-  return () => {
-    const now = Date.now();
-    if (now - t >= ms) { t = now; fn(); }
-  };
+// --------------- EVENT LISTENERS ---------------
+window.addEventListener('hashchange', router);
+window.addEventListener('load', async () => {
+  await router();
+  watchGrid();
+  registerSW();
+});
+
+// --------------- SERVICE WORKER ---------------
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register(SW_FILE);
+    console.log('[OkObserver] SW registered:', SW_FILE);
+    if (reg.waiting) {
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  } catch (err) {
+    console.warn('[OkObserver] SW failed:', err);
+  }
 }
 
-const gridObserver = new MutationObserver(() => applyGridColumns());
-gridObserver.observe(document.body, { childList: true, subtree: true });
+// --------------- UTILS ---------------
+/* If other modules want the API base on window, expose it */
+window.API_BASE = API_BASE;
 
-window.addEventListener('resize', throttle(applyGridColumns, 150));
-window.addEventListener('hashchange', () => setTimeout(applyGridColumns, 0));
-document.addEventListener('DOMContentLoaded', () => setTimeout(applyGridColumns, 0));
+// Lazy scroll restoration
+window.addEventListener('popstate', () => {
+  const scrollY = sessionStorage.getItem('scrollY');
+  if (scrollY) window.scrollTo(0, parseInt(scrollY));
+});
 
-applyGridColumns();
-
-// -------- FOOTER VERSION TAG --------
-document.addEventListener('DOMContentLoaded', () => {
-  const footer = document.querySelector('footer');
-  if (footer && !footer.querySelector('.build-tag')) {
-    const tag = document.createElement('div');
-    tag.className = 'build-tag';
-    tag.style.fontSize = '0.75em';
-    tag.style.opacity = '0.6';
-    tag.textContent = `Build ${VER}`;
-    footer.appendChild(tag);
+// Preserve scroll position between routes
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href^="#/post"]');
+  if (link) {
+    sessionStorage.setItem('scrollY', window.scrollY);
   }
 });
+
+/* --------------- Passive Offline Toast --------------- */
+(function netToast(){
+  const t = document.getElementById('net-toast');
+  if (!t) return;
+  const show = (msg) => { if (msg) t.textContent = msg; t.hidden = false; requestAnimationFrame(()=>t.classList.add('show')); };
+  const hide = () => { t.classList.remove('show'); setTimeout(()=>{ t.hidden = true; }, 220); };
+
+  // Show a hint if we start offline
+  if (!navigator.onLine) show("You’re offline. Showing cached content.");
+
+  // Listen for connectivity changes
+  window.addEventListener('offline', () => show("You’re offline. Showing cached content."));
+  window.addEventListener('online',  () => { t.textContent = "Back online."; setTimeout(hide, 1200); });
+
+  // Optional: global event to indicate API failure from modules
+  window.addEventListener('okobserver:api-fail', () => show("Network error. Showing cached content."));
+})();
