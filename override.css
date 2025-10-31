@@ -258,3 +258,56 @@ body.density-compact .post-card    { margin: 8px;  }
   pointer-events: auto !important;
   display: block !important;
 }
+/* === OkObserver: overlay neutralizer (2025-10-31p-VIS3, TEMP DIAG) === */
+/* Goal: kill any absolute ::before/::after or overlay layers, and force
+   a new stacking context so the text body sits on top. */
+
+.post-card {
+  position: relative !important;
+  isolation: isolate !important;      /* start a new stacking context */
+  z-index: 0 !important;
+}
+
+/* If any theme injects white/transparent overlays via pseudo-elements,
+   disable them for cards (temporary while we diagnose). */
+.post-card::before,
+.post-card::after,
+.post-card .thumb::before,
+.post-card .thumb::after,
+.post-card .media::before,
+.post-card .media::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Make sure the image never wins the stacking contest */
+.post-card .thumb,
+.post-card .media,
+.post-card .thumb img,
+.post-card .media img {
+  position: relative !important;
+  z-index: 1 !important;       /* below the body (set to 10 below) */
+  pointer-events: none !important;
+}
+
+/* Put the text body decisively on top */
+.post-card .body {
+  position: relative !important;
+  z-index: 10 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: #111 !important;
+  background: #fff !important;
+}
+
+/* As a last-resort visibility guard for the text elements */
+.post-card h3,
+.post-card .byline,
+.post-card p {
+  position: relative !important;
+  z-index: 11 !important;
+  color: #111 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
