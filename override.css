@@ -234,3 +234,27 @@ body.density-compact .post-card    { margin: 8px;  }
 :root body .post-card * {
   text-rendering: auto !important;   /* defend against odd text rendering hacks */
 }
+/* === OkObserver: final unmask for post summary visibility (2025-10-31p-VIS2) === */
+/* Some themes keep the image as absolute overlay; this resets it safely. */
+
+.post-card .thumb img,
+.post-card .media img {
+  position: relative !important;
+  z-index: 0 !important;
+  pointer-events: none !important;  /* <-- crucial: prevents image overlay from blocking text */
+  opacity: 1 !important;
+}
+
+.post-card .thumb,
+.post-card .media {
+  overflow: visible !important;      /* allow text below to show fully */
+  position: relative !important;
+}
+
+.post-card .body {
+  background: #fff !important;
+  position: relative !important;
+  z-index: 2 !important;             /* higher than any image overlay */
+  pointer-events: auto !important;
+  display: block !important;
+}
