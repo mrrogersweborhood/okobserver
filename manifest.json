@@ -1,28 +1,13 @@
 {
-  "name": "The Oklahoma Observer",
+  "name": "OkObserver",
   "short_name": "OkObserver",
   "description": "To comfort the afflicted and afflict the comfortable.",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1E90FF",
-  "orientation": "any",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ],
-  "lang": "en-US",
-  "dir": "ltr",
-  "categories": ["news", "media", "journalism"],
-  "id": "okobserver-app",
-  "prefer_related_applications": false
+    { "src": "favicon.ico", "sizes": "48x48 64x64", "type": "image/x-icon" },
+    { "src": "logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
 }

@@ -17,7 +17,7 @@
     <link rel="apple-touch-icon" href="icon-512.png" />
 
     <!-- Main stylesheet (cache-busted) -->
-    <link rel="stylesheet" href="override.css?v=2025-10-31f" />
+    <link rel="stylesheet" href="override.css?v=2025-10-31j" />
 
     <!-- Inline fallback styles for immediate layout -->
     <style>
@@ -101,7 +101,7 @@
     </script>
 
     <!-- App main -->
-    <script src="main.js?v=2025-10-31f"></script>
+    <script src="main.js?v=2025-10-31j"></script>
 
     <!-- Grid enforcer -->
     <script src="grid-enforcer.js?v=2025-10-31c"></script>
@@ -124,7 +124,7 @@
       // Service Worker
       if("serviceWorker" in navigator){
         window.addEventListener("load",()=>{
-          navigator.serviceWorker.register("./sw.js?v=2025-10-31f")
+          navigator.serviceWorker.register("./sw.js?v=2025-10-31j")
             .then(()=>console.log("[OkObserver] SW registered"))
             .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
         });
@@ -132,7 +132,7 @@
 
       // Footer info
       document.getElementById("year").textContent=new Date().getFullYear();
-      document.getElementById("build").textContent="2025-10-31f";
+      document.getElementById("build").textContent="2025-10-31j";
     </script>
   </body>
 </html>

@@ -161,3 +161,15 @@
 a { color: #184f99; text-decoration: none; }
 a:hover { text-decoration: underline; }
 footer.site-footer { padding: 24px 12px; color: #666; }
+
+/* --------------------------------------------------------------------------
+   OPTIONAL density helpers used by Settings.js.
+   These are inert until the body gets one of the classes below.
+   They DO NOT change your responsive column logic.
+-------------------------------------------------------------------------- */
+body.density-comfortable .post-card { margin: 14px; }
+body.density-compact .post-card    { margin: 8px;  }
+/* If your grid wrapper is .post-grid or .posts-grid, you may (optionally) add:
+   body.density-comfortable .post-grid, body.density-comfortable .posts-grid { gap: 16px; }
+   body.density-compact .post-grid,    body.density-compact .posts-grid    { gap: 10px; }
+*/

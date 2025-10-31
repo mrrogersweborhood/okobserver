@@ -1,11 +1,11 @@
-/* main.js — OkObserver SPA bootstrap (2025-10-31h)
-   - FIX: pass mount element to renderHome(mount, opts)
-   - Robust hash router for "#/", "#/post/:id", "#/about", "#/settings"
+/* main.js — OkObserver SPA bootstrap (2025-10-31j)
+   - Preserves 31h routing and signatures
+   - Adds resilient Settings loading (default or named export)
    - Cache-busted dynamic imports with VER
 */
 
 (function () {
-  const VER = "2025-10-31h"; // bump when you deploy
+  const VER = "2025-10-31j"; // bump when you deploy
   const BUST = `?v=${VER}`;
 
   // ——— DOM helpers ———
@@ -51,9 +51,13 @@
   async function goHome() {
     showLoading();
     try {
-      const { renderHome } = await import(`./Home.js${BUST}`);
-      // IMPORTANT: pass the mount element first — your Home.js expects it
-      await renderHome($app, { VER });
+      const { renderHome, default: def } = await import(`./Home.js${BUST}`);
+      const fn = typeof renderHome === "function" ? renderHome : def;
+      if (typeof fn === "function") {
+        await fn($app, { VER });
+      } else {
+        showError("Home module not found.");
+      }
     } catch (err) {
       console.error(err);
       showError("Network error while loading posts. Please retry.");
@@ -67,9 +71,14 @@
     }
     showLoading();
     try {
-      const { renderPost } = await import(`./PostDetail.js${BUST}`);
-      // Keep your existing, previously-working signature
-      await renderPost(Number(id), { VER });
+      const { renderPost, default: def } = await import(`./PostDetail.js${BUST}`);
+      const fn = typeof renderPost === "function" ? renderPost : def;
+      if (typeof fn === "function") {
+        // Keep your previous working signature:
+        await fn(Number(id), { VER });
+      } else {
+        showError("PostDetail module not found.");
+      }
     } catch (err) {
       console.error(err);
       showError("Failed to load post.", String(err?.message || err || ""));
@@ -80,8 +89,9 @@
     showLoading();
     try {
       const mod = await import(`./About.js${BUST}`);
-      if (typeof mod.renderAbout === "function") {
-        await mod.renderAbout($app, { VER });
+      const fn = typeof mod.renderAbout === "function" ? mod.renderAbout : mod.default;
+      if (typeof fn === "function") {
+        await fn($app, { VER });
       } else {
         setApp("<div class='loading'>About…</div>");
       }
@@ -94,8 +104,10 @@
     showLoading();
     try {
       const mod = await import(`./Settings.js${BUST}`);
-      if (typeof mod.renderSettings === "function") {
-        await mod.renderSettings($app, { VER });
+      // Prefer named for your current router, but support default for future-proofing
+      const fn = typeof mod.renderSettings === "function" ? mod.renderSettings : mod.default;
+      if (typeof fn === "function") {
+        await fn($app, { VER });
       } else {
         setApp("<div class='loading'>Settings…</div>");
       }
