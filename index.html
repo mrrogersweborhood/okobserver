@@ -1,72 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="The Oklahoma Observer – To comfort the afflicted and afflict the comfortable." />
-  <meta name="theme-color" content="#1E90FF" />
-  <title>The Oklahoma Observer</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable."
+    />
+    <meta name="theme-color" content="#1E90FF" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.json?v=2025-10-31a" />
 
-  <!-- Favicon and App Icons -->
-  <link rel="icon" type="image/png" sizes="32x32" href="./favicon.ico" />
-  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
-  <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
+    <title>The Oklahoma Observer</title>
 
-  <!-- ✅ Manifest for PWA -->
-  <link rel="manifest" href="./manifest.json?v=2025-10-31c" />
+    <!-- Favicon and icons -->
+    <link rel="icon" type="image/png" href="icon-192.png" />
+    <link rel="apple-touch-icon" href="icon-512.png" />
 
-  <!-- Modern PWA + iOS meta -->
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="OkObserver" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Styles -->
+    <link rel="stylesheet" href="override.css?v=2025-10-31d" />
 
-  <!-- Windows & Android install friendliness -->
-  <meta name="application-name" content="OkObserver" />
-  <meta name="msapplication-starturl" content="/okobserver/" />
-  <meta name="msapplication-TileColor" content="#1E90FF" />
+    <!-- Inline fallback styles -->
+    <style>
+      body {
+        margin: 0;
+        background: #ffffff;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+      }
+      .loading {
+        text-align: center;
+        padding: 3rem;
+        color: #555;
+      }
+    </style>
+  </head>
 
-  <!-- Core Styles -->
-  <link rel="stylesheet" href="./override.css?v=2025-10-31c" />
+  <body>
+    <!-- HEADER -->
+    <header>
+      <div class="header-inner">
+        <div class="logo">
+          <img src="logo.png" alt="The Oklahoma Observer logo" />
+          <div class="motto">
+            To comfort the afflicted and afflict the comfortable
+          </div>
+        </div>
 
-  <!-- Main Script -->
-  <script src="./main.js?v=2025-10-31c" defer></script>
-</head>
-
-<body>
-  <header class="site-header">
-    <div class="header-inner">
-      <div class="logo-container">
-        <img src="./logo.png" alt="The Oklahoma Observer" class="logo" />
-        <p class="motto">To comfort the afflicted and afflict the comfortable</p>
+        <button class="hamburger" id="hamburger" aria-label="Menu">☰</button>
       </div>
 
-      <!-- Hamburger Menu (always visible) -->
-      <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
-
-      <nav id="mainNav" class="nav-links hidden">
-        <a href="#/" class="nav-link">Posts</a>
-        <a href="#/about" class="nav-link">About</a>
-        <a href="#/settings" class="nav-link">Settings</a>
+      <nav class="nav-menu" id="navMenu">
+        <a href="#/">Posts</a>
+        <a href="#/about">About</a>
+        <a href="#/settings">Settings</a>
       </nav>
-    </div>
-  </header>
+    </header>
 
-  <!-- App root -->
-  <main id="app" class="content-area"></main>
+    <!-- MAIN APP CONTAINER -->
+    <main id="app">
+      <div class="loading">Loading…</div>
+    </main>
 
-  <footer class="site-footer">
-    <p>© 2025 The Oklahoma Observer</p>
-  </footer>
+    <!-- FOOTER -->
+    <footer>
+      © <span id="year"></span> The Oklahoma Observer
+      <br />
+      Build <span id="build"></span>
+    </footer>
 
-  <!-- Hamburger Menu Script -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.getElementById('menuToggle');
-      const nav = document.getElementById('mainNav');
-      toggle.addEventListener('click', () => {
-        nav.classList.toggle('hidden');
-      });
-    });
-  </script>
-</body>
+    <!-- MutationObserver grid enforcer -->
+    <script>
+      function enforceGrid() {
+        const grid = document.querySelector(".grid");
+        if (grid && !grid.classList.contains("enforceGrid")) {
+          grid.classList.add("enforceGrid");
+        }
+      }
+      const observer = new MutationObserver(enforceGrid);
+      observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+
+    <!-- Main app logic -->
+    <script src="main.js?v=2025-10-31c"></script>
+
+    <!-- Service worker registration -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("./sw.js?v=2025-10-31c")
+            .then(() =>
+              console.log("[OkObserver] Service Worker registered successfully")
+            )
+            .catch((err) =>
+              console.warn("[OkObserver] SW registration failed:", err)
+            );
+        });
+      }
+      document.getElementById("year").textContent = new Date().getFullYear();
+      document.getElementById("build").textContent = "2025-10-31e";
+    </script>
+  </body>
 </html>
