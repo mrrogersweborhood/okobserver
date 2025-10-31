@@ -13,10 +13,10 @@
   <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
 
   <!-- ✅ Manifest for PWA -->
-  <link rel="manifest" href="./manifest.json?v=2025-10-31a" />
+  <link rel="manifest" href="./manifest.json?v=2025-10-31c" />
 
-  <!-- iOS and Safari support -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- Modern PWA + iOS meta -->
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="OkObserver" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -26,11 +26,10 @@
   <meta name="msapplication-TileColor" content="#1E90FF" />
 
   <!-- Core Styles -->
-  <link rel="stylesheet" href="./override.css?v=2025-10-31b" />
-  <link rel="stylesheet" href="./styles.css?v=2025-10-31b" />
+  <link rel="stylesheet" href="./override.css?v=2025-10-31c" />
 
   <!-- Main Script -->
-  <script src="./main.js?v=2025-10-31b" defer></script>
+  <script src="./main.js?v=2025-10-31c" defer></script>
 </head>
 
 <body>
@@ -68,19 +67,6 @@
         nav.classList.toggle('hidden');
       });
     });
-  </script>
-
-  <!-- Grid Enforcer Script -->
-  <script>
-    const enforceGrid = () => {
-      const grid = document.querySelector('.post-grid');
-      if (grid && getComputedStyle(grid).display !== 'grid') {
-        grid.style.display = 'grid';
-      }
-    };
-    const mo = new MutationObserver(enforceGrid);
-    mo.observe(document.body, { childList: true, subtree: true });
-    enforceGrid();
   </script>
 </body>
 </html>

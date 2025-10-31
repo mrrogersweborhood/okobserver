@@ -3,82 +3,137 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OkObserver — Offline</title>
-  <meta name="theme-color" content="#1976d2" />
-  <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./override.css?v=2025-10-30q" />
+  <title>OkObserver — You’re Offline</title>
+  <meta name="theme-color" content="#1E90FF" />
+  <link rel="icon" href="./icon-192.png" />
   <style>
-    :root {
-      --brand: #1976d2;
-      --text: #222;
-      --muted: #666;
+    :root{
+      --blue:#1E90FF;
+      --text:#0f172a;
+      --muted:#475569;
+      --bg:#ffffff;
+      --card:#f8fafc;
+      --radius:16px;
     }
-    html, body {
-      margin: 0;
-      height: 100%;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      background: #fff;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      color:var(--text);
+      background:var(--bg);
+      display:flex;
+      flex-direction:column;
     }
-    .offline-card {
-      max-width: 620px;
-      padding: 32px 28px;
-      border: 1px solid #e5e5e5;
-      border-radius: 16px;
-      text-align: center;
-      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
+    /* Header */
+    .header{
+      background:var(--blue);
+      color:#fff;
     }
-    .offline-logo {
-      height: 64px;
-      margin-bottom: 12px;
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:12px 16px;
     }
-    h1 {
-      font-size: 22px;
-      margin: 10px 0 6px;
+    .topbar{
+      display:flex;
+      align-items:center;
+      gap:12px;
     }
-    p {
-      color: var(--muted);
-      margin: 6px 0 20px;
+    .hamburger{
+      width:40px;height:40px;border-radius:10px;
+      border:0;background:rgba(255,255,255,.15);color:#fff;
+      display:inline-grid;place-items:center;cursor:pointer;
     }
-    .btn {
-      display: inline-block;
-      background: var(--brand);
-      color: #fff;
-      border: 0;
-      border-radius: 10px;
-      padding: 10px 16px;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.2s ease;
+    .hamburger:active{transform:scale(.98)}
+    .logo{
+      margin:0 auto 0 0;
+      display:flex;flex-direction:column;gap:2px;
     }
-    .btn:hover {
-      background: #1259a5;
+    .brand{
+      font-weight:700;
+      letter-spacing:.02em;
+      font-size:22px;
+      line-height:1.1;
     }
-    footer {
-      margin-top: 18px;
-      font-size: 13px;
-      color: #999;
+    .motto{
+      font-size:12px;
+      opacity:.9;
+    }
+    .content{
+      flex:1;
+      padding:24px 16px;
+    }
+    .card{
+      max-width:880px;
+      margin:0 auto;
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:24px;
+      box-shadow:0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.05);
+    }
+    h1{margin:0 0 8px;font-size:22px}
+    p{margin:0 0 12px;color:var(--muted)}
+    .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+    .btn{
+      appearance:none;border:0;border-radius:12px;
+      padding:12px 16px;font-weight:600;cursor:pointer
+    }
+    .btn-primary{background:var(--blue);color:#fff}
+    .btn-outline{background:transparent;color:var(--blue);border:2px solid var(--blue)}
+    .list{
+      margin:18px 0 0 18px;color:var(--muted)
+    }
+    .footer{
+      text-align:center;color:#64748b;font-size:12px;
+      padding:20px 16px;
+    }
+    @media (min-width:900px){
+      .brand{font-size:28px}
+      .motto{font-size:13px}
     }
   </style>
 </head>
 <body>
-  <main class="offline-card" role="main" aria-live="polite">
-    <img class="offline-logo" src="./logo.png" alt="The Oklahoma Observer logo" />
-    <h1>You’re offline</h1>
-    <p>We couldn’t reach the OkObserver servers. You can return to Posts or try again once your connection is restored.</p>
-    <div>
-      <a class="btn" href="#/">Back to Posts</a>
-      <button class="btn" onclick="location.reload()">Try again</button>
+  <header class="header">
+    <div class="wrap topbar" role="navigation" aria-label="Main">
+      <button class="hamburger" aria-label="Menu" title="Menu">
+        <!-- simple hamburger icon -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <div class="logo">
+        <div class="brand">The Oklahoma Observer</div>
+        <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+      </div>
     </div>
-    <footer>&copy; <span id="year"></span> The Oklahoma Observer</footer>
+  </header>
+
+  <main class="content" role="main">
+    <div class="card">
+      <h1>You’re offline</h1>
+      <p>We couldn’t reach OkObserver right now. Your network appears to be offline, or the site is temporarily unavailable.</p>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="location.reload()">Try again</button>
+        <button class="btn btn-outline" onclick="history.back()">Go back</button>
+      </div>
+      <ul class="list">
+        <li>If you just reconnected, press <strong>Try again</strong>.</li>
+        <li>On mobile, check Airplane mode and cellular/Wi-Fi.</li>
+        <li>Some pages may still work from cache.</li>
+      </ul>
+    </div>
   </main>
 
+  <footer class="footer">
+    © <span id="y"></span> The Oklahoma Observer
+  </footer>
+
   <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
+    // keep footer year current
+    document.getElementById('y').textContent = new Date().getFullYear();
   </script>
+  <noscript>JavaScript is required for the best experience.</noscript>
 </body>
 </html>
