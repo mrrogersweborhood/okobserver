@@ -2,39 +2,59 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    />
-    <meta
-      name="description"
-      content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable."
-    />
+
+    <!-- Viewport & PWA basics -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
     <meta name="theme-color" content="#1E90FF" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="./manifest.json?v=2025-10-31a" />
 
     <title>The Oklahoma Observer</title>
 
-    <!-- Favicon and icons -->
-    <link rel="icon" type="image/png" href="icon-192.png" />
+    <!-- Icons -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="icon-512.png" />
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="override.css?v=2025-10-31d" />
+    <!-- Main stylesheet (cache-busted) -->
+    <link rel="stylesheet" href="override.css?v=2025-10-31f" />
 
-    <!-- Inline fallback styles -->
+    <!-- Inline fallback styles for immediate layout -->
     <style>
-      body {
-        margin: 0;
-        background: #ffffff;
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
-      }
-      .loading {
-        text-align: center;
-        padding: 3rem;
-        color: #555;
-      }
+      :root { --brand:#1E90FF; --card:#fff; --ink:#111; --muted:#667; }
+      * { box-sizing:border-box; }
+      html, body { margin:0; padding:0; color:var(--ink); background:#fff; font-family:system-ui, -apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif; }
+      a { color:var(--brand); text-decoration:none; }
+      a:hover { text-decoration:underline; }
+
+      /* Header */
+      header { position:sticky; top:0; z-index:1000; background:var(--brand); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.06); }
+      .header-inner { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; padding:14px 16px; }
+      .logo { display:flex; flex-direction:column; gap:6px; }
+      .logo img { height:48px; width:auto; display:block; }
+      .motto { font-size:12px; opacity:.9; }
+      .hamburger { margin-left:auto; background:transparent; border:0; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:8px; }
+      .hamburger:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+
+      /* Nav */
+      .nav-menu { display:none; position:sticky; top:56px; background:#0f6fcc; color:#fff; }
+      .nav-menu.open { display:block; }
+      .nav-menu a { display:inline-block; padding:10px 14px; color:#fff; }
+
+      /* Main grid fallback */
+      main#app { max-width:1200px; margin:18px auto; padding:0 12px 80px; }
+      .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; }
+      @media (max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+      @media (max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+      @media (max-width:560px){.grid{grid-template-columns:1fr;}}
+
+      /* Card fallback */
+      .card { background:var(--card); border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden; }
+      .card img { display:block; width:100%; height:auto; }
+      .card .body { padding:14px; }
+      .loading { text-align:center; padding:2.5rem; color:var(--muted); }
+
+      footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
     </style>
   </head>
 
@@ -44,22 +64,19 @@
       <div class="header-inner">
         <div class="logo">
           <img src="logo.png" alt="The Oklahoma Observer logo" />
-          <div class="motto">
-            To comfort the afflicted and afflict the comfortable
-          </div>
+          <div class="motto">To comfort the afflicted and afflict the comfortable</div>
         </div>
-
-        <button class="hamburger" id="hamburger" aria-label="Menu">☰</button>
+        <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="navMenu">☰</button>
       </div>
 
-      <nav class="nav-menu" id="navMenu">
+      <nav class="nav-menu" id="navMenu" role="navigation">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
         <a href="#/settings">Settings</a>
       </nav>
     </header>
 
-    <!-- MAIN APP CONTAINER -->
+    <!-- APP -->
     <main id="app">
       <div class="loading">Loading…</div>
     </main>
@@ -71,37 +88,51 @@
       Build <span id="build"></span>
     </footer>
 
-    <!-- MutationObserver grid enforcer -->
+    <!-- MutationObserver safeguard -->
     <script>
-      function enforceGrid() {
-        const grid = document.querySelector(".grid");
-        if (grid && !grid.classList.contains("enforceGrid")) {
-          grid.classList.add("enforceGrid");
+      (function(){
+        function enforceGrid() {
+          const g = document.querySelector(".grid");
+          if (g && !g.classList.contains("enforceGrid")) g.classList.add("enforceGrid");
         }
-      }
-      const observer = new MutationObserver(enforceGrid);
-      observer.observe(document.body, { childList: true, subtree: true });
+        new MutationObserver(enforceGrid).observe(document.body, { childList:true, subtree:true });
+        window.addEventListener("load", enforceGrid);
+      })();
     </script>
 
-    <!-- Main app logic -->
-    <script src="main.js?v=2025-10-31c"></script>
+    <!-- App main -->
+    <script src="main.js?v=2025-10-31f"></script>
 
-    <!-- Service worker registration -->
+    <!-- Grid enforcer -->
+    <script src="grid-enforcer.js?v=2025-10-31c"></script>
+
+    <!-- SW registration -->
     <script>
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("./sw.js?v=2025-10-31c")
-            .then(() =>
-              console.log("[OkObserver] Service Worker registered successfully")
-            )
-            .catch((err) =>
-              console.warn("[OkObserver] SW registration failed:", err)
-            );
+      // Hamburger toggle
+      (function(){
+        const btn=document.getElementById("hamburger");
+        const menu=document.getElementById("navMenu");
+        if(btn&&menu){
+          btn.addEventListener("click",()=>{
+            const open=!menu.classList.contains("open");
+            menu.classList.toggle("open",open);
+            btn.setAttribute("aria-expanded",String(open));
+          });
+        }
+      })();
+
+      // Service Worker
+      if("serviceWorker" in navigator){
+        window.addEventListener("load",()=>{
+          navigator.serviceWorker.register("./sw.js?v=2025-10-31f")
+            .then(()=>console.log("[OkObserver] SW registered"))
+            .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
         });
       }
-      document.getElementById("year").textContent = new Date().getFullYear();
-      document.getElementById("build").textContent = "2025-10-31e";
+
+      // Footer info
+      document.getElementById("year").textContent=new Date().getFullYear();
+      document.getElementById("build").textContent="2025-10-31f";
     </script>
   </body>
 </html>
