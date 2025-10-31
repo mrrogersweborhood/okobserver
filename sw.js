@@ -1,23 +1,22 @@
-/* sw.js — v2025-10-31b
-   OkObserver service worker
-   ---------------------------------------
-   • Cache-first app shell (+ offline.html)
-   • Network-first for JSON/API
-   • Navigation fallback to offline page
-   • Immediate activation (skipWaiting + claim)
-   • Auto-cleans old caches
-   • PRECACHE includes api.js and manifest.json
+/* sw.js — v2025-10-31c (resilient install)
+   OkObserver Progressive Web App Service Worker
+   ------------------------------------------------------------
+   - Cache-first app shell (+ offline.html)
+   - Network-first for WordPress API JSON
+   - Navigation fallback to offline page
+   - Immediate activation (skipWaiting + claim)
+   - Safe install: never fails on missing file
 */
 
-const CACHE_VERSION = '2025-10-31b';
+const CACHE_VERSION = '2025-10-31c';
 const STATIC_CACHE = `okobserver-static-${CACHE_VERSION}`;
 const DATA_CACHE   = `okobserver-data-${CACHE_VERSION}`;
 
+// ✅ Keep these filenames/version params exactly as they exist in GitHub
 const APP_SHELL = [
   './',
   './index.html',
   './offline.html',
-  './manifest.json?v=2025-10-31a',
   './main.js?v=2025-10-30q',
   './Home.js?v=2025-10-30s',
   './PostDetail.js?v=2025-10-30q',
@@ -31,17 +30,38 @@ const APP_SHELL = [
 
 const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
 
-// -------- INSTALL --------
+// ------------------------------------------------------------
+// INSTALL
+// ------------------------------------------------------------
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing', CACHE_VERSION);
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(cache => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    await addAllSafe(cache, APP_SHELL);
+    await self.skipWaiting();
+  })());
 });
 
-// -------- ACTIVATE --------
+// Helper: add files to cache safely, skipping 404s
+async function addAllSafe(cache, urls) {
+  for (const url of urls) {
+    try {
+      const req = new Request(url, { cache: 'no-cache' });
+      const res = await fetch(req);
+      if (res.ok) {
+        await cache.put(req, res.clone());
+      } else {
+        console.warn('[SW] Skipped (non-OK)', url, res.status);
+      }
+    } catch (e) {
+      console.warn('[SW] Skipped (fetch fail)', url, e?.message || e);
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// ACTIVATE
+// ------------------------------------------------------------
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating', CACHE_VERSION);
   event.waitUntil((async () => {
@@ -55,20 +75,22 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// -------- FETCH --------
+// ------------------------------------------------------------
+// FETCH
+// ------------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
   if (req.method !== 'GET') return;
 
-  // 1) API requests → network-first
+  // --- API (network first)
   if (url.href.startsWith(API_BASE)) {
     event.respondWith(networkFirst(req));
     return;
   }
 
-  // 2) Navigations → try network, fall back to offline page
+  // --- Navigation requests
   if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith((async () => {
       try {
@@ -86,11 +108,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3) Static assets → cache-first
+  // --- Static assets (cache first)
   event.respondWith(cacheFirst(req));
 });
 
-// -------- STRATEGIES --------
+// ------------------------------------------------------------
+// STRATEGIES
+// ------------------------------------------------------------
 async function cacheFirst(req) {
   const cache = await caches.open(STATIC_CACHE);
   const cached = await cache.match(req, { ignoreSearch: true });
