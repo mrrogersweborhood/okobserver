@@ -1,54 +1,17 @@
-// Home.js — v2025-10-30s (with unified apiFetch + offline dispatch)
+// Home.js — v2025-10-31a (resilient infinite scroll + friendly error UI)
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
-import { apiFetch, getImageCandidates, isCartoon, seedPostHint, prefetchPost } from './api.js?v=2025-10-30s';
+import { apiFetch, getImageCandidates, isCartoon, seedPostHint, prefetchPost } from './api.js?v=2025-10-31a';
 
 function toText(html=''){const d=document.createElement('div');d.innerHTML=html;return(d.textContent||'').trim();}
 function clamp(s='',n=220){return s.length<=n?s:s.slice(0,n-1).trimEnd()+'…';}
 
 const queued=new Set();let running=false;
-function canPrefetchNow(){
-  const c=navigator.connection;
-  if(!c)return true;
-  if(c.saveData)return false;
-  const slow=['slow-2g','2g'];
-  return !slow.includes(c.effectiveType||'');
-}
-async function runQueue(){
-  if(running)return;running=true;
-  while(queued.size){
-    const id=queued.values().next().value;queued.delete(id);
-    if(!canPrefetchNow())break;
-    try{await prefetchPost(id);}catch{}
-  }running=false;
-}
+function canPrefetchNow(){const c=navigator.connection;if(!c)return true;if(c.saveData)return false;const slow=['slow-2g','2g'];return !slow.includes(c.effectiveType||'');}
+async function runQueue(){if(running)return;running=true;while(queued.size){const id=queued.values().next().value;queued.delete(id);if(!canPrefetchNow())break;try{await prefetchPost(id);}catch{}}running=false;}
 function schedulePrefetch(id){if(!canPrefetchNow())return;queued.add(id);runQueue();}
-
-function installPrefetchTriggers(cardEl,postId,ioLimiter){
-  let hoverTimer=null,touched=false,warmed=false;
-  const warm=()=>{if(!warmed){warmed=true;schedulePrefetch(postId);}};
-  const onEnter=()=>{hoverTimer=setTimeout(warm,120);};
-  const onLeave=()=>{if(hoverTimer){clearTimeout(hoverTimer);hoverTimer=null;}};
-  cardEl.addEventListener('mouseenter',onEnter,{passive:true});
-  cardEl.addEventListener('mouseleave',onLeave,{passive:true});
-  cardEl.addEventListener('touchstart',()=>{if(!touched){touched=true;warm();}},{passive:true});
-  ioLimiter.observe(cardEl,warm);
-}
-
-function makeIOLimiter(N=6,rootMargin='200px'){
-  let count=0;const seen=new WeakSet();
-  const io=new IntersectionObserver((ents)=>{
-    ents.forEach(e=>{
-      if(count>=N)return;
-      if(e.isIntersecting&&!seen.has(e.target)){
-        seen.add(e.target);count++;
-        const fn=callbacks.get(e.target);if(fn)fn();
-      }
-    });
-  },{rootMargin,threshold:0.01});
-  const callbacks=new Map();
-  return{observe(el,cb){callbacks.set(el,cb);io.observe(el);},disconnect(){io.disconnect();callbacks.clear();}};
-}
+function installPrefetchTriggers(cardEl,postId,ioLimiter){let hoverTimer=null,touched=false,warmed=false;const warm=()=>{if(!warmed){warmed=true;schedulePrefetch(postId);}};const onEnter=()=>{hoverTimer=setTimeout(warm,120);};const onLeave=()=>{if(hoverTimer){clearTimeout(hoverTimer);hoverTimer=null;}};cardEl.addEventListener('mouseenter',onEnter,{passive:true});cardEl.addEventListener('mouseleave',onLeave,{passive:true});cardEl.addEventListener('touchstart',()=>{if(!touched){touched=true;warm();}},{passive:true});ioLimiter.observe(cardEl,warm);}
+function makeIOLimiter(N=6,rootMargin='200px'){let count=0;const seen=new WeakSet();const callbacks=new Map();const io=new IntersectionObserver(ents=>{ents.forEach(e=>{if(count>=N)return;if(e.isIntersecting&&!seen.has(e.target)){seen.add(e.target);count++;const fn=callbacks.get(e.target);if(fn)fn();}});},{rootMargin,threshold:0.01});return{observe(el,cb){callbacks.set(el,cb);io.observe(el);},disconnect(){io.disconnect();callbacks.clear();}};}
 
 function createPostCard(post,idx=0,ioLimiter){
   seedPostHint(post);
@@ -59,7 +22,7 @@ function createPostCard(post,idx=0,ioLimiter){
   const excerpt=clamp(toText(post.excerpt?.rendered||post.content?.rendered||''));
   const img=getImageCandidates(post);
   const mediaEl=img.src
-    ? el('img',{src:img.src,srcset:img.srcset||undefined,sizes:img.sizes||undefined,width:img.width||undefined,height:img.height||undefined,alt:title,loading:'lazy',decoding:'async',fetchpriority:idx<4?'high':'low'})
+    ? el('img',{src:img.src,srcset:img.srcset||undefined,sizes:img.sizes||undefined,alt:title,loading:'lazy',decoding:'async',fetchpriority:idx<4?'high':'low',style:'object-fit:contain;max-height:260px;width:100%;'})
     : el('div',{class:'media-fallback'},'No image');
   const card=el('article',{class:'card'},
     el('a',{href,class:'card-media'},mediaEl),
@@ -80,16 +43,13 @@ const clearState=()=>{try{sessionStorage.removeItem(HOME_STATE_KEY);}catch{}};
 
 export async function renderHome(mount){
   mount.innerHTML='';
-  const grid=el('section',{class:'post-grid container'});
-  mount.appendChild(grid);
+  const grid=el('section',{class:'post-grid container'});mount.appendChild(grid);
 
   let page=1,loading=false,done=false,observer=null;
-  const renderedIds=new Set();
-  let totalRendered=0,hasRenderedAny=false;
+  const renderedIds=new Set();let totalRendered=0,hasRenderedAny=false;
   const saved=readState();if(!saved)clearState();
   const saveStateIfReady=()=>{if(hasRenderedAny)writeState({page,scrollY:window.scrollY,ids:Array.from(renderedIds)});};
   mount.addEventListener('click',e=>{const a=e.target?.closest?.('a[href^="#/post/"]');if(a)saveStateIfReady();});
-
   const ioLimiter=makeIOLimiter(6,'200px');
 
   async function loadPage(){
@@ -97,30 +57,20 @@ export async function renderHome(mount){
     try{
       const resp=await apiFetch(`posts?page=${page}&per_page=12&_embed=1`);
       const posts=await resp.json();
-      if(!Array.isArray(posts)||!posts.length){
-        done=true;if(observer)observer.disconnect();
-        appendEndCap(totalRendered===0?'No posts found.':'No more posts.');return;
-      }
+      if(!Array.isArray(posts)||!posts.length){done=true;if(observer)observer.disconnect();appendEndCap(totalRendered===0?'No posts found.':'No more posts.');return;}
       const filtered=posts.filter(p=>!renderedIds.has(p.id)&&!isCartoon(p));
       const frag=document.createDocumentFragment();
       filtered.forEach((p,i)=>{renderedIds.add(p.id);frag.appendChild(createPostCard(p,i,ioLimiter));});
-      if(filtered.length){
-        await new Promise(requestAnimationFrame);
-        grid.appendChild(frag);
-        totalRendered+=filtered.length;hasRenderedAny=true;
-      }
-      page++;
-      const prefetch=()=>apiFetch(`posts?page=${page}&per_page=12`).catch(()=>{});
-      if('requestIdleCallback'in window)requestIdleCallback(prefetch,{timeout:1500});else setTimeout(prefetch,600);
+      if(filtered.length){await new Promise(requestAnimationFrame);grid.appendChild(frag);totalRendered+=filtered.length;hasRenderedAny=true;}
+      page++;const prefetch=()=>apiFetch(`posts?page=${page}&per_page=12`).catch(()=>{});if('requestIdleCallback'in window)requestIdleCallback(prefetch,{timeout:1500});else setTimeout(prefetch,600);
     }catch(e){
       console.warn('[OkObserver] Home load failed:',e);
-      window.dispatchEvent(new CustomEvent('okobserver:api-fail'));
-      showError('Network error while loading posts. Please retry.');
+      showError('Network timeout or API delay — please retry.');
       done=true;
     }finally{loading=false;}
   }
 
-  function showError(text){mount.prepend(el('div',{class:'container error',style:'color:#b91c1c'},text));}
+  function showError(text){mount.prepend(el('div',{class:'container error',style:'color:#b91c1c;font-weight:500;padding:1rem;'},text));}
   function appendEndCap(msg){if(mount.querySelector('#end-cap'))return;mount.appendChild(el('div',{id:'end-cap',class:'end-cap'},msg));}
 
   clearState();await loadPage();if(totalRendered<6)await loadPage();

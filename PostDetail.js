@@ -1,127 +1,171 @@
-// PostDetail.js — v2025-10-30s (with unified apiFetch + offline dispatch)
-import { apiFetch } from './api.js?v=2025-10-30s';
+// PostDetail.js — v2025-10-31a
+// - Uses resilient apiFetch (timeout + retry) from api.js
+// - Renders WordPress HTML exactly as delivered (so paywall/login text shows as-is)
+// - Handles featured image/video, responsive embeds, and well-formatted tag list
+// - Small QoL: external links open in new tab; iframes lazy-load
 
-const API_BASE=(window&&window.API_BASE)||'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
+import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
+import { apiFetch, getImageCandidates } from './api.js?v=2025-10-31a';
 
-export async function renderPost(mount,postId){
-  mount.innerHTML=`
-    <article class="post-detail fade-in">
-      <div class="pd-media" aria-hidden="true"><div class="skeleton skeleton-media"></div></div>
-      <header class="pd-header">
-        <h1 class="pd-title skeleton skeleton-text skeleton-text-lg">&nbsp;</h1>
-        <p class="pd-byline skeleton skeleton-text">&nbsp;</p>
-      </header>
-      <div class="pd-paywall-note" hidden></div>
-      <section class="pd-content"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></section>
-      <footer class="pd-footer"><a class="btn back-btn" href="#/">Back to Posts</a></footer>
-      <section class="pd-tags" hidden></section>
-    </article>`;
+function toText(html=''){ const d=document.createElement('div'); d.innerHTML=html; return (d.textContent||'').trim(); }
 
+function hydrateLinksAndEmbeds(root){
+  // Make <a> open in new tab (safer UX) and normalize rel
+  root.querySelectorAll('a[href]').forEach(a=>{
+    const url = a.getAttribute('href') || '';
+    const isExternal = /^https?:\/\//i.test(url) && !url.includes(location.host);
+    if (isExternal) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+  });
+
+  // Lazy iframes & responsive wrapper for common embeds (YouTube, Vimeo, etc.)
+  root.querySelectorAll('iframe').forEach((ifr)=>{
+    ifr.setAttribute('loading','lazy');
+    // Wrap if not already wrapped
+    if (!ifr.parentElement.classList.contains('embed-responsive')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'embed-responsive';
+      // 16:9 by default; if height/width present, compute ratio
+      const w = parseInt(ifr.getAttribute('width')||'16',10);
+      const h = parseInt(ifr.getAttribute('height')||'9',10);
+      const ratio = h>0 && w>0 ? (h/w*100) : 56.25;
+      wrap.style.position='relative';
+      wrap.style.width='100%';
+      wrap.style.paddingTop = ratio.toFixed(3)+'%';
+      ifr.style.position='absolute';
+      ifr.style.inset='0';
+      ifr.style.width='100%';
+      ifr.style.height='100%';
+      ifr.style.border='0';
+      ifr.parentElement.insertBefore(wrap, ifr);
+      wrap.appendChild(ifr);
+    }
+  });
+}
+
+function renderTags(block, post){
   try{
-    const resp=await apiFetch(`posts/${encodeURIComponent(postId)}?_embed=1`);
-    if(!resp.ok)throw new Error(`${resp.status}`);
-    const post=await resp.json();
-
-    const titleEl=mount.querySelector('.pd-title');
-    const bylineEl=mount.querySelector('.pd-byline');
-    titleEl.classList.remove('skeleton','skeleton-text','skeleton-text-lg');
-    bylineEl.classList.remove('skeleton','skeleton-text');
-    titleEl.innerHTML=post.title?.rendered||'Untitled';
-    const author=(post._embedded?.author?.[0]?.name||'Oklahoma Observer');
-    const date=new Date(post.date);
-    const when=isFinite(date)?date.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'';
-    bylineEl.textContent=`${author}${when?' • '+when:''}`;
-
-    const mediaBox=mount.querySelector('.pd-media');mediaBox.innerHTML='';
-    const media=post._embedded?.['wp:featuredmedia']?.[0];
-    if(media){
-      const mime=media.media_type==='image'?(media.mime_type||'image/jpeg'):(media.mime_type||'');
-      if(media.media_type==='image'){
-        const src=media.source_url||media.media_details?.sizes?.large?.source_url||media.media_details?.sizes?.medium_large?.source_url||media.media_details?.sizes?.full?.source_url;
-        if(src){const img=document.createElement('img');img.className='pd-hero';img.loading='lazy';img.decoding='async';img.alt=media.alt_text||'';img.src=src;mediaBox.appendChild(img);}
-      }else if(mime.includes('video')||/mp4|webm|ogg/i.test(media.source_url||'')){
-        const video=document.createElement('video');video.className='pd-hero-video';video.controls=true;video.preload='metadata';video.playsInline=true;
-        const source=document.createElement('source');source.setAttribute('data-src',media.source_url);source.type=mime||'video/mp4';video.appendChild(source);
-        mediaBox.appendChild(video);lazySrc(video);
-      }
-    }
-
-    const contentBox=mount.querySelector('.pd-content');
-    const paywallNote=mount.querySelector('.pd-paywall-note');
-    if(post?.content?.protected){
-      paywallNote.hidden=false;
-      paywallNote.classList.add('wp-paywall');
-      paywallNote.innerHTML=`<div class="wp-paywall-inner">${post.content?.rendered||''}</div>`;
-      contentBox.innerHTML=post.excerpt?.rendered||'<p>(Summary unavailable.)</p>';
-    }else{
-      contentBox.innerHTML=sanitizeAllowBasic(post.content?.rendered||'');
-      lazyEmbeds(contentBox);
-    }
-
-    const tagsBox=mount.querySelector('.pd-tags');
-    try{
-      if(Array.isArray(post.tags)&&post.tags.length){
-        const tagResp=await apiFetch(`tags?include=${post.tags.join(',')}`);
-        if(tagResp.ok){
-          const tagData=await tagResp.json();
-          if(Array.isArray(tagData)&&tagData.length){
-            tagsBox.hidden=false;
-            tagsBox.innerHTML=`
-              <h3 class="pd-tags-title">Tags</h3>
-              <ul class="pd-taglist">
-                ${tagData.map(t=>`<li><a href="#/?tag=${t.id}" data-tag="${t.id}">#${escapeHTML(t.name)}</a></li>`).join('')}
-              </ul>`;
-          }
+    const terms = post?._embedded?.['wp:term'];
+    if (!Array.isArray(terms)) return;
+    const tags = [];
+    for (const group of terms){
+      for (const t of (group||[])){
+        if ((t?.taxonomy||'').toLowerCase() === 'post_tag' && t?.name) {
+          tags.push({ name: t.name, slug: t.slug });
         }
       }
-    }catch{}
+    }
+    if (!tags.length) return;
 
-    for(const s of mount.querySelectorAll('.skeleton'))s.remove();
-  }catch(err){
-    console.error('[OkObserver] renderPost failed:',err);
-    window.dispatchEvent(new CustomEvent('okobserver:api-fail'));
-    mount.innerHTML=`
-      <div class="container error">
-        <p>Something went wrong loading this view.</p>
-        <pre>${escapeHTML(String(err.message||err))}</pre>
-        <p><a class="btn back-btn" href="#/">Back to Posts</a></p>
-      </div>`;
+    const ul = el('ul', { class: 'tags' },
+      ...tags.slice(0, 30).map(t =>
+        el('li', null,
+          el('a', { href: `https://okobserver.org/tag/${encodeURIComponent(t.slug)}/`, target: '_blank', rel: 'noopener' }, `#${t.name}`)
+        )
+      )
+    );
+    block.appendChild(el('h4', { class: 'tags-title' }, 'Tags'));
+    block.appendChild(ul);
+  }catch{}
+}
+
+function heroBlock(post){
+  const img = getImageCandidates(post);
+  if (!img.src) return null;
+  return el('figure', { class: 'post-hero' },
+    el('img', {
+      src: img.src,
+      srcset: img.srcset || undefined,
+      sizes: img.sizes || undefined,
+      alt: decodeHTML(post?.title?.rendered || 'Featured image'),
+      loading: 'eager',
+      decoding: 'async',
+      style: 'display:block;width:100%;max-height:520px;object-fit:contain;background:#000;'
+    })
+  );
+}
+
+function note(msg){
+  return el('div', { class: 'notice', style: 'background:#F3F4F6;border:1px solid #E5E7EB;border-radius:10px;padding:.9rem 1rem;margin:.75rem 0;color:#374151' }, msg);
+}
+
+export async function renderPost(mount, id){
+  mount.innerHTML = '';
+  const container = el('article', { class: 'post container' });
+  mount.appendChild(container);
+
+  // header shell
+  const titleEl = el('h1', { class: 'post-title' }, '');
+  const metaEl  = el('div', { class: 'post-meta' }, '');
+  const heroEl  = el('div', { class: 'post-hero-wrap' });
+  const bodyEl  = el('div', { class: 'post-body' });
+  const tagsEl  = el('div', { class: 'post-tags-wrap' });
+
+  container.append(titleEl, metaEl, heroEl, bodyEl, tagsEl);
+
+  // fetch post
+  let post;
+  try{
+    const resp = await apiFetch(`posts/${encodeURIComponent(id)}?_embed=1`);
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    post = await resp.json();
+  }catch(e){
+    mount.prepend(
+      note('Something went wrong loading this view.')
+    );
+    container.appendChild(
+      el('p', null, String(e && e.message ? e.message : 'Failed to fetch'))
+    );
+    container.appendChild(
+      el('p', null, el('a', { href: '#/' }, 'Back to Posts'))
+    );
+    return;
   }
-}
 
-function escapeHTML(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;');}
-function sanitizeAllowBasic(html){
-  html=html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi,'');
-  html=html.replace(/<img\b(?![^>]*\bloading=)/gi,'<img loading="lazy" decoding="async" ');
-  html=html.replace(/<iframe\b(?![^>]*\bloading=)/gi,'<iframe loading="lazy" ');
-  return html;
-}
-function lazySrc(videoEl){
-  const io=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{
-      if(e.isIntersecting){
-        const source=videoEl.querySelector('source[data-src]');
-        if(source&&!source.src){source.src=source.getAttribute('data-src');videoEl.load();}
-        io.disconnect();
-      }
-    });
-  },{rootMargin:'200px'});
-  io.observe(videoEl);
-}
-function lazyEmbeds(scope){
-  const iframes=[...scope.querySelectorAll('iframe')];
-  const videos=[...scope.querySelectorAll('video source')];
-  iframes.forEach(f=>{if(!f.hasAttribute('data-src')&&f.src){f.setAttribute('data-src',f.src);f.removeAttribute('src');}});
-  videos.forEach(s=>{if(!s.hasAttribute('data-src')&&s.src){s.setAttribute('data-src',s.src);s.removeAttribute('src');}});
-  const io=new IntersectionObserver(entries=>{
-    entries.forEach(e=>{
-      if(e.isIntersecting){
-        const el=e.target;
-        if(el.tagName==='IFRAME'&&el.dataset.src&&!el.src){el.src=el.dataset.src;}
-        else if(el.tagName==='VIDEO'){const src=el.querySelector('source[data-src]');if(src&&!src.src){src.src=src.dataset.src;el.load();}}
-        io.unobserve(el);
-      }
-    });
-  },{rootMargin:'300px'});
-  iframes.forEach(f=>io.observe(f));scope.querySelectorAll('video').forEach(v=>io.observe(v));
+  // populate header
+  const title = decodeHTML(post?.title?.rendered || 'Untitled');
+  titleEl.textContent = title;
+  const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+  metaEl.textContent = `${author} • ${formatDate(post?.date)}`;
+
+  // hero (image) if present
+  const hero = heroBlock(post);
+  if (hero) heroEl.appendChild(hero);
+
+  // WordPress HTML (includes videos/paywall text when protected)
+  // We render EXACTLY what WP gives us so the original login/subscribe paragraph shows.
+  const html = String(post?.content?.rendered || post?.excerpt?.rendered || '');
+  if (!html) {
+    bodyEl.appendChild(note('This article has no body content in the public API.'));
+  } else {
+    bodyEl.innerHTML = html;
+    hydrateLinksAndEmbeds(bodyEl);
+  }
+
+  // Tag list
+  renderTags(tagsEl, post);
+
+  // Back button at bottom
+  container.appendChild(
+    el('p', { style: 'margin:2rem 0' }, el('a', { href: '#/', class: 'btn-back' }, 'Back to Posts'))
+  );
+
+  // Minimal inline styles to ensure clean layout without touching your CSS files
+  const style = document.createElement('style');
+  style.textContent = `
+    .post.container{max-width:980px;margin:0 auto;padding:1.2rem}
+    .post-title{font-size:clamp(1.6rem,2.2vw,2.2rem);line-height:1.25;margin:.4rem 0 .6rem}
+    .post-meta{color:#6B7280;margin-bottom:1rem}
+    .post-hero{margin:0 0 1rem 0}
+    .embed-responsive{background:#000;border-radius:10px;overflow:hidden;margin:.75rem 0}
+    .notice a{color:#1E90FF}
+    .tags{display:flex;flex-wrap:wrap;gap:.5rem;margin:.5rem 0 1.5rem;padding:0;list-style:none}
+    .tags-title{margin:1.5rem 0 .25rem}
+    .tags li a{display:inline-block;padding:.25rem .55rem;border:1px solid #E5E7EB;border-radius:999px;color:#374151;text-decoration:none}
+    .tags li a:hover{border-color:#CBD5E1}
+    .btn-back{display:inline-block;background:#1E90FF;color:#fff;padding:.55rem .9rem;border-radius:10px;text-decoration:none}
+    .btn-back:hover{filter:brightness(.95)}
+  `;
+  document.head.appendChild(style);
 }
