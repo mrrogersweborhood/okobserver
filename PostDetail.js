@@ -1,41 +1,32 @@
-// PostDetail.js — v2025-10-31a
-// - Uses resilient apiFetch (timeout + retry) from api.js
+// PostDetail.js — v2025-10-31c
+// - Resilient fetch via apiFetch (timeout + retry)
 // - Renders WordPress HTML exactly as delivered (so paywall/login text shows as-is)
-// - Handles featured image/video, responsive embeds, and well-formatted tag list
-// - Small QoL: external links open in new tab; iframes lazy-load
+// - Featured image/video handling, responsive embeds, tag list
+// - External links open in new tab; iframes lazy-load
 
 import { el, decodeHTML, formatDate } from './util.js?v=2025-10-24e';
 import { apiFetch, getImageCandidates } from './api.js?v=2025-10-31a';
 
-function toText(html=''){ const d=document.createElement('div'); d.innerHTML=html; return (d.textContent||'').trim(); }
-
 function hydrateLinksAndEmbeds(root){
-  // Make <a> open in new tab (safer UX) and normalize rel
+  // External links → new tab
   root.querySelectorAll('a[href]').forEach(a=>{
-    const url = a.getAttribute('href') || '';
-    const isExternal = /^https?:\/\//i.test(url) && !url.includes(location.host);
+    const href = a.getAttribute('href') || '';
+    const isExternal = /^https?:\/\//i.test(href) && !href.includes(location.host);
     if (isExternal) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
   });
 
-  // Lazy iframes & responsive wrapper for common embeds (YouTube, Vimeo, etc.)
+  // Responsive/lazy iframes for common embeds (YouTube, Vimeo, etc.)
   root.querySelectorAll('iframe').forEach((ifr)=>{
     ifr.setAttribute('loading','lazy');
-    // Wrap if not already wrapped
     if (!ifr.parentElement.classList.contains('embed-responsive')) {
       const wrap = document.createElement('div');
       wrap.className = 'embed-responsive';
-      // 16:9 by default; if height/width present, compute ratio
+      // 16:9 wrapper by default (fallback if no width/height)
       const w = parseInt(ifr.getAttribute('width')||'16',10);
       const h = parseInt(ifr.getAttribute('height')||'9',10);
       const ratio = h>0 && w>0 ? (h/w*100) : 56.25;
-      wrap.style.position='relative';
-      wrap.style.width='100%';
-      wrap.style.paddingTop = ratio.toFixed(3)+'%';
-      ifr.style.position='absolute';
-      ifr.style.inset='0';
-      ifr.style.width='100%';
-      ifr.style.height='100%';
-      ifr.style.border='0';
+      Object.assign(wrap.style, { position:'relative', width:'100%', paddingTop:ratio.toFixed(3)+'%' });
+      Object.assign(ifr.style,  { position:'absolute', inset:'0', width:'100%', height:'100%', border:'0' });
       ifr.parentElement.insertBefore(wrap, ifr);
       wrap.appendChild(ifr);
     }
@@ -47,8 +38,8 @@ function renderTags(block, post){
     const terms = post?._embedded?.['wp:term'];
     if (!Array.isArray(terms)) return;
     const tags = [];
-    for (const group of terms){
-      for (const t of (group||[])){
+    for (const group of terms||[]){
+      for (const t of group||[]){
         if ((t?.taxonomy||'').toLowerCase() === 'post_tag' && t?.name) {
           tags.push({ name: t.name, slug: t.slug });
         }
@@ -56,15 +47,18 @@ function renderTags(block, post){
     }
     if (!tags.length) return;
 
+    const title = el('h4', { class: 'tags-title' }, 'Tags');
     const ul = el('ul', { class: 'tags' },
       ...tags.slice(0, 30).map(t =>
         el('li', null,
-          el('a', { href: `https://okobserver.org/tag/${encodeURIComponent(t.slug)}/`, target: '_blank', rel: 'noopener' }, `#${t.name}`)
+          el('a', {
+            href: `https://okobserver.org/tag/${encodeURIComponent(t.slug)}/`,
+            target: '_blank', rel: 'noopener'
+          }, `#${t.name}`)
         )
       )
     );
-    block.appendChild(el('h4', { class: 'tags-title' }, 'Tags'));
-    block.appendChild(ul);
+    block.append(title, ul);
   }catch{}
 }
 
@@ -85,7 +79,10 @@ function heroBlock(post){
 }
 
 function note(msg){
-  return el('div', { class: 'notice', style: 'background:#F3F4F6;border:1px solid #E5E7EB;border-radius:10px;padding:.9rem 1rem;margin:.75rem 0;color:#374151' }, msg);
+  return el('div', {
+    class: 'notice',
+    style: 'background:#F3F4F6;border:1px solid #E5E7EB;border-radius:10px;padding:.9rem 1rem;margin:.75rem 0;color:#374151'
+  }, msg);
 }
 
 export async function renderPost(mount, id){
@@ -93,48 +90,40 @@ export async function renderPost(mount, id){
   const container = el('article', { class: 'post container' });
   mount.appendChild(container);
 
-  // header shell
+  // Shell
   const titleEl = el('h1', { class: 'post-title' }, '');
   const metaEl  = el('div', { class: 'post-meta' }, '');
   const heroEl  = el('div', { class: 'post-hero-wrap' });
   const bodyEl  = el('div', { class: 'post-body' });
   const tagsEl  = el('div', { class: 'post-tags-wrap' });
-
   container.append(titleEl, metaEl, heroEl, bodyEl, tagsEl);
 
-  // fetch post
+  // Fetch post
   let post;
   try{
     const resp = await apiFetch(`posts/${encodeURIComponent(id)}?_embed=1`);
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     post = await resp.json();
   }catch(e){
-    mount.prepend(
-      note('Something went wrong loading this view.')
-    );
-    container.appendChild(
-      el('p', null, String(e && e.message ? e.message : 'Failed to fetch'))
-    );
-    container.appendChild(
-      el('p', null, el('a', { href: '#/' }, 'Back to Posts'))
+    mount.prepend( note('Something went wrong loading this view.') );
+    container.append(
+      el('p', null, String(e?.message || 'Failed to fetch')),
+      el('p', null, el('a', { href: '#/', class: 'btn-back' }, 'Back to Posts'))
     );
     return;
   }
 
-  // populate header
+  // Header
   const title = decodeHTML(post?.title?.rendered || 'Untitled');
   titleEl.textContent = title;
   const author = post?._embedded?.author?.[0]?.name || 'Oklahoma Observer';
   metaEl.textContent = `${author} • ${formatDate(post?.date)}`;
 
-  // hero (image) if present
+  // Hero image (if present)
   const hero = heroBlock(post);
   if (hero) heroEl.appendChild(hero);
 
-  // WordPress HTML (includes videos/paywall text when protected)
-  // We render EXACTLY what WP gives us so the original login/subscribe paragraph shows.
+  // Body: render EXACT WordPress HTML (shows login/subscription text for protected posts)
   const html = String(post?.content?.rendered || post?.excerpt?.rendered || '');
   if (!html) {
     bodyEl.appendChild(note('This article has no body content in the public API.'));
@@ -143,15 +132,17 @@ export async function renderPost(mount, id){
     hydrateLinksAndEmbeds(bodyEl);
   }
 
-  // Tag list
+  // Tags
   renderTags(tagsEl, post);
 
-  // Back button at bottom
+  // Back link (bottom only)
   container.appendChild(
-    el('p', { style: 'margin:2rem 0' }, el('a', { href: '#/', class: 'btn-back' }, 'Back to Posts'))
+    el('p', { style: 'margin:2rem 0' },
+      el('a', { href: '#/', class: 'btn-back' }, 'Back to Posts')
+    )
   );
 
-  // Minimal inline styles to ensure clean layout without touching your CSS files
+  // Minimal inline styles to ensure clean layout if CSS is late
   const style = document.createElement('style');
   style.textContent = `
     .post.container{max-width:980px;margin:0 auto;padding:1.2rem}
