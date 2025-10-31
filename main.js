@@ -1,11 +1,10 @@
-/* main.js — OkObserver SPA bootstrap (2025-10-31j)
-   - Preserves 31h routing and signatures
-   - Adds resilient Settings loading (default or named export)
-   - Cache-busted dynamic imports with VER
+/* main.js — OkObserver SPA bootstrap (2025-10-31l)
+   - Version bump so SW & browser fetch the latest Home.js with default-on filters
+   - Preserves 31h routing/signatures; resilient Settings loader
 */
 
 (function () {
-  const VER = "2025-10-31j"; // bump when you deploy
+  const VER = "2025-10-31l"; // bump when you deploy
   const BUST = `?v=${VER}`;
 
   // ——— DOM helpers ———
@@ -74,8 +73,7 @@
       const { renderPost, default: def } = await import(`./PostDetail.js${BUST}`);
       const fn = typeof renderPost === "function" ? renderPost : def;
       if (typeof fn === "function") {
-        // Keep your previous working signature:
-        await fn(Number(id), { VER });
+        await fn(Number(id), { VER }); // preserves your working signature
       } else {
         showError("PostDetail module not found.");
       }
@@ -104,7 +102,6 @@
     showLoading();
     try {
       const mod = await import(`./Settings.js${BUST}`);
-      // Prefer named for your current router, but support default for future-proofing
       const fn = typeof mod.renderSettings === "function" ? mod.renderSettings : mod.default;
       if (typeof fn === "function") {
         await fn($app, { VER });
@@ -144,12 +141,10 @@
   // ——— Wiring ———
   window.addEventListener("hashchange", router);
   window.addEventListener("DOMContentLoaded", () => {
-    // Footer build stamp (non-blocking)
     const y = document.getElementById("year");
     if (y) y.textContent = new Date().getFullYear();
     const b = document.getElementById("build");
     if (b) b.textContent = `Build ${VER}`;
-
     router();
   });
 
