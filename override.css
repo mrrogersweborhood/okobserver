@@ -327,3 +327,42 @@ body.density-compact .post-card    { margin: 8px;  }
   padding: 14px 16px 16px !important;
   display: block !important;
 }
+/* === OkObserver: card column layout fix (2025-11-01 FLEX) === */
+/* Ensures image sits on top and text flows underneath without clipping. */
+
+.post-card,
+.post-card.card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  overflow: visible !important;   /* keep from cutting off text */
+}
+
+.post-card .thumb,
+.post-card .media {
+  display: block !important;
+  flex: 0 0 auto !important;      /* image takes only its own height */
+  position: relative !important;
+  z-index: 0 !important;
+  overflow: hidden !important;     /* keep rounded-corner look on image area */
+  border-top-left-radius: 14px !important;
+  border-top-right-radius: 14px !important;
+}
+
+.post-card .thumb img,
+.post-card .media img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;         /* prevent forcing a fixed height that masks text */
+  object-fit: cover !important;    /* keeps nice crop without overflow */
+  pointer-events: none !important; /* avoid covering text clicks */
+}
+
+.post-card .body {
+  flex: 0 0 auto !important;       /* body claims its own natural height */
+  display: block !important;
+  padding: 14px 16px 16px !important;
+  background: #fff !important;
+  color: #111 !important;
+  z-index: 1 !important;           /* sits above the image area if needed */
+}
