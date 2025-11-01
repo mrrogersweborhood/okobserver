@@ -1,11 +1,12 @@
 /* OkObserver Post Detail
-   Version: 2025-11-01e
+   Version: 2025-11-01g
    Contract: renderPost(id:number, { VER })
    Goals:
-   - Clean white background (no blue bar behind title/byline).
-   - Title, byline (author • date), featured image, content.
-   - “Back to posts” button ONLY at the bottom.
-   - No ES module imports; works with dynamic import from main.js.
+   - Featured image appears first.
+   - Title (blue) and byline appear directly beneath the featured image.
+   - Clean white background (no blue bar).
+   - Back to posts button only at the bottom.
+   - No ES module syntax; safe for GH Pages.
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -25,7 +26,7 @@ export async function renderPost(id, { VER } = {}) {
   `;
   const $detail = $app.querySelector(".post-detail");
 
-  // Fetch the post with embeds
+  // Fetch post
   let post = null;
   try {
     const res = await fetch(
@@ -85,24 +86,24 @@ export async function renderPost(id, { VER } = {}) {
   const featured = getFeatured(post);
   const contentHTML = post?.content?.rendered || "";
 
-  // Render (no blue backgrounds; keep brand color only for links if desired)
+  // Render — featured image first, then title/byline
   $detail.innerHTML = `
-    <header class="post-header" style="margin:10px 0 10px 0;">
-      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; background:transparent; color:#111;">
-        ${title}
-      </h1>
-      <div class="byline" style="color:#667; font-size:.95rem; background:transparent;">
-        ${author ? `${author} • ` : ""}${date}
-      </div>
-    </header>
-
     ${featured ? `
       <figure class="post-hero" style="margin:18px 0;">
         <img src="${featured.url}" alt="${(featured.alt || title).replace(/"/g,'&quot;')}"
              style="display:block;width:100%;height:auto;border-radius:10px;" loading="lazy" decoding="async"/>
       </figure>` : ``}
 
-    <section class="post-content" style="margin:18px 0 28px 0; color:#111; line-height:1.6;">
+    <header class="post-header" style="margin:10px 0 10px 0;background:transparent;">
+      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; color:#1E90FF; background:transparent;">
+        ${title}
+      </h1>
+      <div class="byline" style="color:#555; font-size:.95rem; margin-top:2px; background:transparent;">
+        ${author ? `${author} • ` : ""}${date}
+      </div>
+    </header>
+
+    <section class="post-content" style="margin:20px 0 28px 0; color:#111; line-height:1.6;">
       ${contentHTML}
     </section>
 
@@ -111,7 +112,7 @@ export async function renderPost(id, { VER } = {}) {
     </footer>
   `;
 
-  // Ensure any links in content open in a new tab and are safe
+  // Ensure links open safely
   try {
     $detail.querySelectorAll('.post-content a[href]').forEach(a => {
       a.setAttribute('target','_blank');
@@ -119,7 +120,7 @@ export async function renderPost(id, { VER } = {}) {
     });
   } catch {}
 
-  // Keep header sticky if any prior CSS tried to override it (defensive)
+  // Keep header sticky (defensive)
   try {
     const $hdr = document.querySelector("header");
     if ($hdr) {
