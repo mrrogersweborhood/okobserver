@@ -872,3 +872,35 @@ header .motto {
   color: #fff !important;
   white-space: nowrap !important;
 }
+/* === OkObserver 2025-11-01O: Contain featured images on post summary grid === */
+.post-card .thumb img,
+.post-card img.wp-post-image {
+  object-fit: contain !important;          /* show entire image without cropping */
+  object-position: center center !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 280px !important;            /* keeps grid cards balanced */
+  background-color: #fff !important;       /* fills space behind transparent art */
+  border-radius: 10px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  display: block !important;
+}
+
+/* Prevent surrounding container from hiding overflow */
+.post-card .thumb,
+.post-card .media {
+  overflow: visible !important;
+  background: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 180px !important; /* ensures even spacing for small images */
+}
+
+/* Keeps cards tidy and consistent height on multi-column grid */
+.post-card {
+  background: #fff !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden !important;
+}
