@@ -930,3 +930,62 @@ header .motto {
   min-height: 220px !important;
   max-height: 300px !important;
 }
+/* === OkObserver 2025-11-01Q: Natural masonry flow, no side-scroll, pretty containment === */
+
+/* 1) Kill forced equal heights & extra padding that caused horizontal scroll */
+.post-card {
+  min-height: unset !important;
+  padding-bottom: 0 !important;
+}
+.posts-grid,
+.post-grid {
+  grid-auto-rows: auto !important;     /* let each card size to its content */
+  row-gap: 18px !important;
+  column-gap: 18px !important;
+}
+
+/* 2) Prevent any horizontal scrolling from wide children */
+html, body {
+  overflow-x: hidden !important;
+}
+main#app, .posts-grid, .post-grid {
+  max-width: 1200px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* 3) Image containment without blowing up card height */
+.post-card .thumb,
+.post-card .media {
+  display: block !important;
+  overflow: hidden !important;         /* hide any tiny edge overflow */
+  background: #fff !important;
+}
+.post-card .thumb img,
+.post-card .media img,
+.post-card img.wp-post-image {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;       /* show the whole cartoon/photo */
+  object-position: center center !important;
+  max-height: 240px !important;         /* tasteful cap so cards don’t get huge */
+  background-color: #fff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+
+/* 4) Text area breathes, but doesn’t force tall cards */
+.post-card .body {
+  padding: 14px 16px 16px !important;
+}
+
+/* 5) Slightly denser on small screens; airy on large screens */
+@media (max-width: 600px) {
+  .posts-grid, .post-grid { row-gap: 14px !important; column-gap: 14px !important; }
+  .post-card .thumb img, .post-card .media img { max-height: 200px !important; }
+}
+@media (min-width: 1200px) {
+  .posts-grid, .post-grid { row-gap: 22px !important; column-gap: 22px !important; }
+  .post-card .thumb img, .post-card .media img { max-height: 260px !important; }
+}
