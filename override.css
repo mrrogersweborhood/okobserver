@@ -546,3 +546,28 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
   background: transparent !important;
   color: #1E90FF !important;
 }
+/* === OkObserver 2025-11-01f: kill blue bar on Post Detail header === */
+.post-detail,
+.post-detail * {
+  background-image: none !important;
+}
+
+.post-detail .post-header,
+.post-detail header.post-header,
+.post-detail .post-title,
+.post-detail .byline {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Guard against pseudo-element bars */
+.post-detail .post-header::before,
+.post-detail .post-header::after,
+.post-detail .post-title::before,
+.post-detail .post-title::after,
+.post-detail .byline::before,
+.post-detail .byline::after {
+  content: none !important;
+  display: none !important;
+}
