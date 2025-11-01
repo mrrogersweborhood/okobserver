@@ -517,3 +517,10 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
   text-decoration: none !important;
 }
 .post-detail footer a[href^="#/"]:hover { background: #e9eef3 !important; }
+/* === OkObserver 2025-11-01d: kill blue backgrounds on summaries === */
+.post-card h3,
+.post-card h3 a,
+.post-card .byline,
+.post-card p {
+  background: transparent !important;
+}
