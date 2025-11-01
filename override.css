@@ -366,3 +366,154 @@ body.density-compact .post-card    { margin: 8px;  }
   color: #111 !important;
   z-index: 1 !important;           /* sits above the image area if needed */
 }
+/* === OkObserver: final Home card visibility & flow fix (2025-11-01F) === */
+/* Ensures each post-card expands naturally to fit text content. */
+
+.post-grid .post-card,
+.posts-grid .post-card {
+  height: auto !important;              /* no fixed height */
+  min-height: unset !important;         /* remove any implicit min constraint */
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  overflow: visible !important;
+}
+
+.post-grid .post-card .thumb img,
+.posts-grid .post-card .thumb img,
+.post-grid .post-card .media img,
+.posts-grid .post-card .media img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: cover !important;
+}
+
+.post-grid .post-card .body,
+.posts-grid .post-card .body {
+  flex: 1 1 auto !important;
+  display: block !important;
+  padding: 14px 16px 16px !important;
+  color: #111 !important;
+  background: #fff !important;
+  font-size: 1rem !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+/* === OkObserver: 2025-11-01 hotfix pack === */
+
+/* Header must remain sticky & above content */
+header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+}
+
+/* Card text should NOT inherit blue backgrounds */
+.post-card h3,
+.post-card h3 a,
+.post-card .byline,
+.post-card p {
+  background: transparent !important;
+  color: #111 !important;
+  text-decoration: none !important;
+}
+
+/* Image area is clickable (link), but must not cover text below */
+.post-card .thumb,
+.post-card .media {
+  position: relative !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+  display: block !important;
+}
+.post-card .thumb a,
+.post-card .media a,
+.post-card .thumb,
+.post-card .media {
+  pointer-events: auto !important;   /* restore click */
+}
+.post-card .thumb img,
+.post-card .media img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  pointer-events: auto !important;   /* allow clicking the image link */
+}
+.post-card .body {
+  position: relative !important;
+  z-index: 1 !important;             /* keep text above any image quirks */
+  background: #fff !important;
+}
+
+/* Back-to-posts button look */
+.post-detail footer a[href^="#/"] {
+  display: inline-block !important;
+  padding: 10px 14px !important;
+  border-radius: 10px !important;
+  background: #f2f4f7 !important;
+  color: #111 !important;
+  border: 1px solid #dcdfe4 !important;
+  text-decoration: none !important;
+}
+.post-detail footer a[href^="#/"]:hover {
+  background: #e9eef3 !important;
+}
+/* === OkObserver: 2025-11-01 hotfix pack === */
+
+/* Header sticky & above content */
+header { position: sticky !important; top: 0 !important; z-index: 1000 !important; }
+
+/* Card layout: image on top, text below; no clipping */
+.post-card, .post-card.card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  overflow: visible !important;
+  background: #fff !important;
+}
+
+/* Image area clickable but not covering text */
+.post-card .thumb, .post-card .media {
+  display: block !important;
+  position: relative !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+  border-top-left-radius: 14px !important;
+  border-top-right-radius: 14px !important;
+}
+.post-card .thumb img, .post-card .media img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  pointer-events: auto !important; /* ensure clicks go through to the link */
+}
+
+/* Text area visible, clean colors (no blue background) */
+.post-card .body {
+  position: relative !important;
+  z-index: 1 !important;
+  padding: 14px 16px 16px !important;
+  color: #111 !important;
+  background: #fff !important;
+}
+.post-card h3, .post-card h3 a, .post-card .byline, .post-card p {
+  background: transparent !important;
+  color: #111 !important;
+  text-decoration: none !important;
+}
+
+/* Back-to-posts button style (detail page only) */
+.post-detail footer a[href^="#/"] {
+  display: inline-block !important;
+  padding: 10px 14px !important;
+  border-radius: 10px !important;
+  background: #f2f4f7 !important;
+  color: #111 !important;
+  border: 1px solid #dcdfe4 !important;
+  text-decoration: none !important;
+}
+.post-detail footer a[href^="#/"]:hover { background: #e9eef3 !important; }
