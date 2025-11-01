@@ -826,3 +826,28 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
   color: inherit !important;
   text-decoration: none !important;
 }
+/* === OkObserver 2025-11-01M: Fix smashed header logo === */
+header .logo,
+header .logo img {
+  display: inline-block !important;
+}
+
+header .logo img {
+  height: 48px !important;        /* consistent header size */
+  width: auto !important;         /* keep aspect ratio */
+  max-width: 100% !important;     /* never overflow */
+  object-fit: contain !important; /* avoid stretching */
+  vertical-align: middle !important;
+}
+
+/* Prevent flex from shrinking the logo when space is tight */
+header .header-inner {
+  align-items: center !important;
+}
+header .logo {
+  flex: 0 0 auto !important;      /* don’t let it shrink */
+}
+header .hamburger {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;    /* keep it right-aligned */
+}
