@@ -851,3 +851,24 @@ header .hamburger {
   flex: 0 0 auto !important;
   margin-left: auto !important;    /* keep it right-aligned */
 }
+/* === OkObserver 2025-11-01N: Add space between logo and motto === */
+header .logo {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important; /* space between logo image and motto text */
+}
+
+header .logo img {
+  height: 48px !important;
+  width: auto !important;
+  object-fit: contain !important;
+  margin-right: 8px !important; /* fallback for browsers without gap support */
+}
+
+header .motto {
+  display: inline-block !important;
+  font-size: 1rem !important;
+  line-height: 1.2 !important;
+  color: #fff !important;
+  white-space: nowrap !important;
+}
