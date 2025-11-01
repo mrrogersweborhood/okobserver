@@ -311,3 +311,19 @@ body.density-compact .post-card    { margin: 8px;  }
   visibility: visible !important;
   display: block !important;
 }
+/* === OkObserver: final fix for clipped post text (2025-11-01 overflow release) === */
+/* Prevent card overflow from hiding title/byline/excerpt under the image */
+
+.post-card,
+.post-card.card {
+  overflow: visible !important;    /* allow internal text to show */
+  background: #fff !important;
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+/* Optional: ensure body padding always counts inside grid cells */
+.post-card .body {
+  padding: 14px 16px 16px !important;
+  display: block !important;
+}
