@@ -775,3 +775,29 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
 .post-detail footer a[href^="#/"]:hover {
   background: #187bdb !important; /* slightly darker on hover */
 }
+/* === OkObserver 2025-11-01L: Brand color & byline emphasis === */
+
+/* Post titles: OkObserver blue everywhere */
+.post-card h3,
+.post-card h3 a,
+.post-detail .post-title,
+.post-detail h1.post-title {
+  color: #1E90FF !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+}
+
+/* Byline: bold, neutral text color */
+.post-card .byline,
+.post-detail .byline {
+  font-weight: 600 !important;
+  color: #444 !important;
+  background: transparent !important;
+}
+
+/* Optional: links inside bylines stay clean */
+.post-card .byline a,
+.post-detail .byline a {
+  color: inherit !important;
+  text-decoration: none !important;
+}
