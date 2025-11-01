@@ -1,9 +1,5 @@
 /* OkObserver Home Grid with Infinite Scroll
-   Version: 2025-11-01k
-   Contract: renderHome($app, { VER })
-   - Infinite scroll loads more posts as you near bottom.
-   - Title, byline, excerpt, featured image.
-   - Works with MutationObserver grid enforcer.
+   Version: 2025-11-01k2 (sentinel moved outside grid)
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -15,12 +11,15 @@ export async function renderHome($app, { VER } = {}) {
 
   if (!$app) return;
 
+  // Shell: grid + external sentinel
   $app.innerHTML = `
     <div id="postsGrid" class="post-grid posts-grid grid">
       <div class="loading" style="grid-column: 1/-1; text-align:center; padding:1.25rem 0;">Loading…</div>
     </div>
+    <div id="scrollSentinel" style="height:1px;"></div>
   `;
   const $grid = document.getElementById("postsGrid");
+  const $sentinel = document.getElementById("scrollSentinel");
 
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests = localStorage.getItem("okobsv.hideTests") !== "false";
@@ -102,42 +101,32 @@ export async function renderHome($app, { VER } = {}) {
   async function loadMore() {
     if (loading || done) return;
     loading = true;
+
     const posts = await fetchPosts(currentPage);
-    if (!posts.length) {
-      done = true;
-      return;
-    }
+    if (!posts.length) { done = true; loading = false; return; }
+
     const filtered = posts.filter((p) => {
       if (hideCartoons && isCartoon(p)) return false;
       if (hideTests && isTest(p)) return false;
       return true;
     });
-    if (!filtered.length) {
-      done = true;
-      return;
-    }
+
     const html = filtered.map(cardHTML).join("");
     if (currentPage === 1) $grid.innerHTML = html;
     else $grid.insertAdjacentHTML("beforeend", html);
+
     currentPage++;
     loading = false;
   }
 
-  // Initial load
+  // Initial batch
   await loadMore();
 
-  // Infinite scroll observer
-  const sentinel = document.createElement("div");
-  sentinel.id = "scrollSentinel";
-  sentinel.style = "height: 50px; grid-column:1/-1;";
-  $grid.appendChild(sentinel);
-
+  // Observe external sentinel (no effect on grid layout)
   const observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && !loading && !done) {
-      loadMore();
-    }
-  });
-  observer.observe(sentinel);
+    if (entries[0].isIntersecting && !loading && !done) loadMore();
+  }, { rootMargin: "800px 0px" }); // prefetch a bit earlier
+  observer.observe($sentinel);
 }
 
 export default renderHome;
