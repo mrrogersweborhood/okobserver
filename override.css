@@ -801,3 +801,28 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
   color: inherit !important;
   text-decoration: none !important;
 }
+/* === OkObserver 2025-11-01L2: Force brand title + bold byline on summaries === */
+/* Higher specificity to override any theme/default card rules */
+:root body .posts-grid .post-card h3,
+:root body .post-grid .post-card h3,
+:root body .posts-grid .post-card h3 a,
+:root body .post-grid .post-card h3 a {
+  color: #1E90FF !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  text-decoration: none !important;
+}
+
+:root body .posts-grid .post-card .byline,
+:root body .post-grid .post-card .byline {
+  font-weight: 600 !important;
+  color: #444 !important;
+  background: transparent !important;
+}
+
+/* Ensure nothing upstream recolors links inside bylines */
+:root body .posts-grid .post-card .byline a,
+:root body .post-grid .post-card .byline a {
+  color: inherit !important;
+  text-decoration: none !important;
+}
