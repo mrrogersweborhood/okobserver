@@ -1,11 +1,11 @@
 /* OkObserver Post Detail
-   Version: 2025-10-31k
-   Contract: renderPost(id, { VER })
+   Version: 2025-11-01e
+   Contract: renderPost(id:number, { VER })
    Goals:
-   - Fetch single post with _embed for author/media.
-   - Render article with feature media if available.
-   - Place “Back to posts” ONLY at the bottom.
-   - Keep DOM mount simple; do not alter header/grid/MO.
+   - Clean white background (no blue bar behind title/byline).
+   - Title, byline (author • date), featured image, content.
+   - “Back to posts” button ONLY at the bottom.
+   - No ES module imports; works with dynamic import from main.js.
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -13,123 +13,121 @@ export async function renderPost(id, { VER } = {}) {
   const $app =
     document.getElementById("app") ||
     document.querySelector("#app") ||
-    document.querySelector("main") ||
     document.body;
 
   if (!$app || !id) return;
 
-  $app.innerHTML = `<div class="loading" style="padding:1.25rem 0;">Loading…</div>`;
+  // Shell
+  $app.innerHTML = `
+    <article class="post-detail" style="max-width:980px;margin:0 auto;padding:18px 14px 60px;">
+      <div class="loading" style="text-align:center;padding:1.25rem 0;">Loading…</div>
+    </article>
+  `;
+  const $detail = $app.querySelector(".post-detail");
 
+  // Fetch the post with embeds
   let post = null;
   try {
-    const res = await fetch(`${API_BASE}/posts/${id}?_embed=1`, { credentials: "omit", cache: "no-store" });
+    const res = await fetch(
+      `${API_BASE}/posts/${id}?_embed=1&_=${encodeURIComponent(VER || "detail")}`,
+      { credentials: "omit", cache: "no-store" }
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     post = await res.json();
   } catch (err) {
     console.error("[PostDetail] fetch failed:", err);
-    $app.innerHTML = `
-      <div style="padding:1.25rem 0;">
-        <h3 style="margin:0 0 .5rem 0;">Failed to load post.</h3>
-        <div style="color:#666">Please try again later.</div>
-        <div style="margin-top:1rem;"><a href="#/" aria-label="Back to posts">← Back to posts</a></div>
-      </div>
+    $detail.innerHTML = `
+      <h2 style="margin:0 0 .5rem 0;">Unable to load this post.</h2>
+      <p style="color:#666">Please try again, or return to the post list.</p>
+      <footer style="margin-top:28px;">
+        <a href="#/" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#f2f4f7;color:#111;border:1px solid #dcdfe4;text-decoration:none;">← Back to posts</a>
+      </footer>
     `;
     return;
   }
 
-  // --- Helpers ---
-  function stripTags(html) {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html || "";
-    return tmp.textContent || tmp.innerText || "";
-  }
-  function getFeatured(post) {
+  // Helpers
+  const textFromHTML = (html = "") => {
+    const d = document.createElement("div");
+    d.innerHTML = html;
+    return (d.textContent || d.innerText || "").trim();
+  };
+  const getFeatured = (p) => {
     try {
-      const m = post?._embedded?.["wp:featuredmedia"]?.[0];
-      if (!m) return null;
-      return {
-        url: m.source_url || "",
-        alt: m.alt_text || "",
-        type: m.media_type || "image"
-      };
-    } catch { return null; }
-  }
-  function getAuthorName(post) {
+      const m = p?._embedded?.["wp:featuredmedia"]?.[0];
+      if (m?.source_url) return { url: m.source_url, alt: m.alt_text || "" };
+    } catch {}
+    return null;
+  };
+  const getAuthor = (p) => {
     try {
-      return post?._embedded?.author?.[0]?.name || "";
-    } catch { return ""; }
-  }
-  function formatDate(iso) {
+      return p?._embedded?.author?.[0]?.name || "";
+    } catch {}
+    return "";
+  };
+  const fmtDate = (iso) => {
     try {
       const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-    } catch { return ""; }
-  }
-  function sanitizeArticleHTML(html) {
-    // Gentle sanitizer: remove <script> and inline event handlers.
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html || "";
-    tmp.querySelectorAll("script").forEach(s => s.remove());
-    tmp.querySelectorAll("*").forEach(el => {
-      [...el.attributes].forEach(a => {
-        if (/^on/i.test(a.name)) el.removeAttribute(a.name);
+      return d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
-    });
-    return tmp.innerHTML;
-  }
+    } catch {
+      return "";
+    }
+  };
 
-  const title = stripTags(post?.title?.rendered || "Untitled");
-  const author = getAuthorName(post);
-  const date = formatDate(post?.date);
+  // Data
+  const title = textFromHTML(post?.title?.rendered) || "Untitled";
+  const author = getAuthor(post);
+  const date = fmtDate(post?.date);
   const featured = getFeatured(post);
-  const contentHTML = sanitizeArticleHTML(post?.content?.rendered || "");
+  const contentHTML = post?.content?.rendered || "";
 
-  const mediaBlock = featured?.url
-    ? `<figure class="media" style="margin:0 0 16px 0;">
-         <img src="${featured.url}" alt="${escapeHtmlAttr(featured.alt || title)}" loading="lazy" decoding="async" style="width:100%; height:auto; display:block;" />
-       </figure>`
-    : "";
+  // Render (no blue backgrounds; keep brand color only for links if desired)
+  $detail.innerHTML = `
+    <header class="post-header" style="margin:10px 0 10px 0;">
+      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; background:transparent; color:#111;">
+        ${title}
+      </h1>
+      <div class="byline" style="color:#667; font-size:.95rem; background:transparent;">
+        ${author ? `${author} • ` : ""}${date}
+      </div>
+    </header>
 
-  $app.innerHTML = `
-    <article class="post-detail" style="max-width:900px; margin:0 auto; padding:12px;">
-      <header style="margin:8px 0 12px;">
-        <h1 style="margin:0 0 6px 0; line-height:1.2;">${escapeHtml(title)}</h1>
-        <div class="byline" style="color:#667; font-size:.95rem;">
-          ${author ? `${escapeHtml(author)} • ` : ""}${date}
-        </div>
-      </header>
+    ${featured ? `
+      <figure class="post-hero" style="margin:18px 0;">
+        <img src="${featured.url}" alt="${(featured.alt || title).replace(/"/g,'&quot;')}"
+             style="display:block;width:100%;height:auto;border-radius:10px;" loading="lazy" decoding="async"/>
+      </figure>` : ``}
 
-      ${mediaBlock}
+    <section class="post-content" style="margin:18px 0 28px 0; color:#111; line-height:1.6;">
+      ${contentHTML}
+    </section>
 
-      <section class="content">
-        ${contentHTML}
-      </section>
-
-      <footer style="margin-top:28px;">
-        <a href="#/" aria-label="Back to posts">← Back to posts</a>
-      </footer>
-    </article>
+    <footer class="post-footer" style="margin:28px 0 0 0;">
+      <a href="#/" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#f2f4f7;color:#111;border:1px solid #dcdfe4;text-decoration:none;">← Back to posts</a>
+    </footer>
   `;
 
-  // Ensure images within article content are lazy where possible
+  // Ensure any links in content open in a new tab and are safe
   try {
-    $app.querySelectorAll(".content img").forEach(img => {
-      if (!img.hasAttribute("loading")) img.setAttribute("loading", "lazy");
-      if (!img.hasAttribute("decoding")) img.setAttribute("decoding", "async");
-      img.style.maxWidth = "100%";
-      img.style.height = "auto";
-      img.style.display = "block";
+    $detail.querySelectorAll('.post-content a[href]').forEach(a => {
+      a.setAttribute('target','_blank');
+      a.setAttribute('rel','noopener');
     });
+  } catch {}
+
+  // Keep header sticky if any prior CSS tried to override it (defensive)
+  try {
+    const $hdr = document.querySelector("header");
+    if ($hdr) {
+      $hdr.style.position = "sticky";
+      $hdr.style.top = "0";
+      $hdr.style.zIndex = "1000";
+    }
   } catch {}
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-function escapeHtmlAttr(s) { return escapeHtml(s).replace(/`/g, "&#96;"); }
-
-// Optional default export for router resilience
 export default renderPost;

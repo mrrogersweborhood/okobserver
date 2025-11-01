@@ -524,3 +524,25 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
 .post-card p {
   background: transparent !important;
 }
+/* === OkObserver 2025-11-01e: Remove blue from post detail titles === */
+.post-detail h1,
+.post-detail .post-title,
+.post-detail header .post-title,
+.post-detail .byline {
+  background: transparent !important;
+  color: #111 !important;
+  text-shadow: none !important;
+  padding: 0 !important;
+  margin-top: 0.5rem !important;
+}
+
+.post-detail h1 a,
+.post-detail .byline a {
+  color: #111 !important;
+  text-decoration: none !important;
+}
+.post-detail h1,
+.post-detail .post-title {
+  background: transparent !important;
+  color: #1E90FF !important;
+}
