@@ -765,3 +765,13 @@ header { position: sticky !important; top: 0 !important; z-index: 1000 !importan
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   overflow: hidden !important;
 }
+/* === OkObserver 2025-11-01k: Blue Back to Posts button === */
+.post-detail footer a[href^="#/"] {
+  background: #1E90FF !important;
+  color: #fff !important;
+  border: none !important;
+  transition: background 0.2s ease;
+}
+.post-detail footer a[href^="#/"]:hover {
+  background: #187bdb !important; /* slightly darker on hover */
+}
