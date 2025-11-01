@@ -904,3 +904,29 @@ header .motto {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   overflow: hidden !important;
 }
+/* === OkObserver 2025-11-01P: Increase card height and breathing room === */
+.post-card {
+  min-height: 480px !important;             /* taller card frame for contained images */
+  padding-bottom: 8px !important;           /* soft bottom spacing */
+}
+
+/* Maintain balance in grid layout */
+.posts-grid,
+.post-grid {
+  grid-auto-rows: minmax(480px, auto) !important;
+  row-gap: 24px !important;                 /* adds vertical space between cards */
+  column-gap: 24px !important;              /* adds horizontal spacing */
+}
+
+/* Make sure text section uses consistent space */
+.post-card .body {
+  flex: 1 1 auto !important;
+  padding: 16px 18px 18px !important;
+}
+
+/* Featured image container stays proportionate */
+.post-card .thumb,
+.post-card .media {
+  min-height: 220px !important;
+  max-height: 300px !important;
+}
