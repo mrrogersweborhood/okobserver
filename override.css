@@ -989,3 +989,53 @@ main#app, .posts-grid, .post-grid {
   .posts-grid, .post-grid { row-gap: 22px !important; column-gap: 22px !important; }
   .post-card .thumb img, .post-card .media img { max-height: 260px !important; }
 }
+/* === OkObserver 2025-11-01R: Fix grid overflow & right-edge clipping === */
+
+/* 1) Never allow horizontal scroll from the grid */
+html, body { overflow-x: hidden !important; }
+
+/* 2) Responsive grid: auto-fit columns between 280–1fr */
+.posts-grid,
+.post-grid {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 1200px !important;           /* center within page */
+  margin-left: auto !important;
+  margin-right: auto !important;
+
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  column-gap: 20px !important;
+  row-gap: 20px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* 3) Cards respect container width */
+.post-card { min-width: 0 !important; }
+
+/* 4) Images never expand the card beyond its column */
+.post-card .thumb img,
+.post-card .media img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
+}
+
+/* 5) Tighter grid on small screens; roomy on large */
+@media (max-width: 640px) {
+  .posts-grid, .post-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    column-gap: 14px !important;
+    row-gap: 14px !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+@media (min-width: 1280px) {
+  .posts-grid, .post-grid {
+    max-width: 1320px !important;
+    column-gap: 22px !important;
+    row-gap: 22px !important;
+  }
+}
