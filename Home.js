@@ -1,21 +1,16 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H3  (fix: requestIdleCallback options arg)
-   - Uses WordPress renditions (sizes) instead of full-size originals
-   - Adds width/height to <img> for instant layout (no shift)
-   - Adds srcset/sizes for DPR/viewport-aware loading (crisp on 4K, small on mobile)
-   - First row images use fetchpriority="high" for faster above-the-fold paint
-   - Infinite scroll sentinel lives OUTSIDE the grid (no blank row)
-   - Titles/bylines/excerpts preserved (colors/bold handled in CSS)
-   - Performance: _embed narrowed, PER_PAGE=18, observer attached on idle
+   Version: 2025-11-02H4
+   - FIX: restore _embed=wp:term so cartoon/test filters work again
+   - Keeps H3 changes (correct requestIdleCallback usage)
+   - All perf and layout improvements preserved
 */
 
 export async function renderHome($app, { VER } = {}) {
   const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
-  const PER_PAGE = 18; // slimmer first paint
+  const PER_PAGE = 18;
   let currentPage = 1, loading = false, done = false;
   if (!$app) return;
 
-  // Shell: grid + external sentinel (so it doesn't reserve a grid row)
   $app.innerHTML = `
     <div id="postsGrid" class="post-grid posts-grid grid">
       <div class="loading" style="grid-column:1/-1;text-align:center;padding:1.25rem 0;">Loading…</div>
@@ -25,34 +20,47 @@ export async function renderHome($app, { VER } = {}) {
   const $grid = document.getElementById("postsGrid");
   const $sentinel = document.getElementById("scrollSentinel");
 
-  // Filters (kept)
+  // Feature flags (persisted)
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
-  // -------- helpers --------
+  // ---------- helpers ----------
   const textFromHTML = (html) => {
     const d = document.createElement("div"); d.innerHTML = html || "";
     return (d.textContent || d.innerText || "").trim();
   };
   const getAuthor = (p) => { try { return p?._embedded?.author?.[0]?.name || ""; } catch {} return ""; };
   const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});} catch { return ""; } };
-  const escapeHtml = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-  const escapeAttr = (s) => escapeHtml(s).replace(/`/g,"&#96;");
-  const isCartoon = (p) => {
-    const t = textFromHTML(p?.title?.rendered).toLowerCase();
-    if (t.includes("cartoon") || t.includes("illustration")) return true;
+  const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  const escAttr = (s) => esc(s).replace(/`/g,"&#96;");
+
+  // Robust cartoon/test detection (title + categories/tags)
+  function isCartoon(p){
+    const title = textFromHTML(p?.title?.rendered).toLowerCase();
+    if (/\b(cartoon|illustration|toon)\b/.test(title)) return true;
     try {
       const terms = (p?._embedded?.["wp:term"] || []).flat().filter(Boolean);
-      for (const term of terms) {
-        const n = (term?.name || "").toLowerCase();
-        if (n.includes("cartoon") || n.includes("illustration")) return true;
+      for (const t of terms) {
+        const n = (t?.name || "").toLowerCase();
+        if (/\b(cartoon|illustration|comic|op-art)\b/.test(n)) return true;
       }
     } catch {}
     return false;
-  };
-  const isTest = (p) => /\b(test|lorem)\b/.test(textFromHTML(p?.title?.rendered).toLowerCase());
+  }
+  function isTest(p){
+    const title = textFromHTML(p?.title?.rendered).toLowerCase();
+    if (/\b(test|lorem|dummy)\b/.test(title)) return true;
+    try {
+      const terms = (p?._embedded?.["wp:term"] || []).flat().filter(Boolean);
+      for (const t of terms) {
+        const n = (t?.name || "").toLowerCase();
+        if (/\b(test|sandbox|draft)\b/.test(n)) return true;
+      }
+    } catch {}
+    return false;
+  }
 
-  // pick best rendition + srcset
+  // pick rendition + srcset
   function pickRendition(m) {
     const sizes = m?.media_details?.sizes || {};
     const fallW = m?.media_details?.width || 0;
@@ -83,9 +91,7 @@ export async function renderHome($app, { VER } = {}) {
     };
   }
 
-  function buildTitle(p) {
-    return textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
-  }
+  const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   function buildExcerpt(p) {
     let ex = textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "";
     ex = ex.replace(/\s+/g," ").trim();
@@ -96,10 +102,10 @@ export async function renderHome($app, { VER } = {}) {
   function cardMediaHTML(p, title, indexInPage) {
     const m = p?._embedded?.["wp:featuredmedia"]?.[0];
     const href = `#/post/${p?.id}`;
-    if (!m) return `<a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}"></a>`;
+    if (!m) return `<a href="${href}" class="thumb media" aria-label="${escAttr(title)}"></a>`;
 
     const r = pickRendition(m);
-    const alt = escapeAttr(r.alt || title);
+    const alt = escAttr(r.alt || title);
     const wAttr = r.w ? ` width="${r.w}"` : "";
     const hAttr = r.h ? ` height="${r.h}"` : "";
     const srcset = r.srcset ? ` srcset="${r.srcset}"` : "";
@@ -107,7 +113,7 @@ export async function renderHome($app, { VER } = {}) {
     const fetchPri = indexInPage < 4 ? ` fetchpriority="high"` : "";
 
     return `
-      <a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}">
+      <a href="${href}" class="thumb media" aria-label="${escAttr(title)}">
         <img src="${r.url}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
              alt="${alt}" loading="lazy" decoding="async" />
       </a>
@@ -126,12 +132,12 @@ export async function renderHome($app, { VER } = {}) {
         ${cardMediaHTML(p, title, indexInPage)}
         <div class="body" style="padding:14px 16px 16px;">
           <h3 class="post-title" style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem; background:transparent;">
-            <a href="${href}" class="title-link" style="text-decoration:none;">${escapeHtml(title)}</a>
+            <a href="${href}" class="title-link" style="text-decoration:none;">${esc(title)}</a>
           </h3>
           <div class="byline" style="background:transparent; font-size:.9rem; margin:0 0 .35rem 0;">
-            ${author ? `${escapeHtml(author)} • ` : ""}${date}
+            ${author ? `${esc(author)} • ` : ""}${date}
           </div>
-          ${excerpt ? `<p style="background:transparent; margin:.25rem 0 0 0; color:#455; font-size:.95rem; line-height:1.45;">${escapeHtml(excerpt)}</p>` : ``}
+          ${excerpt ? `<p style="background:transparent; margin:.25rem 0 0 0; color:#455; font-size:.95rem; line-height:1.45;">${esc(excerpt)}</p>` : ``}
         </div>
       </article>
     `;
@@ -144,7 +150,8 @@ export async function renderHome($app, { VER } = {}) {
   }
 
   async function fetchPosts(page=1){
-    const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
+    // RESTORED wp:term so filters have data
+    const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia,wp:term&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
     try {
       const res = await timeoutFetch(url, { credentials:"omit", cache:"no-store", keepalive: false });
       if (!res.ok) return [];
@@ -171,10 +178,8 @@ export async function renderHome($app, { VER } = {}) {
     currentPage++; loading = false;
   }
 
-  // initial load
   await loadMore();
 
-  // attach observer during idle time so first paint stays fast
   function attachObserverIdle(sentinel, cb){
     const init = () => {
       const io = new IntersectionObserver((entries)=>{
@@ -183,8 +188,7 @@ export async function renderHome($app, { VER } = {}) {
       io.observe(sentinel);
     };
     if ("requestIdleCallback" in window) {
-      // correct signature: (callback [, optionsObject])
-      window.requestIdleCallback(init);               // <-- no numeric arg
+      requestIdleCallback(init); // correct usage (no numeric options)
     } else {
       setTimeout(init, 0);
     }
