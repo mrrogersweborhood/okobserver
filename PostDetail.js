@@ -1,5 +1,5 @@
 /* OkObserver Post Detail
-   Version: 2025-11-02D
+   Version: 2025-11-02D2
    - Media-first (video or image), title/byline beneath
    - Title in OkObserver blue (#1E90FF), bold byline
    - Back-to-posts button in brand blue
@@ -9,6 +9,8 @@
        3) YouTube link in content (responsive iframe)
        4) Facebook video link in content -> show poster + "Watch on Facebook" button (no iframe)
        5) Fallback to featured image
+   - NEW: Cleans WordPress content to remove the *leading image/link block*
+           when we already render a hero (prevents the huge white gap you saw on #377530).
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -111,24 +113,67 @@ export async function renderPost(id, { VER } = {}) {
     return { vimeo, youtube, facebook };
   }
 
+  // Remove the *leading image/link block* from WP content if we already render a hero.
+  // This prevents a large blank/duplicate image area under the title (as in post #377530).
+  function cleanContent(html, { removeLeadingMedia } = { removeLeadingMedia: false }) {
+    if (!html) return "";
+    const root = document.createElement("div");
+    root.innerHTML = html;
+
+    // Strip editor temp wrappers
+    root.querySelectorAll('div.mceTemp, div[data-mce-bogus="all"]').forEach((n) => n.remove());
+
+    if (removeLeadingMedia) {
+      // Remove first block if it is: <p|div><a><img></a></p|div> OR a bare <img> as the first element
+      const first = root.firstElementChild;
+      if (first) {
+        // unwrap empty <p> that only has <br>
+        if (first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) {
+          first.remove();
+        }
+      }
+      let cur = root.firstElementChild;
+      if (cur) {
+        const isImgBlock =
+          cur.matches("p,div,figure") &&
+          cur.querySelector("img") &&
+          (cur.querySelector("a[href]") || cur.querySelector("img"));
+
+        const isBareImg = cur.matches("img");
+
+        if (isImgBlock || isBareImg) {
+          cur.remove();
+          // Also remove any now-empty wrappers at the very top
+          while (root.firstElementChild && root.firstElementChild.textContent.trim() === "" && !root.firstElementChild.querySelector("img,video,iframe")) {
+            root.firstElementChild.remove();
+          }
+        }
+      }
+    }
+
+    return root.innerHTML;
+  }
+
   // ---- Data ----
   const title = textFromHTML(post?.title?.rendered) || "Untitled";
   const author = getAuthor(post);
   const date = fmtDate(post?.date);
   const featured = getFeaturedInfo(post);
-  const contentHTML = post?.content?.rendered || "";
-  const links = featured && featured.mp4 ? {} : detectLinksFromContent(contentHTML);
+  const rawContentHTML = post?.content?.rendered || "";
+  const links = featured && featured.mp4 ? {} : detectLinksFromContent(rawContentHTML);
 
   // Build media block (priority)
   let mediaHTML = "";
+  let shouldRemoveLeadingMediaFromContent = false;
 
   if (featured && featured.mp4) {
     mediaHTML = `
       <figure class="post-hero" style="margin:18px 0;">
-        <video playsinline controls preload="metadata" style="width:100%;height:auto;border-radius:10px;background:#000;">
+        <video playsinline controls preload="metadata" style="width:100%;height:auto;border-radius:10px;background:#000;max-height:70vh;">
           <source src="${featured.mp4}" type="video/mp4">
         </video>
       </figure>`;
+    shouldRemoveLeadingMediaFromContent = true;
   } else if (links.vimeo) {
     const src = `https://player.vimeo.com/video/${links.vimeo.id}`;
     mediaHTML = `
@@ -136,9 +181,10 @@ export async function renderPost(id, { VER } = {}) {
         <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
           <iframe src="${src}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture"
                   allowfullscreen
-                  style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
         </div>
       </figure>`;
+    shouldRemoveLeadingMediaFromContent = true;
   } else if (links.youtube) {
     const src = `https://www.youtube.com/embed/${links.youtube.id}`;
     mediaHTML = `
@@ -147,9 +193,10 @@ export async function renderPost(id, { VER } = {}) {
           <iframe src="${src}" frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowfullscreen
-                  style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
         </div>
       </figure>`;
+    shouldRemoveLeadingMediaFromContent = true;
   } else if (links.facebook) {
     // Facebook blocks many embeds; show poster + button
     const fbBtn = `
@@ -166,12 +213,13 @@ export async function renderPost(id, { VER } = {}) {
       mediaHTML = `
         <figure class="post-hero" style="margin:18px 0; text-align:center;">
           <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
-               style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;"/>
+               style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
           ${fbBtn}
         </figure>`;
     } else {
       mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${fbBtn}</figure>`;
     }
+    shouldRemoveLeadingMediaFromContent = true; // remove the WP-leading image so we don’t leave a big blank block
   } else if (featured && featured.poster) {
     const alt = (featured.alt || title).replace(/"/g, "&quot;");
     const wAttr = featured.w ? ` width="${featured.w}"` : "";
@@ -179,9 +227,13 @@ export async function renderPost(id, { VER } = {}) {
     mediaHTML = `
       <figure class="post-hero" style="margin:18px 0;">
         <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
-             style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;"/>
+             style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
       </figure>`;
+    shouldRemoveLeadingMediaFromContent = true;
   }
+
+  // Clean content to eliminate the duplicate/blank leading media block
+  const contentHTML = cleanContent(rawContentHTML, { removeLeadingMedia: shouldRemoveLeadingMediaFromContent });
 
   // ---- Render page ----
   $detail.innerHTML = `
@@ -221,6 +273,8 @@ export async function renderPost(id, { VER } = {}) {
       iframe.style.left = '0';
       iframe.style.width = '100%';
       iframe.style.height = '100%';
+      iframe.style.border = '0';
+      iframe.style.borderRadius = '10px';
       wrap.appendChild(iframe);
     });
   } catch {}
