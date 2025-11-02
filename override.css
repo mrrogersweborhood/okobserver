@@ -149,3 +149,15 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
 }
+/* Allow full-length excerpts and variable card heights */
+.post-card .body { overflow: visible; }         /* no clipping */
+.post-card p,
+.post-excerpt,
+.post-summary {
+  display: block;           /* ensure not clamped */
+  overflow: visible;        /* no hidden/ellipsis */
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  max-height: none;
+  white-space: normal;
+}
