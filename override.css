@@ -1,1080 +1,147 @@
-/* =======================================================================
-   OkObserver — override.css  (FULL REPLACEMENT)
-   - Hamburger-only header, right-justified
-   - Motto centered under logo
-   - Unbreakable 4/3/1 grid with very high specificity
-   - Image fit on summaries; consistent video embeds
-   - Tag list formatting
-   - Place this as the LAST stylesheet
-   ======================================================================= */
-
-/* --------- Header --------- */
-:root body #siteHeader,
-:root body header.site-header {
-  position: sticky; top: 0; z-index: 50;
-  background: #1e73be; color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,.08);
-}
-
-:root body #siteHeader .bar,
-:root body header.site-header .bar,
-:root body header .header-bar,
-:root body #header .bar {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  min-height: 72px !important;
-  padding: 10px 18px !important;
-}
-
-/* Logo */
-:root body #siteHeader .logo,
-:root body header .logo {
-  line-height: 0 !important;
-}
-
-/* Motto centered under the logo line */
-:root body #siteHeader .motto,
-:root body header .motto {
-  width: 100% !important;
-  text-align: center !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  color: #e9f3ff !important;
-}
-
-/* Hamburger shown on desktop & mobile, right-justified */
-:root body #siteHeader .menu-toggle,
-:root body header .menu-toggle,
-:root body #hamburger, :root body #hamButton,
-:root body .hamburger-button {
-  margin-left: auto !important;        /* right align */
-  display: inline-flex !important;      /* always visible */
-  align-items: center !important;
-  justify-content: center !important;
-  width: 40px !important; height: 40px !important;
-  border-radius: 10px !important; border: 0 !important;
-  background: rgba(255,255,255,.14) !important; color: #fff !important;
-  cursor: pointer !important;
-}
-:root body #siteHeader .menu-toggle:hover,
-:root body header .menu-toggle:hover,
-:root body #hamburger:hover, :root body #hamButton:hover,
-:root body .hamburger-button:hover {
-  background: rgba(255,255,255,.22) !important;
-}
-
-/* Hide any inline nav links so hamburger is the only nav */
-:root body #siteHeader .nav, :root body #siteHeader .nav-links,
-:root body header .nav, :root body header .nav-links,
-:root body .primary-nav, :root body .nav-inline {
-  display: none !important;
-}
-
-/* --------- Grid (unbreakable) ---------
-   Target every plausible container name with ultra-high specificity.
-   Falls back to 1 col; bumps to 3 at 900px; 4 at 1200px. */
-:root body #app .posts-grid,
-:root body #app .cards-grid,
-:root body #app #postsGrid,
-:root body main .posts-grid,
-:root body main #postsGrid,
-:root body #content .posts-grid,
-:root body #content #postsGrid,
-:root body .entry-grid,
-:root body .post-list,
-:root body .post-grid {
-  display: grid !important;
-  gap: 24px !important;
-  grid-template-columns: repeat(1, 1fr) !important;  /* mobile */
-}
-
-/* Tablet (≥900px) */
-@media (min-width: 900px) {
-  :root body #app .posts-grid,
-  :root body #app .cards-grid,
-  :root body #app #postsGrid,
-  :root body main .posts-grid,
-  :root body main #postsGrid,
-  :root body #content .posts-grid,
-  :root body #content #postsGrid,
-  :root body .entry-grid,
-  :root body .post-list,
-  :root body .post-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-  }
-}
-
-/* Desktop (≥1200px) */
-@media (min-width: 1200px) {
-  :root body #app .posts-grid,
-  :root body #app .cards-grid,
-  :root body #app #postsGrid,
-  :root body main .posts-grid,
-  :root body main #postsGrid,
-  :root body #content .posts-grid,
-  :root body #content #postsGrid,
-  :root body .entry-grid,
-  :root body .post-list,
-  :root body .post-grid {
-    grid-template-columns: repeat(4, 1fr) !important;
-  }
-}
-
-/* Ensure nothing collapses the grid to flex/blocks later */
-#postsGrid, .posts-grid, .cards-grid, .post-grid, .post-list, .entry-grid {
-  flex: initial !important;
-  max-width: none !important;
-}
-
-/* --------- Cards & Media --------- */
-.post-card, .card {
-  background: #fff; border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.06);
-  overflow: hidden;
-}
-.post-card .thumb, .card .thumb,
-.post-card .media, .card .media {
-  position: relative; background: #f7f8fb;
-  aspect-ratio: 16/9; overflow: hidden;
-}
-.post-card .thumb img, .card .thumb img,
-.post-card .media img, .card .media img {
-  width: 100%; height: 100%; object-fit: contain !important; /* no cropping */
-  display: block; background: #fff;
-}
-.post-card .body, .card .body { padding: 14px 16px 18px; }
-
-/* --------- Video --------- */
-.video-embed iframe, .video-embed video,
-.embed-responsive iframe, .wp-block-embed__wrapper iframe {
-  width: 100%; aspect-ratio: 16/9; height: auto; display: block;
-  background: #000; border: 0;
-}
-
-/* --------- Tags --------- */
-.tags, .post-tags { padding: 8px 0 0; }
-.tags ul, .post-tags ul { margin: 0; padding: 0 0 0 1.25rem; }
-.tags li, .post-tags li { list-style: disc; line-height: 1.4; margin: 2px 0; }
-
-/* --------- Links/Foot --------- */
-a { color: #184f99; text-decoration: none; }
-a:hover { text-decoration: underline; }
-footer.site-footer { padding: 24px 12px; color: #666; }
-
-/* --------------------------------------------------------------------------
-   OPTIONAL density helpers used by Settings.js.
-   These are inert until the body gets one of the classes below.
-   They DO NOT change your responsive column logic.
--------------------------------------------------------------------------- */
-body.density-comfortable .post-card { margin: 14px; }
-body.density-compact .post-card    { margin: 8px;  }
-/* If your grid wrapper is .post-grid or .posts-grid, you may (optionally) add:
-   body.density-comfortable .post-grid, body.density-comfortable .posts-grid { gap: 16px; }
-   body.density-compact .post-grid,    body.density-compact .posts-grid    { gap: 10px; }
+/* OkObserver Override Styles – 2025-11-02C
+   Keeps 3-4 column grid on desktop/tablet, 1 column mobile
+   Titles and bylines: OkObserver blue (#1E90FF) + bold bylines
+   Removes blue backgrounds permanently
+   Adds space between logo & motto
+   Featured images contained, not cropped
 */
-/* === OkObserver: visibility lock for post summaries (2025-10-31p-VIS) === */
-/* Guarantees titles, bylines, and excerpts are visible under images/cards. */
-/* High specificity + !important but scoped only to post-card content.       */
 
-:root body .post-card,
-:root body .post-card .body { background: #fff !important; }
-
-:root body .post-card .thumb,
-:root body .post-card .media {
-  position: relative !important;
-  z-index: 0 !important;
+/* === Layout / Grid === */
+.post-grid,
+.posts-grid,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  justify-content: center;
+  align-content: start;
+  margin: 0 auto;
+  max-width: 1400px;
 }
 
-:root body .post-card .body {
-  position: relative !important;
-  z-index: 1 !important;          /* ensure text sits above any overlapping media */
-  display: block !important;
-  padding: 14px 16px 16px !important;
-  color: #111 !important;
-  font-size: 1rem !important;     /* defend against accidental font-size:0 */
-  opacity: 1 !important;          /* defend against accidental opacity:0   */
-  visibility: visible !important; /* defend against accidental visibility:hidden */
+/* maintain columns on all screen sizes */
+@media (min-width: 1200px) {
+  .post-grid,
+  .posts-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .post-grid,
+  .posts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .post-grid,
+  .posts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-:root body .post-card h3,
-:root body .post-card .byline,
-:root body .post-card p {
-  display: block !important;
-  color: #111 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  margin: 0 0 .35rem 0 !important;
-  line-height: 1.35 !important;
-}
-
-:root body .post-card h3 { 
-  margin-bottom: .4rem !important; 
-  font-size: 1.05rem !important; 
-}
-
-:root body .post-card .byline {
-  color: #667 !important;
-  font-size: .9rem !important;
-}
-
-:root body .post-card a {
-  color: inherit !important;
-  text-decoration: none !important;
-}
-
-:root body .post-card .thumb img,
-:root body .post-card .media img {
-  position: relative !important;  /* prevent absolute overlap from themes */
-  z-index: 0 !important;
-  display: block !important;
-}
-
-/* If any global rule is layering images above content with z-index, neuter it */
-:root body .post-card * {
-  text-rendering: auto !important;   /* defend against odd text rendering hacks */
-}
-/* === OkObserver: final unmask for post summary visibility (2025-10-31p-VIS2) === */
-/* Some themes keep the image as absolute overlay; this resets it safely. */
-
-.post-card .thumb img,
-.post-card .media img {
-  position: relative !important;
-  z-index: 0 !important;
-  pointer-events: none !important;  /* <-- crucial: prevents image overlay from blocking text */
-  opacity: 1 !important;
-}
-
-.post-card .thumb,
-.post-card .media {
-  overflow: visible !important;      /* allow text below to show fully */
-  position: relative !important;
-}
-
-.post-card .body {
-  background: #fff !important;
-  position: relative !important;
-  z-index: 2 !important;             /* higher than any image overlay */
-  pointer-events: auto !important;
-  display: block !important;
-}
-/* === OkObserver: overlay neutralizer (2025-10-31p-VIS3, TEMP DIAG) === */
-/* Goal: kill any absolute ::before/::after or overlay layers, and force
-   a new stacking context so the text body sits on top. */
-
-.post-card {
-  position: relative !important;
-  isolation: isolate !important;      /* start a new stacking context */
-  z-index: 0 !important;
-}
-
-/* If any theme injects white/transparent overlays via pseudo-elements,
-   disable them for cards (temporary while we diagnose). */
-.post-card::before,
-.post-card::after,
-.post-card .thumb::before,
-.post-card .thumb::after,
-.post-card .media::before,
-.post-card .media::after {
-  content: none !important;
-  display: none !important;
-}
-
-/* Make sure the image never wins the stacking contest */
-.post-card .thumb,
-.post-card .media,
-.post-card .thumb img,
-.post-card .media img {
-  position: relative !important;
-  z-index: 1 !important;       /* below the body (set to 10 below) */
-  pointer-events: none !important;
-}
-
-/* Put the text body decisively on top */
-.post-card .body {
-  position: relative !important;
-  z-index: 10 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  color: #111 !important;
-  background: #fff !important;
-}
-
-/* As a last-resort visibility guard for the text elements */
-.post-card h3,
-.post-card .byline,
-.post-card p {
-  position: relative !important;
-  z-index: 11 !important;
-  color: #111 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-/* === OkObserver: final fix for clipped post text (2025-11-01 overflow release) === */
-/* Prevent card overflow from hiding title/byline/excerpt under the image */
-
+/* === Cards === */
 .post-card,
-.post-card.card {
-  overflow: visible !important;    /* allow internal text to show */
-  background: #fff !important;
-  position: relative !important;
-  z-index: 0 !important;
+.card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease;
+}
+.post-card:hover {
+  transform: translateY(-3px);
 }
 
-/* Optional: ensure body padding always counts inside grid cells */
-.post-card .body {
-  padding: 14px 16px 16px !important;
-  display: block !important;
-}
-/* === OkObserver: card column layout fix (2025-11-01 FLEX) === */
-/* Ensures image sits on top and text flows underneath without clipping. */
-
-.post-card,
-.post-card.card {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  overflow: visible !important;   /* keep from cutting off text */
+/* === Featured images (contained, not cropped) === */
+.post-card img,
+.thumb img,
+.post-hero img,
+.media img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 0;
+  background: #fff;
 }
 
-.post-card .thumb,
-.post-card .media {
-  display: block !important;
-  flex: 0 0 auto !important;      /* image takes only its own height */
-  position: relative !important;
-  z-index: 0 !important;
-  overflow: hidden !important;     /* keep rounded-corner look on image area */
-  border-top-left-radius: 14px !important;
-  border-top-right-radius: 14px !important;
+/* === Text === */
+.post-title,
+.title-link {
+  color: #1E90FF !important;
+  font-weight: 600;
+  background: transparent !important;
+  text-decoration: none;
+}
+.post-title a:hover {
+  text-decoration: underline;
 }
 
-.post-card .thumb img,
-.post-card .media img {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;         /* prevent forcing a fixed height that masks text */
-  object-fit: cover !important;    /* keeps nice crop without overflow */
-  pointer-events: none !important; /* avoid covering text clicks */
+/* byline under titles */
+.byline {
+  color: #333 !important;
+  font-weight: 600;
+  background: transparent !important;
+  margin-bottom: 0.25rem;
 }
 
-.post-card .body {
-  flex: 0 0 auto !important;       /* body claims its own natural height */
-  display: block !important;
-  padding: 14px 16px 16px !important;
-  background: #fff !important;
-  color: #111 !important;
-  z-index: 1 !important;           /* sits above the image area if needed */
-}
-/* === OkObserver: final Home card visibility & flow fix (2025-11-01F) === */
-/* Ensures each post-card expands naturally to fit text content. */
-
-.post-grid .post-card,
-.posts-grid .post-card {
-  height: auto !important;              /* no fixed height */
-  min-height: unset !important;         /* remove any implicit min constraint */
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-  overflow: visible !important;
+/* excerpts */
+.post-card p,
+.post-excerpt,
+.post-summary {
+  color: #444;
+  background: transparent !important;
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
 
-.post-grid .post-card .thumb img,
-.posts-grid .post-card .thumb img,
-.post-grid .post-card .media img,
-.posts-grid .post-card .media img {
-  width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-  object-fit: cover !important;
-}
-
-.post-grid .post-card .body,
-.posts-grid .post-card .body {
-  flex: 1 1 auto !important;
-  display: block !important;
-  padding: 14px 16px 16px !important;
-  color: #111 !important;
-  background: #fff !important;
-  font-size: 1rem !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-/* === OkObserver: 2025-11-01 hotfix pack === */
-
-/* Header must remain sticky & above content */
+/* === Header adjustments === */
 header {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 1000 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1E90FF;
+  color: #fff;
+  padding: 10px 0 12px 0;
+}
+header img.logo {
+  height: auto;
+  max-height: 70px;
+  width: auto;
+  margin-bottom: 6px; /* adds space between logo and motto */
+}
+header .motto {
+  font-size: 0.95rem;
+  margin-top: 3px;
 }
 
-/* Card text should NOT inherit blue backgrounds */
-.post-card h3,
-.post-card h3 a,
-.post-card .byline,
-.post-card p {
-  background: transparent !important;
-  color: #111 !important;
-  text-decoration: none !important;
-}
-
-/* Image area is clickable (link), but must not cover text below */
-.post-card .thumb,
-.post-card .media {
-  position: relative !important;
-  z-index: 0 !important;
-  overflow: hidden !important;
-  display: block !important;
-}
-.post-card .thumb a,
-.post-card .media a,
-.post-card .thumb,
-.post-card .media {
-  pointer-events: auto !important;   /* restore click */
-}
-.post-card .thumb img,
-.post-card .media img {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  object-fit: cover !important;
-  pointer-events: auto !important;   /* allow clicking the image link */
-}
-.post-card .body {
-  position: relative !important;
-  z-index: 1 !important;             /* keep text above any image quirks */
-  background: #fff !important;
-}
-
-/* Back-to-posts button look */
-.post-detail footer a[href^="#/"] {
-  display: inline-block !important;
-  padding: 10px 14px !important;
-  border-radius: 10px !important;
-  background: #f2f4f7 !important;
-  color: #111 !important;
-  border: 1px solid #dcdfe4 !important;
-  text-decoration: none !important;
-}
-.post-detail footer a[href^="#/"]:hover {
-  background: #e9eef3 !important;
-}
-/* === OkObserver: 2025-11-01 hotfix pack === */
-
-/* Header sticky & above content */
-header { position: sticky !important; top: 0 !important; z-index: 1000 !important; }
-
-/* Card layout: image on top, text below; no clipping */
-.post-card, .post-card.card {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  overflow: visible !important;
-  background: #fff !important;
-}
-
-/* Image area clickable but not covering text */
-.post-card .thumb, .post-card .media {
-  display: block !important;
-  position: relative !important;
-  z-index: 0 !important;
-  overflow: hidden !important;
-  border-top-left-radius: 14px !important;
-  border-top-right-radius: 14px !important;
-}
-.post-card .thumb img, .post-card .media img {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  object-fit: cover !important;
-  pointer-events: auto !important; /* ensure clicks go through to the link */
-}
-
-/* Text area visible, clean colors (no blue background) */
-.post-card .body {
-  position: relative !important;
-  z-index: 1 !important;
-  padding: 14px 16px 16px !important;
-  color: #111 !important;
-  background: #fff !important;
-}
-.post-card h3, .post-card h3 a, .post-card .byline, .post-card p {
-  background: transparent !important;
-  color: #111 !important;
-  text-decoration: none !important;
-}
-
-/* Back-to-posts button style (detail page only) */
-.post-detail footer a[href^="#/"] {
-  display: inline-block !important;
-  padding: 10px 14px !important;
-  border-radius: 10px !important;
-  background: #f2f4f7 !important;
-  color: #111 !important;
-  border: 1px solid #dcdfe4 !important;
-  text-decoration: none !important;
-}
-.post-detail footer a[href^="#/"]:hover { background: #e9eef3 !important; }
-/* === OkObserver 2025-11-01d: kill blue backgrounds on summaries === */
-.post-card h3,
-.post-card h3 a,
-.post-card .byline,
-.post-card p {
-  background: transparent !important;
-}
-/* === OkObserver 2025-11-01e: Remove blue from post detail titles === */
-.post-detail h1,
-.post-detail .post-title,
-.post-detail header .post-title,
-.post-detail .byline {
-  background: transparent !important;
-  color: #111 !important;
-  text-shadow: none !important;
-  padding: 0 !important;
-  margin-top: 0.5rem !important;
-}
-
-.post-detail h1 a,
-.post-detail .byline a {
-  color: #111 !important;
-  text-decoration: none !important;
-}
-.post-detail h1,
-.post-detail .post-title {
-  background: transparent !important;
-  color: #1E90FF !important;
-}
-/* === OkObserver 2025-11-01f: kill blue bar on Post Detail header === */
-.post-detail,
-.post-detail * {
-  background-image: none !important;
-}
-
-.post-detail .post-header,
-.post-detail header.post-header,
-.post-detail .post-title,
-.post-detail .byline {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* Guard against pseudo-element bars */
-.post-detail .post-header::before,
-.post-detail .post-header::after,
-.post-detail .post-title::before,
-.post-detail .post-title::after,
-.post-detail .byline::before,
-.post-detail .byline::after {
-  content: none !important;
-  display: none !important;
-}
-/* === OkObserver 2025-11-01h: Post Detail visual polish === */
-
-/* Structure & spacing */
-.post-detail {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 18px 14px 60px !important;
-  background: #fff !important;
-}
-
-/* Featured image section */
-.post-detail .post-hero {
-  margin: 18px 0 12px 0 !important;
-}
-.post-detail .post-hero img {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  border-radius: 10px !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-
-/* Title & byline (beneath image) */
-.post-detail .post-title {
-  color: #1E90FF !important;  /* brand blue */
-  font-weight: 700 !important;
-  margin: 10px 0 4px 0 !important;
-  background: transparent !important;
-  line-height: 1.2 !important;
-}
-.post-detail .byline {
-  color: #555 !important;
-  font-size: 0.95rem !important;
-  margin-bottom: 12px !important;
-  background: transparent !important;
-}
-
-/* Content readability */
-.post-detail .post-content {
-  color: #111 !important;
-  font-size: 1rem !important;
-  line-height: 1.65 !important;
-  margin: 20px 0 28px 0 !important;
-}
-.post-detail .post-content p {
-  margin: 1rem 0 !important;
-}
-.post-detail .post-content h2,
-.post-detail .post-content h3,
-.post-detail .post-content h4 {
-  color: #1E90FF !important;
-  margin-top: 1.4rem !important;
-  margin-bottom: 0.6rem !important;
-}
-
-/* Back-to-posts button */
-.post-detail footer a[href^="#/"] {
-  display: inline-block !important;
-  padding: 10px 16px !important;
-  border-radius: 10px !important;
-  background: #f2f4f7 !important;
-  color: #111 !important;
-  border: 1px solid #dcdfe4 !important;
-  text-decoration: none !important;
-  transition: background 0.2s ease !important;
-}
-.post-detail footer a[href^="#/"]:hover {
-  background: #e9eef3 !important;
-}
-
-/* Responsive tweaks */
-@media (max-width: 600px) {
-  .post-detail {
-    padding: 12px 10px 40px !important;
-  }
-  .post-detail .post-title {
-    font-size: 1.5rem !important;
-  }
-  .post-detail .post-content {
-    font-size: 0.97rem !important;
-  }
-}
-/* === OkObserver 2025-11-01h: Post Detail visual polish === */
-
-/* Structure & spacing */
-.post-detail {
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 18px 14px 60px !important;
-  background: #fff !important;
-}
-
-/* Featured image section */
-.post-detail .post-hero {
-  margin: 18px 0 12px 0 !important;
-}
-.post-detail .post-hero img {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  border-radius: 10px !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-
-/* Title & byline (beneath image) */
-.post-detail .post-title {
-  color: #1E90FF !important;  /* brand blue */
-  font-weight: 700 !important;
-  margin: 10px 0 4px 0 !important;
-  background: transparent !important;
-  line-height: 1.2 !important;
-}
-.post-detail .byline {
-  color: #555 !important;
-  font-size: 0.95rem !important;
-  margin-bottom: 12px !important;
-  background: transparent !important;
-}
-
-/* Content readability */
-.post-detail .post-content {
-  color: #111 !important;
-  font-size: 1rem !important;
-  line-height: 1.65 !important;
-  margin: 20px 0 28px 0 !important;
-}
-.post-detail .post-content p {
-  margin: 1rem 0 !important;
-}
-.post-detail .post-content h2,
-.post-detail .post-content h3,
-.post-detail .post-content h4 {
-  color: #1E90FF !important;
-  margin-top: 1.4rem !important;
-  margin-bottom: 0.6rem !important;
-}
-
-/* Back-to-posts button */
-.post-detail footer a[href^="#/"] {
-  display: inline-block !important;
-  padding: 10px 16px !important;
-  border-radius: 10px !important;
-  background: #f2f4f7 !important;
-  color: #111 !important;
-  border: 1px solid #dcdfe4 !important;
-  text-decoration: none !important;
-  transition: background 0.2s ease !important;
-}
-.post-detail footer a[href^="#/"]:hover {
-  background: #e9eef3 !important;
-}
-
-/* Responsive tweaks */
-@media (max-width: 600px) {
-  .post-detail {
-    padding: 12px 10px 40px !important;
-  }
-  .post-detail .post-title {
-    font-size: 1.5rem !important;
-  }
-  .post-detail .post-content {
-    font-size: 0.97rem !important;
-  }
-}
-/* === OkObserver 2025-11-01i: Featured image containment fix === */
-.post-detail .post-hero img {
-  object-fit: contain !important;  /* ensures full image visible */
-  object-position: center center !important;
-  width: 100% !important;
-  height: auto !important;
-  max-height: 80vh !important;  /* prevent oversizing on large screens */
-  border-radius: 10px !important;
-  background-color: #fff !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-/* === OkObserver 2025-11-01j: Contain featured images on grid cards === */
-.post-card .thumb img,
-.post-card img.wp-post-image {
-  object-fit: contain !important;       /* show full image */
-  object-position: center center !important;
-  width: 100% !important;
-  height: auto !important;
-  background-color: #fff !important;    /* prevent letterboxing transparency issues */
-  border-radius: 10px !important;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-}
-
-/* Maintain consistent card proportions */
-.post-card {
-  background: #fff !important;
-  border-radius: 14px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  overflow: hidden !important;
-}
-/* === OkObserver 2025-11-01k: Blue Back to Posts button === */
-.post-detail footer a[href^="#/"] {
+/* === Buttons === */
+a.button,
+button,
+footer a[href="#/"],
+footer a[href="#"] {
   background: #1E90FF !important;
   color: #fff !important;
-  border: none !important;
-  transition: background 0.2s ease;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.15s ease;
 }
-.post-detail footer a[href^="#/"]:hover {
-  background: #187bdb !important; /* slightly darker on hover */
-}
-/* === OkObserver 2025-11-01L: Brand color & byline emphasis === */
-
-/* Post titles: OkObserver blue everywhere */
-.post-card h3,
-.post-card h3 a,
-.post-detail .post-title,
-.post-detail h1.post-title {
-  color: #1E90FF !important;
-  font-weight: 700 !important;
-  background: transparent !important;
+a.button:hover,
+button:hover,
+footer a[href="#/"]:hover {
+  background: #187bcd !important;
 }
 
-/* Byline: bold, neutral text color */
-.post-card .byline,
-.post-detail .byline {
-  font-weight: 600 !important;
-  color: #444 !important;
-  background: transparent !important;
+/* === Misc === */
+body {
+  background: #f9f9f9;
+  color: #111;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.6;
 }
-
-/* Optional: links inside bylines stay clean */
-.post-card .byline a,
-.post-detail .byline a {
-  color: inherit !important;
-  text-decoration: none !important;
-}
-/* === OkObserver 2025-11-01L2: Force brand title + bold byline on summaries === */
-/* Higher specificity to override any theme/default card rules */
-:root body .posts-grid .post-card h3,
-:root body .post-grid .post-card h3,
-:root body .posts-grid .post-card h3 a,
-:root body .post-grid .post-card h3 a {
-  color: #1E90FF !important;
-  font-weight: 700 !important;
-  background: transparent !important;
-  text-decoration: none !important;
-}
-
-:root body .posts-grid .post-card .byline,
-:root body .post-grid .post-card .byline {
-  font-weight: 600 !important;
-  color: #444 !important;
-  background: transparent !important;
-}
-
-/* Ensure nothing upstream recolors links inside bylines */
-:root body .posts-grid .post-card .byline a,
-:root body .post-grid .post-card .byline a {
-  color: inherit !important;
-  text-decoration: none !important;
-}
-/* === OkObserver 2025-11-01M: Fix smashed header logo === */
-header .logo,
-header .logo img {
-  display: inline-block !important;
-}
-
-header .logo img {
-  height: 48px !important;        /* consistent header size */
-  width: auto !important;         /* keep aspect ratio */
-  max-width: 100% !important;     /* never overflow */
-  object-fit: contain !important; /* avoid stretching */
-  vertical-align: middle !important;
-}
-
-/* Prevent flex from shrinking the logo when space is tight */
-header .header-inner {
-  align-items: center !important;
-}
-header .logo {
-  flex: 0 0 auto !important;      /* don’t let it shrink */
-}
-header .hamburger {
-  flex: 0 0 auto !important;
-  margin-left: auto !important;    /* keep it right-aligned */
-}
-/* === OkObserver 2025-11-01N: Add space between logo and motto === */
-header .logo {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 8px !important; /* space between logo image and motto text */
-}
-
-header .logo img {
-  height: 48px !important;
-  width: auto !important;
-  object-fit: contain !important;
-  margin-right: 8px !important; /* fallback for browsers without gap support */
-}
-
-header .motto {
-  display: inline-block !important;
-  font-size: 1rem !important;
-  line-height: 1.2 !important;
-  color: #fff !important;
-  white-space: nowrap !important;
-}
-/* === OkObserver 2025-11-01O: Contain featured images on post summary grid === */
-.post-card .thumb img,
-.post-card img.wp-post-image {
-  object-fit: contain !important;          /* show entire image without cropping */
-  object-position: center center !important;
-  width: 100% !important;
-  height: auto !important;
-  max-height: 280px !important;            /* keeps grid cards balanced */
-  background-color: #fff !important;       /* fills space behind transparent art */
-  border-radius: 10px !important;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-  display: block !important;
-}
-
-/* Prevent surrounding container from hiding overflow */
-.post-card .thumb,
-.post-card .media {
-  overflow: visible !important;
-  background: #fff !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 180px !important; /* ensures even spacing for small images */
-}
-
-/* Keeps cards tidy and consistent height on multi-column grid */
-.post-card {
-  background: #fff !important;
-  border-radius: 14px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  overflow: hidden !important;
-}
-/* === OkObserver 2025-11-01P: Increase card height and breathing room === */
-.post-card {
-  min-height: 480px !important;             /* taller card frame for contained images */
-  padding-bottom: 8px !important;           /* soft bottom spacing */
-}
-
-/* Maintain balance in grid layout */
-.posts-grid,
-.post-grid {
-  grid-auto-rows: minmax(480px, auto) !important;
-  row-gap: 24px !important;                 /* adds vertical space between cards */
-  column-gap: 24px !important;              /* adds horizontal spacing */
-}
-
-/* Make sure text section uses consistent space */
-.post-card .body {
-  flex: 1 1 auto !important;
-  padding: 16px 18px 18px !important;
-}
-
-/* Featured image container stays proportionate */
-.post-card .thumb,
-.post-card .media {
-  min-height: 220px !important;
-  max-height: 300px !important;
-}
-/* === OkObserver 2025-11-01Q: Natural masonry flow, no side-scroll, pretty containment === */
-
-/* 1) Kill forced equal heights & extra padding that caused horizontal scroll */
-.post-card {
-  min-height: unset !important;
-  padding-bottom: 0 !important;
-}
-.posts-grid,
-.post-grid {
-  grid-auto-rows: auto !important;     /* let each card size to its content */
-  row-gap: 18px !important;
-  column-gap: 18px !important;
-}
-
-/* 2) Prevent any horizontal scrolling from wide children */
-html, body {
-  overflow-x: hidden !important;
-}
-main#app, .posts-grid, .post-grid {
-  max-width: 1200px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
-/* 3) Image containment without blowing up card height */
-.post-card .thumb,
-.post-card .media {
-  display: block !important;
-  overflow: hidden !important;         /* hide any tiny edge overflow */
-  background: #fff !important;
-}
-.post-card .thumb img,
-.post-card .media img,
-.post-card img.wp-post-image {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  object-fit: contain !important;       /* show the whole cartoon/photo */
-  object-position: center center !important;
-  max-height: 240px !important;         /* tasteful cap so cards don’t get huge */
-  background-color: #fff !important;
-  border-radius: 10px !important;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-}
-
-/* 4) Text area breathes, but doesn’t force tall cards */
-.post-card .body {
-  padding: 14px 16px 16px !important;
-}
-
-/* 5) Slightly denser on small screens; airy on large screens */
-@media (max-width: 600px) {
-  .posts-grid, .post-grid { row-gap: 14px !important; column-gap: 14px !important; }
-  .post-card .thumb img, .post-card .media img { max-height: 200px !important; }
-}
-@media (min-width: 1200px) {
-  .posts-grid, .post-grid { row-gap: 22px !important; column-gap: 22px !important; }
-  .post-card .thumb img, .post-card .media img { max-height: 260px !important; }
-}
-/* === OkObserver 2025-11-01R: Fix grid overflow & right-edge clipping === */
-
-/* 1) Never allow horizontal scroll from the grid */
-html, body { overflow-x: hidden !important; }
-
-/* 2) Responsive grid: auto-fit columns between 280–1fr */
-.posts-grid,
-.post-grid {
-  box-sizing: border-box !important;
-  width: 100% !important;
-  max-width: 1200px !important;           /* center within page */
-  margin-left: auto !important;
-  margin-right: auto !important;
-
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
-  column-gap: 20px !important;
-  row-gap: 20px !important;
-  padding-left: 16px !important;
-  padding-right: 16px !important;
-}
-
-/* 3) Cards respect container width */
-.post-card { min-width: 0 !important; }
-
-/* 4) Images never expand the card beyond its column */
-.post-card .thumb img,
-.post-card .media img {
-  max-width: 100% !important;
-  height: auto !important;
-  display: block !important;
-}
-
-/* 5) Tighter grid on small screens; roomy on large */
-@media (max-width: 640px) {
-  .posts-grid, .post-grid {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
-    column-gap: 14px !important;
-    row-gap: 14px !important;
-    padding-left: 10px !important;
-    padding-right: 10px !important;
-  }
-}
-@media (min-width: 1280px) {
-  .posts-grid, .post-grid {
-    max-width: 1320px !important;
-    column-gap: 22px !important;
-    row-gap: 22px !important;
-  }
-}
-/* === OkObserver 2025-11-01v: Video badges & containment === */
-.oko-play-badge{
-  position:absolute; right:12px; bottom:12px;
-  background: rgba(0,0,0,.6); color:#fff; font-weight:700;
-  padding:6px 10px; border-radius:999px; line-height:1; font-size:14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.25);
-  pointer-events:none;
-}
-.post-card .thumb.is-video { position:relative; }
-
-/* Contain featured images/videos gracefully */
-.post-card .thumb img,
-.post-card .media img { object-fit: contain; width:100%; height:auto; }
-.post-detail .post-hero img { object-fit: contain; width:100%; height:auto; }
-/* === OkObserver 2025-11-02d: Video diagnostics visuals === */
-.oko-play-badge{
-  position:absolute; right:12px; bottom:12px;
-  background: rgba(0,0,0,.6); color:#fff; font-weight:700;
-  padding:6px 10px; border-radius:999px; line-height:1; font-size:14px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.25);
-  pointer-events:none;
-}
-
-/* “No video source” chip for posts that look like video but lack a playable URL */
-.oko-no-video-chip{
-  position:absolute;
-  left:12px; bottom:12px;
-  background: #ffd966;           /* subtle amber */
-  color:#3b3b3b;
-  font-weight:600;
-  padding:6px 10px;
-  border-radius:999px;
-  line-height:1;
-  font-size:13px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.15);
-}
-
-/* Containment stays intact */
-.post-detail .post-hero img { object-fit: contain; width:100%; height:auto; }

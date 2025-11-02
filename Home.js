@@ -1,7 +1,11 @@
-/* OkObserver Home Grid with Infinite Scroll + Video Posters
-   Version: 2025-11-01v
-   - Restores video posters & click-to-play on summary cards
-   - Infinite scroll (sentinel outside grid) retained
+/* OkObserver Home Grid with Infinite Scroll + Optimized Images
+   Version: 2025-11-02H
+   - Uses WordPress renditions (sizes) instead of full-size originals
+   - Adds width/height to <img> for instant layout (no shift)
+   - Adds srcset/sizes for DPR/viewport-aware loading (crisp on 4K, small on mobile)
+   - First row images use fetchpriority="high" for faster above-the-fold paint
+   - Infinite scroll sentinel lives OUTSIDE the grid (no blank row)
+   - Titles/bylines/excerpts preserved (colors/bold handled in CSS)
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -20,11 +24,11 @@ export async function renderHome($app, { VER } = {}) {
   const $grid = document.getElementById("postsGrid");
   const $sentinel = document.getElementById("scrollSentinel");
 
-  // Filters
+  // Filters (kept)
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
-  // --- helpers ---
+  // -------- helpers --------
   const textFromHTML = (html) => {
     const d = document.createElement("div"); d.innerHTML = html || "";
     return (d.textContent || d.innerText || "").trim();
@@ -47,65 +51,86 @@ export async function renderHome($app, { VER } = {}) {
   };
   const isTest = (p) => /\b(test|lorem)\b/.test(textFromHTML(p?.title?.rendered).toLowerCase());
 
-  // Featured (image or video poster)
-  function getFeaturedInfo(p) {
-    const m = p?._embedded?.["wp:featuredmedia"]?.[0] || null;
-    if (!m) return null;
-    const kind = (m?.media_type || "").toLowerCase(); // "image" | "video"
-    const poster = m?.source_url || "";
-    // common WP/video fields (varies by theme/plugins)
-    const videoSrc =
-      m?.media_details?.file?.endsWith(".mp4") ? m.media_details.file :
-      m?.media_details?.source_url?.endsWith(".mp4") ? m.media_details.source_url :
-      m?.source_url?.endsWith(".mp4") ? m.source_url :
-      (m?.meta && (m.meta.video_url || m.meta.source_url)) || "";
-    return { kind, poster, videoSrc, alt: m?.alt_text || "" };
+  // pick best rendition + srcset
+  function pickRendition(m) {
+    const sizes = m?.media_details?.sizes || {};
+    const fallW = m?.media_details?.width || 0;
+    const fallH = m?.media_details?.height || 0;
+
+    // Prefer ~1024–1536px wide assets for grid; keep options for srcset
+    const get = (k) => sizes[k] && sizes[k].source_url ? sizes[k] : null;
+    const medium      = get("medium");
+    const mediumLarge = get("medium_large");
+    const large       = get("large");
+    const x1536       = get("1536x1536");
+    const full        = m?.source_url ? { source_url: m.source_url, width: fallW, height: fallH } : null;
+
+    // Base (default) candidate
+    const base = mediumLarge || large || x1536 || medium || full || null;
+
+    // Build srcset list from whatever exists
+    const set = [];
+    if (medium      && medium.width)      set.push(`${medium.source_url} ${medium.width}w`);
+    if (mediumLarge && mediumLarge.width) set.push(`${mediumLarge.source_url} ${mediumLarge.width}w`);
+    if (large       && large.width)       set.push(`${large.source_url} ${large.width}w`);
+    if (x1536       && x1536.width)       set.push(`${x1536.source_url} ${x1536.width}w`);
+    if (full        && full.width)        set.push(`${full.source_url} ${full.width}w`);
+
+    return {
+      url: base ? base.source_url : "",
+      w: base?.width || fallW || 0,
+      h: base?.height || fallH || 0,
+      alt: m?.alt_text || "",
+      srcset: set.join(", ")
+    };
   }
 
-  const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
-  const buildExcerpt = (p) => {
+  function buildTitle(p) {
+    return textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
+  }
+
+  function buildExcerpt(p) {
     let ex = textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "";
     ex = ex.replace(/\s+/g," ").trim();
     if (ex.length > 160) ex = ex.slice(0,157) + "…";
     return ex;
-  };
+  }
 
-  function cardMediaHTML(p, title) {
-    const f = getFeaturedInfo(p);
+  function cardMediaHTML(p, title, indexInPage) {
+    const m = p?._embedded?.["wp:featuredmedia"]?.[0];
     const href = `#/post/${p?.id}`;
-    if (!f) return `<a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}"></a>`;
-    // If featured is a video (or we have an mp4), render poster with play overlay
-    const isVideo = f.kind === "video" || (f.videoSrc && /\.mp4($|\?)/i.test(f.videoSrc));
-    if (isVideo && f.poster) {
-      const poster = f.poster;
-      return `
-        <a href="${href}" class="thumb media is-video" aria-label="${escapeAttr(title)}"
-           data-video="${escapeAttr(f.videoSrc || "")}">
-          <img src="${poster}" alt="${escapeAttr(f.alt || title)}" loading="lazy" decoding="async" />
-          <span class="oko-play-badge" aria-hidden="true">▶︎</span>
-        </a>
-      `;
-    }
-    // Fallback to image
+    if (!m) return `<a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}"></a>`;
+
+    const r = pickRendition(m);
+    const alt = escapeAttr(r.alt || title);
+    const wAttr = r.w ? ` width="${r.w}"` : "";
+    const hAttr = r.h ? ` height="${r.h}"` : "";
+    const srcset = r.srcset ? ` srcset="${r.srcset}"` : "";
+    // 3/4-col desktop; 1-col mobile. Let browser choose.
+    const sizes = ` sizes="(max-width: 640px) 92vw, (max-width: 1200px) 30vw, 22vw"`;
+    const fetchPri = indexInPage < 4 ? ` fetchpriority="high"` : "";
+
     return `
       <a href="${href}" class="thumb media" aria-label="${escapeAttr(title)}">
-        <img src="${f.poster}" alt="${escapeAttr(f.alt || title)}" loading="lazy" decoding="async" />
+        <img src="${r.url}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
+             alt="${alt}" loading="lazy" decoding="async" />
       </a>
     `;
   }
 
-  function cardHTML(p) {
+  function cardHTML(p, indexInPage) {
     const title = buildTitle(p);
     const author = getAuthor(p);
     const date = fmtDate(p?.date);
     const excerpt = buildExcerpt(p);
     const href = `#/post/${p?.id}`;
+
     return `
-      <article class="post-card card">
-        ${cardMediaHTML(p, title)}
+      <article class="post-card card" data-test="card">
+        ${cardMediaHTML(p, title, indexInPage)}
         <div class="body" style="padding:14px 16px 16px;">
-          <h3 style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem; background:transparent;">
-            <a href="${href}" style="color:inherit; text-decoration:none;">${escapeHtml(title)}</a>
+          <h3 class="post-title" style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem; background:transparent;">
+            <a href="${href}" class="title-link" style="text-decoration:none;">${escapeHtml(title)}</a>
           </h3>
           <div class="byline" style="background:transparent; font-size:.9rem; margin:0 0 .35rem 0;">
             ${author ? `${escapeHtml(author)} • ` : ""}${date}
@@ -118,7 +143,7 @@ export async function renderHome($app, { VER } = {}) {
 
   async function fetchPosts(page=1){
     const url = `${API_BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
-    const res = await fetch(url, { credentials: "omit", cache: "no-store" });
+    const res = await fetch(url, { credentials:"omit", cache:"no-store" });
     if (!res.ok) return [];
     return await res.json();
   }
@@ -128,38 +153,16 @@ export async function renderHome($app, { VER } = {}) {
     loading = true;
     const batch = await fetchPosts(currentPage);
     if (!batch.length){ done = true; loading = false; return; }
+
     const filtered = batch.filter(p=>{
       if (hideCartoons && isCartoon(p)) return false;
       if (hideTests && isTest(p)) return false;
       return true;
     });
-    const html = filtered.map(cardHTML).join("");
+
+    const html = filtered.map((p, i) => cardHTML(p, (currentPage===1 ? i : i + PER_PAGE*(currentPage-1)))).join("");
     if (currentPage===1) $grid.innerHTML = html; else $grid.insertAdjacentHTML("beforeend", html);
     currentPage++; loading = false;
-
-    // attach lightweight click-to-play for posters in summary
-    try {
-      $grid.querySelectorAll('.post-card .thumb.is-video').forEach(a=>{
-        const badge = a.querySelector('.oko-play-badge');
-        if (badge) badge.style.pointerEvents = "none";
-        // keep default behavior (go to detail) on click; summary just shows it's a video
-        // If you want inline-play on summary, uncomment below to replace poster with <video>
-        // a.addEventListener('click',(e)=>{ e.preventDefault(); inlinePlay(a); });
-      });
-    } catch {}
-  }
-
-  // Optional inline play (currently disabled by default)
-  function inlinePlay(anchor){
-    const src = anchor.getAttribute('data-video');
-    if (!src) return;
-    anchor.innerHTML = `
-      <video playsinline muted controls preload="metadata" style="width:100%;height:auto;border-radius:10px;">
-        <source src="${src}" type="video/mp4">
-      </video>
-    `;
-    const v = anchor.querySelector('video');
-    try { v.play().catch(()=>{}); } catch {}
   }
 
   // initial load + observer

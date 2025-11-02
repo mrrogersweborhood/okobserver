@@ -1,5 +1,5 @@
 /* OkObserver Post Detail
-   Version: 2025-11-02v-fb-link
+   Version: 2025-11-02D
    - Media-first (video or image), title/byline beneath
    - Title in OkObserver blue (#1E90FF), bold byline
    - Back-to-posts button in brand blue
@@ -7,7 +7,7 @@
        1) Featured MP4 (native <video>)
        2) Vimeo link in content (responsive iframe)
        3) YouTube link in content (responsive iframe)
-       4) Facebook video link in content -> render featured image + "Watch on Facebook" button (no iframe)
+       4) Facebook video link in content -> show poster + "Watch on Facebook" button (no iframe)
        5) Fallback to featured image
 */
 
@@ -70,28 +70,24 @@ export async function renderPost(id, { VER } = {}) {
   function getFeaturedInfo(p) {
     const m = p?._embedded?.["wp:featuredmedia"]?.[0] || null;
     if (!m) return null;
-    const kind = (m?.media_type || "").toLowerCase(); // "image" | "video"
     const poster = m?.source_url || "";
     const md = m?.media_details || {};
     const meta = m?.meta || {};
     const possible = [md?.source_url, md?.file, m?.source_url, meta?.video_url, meta?.source_url].filter(Boolean);
     const mp4 = possible.find((u) => /\.mp4($|\?)/i.test(u)) || "";
-    return { kind, poster, mp4, alt: m?.alt_text || "" };
+    return { poster, mp4, alt: m?.alt_text || "", w: md?.width || 0, h: md?.height || 0 };
   }
 
-  // Detect Vimeo/YouTube/Facebook in content if no MP4
   function detectLinksFromContent(html = "") {
     const tmp = document.createElement("div");
     tmp.innerHTML = html;
 
-    // Gather URLs from text and hrefs
     const urls = new Set();
     const raw = (tmp.textContent || "").trim();
     const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
     (raw.match(urlRegex) || []).forEach((u) => urls.add(u.trim()));
     tmp.querySelectorAll("a[href]").forEach((a) => urls.add(a.getAttribute("href")));
 
-    // Classify
     let vimeo = null, youtube = null, facebook = null;
 
     for (const u of urls) {
@@ -101,7 +97,7 @@ export async function renderPost(id, { VER } = {}) {
       }
       if (!youtube) {
         const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-        const short = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+        const short  = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
         const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
         const vid = (vParam && vParam[1]) || (short && short[1]) || (shorts && shorts[1]) || "";
         if (vid) youtube = { id: vid, url: u };
@@ -123,7 +119,7 @@ export async function renderPost(id, { VER } = {}) {
   const contentHTML = post?.content?.rendered || "";
   const links = featured && featured.mp4 ? {} : detectLinksFromContent(contentHTML);
 
-  // Build media block (priority: MP4 > Vimeo > YouTube > Facebook (link button) > Image)
+  // Build media block (priority)
   let mediaHTML = "";
 
   if (featured && featured.mp4) {
@@ -155,7 +151,7 @@ export async function renderPost(id, { VER } = {}) {
         </div>
       </figure>`;
   } else if (links.facebook) {
-    // Facebook frequently blocks embeds; show poster + button that opens FB in new tab
+    // Facebook blocks many embeds; show poster + button
     const fbBtn = `
       <div style="text-align:center;margin:12px 0;">
         <a href="${links.facebook.url}" target="_blank" rel="noopener"
@@ -165,9 +161,11 @@ export async function renderPost(id, { VER } = {}) {
       </div>`;
     if (featured && featured.poster) {
       const alt = (featured.alt || title).replace(/"/g, "&quot;");
+      const wAttr = featured.w ? ` width="${featured.w}"` : "";
+      const hAttr = featured.h ? ` height="${featured.h}"` : "";
       mediaHTML = `
         <figure class="post-hero" style="margin:18px 0; text-align:center;">
-          <img src="${featured.poster}" alt="${alt}"
+          <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
                style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;"/>
           ${fbBtn}
         </figure>`;
@@ -176,9 +174,11 @@ export async function renderPost(id, { VER } = {}) {
     }
   } else if (featured && featured.poster) {
     const alt = (featured.alt || title).replace(/"/g, "&quot;");
+    const wAttr = featured.w ? ` width="${featured.w}"` : "";
+    const hAttr = featured.h ? ` height="${featured.h}"` : "";
     mediaHTML = `
       <figure class="post-hero" style="margin:18px 0;">
-        <img src="${featured.poster}" alt="${alt}"
+        <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
              style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;"/>
       </figure>`;
   }
