@@ -1,5 +1,5 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H2
+   Version: 2025-11-02H3  (fix: requestIdleCallback options arg)
    - Uses WordPress renditions (sizes) instead of full-size originals
    - Adds width/height to <img> for instant layout (no shift)
    - Adds srcset/sizes for DPR/viewport-aware loading (crisp on 4K, small on mobile)
@@ -182,7 +182,12 @@ export async function renderHome($app, { VER } = {}) {
       }, { rootMargin: "800px 0px" });
       io.observe(sentinel);
     };
-    (window.requestIdleCallback || setTimeout)(init, 0);
+    if ("requestIdleCallback" in window) {
+      // correct signature: (callback [, optionsObject])
+      window.requestIdleCallback(init);               // <-- no numeric arg
+    } else {
+      setTimeout(init, 0);
+    }
   }
   attachObserverIdle($sentinel, () => loadMore());
 }
