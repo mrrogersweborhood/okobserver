@@ -1,12 +1,14 @@
 /* OkObserver Post Detail
-   Version: 2025-11-02v-clean
-   - Media-first layout (video or image), title/byline beneath
-   - OkObserver blue title (#1E90FF), bold byline
+   Version: 2025-11-02v-fb
+   - Media-first (video or image), title/byline beneath
+   - Title in OkObserver blue (#1E90FF), bold byline
    - Back-to-posts button in brand blue
-   - Video handling:
-       1) Use featured MP4 if available
-       2) Else detect Vimeo/YouTube in post content and embed player
-   - No diagnostics, no badges
+   - Video handling (priority order):
+       1) Featured MP4 (native <video>)
+       2) Vimeo link in content (responsive iframe)
+       3) YouTube link in content (responsive iframe)
+       4) Facebook video link in content (responsive iframe)
+       5) Fallback to featured image
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -77,25 +79,23 @@ export async function renderPost(id, { VER } = {}) {
     return { kind, poster, mp4, alt: m?.alt_text || "" };
   }
 
-  // Detect YouTube/Vimeo in content if no MP4
+  // Detect Vimeo/YouTube/Facebook in content if no MP4
   function detectEmbedFromContent(html = "") {
     const tmp = document.createElement("div");
     tmp.innerHTML = html;
 
-    // Scan text content for URLs
-    const raw = tmp.textContent || "";
+    // Gather URLs from text and hrefs
+    const urls = new Set();
+    const raw = (tmp.textContent || "").trim();
     const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
-    const urls = (raw.match(urlRegex) || []).map((u) => u.trim());
+    (raw.match(urlRegex) || []).forEach((u) => urls.add(u.trim()));
+    tmp.querySelectorAll("a[href]").forEach((a) => urls.add(a.getAttribute("href")));
 
-    // Also scan href attributes
-    tmp.querySelectorAll("a[href]").forEach((a) => urls.push(a.getAttribute("href")));
-
-    // Prefer Vimeo first if present (your sample shows a Vimeo link)
-    const vimeoUrl = urls.find((u) => /vimeo\.com\/(\d+)/i.test(u));
-    if (vimeoUrl) {
-      const idMatch = vimeoUrl.match(/vimeo\.com\/(\d+)/i);
-      if (idMatch && idMatch[1]) {
-        const id = idMatch[1];
+    // Prefer Vimeo (your posts commonly use it)
+    for (const u of urls) {
+      const m = u.match(/vimeo\.com\/(\d+)/i);
+      if (m && m[1]) {
+        const id = m[1];
         const src = `https://player.vimeo.com/video/${id}`;
         return {
           type: "vimeo",
@@ -111,12 +111,11 @@ export async function renderPost(id, { VER } = {}) {
     }
 
     // YouTube (watch?v=, youtu.be/, shorts/)
-    const ytUrl = urls.find((u) => /(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)/i.test(u));
-    if (ytUrl) {
+    for (const u of urls) {
       let vid = "";
-      const vParam = ytUrl.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-      const short = ytUrl.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
-      const shorts = ytUrl.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
+      const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+      const short = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+      const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
       if (vParam) vid = vParam[1];
       else if (short) vid = short[1];
       else if (shorts) vid = shorts[1];
@@ -136,6 +135,25 @@ export async function renderPost(id, { VER } = {}) {
       }
     }
 
+    // Facebook video (example from your WP editor: https://www.facebook.com/okobserver/videos/106... )
+    for (const u of urls) {
+      const isFBVideo = /facebook\.com\/.*\/videos\/\d+/i.test(u);
+      if (isFBVideo) {
+        const playerSrc = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}&show_text=false`;
+        return {
+          type: "facebook",
+          html: `
+            <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
+              <iframe src="${playerSrc}" frameborder="0"
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                      allowfullscreen
+                      style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+            </div>
+          `,
+        };
+      }
+    }
+
     return null;
   }
 
@@ -146,12 +164,11 @@ export async function renderPost(id, { VER } = {}) {
   const featured = getFeaturedInfo(post);
   const contentHTML = post?.content?.rendered || "";
 
-  // Build media block
+  // Build media block (priority: MP4 > Vimeo > YouTube > Facebook > Image)
   let mediaHTML = "";
-  const embed = detectEmbedFromContent(contentHTML);
+  const embed = featured && featured.mp4 ? null : detectEmbedFromContent(contentHTML);
 
   if (featured && featured.mp4) {
-    // Native video (preferred when MP4 available)
     mediaHTML = `
       <figure class="post-hero" style="margin:18px 0;">
         <video playsinline controls preload="metadata" style="width:100%;height:auto;border-radius:10px;background:#000;">
@@ -159,10 +176,8 @@ export async function renderPost(id, { VER } = {}) {
         </video>
       </figure>`;
   } else if (embed) {
-    // Vimeo/YouTube from content body
     mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${embed.html}</figure>`;
   } else if (featured && featured.poster) {
-    // Fallback to featured image if no video source found
     const alt = (featured.alt || title).replace(/"/g, "&quot;");
     mediaHTML = `
       <figure class="post-hero" style="margin:18px 0;">
@@ -193,7 +208,7 @@ export async function renderPost(id, { VER } = {}) {
     </footer>
   `;
 
-  // Make any stray iframes in content responsive (just in case)
+  // Make any stray iframes in content responsive (safety)
   try {
     $detail.querySelectorAll('.oko-content iframe').forEach((iframe) => {
       if (iframe.closest('.oko-embed')) return; // already wrapped
