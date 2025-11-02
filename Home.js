@@ -1,8 +1,11 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H4
-   - FIX: restore _embed=wp:term so cartoon/test filters work again
-   - Keeps H3 changes (correct requestIdleCallback usage)
-   - All perf and layout improvements preserved
+   Version: 2025-11-02H5  (full excerpts)
+   - FIX: keep _embed=author,wp:featuredmedia,wp:term so filters work
+   - FIX: correct requestIdleCallback usage (no invalid options)
+   - PERF: PER_PAGE=18, offscreen virtualization via CSS (override.css)
+   - IMG: width/height + srcset/sizes + fetchpriority for first row
+   - UX: titles/bylines/excerpts preserved; EXCERPTS ARE FULL (not truncated)
+   - Sentinel lives OUTSIDE the grid to avoid an empty grid row
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -11,6 +14,7 @@ export async function renderHome($app, { VER } = {}) {
   let currentPage = 1, loading = false, done = false;
   if (!$app) return;
 
+  // Shell
   $app.innerHTML = `
     <div id="postsGrid" class="post-grid posts-grid grid">
       <div class="loading" style="grid-column:1/-1;text-align:center;padding:1.25rem 0;">Loading…</div>
@@ -20,7 +24,7 @@ export async function renderHome($app, { VER } = {}) {
   const $grid = document.getElementById("postsGrid");
   const $sentinel = document.getElementById("scrollSentinel");
 
-  // Feature flags (persisted)
+  // User prefs
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
@@ -31,10 +35,10 @@ export async function renderHome($app, { VER } = {}) {
   };
   const getAuthor = (p) => { try { return p?._embedded?.author?.[0]?.name || ""; } catch {} return ""; };
   const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});} catch { return ""; } };
-  const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const escAttr = (s) => esc(s).replace(/`/g,"&#96;");
 
-  // Robust cartoon/test detection (title + categories/tags)
+  // Robust cartoon/test detection
   function isCartoon(p){
     const title = textFromHTML(p?.title?.rendered).toLowerCase();
     if (/\b(cartoon|illustration|toon)\b/.test(title)) return true;
@@ -93,10 +97,9 @@ export async function renderHome($app, { VER } = {}) {
 
   const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   function buildExcerpt(p) {
+    // FULL excerpt (no truncation) — sanitized text only
     let ex = textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "";
-    ex = ex.replace(/\s+/g," ").trim();
-    if (ex.length > 160) ex = ex.slice(0,157) + "…";
-    return ex;
+    return ex.trim();
   }
 
   function cardMediaHTML(p, title, indexInPage) {
@@ -150,7 +153,6 @@ export async function renderHome($app, { VER } = {}) {
   }
 
   async function fetchPosts(page=1){
-    // RESTORED wp:term so filters have data
     const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia,wp:term&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
     try {
       const res = await timeoutFetch(url, { credentials:"omit", cache:"no-store", keepalive: false });
@@ -188,7 +190,7 @@ export async function renderHome($app, { VER } = {}) {
       io.observe(sentinel);
     };
     if ("requestIdleCallback" in window) {
-      requestIdleCallback(init); // correct usage (no numeric options)
+      requestIdleCallback(init);
     } else {
       setTimeout(init, 0);
     }
