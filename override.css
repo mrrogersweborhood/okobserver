@@ -161,3 +161,52 @@ body {
   max-height: none;
   white-space: normal;
 }
+/* === Masonry layout for the post summary grid === */
+/* Use CSS multicolumns so cards can be different heights and flow vertically */
+
+.post-grid,
+.posts-grid,
+.grid {
+  display: block;                  /* override previous grid display */
+  column-gap: 1.25rem;
+}
+
+@media (min-width: 1200px) {
+  .post-grid,
+  .posts-grid {
+    column-count: 4;               /* 4 columns on wide screens */
+  }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .post-grid,
+  .posts-grid {
+    column-count: 3;               /* 3 columns on tablets */
+  }
+}
+@media (max-width: 767px) {
+  .post-grid,
+  .posts-grid {
+    column-count: 1;               /* 1 column on phones */
+  }
+}
+
+/* Cards must be inline-blocks that avoid breaking across columns */
+.post-card,
+.card {
+  display: inline-block;           /* instead of flex/grid item */
+  width: 100%;
+  margin: 0 0 1.25rem;
+  break-inside: avoid;             /* prevent column splits */
+  -webkit-column-break-inside: avoid;
+  -moz-column-break-inside: avoid;
+}
+
+/* Keep your existing visual styles */
+.post-card img,
+.thumb img {
+  width: 100%;
+  height: auto;
+}
+
+/* Optional: ensure the infinite scroll sentinel stays outside masonry flow */
+#scrollSentinel { height: 1px; }
