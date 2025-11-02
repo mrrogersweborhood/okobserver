@@ -210,3 +210,14 @@ body {
 
 /* Optional: ensure the infinite scroll sentinel stays outside masonry flow */
 #scrollSentinel { height: 1px; }
+/* ----- FIX: let card content expand; do not clip text ----- */
+.post-card,
+.card {
+  overflow: visible !important;            /* show body text */
+  contain-intrinsic-size: auto !important; /* no fake fixed height */
+}
+
+/* make sure the body itself isn't clipped by any old rules */
+.post-card .body {
+  overflow: visible !important;
+}
