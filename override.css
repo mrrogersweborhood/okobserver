@@ -1053,3 +1053,28 @@ html, body { overflow-x: hidden !important; }
 .post-card .thumb img,
 .post-card .media img { object-fit: contain; width:100%; height:auto; }
 .post-detail .post-hero img { object-fit: contain; width:100%; height:auto; }
+/* === OkObserver 2025-11-02d: Video diagnostics visuals === */
+.oko-play-badge{
+  position:absolute; right:12px; bottom:12px;
+  background: rgba(0,0,0,.6); color:#fff; font-weight:700;
+  padding:6px 10px; border-radius:999px; line-height:1; font-size:14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+
+/* “No video source” chip for posts that look like video but lack a playable URL */
+.oko-no-video-chip{
+  position:absolute;
+  left:12px; bottom:12px;
+  background: #ffd966;           /* subtle amber */
+  color:#3b3b3b;
+  font-weight:600;
+  padding:6px 10px;
+  border-radius:999px;
+  line-height:1;
+  font-size:13px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+}
+
+/* Containment stays intact */
+.post-detail .post-hero img { object-fit: contain; width:100%; height:auto; }
