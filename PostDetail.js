@@ -1,5 +1,5 @@
 /* OkObserver Post Detail
-   Version: 2025-11-02v-fb
+   Version: 2025-11-02v-fb-link
    - Media-first (video or image), title/byline beneath
    - Title in OkObserver blue (#1E90FF), bold byline
    - Back-to-posts button in brand blue
@@ -7,7 +7,7 @@
        1) Featured MP4 (native <video>)
        2) Vimeo link in content (responsive iframe)
        3) YouTube link in content (responsive iframe)
-       4) Facebook video link in content (responsive iframe)
+       4) Facebook video link in content -> render featured image + "Watch on Facebook" button (no iframe)
        5) Fallback to featured image
 */
 
@@ -80,7 +80,7 @@ export async function renderPost(id, { VER } = {}) {
   }
 
   // Detect Vimeo/YouTube/Facebook in content if no MP4
-  function detectEmbedFromContent(html = "") {
+  function detectLinksFromContent(html = "") {
     const tmp = document.createElement("div");
     tmp.innerHTML = html;
 
@@ -91,70 +91,28 @@ export async function renderPost(id, { VER } = {}) {
     (raw.match(urlRegex) || []).forEach((u) => urls.add(u.trim()));
     tmp.querySelectorAll("a[href]").forEach((a) => urls.add(a.getAttribute("href")));
 
-    // Prefer Vimeo (your posts commonly use it)
+    // Classify
+    let vimeo = null, youtube = null, facebook = null;
+
     for (const u of urls) {
-      const m = u.match(/vimeo\.com\/(\d+)/i);
-      if (m && m[1]) {
-        const id = m[1];
-        const src = `https://player.vimeo.com/video/${id}`;
-        return {
-          type: "vimeo",
-          html: `
-            <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
-              <iframe src="${src}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture"
-                      allowfullscreen
-                      style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-            </div>
-          `,
-        };
+      if (!vimeo) {
+        const m = u.match(/vimeo\.com\/(\d+)/i);
+        if (m && m[1]) vimeo = { id: m[1], url: u };
       }
+      if (!youtube) {
+        const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+        const short = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+        const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
+        const vid = (vParam && vParam[1]) || (short && short[1]) || (shorts && shorts[1]) || "";
+        if (vid) youtube = { id: vid, url: u };
+      }
+      if (!facebook && /facebook\.com\/.*\/videos\/\d+/i.test(u)) {
+        facebook = { url: u };
+      }
+      if (vimeo && youtube && facebook) break;
     }
 
-    // YouTube (watch?v=, youtu.be/, shorts/)
-    for (const u of urls) {
-      let vid = "";
-      const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-      const short = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
-      const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
-      if (vParam) vid = vParam[1];
-      else if (short) vid = short[1];
-      else if (shorts) vid = shorts[1];
-      if (vid) {
-        const src = `https://www.youtube.com/embed/${vid}`;
-        return {
-          type: "youtube",
-          html: `
-            <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
-              <iframe src="${src}" frameborder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowfullscreen
-                      style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-            </div>
-          `,
-        };
-      }
-    }
-
-    // Facebook video (example from your WP editor: https://www.facebook.com/okobserver/videos/106... )
-    for (const u of urls) {
-      const isFBVideo = /facebook\.com\/.*\/videos\/\d+/i.test(u);
-      if (isFBVideo) {
-        const playerSrc = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}&show_text=false`;
-        return {
-          type: "facebook",
-          html: `
-            <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
-              <iframe src="${playerSrc}" frameborder="0"
-                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-                      allowfullscreen
-                      style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
-            </div>
-          `,
-        };
-      }
-    }
-
-    return null;
+    return { vimeo, youtube, facebook };
   }
 
   // ---- Data ----
@@ -163,10 +121,10 @@ export async function renderPost(id, { VER } = {}) {
   const date = fmtDate(post?.date);
   const featured = getFeaturedInfo(post);
   const contentHTML = post?.content?.rendered || "";
+  const links = featured && featured.mp4 ? {} : detectLinksFromContent(contentHTML);
 
-  // Build media block (priority: MP4 > Vimeo > YouTube > Facebook > Image)
+  // Build media block (priority: MP4 > Vimeo > YouTube > Facebook (link button) > Image)
   let mediaHTML = "";
-  const embed = featured && featured.mp4 ? null : detectEmbedFromContent(contentHTML);
 
   if (featured && featured.mp4) {
     mediaHTML = `
@@ -175,8 +133,47 @@ export async function renderPost(id, { VER } = {}) {
           <source src="${featured.mp4}" type="video/mp4">
         </video>
       </figure>`;
-  } else if (embed) {
-    mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${embed.html}</figure>`;
+  } else if (links.vimeo) {
+    const src = `https://player.vimeo.com/video/${links.vimeo.id}`;
+    mediaHTML = `
+      <figure class="post-hero" style="margin:18px 0;">
+        <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
+          <iframe src="${src}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture"
+                  allowfullscreen
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+        </div>
+      </figure>`;
+  } else if (links.youtube) {
+    const src = `https://www.youtube.com/embed/${links.youtube.id}`;
+    mediaHTML = `
+      <figure class="post-hero" style="margin:18px 0;">
+        <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
+          <iframe src="${src}" frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;"></iframe>
+        </div>
+      </figure>`;
+  } else if (links.facebook) {
+    // Facebook frequently blocks embeds; show poster + button that opens FB in new tab
+    const fbBtn = `
+      <div style="text-align:center;margin:12px 0;">
+        <a href="${links.facebook.url}" target="_blank" rel="noopener"
+           style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">
+          ▶ Watch on Facebook
+        </a>
+      </div>`;
+    if (featured && featured.poster) {
+      const alt = (featured.alt || title).replace(/"/g, "&quot;");
+      mediaHTML = `
+        <figure class="post-hero" style="margin:18px 0; text-align:center;">
+          <img src="${featured.poster}" alt="${alt}"
+               style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;"/>
+          ${fbBtn}
+        </figure>`;
+    } else {
+      mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${fbBtn}</figure>`;
+    }
   } else if (featured && featured.poster) {
     const alt = (featured.alt || title).replace(/"/g, "&quot;");
     mediaHTML = `
