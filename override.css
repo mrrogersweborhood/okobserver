@@ -1039,3 +1039,17 @@ html, body { overflow-x: hidden !important; }
     row-gap: 22px !important;
   }
 }
+/* === OkObserver 2025-11-01v: Video badges & containment === */
+.oko-play-badge{
+  position:absolute; right:12px; bottom:12px;
+  background: rgba(0,0,0,.6); color:#fff; font-weight:700;
+  padding:6px 10px; border-radius:999px; line-height:1; font-size:14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.post-card .thumb.is-video { position:relative; }
+
+/* Contain featured images/videos gracefully */
+.post-card .thumb img,
+.post-card .media img { object-fit: contain; width:100%; height:auto; }
+.post-detail .post-hero img { object-fit: contain; width:100%; height:auto; }

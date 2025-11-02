@@ -1,24 +1,15 @@
-/* OkObserver Post Detail
-   Version: 2025-11-01g
-   Contract: renderPost(id:number, { VER })
-   Goals:
-   - Featured image appears first.
-   - Title (blue) and byline appear directly beneath the featured image.
-   - Clean white background (no blue bar).
-   - Back to posts button only at the bottom.
-   - No ES module syntax; safe for GH Pages.
+/* OkObserver Post Detail with Video Restore
+   Version: 2025-11-01v
+   - Featured video: poster with ▶︎ overlay → click swaps to real player
+   - Responsive iframes (YouTube/Vimeo) inside content
+   - Title/byline beneath media, blue title (#1E90FF), bold byline
 */
 
 export async function renderPost(id, { VER } = {}) {
   const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
-  const $app =
-    document.getElementById("app") ||
-    document.querySelector("#app") ||
-    document.body;
-
+  const $app = document.getElementById("app") || document.querySelector("#app") || document.body;
   if (!$app || !id) return;
 
-  // Shell
   $app.innerHTML = `
     <article class="post-detail" style="max-width:980px;margin:0 auto;padding:18px 14px 60px;">
       <div class="loading" style="text-align:center;padding:1.25rem 0;">Loading…</div>
@@ -26,108 +17,106 @@ export async function renderPost(id, { VER } = {}) {
   `;
   const $detail = $app.querySelector(".post-detail");
 
-  // Fetch post
-  let post = null;
-  try {
-    const res = await fetch(
-      `${API_BASE}/posts/${id}?_embed=1&_=${encodeURIComponent(VER || "detail")}`,
-      { credentials: "omit", cache: "no-store" }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  let post=null;
+  try{
+    const res = await fetch(`${API_BASE}/posts/${id}?_embed=1&_=${encodeURIComponent(VER||"detail")}`, { credentials:"omit", cache:"no-store" });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
     post = await res.json();
-  } catch (err) {
+  }catch(err){
     console.error("[PostDetail] fetch failed:", err);
     $detail.innerHTML = `
-      <h2 style="margin:0 0 .5rem 0;">Unable to load this post.</h2>
-      <p style="color:#666">Please try again, or return to the post list.</p>
-      <footer style="margin-top:28px;">
-        <a href="#/" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#f2f4f7;color:#111;border:1px solid #dcdfe4;text-decoration:none;">← Back to posts</a>
-      </footer>
-    `;
+      <h2>Unable to load this post.</h2>
+      <footer style="margin-top:28px;"><a href="#/" class="btn-back">← Back to posts</a></footer>`;
     return;
   }
 
-  // Helpers
-  const textFromHTML = (html = "") => {
-    const d = document.createElement("div");
-    d.innerHTML = html;
-    return (d.textContent || d.innerText || "").trim();
-  };
-  const getFeatured = (p) => {
-    try {
-      const m = p?._embedded?.["wp:featuredmedia"]?.[0];
-      if (m?.source_url) return { url: m.source_url, alt: m.alt_text || "" };
-    } catch {}
-    return null;
-  };
-  const getAuthor = (p) => {
-    try {
-      return p?._embedded?.author?.[0]?.name || "";
-    } catch {}
-    return "";
-  };
-  const fmtDate = (iso) => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
-  };
+  // helpers
+  const textFromHTML=(h="")=>{const d=document.createElement("div");d.innerHTML=h;return (d.textContent||d.innerText||"").trim();};
+  const getAuthor=(p)=>{try{return p?._embedded?.author?.[0]?.name||"";}catch{}return "";};
+  const fmtDate=(iso)=>{try{const d=new Date(iso);return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});}catch{return "";}};
+  function getFeaturedInfo(p){
+    const m = p?._embedded?.["wp:featuredmedia"]?.[0] || null;
+    if (!m) return null;
+    const kind = (m?.media_type||"").toLowerCase();
+    const poster = m?.source_url || "";
+    const videoSrc =
+      m?.media_details?.file?.endsWith(".mp4") ? m.media_details.file :
+      m?.media_details?.source_url?.endsWith(".mp4") ? m.media_details.source_url :
+      m?.source_url?.endsWith(".mp4") ? m.source_url :
+      (m?.meta && (m.meta.video_url || m.meta.source_url)) || "";
+    return { kind, poster, videoSrc, alt: m?.alt_text || "" };
+  }
 
-  // Data
+  // data
   const title = textFromHTML(post?.title?.rendered) || "Untitled";
   const author = getAuthor(post);
   const date = fmtDate(post?.date);
-  const featured = getFeatured(post);
+  const featured = getFeaturedInfo(post);
   const contentHTML = post?.content?.rendered || "";
 
-  // Render — featured image first, then title/byline
+  // render
   $detail.innerHTML = `
     ${featured ? `
       <figure class="post-hero" style="margin:18px 0;">
-        <img src="${featured.url}" alt="${(featured.alt || title).replace(/"/g,'&quot;')}"
-             style="display:block;width:100%;height:auto;border-radius:10px;" loading="lazy" decoding="async"/>
+        ${ (featured.kind==="video" || /\.mp4($|\?)/i.test(featured.videoSrc||"")) && featured.poster
+          ? `<div class="oko-video-poster" data-video="${featured.videoSrc || ""}" style="position:relative;cursor:pointer;">
+               <img src="${featured.poster}" alt="${(featured.alt||title).replace(/"/g,'&quot;')}"
+                    style="display:block;width:100%;height:auto;border-radius:10px;background:#000"/>
+               <span class="oko-play-badge" aria-hidden="true">▶︎</span>
+             </div>`
+          : `<img src="${featured.poster}" alt="${(featured.alt||title).replace(/"/g,'&quot;')}"
+                  style="display:block;width:100%;height:auto;border-radius:10px;"/>`
+        }
       </figure>` : ``}
 
     <header class="post-header" style="margin:10px 0 10px 0;background:transparent;">
-      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; color:#1E90FF; background:transparent;">
+      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; color:#1E90FF;">
         ${title}
       </h1>
-      <div class="byline" style="color:#555; font-size:.95rem; margin-top:2px; background:transparent;">
+      <div class="byline" style="color:#444; font-weight:600; font-size:.95rem; margin-top:2px;">
         ${author ? `${author} • ` : ""}${date}
       </div>
     </header>
 
-    <section class="post-content" style="margin:20px 0 28px 0; color:#111; line-height:1.6;">
+    <section class="post-content oko-content" style="margin:20px 0 28px 0; color:#111; line-height:1.65;">
       ${contentHTML}
     </section>
 
     <footer class="post-footer" style="margin:28px 0 0 0;">
-      <a href="#/" style="display:inline-block;padding:10px 14px;border-radius:10px;background:#f2f4f7;color:#111;border:1px solid #dcdfe4;text-decoration:none;">← Back to posts</a>
+      <a href="#/" class="btn-back" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">← Back to posts</a>
     </footer>
   `;
 
-  // Ensure links open safely
+  // click-to-play swap for featured poster
   try {
-    $detail.querySelectorAll('.post-content a[href]').forEach(a => {
-      a.setAttribute('target','_blank');
-      a.setAttribute('rel','noopener');
-    });
+    const poster = $detail.querySelector(".oko-video-poster");
+    if (poster) {
+      poster.addEventListener("click", ()=>{
+        const src = poster.getAttribute("data-video");
+        if (!src) return;
+        poster.outerHTML = `
+          <video playsinline controls autoplay muted preload="metadata" style="width:100%;height:auto;border-radius:10px;background:#000;">
+            <source src="${src}" type="video/mp4">
+          </video>
+        `;
+      }, { once:true });
+    }
   } catch {}
 
-  // Keep header sticky (defensive)
+  // make iframes responsive in content (YouTube/Vimeo/Wistia etc.)
   try {
-    const $hdr = document.querySelector("header");
-    if ($hdr) {
-      $hdr.style.position = "sticky";
-      $hdr.style.top = "0";
-      $hdr.style.zIndex = "1000";
-    }
+    $detail.querySelectorAll('.oko-content iframe').forEach(iframe=>{
+      const wrap = document.createElement('div');
+      wrap.style.position = 'relative';
+      wrap.style.width = '100%';
+      wrap.style.paddingTop = '56.25%'; // 16:9
+      wrap.style.margin = '12px 0';
+      iframe.parentNode.insertBefore(wrap, iframe);
+      iframe.style.position = 'absolute';
+      iframe.style.top = '0'; iframe.style.left = '0';
+      iframe.style.width = '100%'; iframe.style.height = '100%';
+      wrap.appendChild(iframe);
+    });
   } catch {}
 }
 
