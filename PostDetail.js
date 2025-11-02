@@ -1,5 +1,5 @@
 /* OkObserver Post Detail
-   Version: 2025-11-02D2
+   Version: 2025-11-02D3
    - Media-first (video or image), title/byline beneath
    - Title in OkObserver blue (#1E90FF), bold byline
    - Back-to-posts button in brand blue
@@ -9,8 +9,8 @@
        3) YouTube link in content (responsive iframe)
        4) Facebook video link in content -> show poster + "Watch on Facebook" button (no iframe)
        5) Fallback to featured image
-   - NEW: Cleans WordPress content to remove the *leading image/link block*
-           when we already render a hero (prevents the huge white gap you saw on #377530).
+   - Cleans WordPress content to remove the *leading image/link block*
+     when we already render a hero (prevents big white gaps)
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -22,7 +22,6 @@ export async function renderPost(id, { VER } = {}) {
 
   if (!$app || !id) return;
 
-  // Shell
   $app.innerHTML = `
     <article class="post-detail" style="max-width:980px;margin:0 auto;padding:18px 14px 60px;">
       <div class="loading" style="text-align:center;padding:1.25rem 0;">Loading…</div>
@@ -35,7 +34,7 @@ export async function renderPost(id, { VER } = {}) {
   try {
     const res = await fetch(
       `${API_BASE}/posts/${id}?_embed=1&_=${encodeURIComponent(VER || "detail")}`,
-      { credentials: "omit", cache: "no-store" }
+      { credentials: "omit", cache: "no-store", keepalive: false }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     post = await res.json();
@@ -113,24 +112,17 @@ export async function renderPost(id, { VER } = {}) {
     return { vimeo, youtube, facebook };
   }
 
-  // Remove the *leading image/link block* from WP content if we already render a hero.
-  // This prevents a large blank/duplicate image area under the title (as in post #377530).
   function cleanContent(html, { removeLeadingMedia } = { removeLeadingMedia: false }) {
     if (!html) return "";
     const root = document.createElement("div");
     root.innerHTML = html;
 
-    // Strip editor temp wrappers
     root.querySelectorAll('div.mceTemp, div[data-mce-bogus="all"]').forEach((n) => n.remove());
 
     if (removeLeadingMedia) {
-      // Remove first block if it is: <p|div><a><img></a></p|div> OR a bare <img> as the first element
       const first = root.firstElementChild;
-      if (first) {
-        // unwrap empty <p> that only has <br>
-        if (first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) {
-          first.remove();
-        }
+      if (first && first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) {
+        first.remove();
       }
       let cur = root.firstElementChild;
       if (cur) {
@@ -143,14 +135,12 @@ export async function renderPost(id, { VER } = {}) {
 
         if (isImgBlock || isBareImg) {
           cur.remove();
-          // Also remove any now-empty wrappers at the very top
           while (root.firstElementChild && root.firstElementChild.textContent.trim() === "" && !root.firstElementChild.querySelector("img,video,iframe")) {
             root.firstElementChild.remove();
           }
         }
       }
     }
-
     return root.innerHTML;
   }
 
@@ -164,7 +154,7 @@ export async function renderPost(id, { VER } = {}) {
 
   // Build media block (priority)
   let mediaHTML = "";
-  let shouldRemoveLeadingMediaFromContent = false;
+  let removeLeadingMediaFromContent = false;
 
   if (featured && featured.mp4) {
     mediaHTML = `
@@ -173,7 +163,7 @@ export async function renderPost(id, { VER } = {}) {
           <source src="${featured.mp4}" type="video/mp4">
         </video>
       </figure>`;
-    shouldRemoveLeadingMediaFromContent = true;
+    removeLeadingMediaFromContent = true;
   } else if (links.vimeo) {
     const src = `https://player.vimeo.com/video/${links.vimeo.id}`;
     mediaHTML = `
@@ -184,7 +174,7 @@ export async function renderPost(id, { VER } = {}) {
                   style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
         </div>
       </figure>`;
-    shouldRemoveLeadingMediaFromContent = true;
+    removeLeadingMediaFromContent = true;
   } else if (links.youtube) {
     const src = `https://www.youtube.com/embed/${links.youtube.id}`;
     mediaHTML = `
@@ -196,9 +186,8 @@ export async function renderPost(id, { VER } = {}) {
                   style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
         </div>
       </figure>`;
-    shouldRemoveLeadingMediaFromContent = true;
+    removeLeadingMediaFromContent = true;
   } else if (links.facebook) {
-    // Facebook blocks many embeds; show poster + button
     const fbBtn = `
       <div style="text-align:center;margin:12px 0;">
         <a href="${links.facebook.url}" target="_blank" rel="noopener"
@@ -219,7 +208,7 @@ export async function renderPost(id, { VER } = {}) {
     } else {
       mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${fbBtn}</figure>`;
     }
-    shouldRemoveLeadingMediaFromContent = true; // remove the WP-leading image so we don’t leave a big blank block
+    removeLeadingMediaFromContent = true;
   } else if (featured && featured.poster) {
     const alt = (featured.alt || title).replace(/"/g, "&quot;");
     const wAttr = featured.w ? ` width="${featured.w}"` : "";
@@ -229,11 +218,10 @@ export async function renderPost(id, { VER } = {}) {
         <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
              style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
       </figure>`;
-    shouldRemoveLeadingMediaFromContent = true;
+    removeLeadingMediaFromContent = true;
   }
 
-  // Clean content to eliminate the duplicate/blank leading media block
-  const contentHTML = cleanContent(rawContentHTML, { removeLeadingMedia: shouldRemoveLeadingMediaFromContent });
+  const contentHTML = cleanContent(rawContentHTML, { removeLeadingMedia: removeLeadingMediaFromContent });
 
   // ---- Render page ----
   $detail.innerHTML = `
@@ -260,7 +248,7 @@ export async function renderPost(id, { VER } = {}) {
   // Make any stray iframes in content responsive (safety)
   try {
     $detail.querySelectorAll('.oko-content iframe').forEach((iframe) => {
-      if (iframe.closest('.oko-embed')) return; // already wrapped
+      if (iframe.closest('.oko-embed')) return;
       const wrap = document.createElement('div');
       wrap.className = 'oko-embed';
       wrap.style.position = 'relative';

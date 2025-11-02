@@ -1,9 +1,11 @@
-/* OkObserver Override Styles – 2025-11-02C
-   Keeps 3-4 column grid on desktop/tablet, 1 column mobile
+/* OkObserver Override Styles – 2025-11-02C2
+   COMPLETE REPLACEMENT
+   Keeps 3–4 column grid on desktop/tablet, 1 column mobile
    Titles and bylines: OkObserver blue (#1E90FF) + bold bylines
    Removes blue backgrounds permanently
    Adds space between logo & motto
    Featured images contained, not cropped
+   Performance: content-visibility virtualization for offscreen cards
 */
 
 /* === Layout / Grid === */
@@ -39,7 +41,7 @@
   }
 }
 
-/* === Cards === */
+/* === Cards (virtualization hints) === */
 .post-card,
 .card {
   background: #fff;
@@ -49,10 +51,14 @@
   display: flex;
   flex-direction: column;
   transition: transform 0.15s ease;
+
+  /* performance */
+  content-visibility: auto;
+  contain-intrinsic-size: 360px 420px;
+  contain: layout paint size;
 }
-.post-card:hover {
-  transform: translateY(-3px);
-}
+.post-card:hover { transform: translateY(-3px); }
+.thumb { background:#f3f3f3; }
 
 /* === Featured images (contained, not cropped) === */
 .post-card img,
@@ -75,9 +81,7 @@
   background: transparent !important;
   text-decoration: none;
 }
-.post-title a:hover {
-  text-decoration: underline;
-}
+.post-title a:hover { text-decoration: underline; }
 
 /* byline under titles */
 .byline {
@@ -106,17 +110,17 @@ header {
   background: #1E90FF;
   color: #fff;
   padding: 10px 0 12px 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 header img.logo {
   height: auto;
   max-height: 70px;
   width: auto;
-  margin-bottom: 6px; /* adds space between logo and motto */
+  margin-bottom: 6px; /* space between logo and motto */
 }
-header .motto {
-  font-size: 0.95rem;
-  margin-top: 3px;
-}
+header .motto { font-size: 0.95rem; margin-top: 3px; }
 
 /* === Buttons === */
 a.button,

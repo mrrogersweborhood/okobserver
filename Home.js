@@ -1,16 +1,17 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H
+   Version: 2025-11-02H2
    - Uses WordPress renditions (sizes) instead of full-size originals
    - Adds width/height to <img> for instant layout (no shift)
    - Adds srcset/sizes for DPR/viewport-aware loading (crisp on 4K, small on mobile)
    - First row images use fetchpriority="high" for faster above-the-fold paint
    - Infinite scroll sentinel lives OUTSIDE the grid (no blank row)
    - Titles/bylines/excerpts preserved (colors/bold handled in CSS)
+   - Performance: _embed narrowed, PER_PAGE=18, observer attached on idle
 */
 
 export async function renderHome($app, { VER } = {}) {
   const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
-  const PER_PAGE = 20;
+  const PER_PAGE = 18; // slimmer first paint
   let currentPage = 1, loading = false, done = false;
   if (!$app) return;
 
@@ -57,7 +58,6 @@ export async function renderHome($app, { VER } = {}) {
     const fallW = m?.media_details?.width || 0;
     const fallH = m?.media_details?.height || 0;
 
-    // Prefer ~1024–1536px wide assets for grid; keep options for srcset
     const get = (k) => sizes[k] && sizes[k].source_url ? sizes[k] : null;
     const medium      = get("medium");
     const mediumLarge = get("medium_large");
@@ -65,10 +65,8 @@ export async function renderHome($app, { VER } = {}) {
     const x1536       = get("1536x1536");
     const full        = m?.source_url ? { source_url: m.source_url, width: fallW, height: fallH } : null;
 
-    // Base (default) candidate
     const base = mediumLarge || large || x1536 || medium || full || null;
 
-    // Build srcset list from whatever exists
     const set = [];
     if (medium      && medium.width)      set.push(`${medium.source_url} ${medium.width}w`);
     if (mediumLarge && mediumLarge.width) set.push(`${mediumLarge.source_url} ${mediumLarge.width}w`);
@@ -88,7 +86,6 @@ export async function renderHome($app, { VER } = {}) {
   function buildTitle(p) {
     return textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   }
-
   function buildExcerpt(p) {
     let ex = textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "";
     ex = ex.replace(/\s+/g," ").trim();
@@ -106,7 +103,6 @@ export async function renderHome($app, { VER } = {}) {
     const wAttr = r.w ? ` width="${r.w}"` : "";
     const hAttr = r.h ? ` height="${r.h}"` : "";
     const srcset = r.srcset ? ` srcset="${r.srcset}"` : "";
-    // 3/4-col desktop; 1-col mobile. Let browser choose.
     const sizes = ` sizes="(max-width: 640px) 92vw, (max-width: 1200px) 30vw, 22vw"`;
     const fetchPri = indexInPage < 4 ? ` fetchpriority="high"` : "";
 
@@ -141,11 +137,21 @@ export async function renderHome($app, { VER } = {}) {
     `;
   }
 
+  function timeoutFetch(resource, options = {}, ms = 8000) {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
+    return fetch(resource, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
+  }
+
   async function fetchPosts(page=1){
-    const url = `${API_BASE}/posts?_embed=1&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
-    const res = await fetch(url, { credentials:"omit", cache:"no-store" });
-    if (!res.ok) return [];
-    return await res.json();
+    const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
+    try {
+      const res = await timeoutFetch(url, { credentials:"omit", cache:"no-store", keepalive: false });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch {
+      return [];
+    }
   }
 
   async function loadMore(){
@@ -165,12 +171,20 @@ export async function renderHome($app, { VER } = {}) {
     currentPage++; loading = false;
   }
 
-  // initial load + observer
+  // initial load
   await loadMore();
-  const io = new IntersectionObserver((entries)=>{
-    if (entries[0].isIntersecting && !loading && !done) loadMore();
-  }, { rootMargin: "800px 0px" });
-  io.observe($sentinel);
+
+  // attach observer during idle time so first paint stays fast
+  function attachObserverIdle(sentinel, cb){
+    const init = () => {
+      const io = new IntersectionObserver((entries)=>{
+        if (entries[0].isIntersecting && !loading && !done) cb();
+      }, { rootMargin: "800px 0px" });
+      io.observe(sentinel);
+    };
+    (window.requestIdleCallback || setTimeout)(init, 0);
+  }
+  attachObserverIdle($sentinel, () => loadMore());
 }
 
 export default renderHome;
