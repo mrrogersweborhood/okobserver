@@ -13,7 +13,6 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="icon-512.png" />
 
-    <!-- Minimal fallback styles -->
     <style>
       :root { --brand:#1E90FF; --ink:#111; --muted:#667; }
       html,body { margin:0; padding:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#fff; color:var(--ink); }
@@ -32,7 +31,7 @@
       footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
     </style>
 
-    <!-- Cache-busted overrides -->
+    <!-- Overrides last -->
     <link rel="stylesheet" href="override.css?v=2025-11-02R" />
   </head>
 
@@ -57,7 +56,7 @@
     <footer>
       © <span id="year"></span> The Oklahoma Observer
       <br />
-      Build <span id="build"></span>
+      <span id="build"></span> <!-- JS will write the whole line: 'Build 2025-11-02R' -->
     </footer>
 
     <!-- MutationObserver safeguard -->
@@ -90,7 +89,7 @@
         }
       })();
 
-      // Service Worker registration
+      // SW registration
       if("serviceWorker" in navigator){
         window.addEventListener("load",()=>{
           navigator.serviceWorker.register("./sw.js?v=2025-11-02R")
@@ -99,9 +98,18 @@
         });
       }
 
-      // Footer metadata (cleaned up — no double "Build")
-      document.getElementById("year").textContent = new Date().getFullYear();
-      document.getElementById("build").textContent = "2025-11-02R";
+      // Footer metadata (defensive: never "Build Build")
+      (function(){
+        const year = document.getElementById("year");
+        const build = document.getElementById("build");
+        year.textContent = new Date().getFullYear();
+
+        const VER = "2025-11-02R";
+        // If some other script already wrote "Build something", strip the leading "Build "
+        const existing = (build.textContent || build.innerText || "").trim().replace(/^Build\s+/i,"");
+        // Write the label + version exactly once
+        build.textContent = "Build " + (existing || VER);
+      })();
     </script>
   </body>
 </html>
