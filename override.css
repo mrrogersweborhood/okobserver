@@ -306,3 +306,70 @@ header .motto {
 
 /* Detail title color (OkObserver blue) */
 .post-detail__title { color: var(--oo-blue); }
+/* === HEADER HOTFIX — center logo + motto, hamburger top-right (2025-11-03 R1q-hf2) === */
+
+/* Make the header a blue strip and center its contents */
+header{
+  position: sticky; top: 0; z-index: 1000;
+  background: #1E90FF;          /* OkObserver blue bar */
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  padding: 12px 48px 16px;      /* extra right padding for hamburger space */
+  display: block;               /* break out of previous flex rules */
+  text-align: center;           /* center everything by default */
+  color: #fff;
+}
+
+/* Center the logo */
+header .logo{
+  display: block;
+  height: 48px;
+  width: auto;
+  margin: 0 auto 6px auto;      /* centered with small gap above motto */
+}
+
+/* Hide the inline title text (the logo is the title) */
+header .title-link{
+  display: none !important;
+}
+
+/* Motto directly under the logo, centered, NO pill/button look */
+header .motto{
+  display: block;
+  margin: 0 auto;
+  padding: 0;                   /* remove chip padding */
+  background: transparent;      /* no blue pill */
+  color: #fff;                  /* white text over blue bar */
+  border: 0;
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.3;
+  text-align: center;           /* explicit centering */
+}
+
+/* Hamburger pinned to the top-right over the blue bar */
+#hamburger{
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Slide-out menu styling remains sane */
+#menu[hidden]{ display:none; }
+#menu a{
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: #111;
+  background: #fff;
+  margin: 8px 6px 0;
+}
+#menu a:hover{ background:#f1f4ff; color:#0a58ff; }
+
+/* Keep main content offset below the sticky header */
+main#app{ padding: 16px; }
