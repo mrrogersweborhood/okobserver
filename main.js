@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1h (detail: hero → title → byline; images/videos sized) */
+/* 🟢 main.js — 2025-11-03R1j (videos only on detail view; none on summaries) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1h';
+  window.AppVersion = '2025-11-03R1j';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -24,11 +24,10 @@
   };
   const byline = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  /* Bullet-proof cartoon filter: title + any embedded terms (categories/tags) */
+  /* Filter out cartoon posts */
   const isCartoon = (post) => {
     const title = (post?.title?.rendered || '').toLowerCase();
     if (/\bcartoon(s)?\b/.test(title)) return true;
-
     const termGroups = post?._embedded?.['wp:term'] || [];
     const terms = termGroups.flat().filter(Boolean);
     for (const t of terms) {
@@ -39,7 +38,7 @@
     return false;
   };
 
-  // Featured image source URL from _embedded media
+  // ---------- featured images ----------
   const featuredSrc = (post) => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -61,81 +60,58 @@
               style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  // ---------- VIDEO helpers ----------
+  // ---------- video extraction (detail only) ----------
   const extractVideo = (html = '') => {
+    // YouTube
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
     if (yt) {
       const id = (yt[1] || yt[2]);
       return { type: 'youtube', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
     }
+    // Vimeo
     const vimeo = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
     if (vimeo) {
       const id = vimeo[1];
       return { type: 'vimeo', src: `https://player.vimeo.com/video/${id}?autoplay=1` };
     }
+    // Facebook
+    const fb = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=|[^"']+\/videos\/)([0-9]+)/i);
+    if (fb) {
+      const orig = fb[0].includes('watch') ? `https://www.facebook.com/watch/?v=${fb[1]}` : fb[0];
+      return { type: 'facebook', src: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&autoplay=1&show_text=false` };
+    }
+    // Native video
     const vidTag = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vidTag) return { type: 'video', src: vidTag[1] };
     return null;
   };
 
-  const posterWithPlay = (post, contentHTML) => {
-    const poster = imgHTML(post);
-    const playable = extractVideo(contentHTML);
-    if (!playable) return poster;
-
-    const label = 'Play video';
-    return `
-      <div class="thumb" data-has-video="1" data-src="${encodeURIComponent(playable.src)}" data-type="${playable.type}" style="position:relative;">
-        ${poster}
-        <button class="oo-play" aria-label="${label}" title="${label}"
-          style="
-            position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-            width:56px;height:56px;border:0;border-radius:50%;
-            background:rgba(30,144,255,.92);color:#fff;font-size:0;cursor:pointer;
-            box-shadow:0 2px 8px rgba(0,0,0,.25);
-          ">
-          <span aria-hidden="true" style="
-            display:block;margin:0 auto;border-style:solid;
-            border-width:12px 0 12px 20px;border-color:transparent transparent transparent #fff;width:0;height:0;
-          "></span>
-        </button>
-      </div>
-    `;
+  const playInlineVideo = (container, playable) => {
+    if (!playable || !container) return;
+    container.innerHTML = '';
+    if (playable.type === 'video') {
+      const v = document.createElement('video');
+      v.src = playable.src;
+      v.controls = true;
+      v.autoplay = true;
+      v.playsInline = true;
+      v.style.width = '100%';
+      v.style.display = 'block';
+      container.appendChild(v);
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.src = playable.src;
+      iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
+      iframe.frameBorder = '0';
+      iframe.referrerPolicy = 'no-referrer-when-downgrade';
+      iframe.style.width = '100%';
+      iframe.style.height = '315px';
+      iframe.style.display = 'block';
+      container.appendChild(iframe);
+    }
   };
 
-  const wirePlayHandlers = (rootEl) => {
-    rootEl.querySelectorAll('.thumb[data-has-video="1"] .oo-play').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        const wrap = btn.closest('.thumb');
-        const type = wrap?.dataset?.type;
-        const src  = decodeURIComponent(wrap?.dataset?.src || '');
-        if (!wrap || !src) return;
-
-        wrap.innerHTML = '';
-        wrap.style.position = 'relative';
-
-        if (type === 'video') {
-          const v = document.createElement('video');
-          v.src = src; v.controls = true; v.autoplay = true; v.playsInline = true;
-          v.style.width = '100%'; v.style.height = 'auto'; v.style.display = 'block';
-          wrap.appendChild(v);
-        } else {
-          const iframe = document.createElement('iframe');
-          iframe.src = src;
-          iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-          iframe.frameBorder = '0';
-          iframe.referrerPolicy = 'no-referrer-when-downgrade';
-          iframe.style.width = '100%';
-          iframe.style.height = '315px';
-          iframe.style.display = 'block';
-          wrap.appendChild(iframe);
-        }
-      }, { once: true });
-    });
-  };
-
-  // ---------- state helpers ----------
+  // ---------- feed helpers ----------
   const remember = (k, v) => {
     if (cachePages.has(k)) {
       const i = lru.indexOf(k);
@@ -163,11 +139,11 @@
     while (c.children.length > MAX_CARDS) c.removeChild(c.firstElementChild);
   };
 
-  // ---------- rendering ----------
+  // ---------- post summaries (no playable videos) ----------
   const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
-        ${posterWithPlay(p, p.content?.rendered || '')}
+        <div class="thumb">${imgHTML(p)}</div>
         <h2 class="post-title">${p.title?.rendered || ''}</h2>
         <div class="byline">${byline(p)}</div>
         <div class="post-summary">${p.excerpt?.rendered || ''}</div>
@@ -177,7 +153,6 @@
   const renderPage = posts => {
     const feed = ensureFeed();
     feed.insertAdjacentHTML('beforeend', posts.map(cardHTML).join(''));
-    wirePlayHandlers(feed);
     trimCards();
   };
 
@@ -194,19 +169,19 @@
     </section>`;
   };
 
-  // ---------- detail (FIXED ORDER & SIZING) ----------
+  // ---------- post detail (videos playable here only) ----------
   const renderDetail = async (id) => {
     app.innerHTML = `<div>Loading…</div>`;
     try {
       const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       const p = await r.json();
+      const playable = extractVideo(p.content?.rendered || '');
 
       const hero = `
         <div class="post-hero" style="position:relative;margin:0 0 16px 0;">
-          ${posterWithPlay(p, p.content?.rendered || '')}
+          <div class="thumb">${imgHTML(p)}</div>
         </div>
       `;
-
       app.innerHTML = `
         <article class="post-detail">
           ${hero}
@@ -216,16 +191,24 @@
           <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
         </article>
       `;
-      wirePlayHandlers(app);
+
+      // replace poster with playable video only if found
+      if (playable) {
+        const ph = app.querySelector('.post-hero .thumb');
+        playInlineVideo(ph, playable);
+      }
     } catch {
       app.innerHTML = `<div>Failed to load post.</div>`;
     }
   };
 
-  // ---------- data ----------
+  // ---------- data + router ----------
   const fetchPosts = async (n) => {
     const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
-    if (!r.ok) { if (r.status === 400 || r.status === 404) reachedEnd = true; throw new Error(r.status); }
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 404) reachedEnd = true;
+      throw new Error(r.status);
+    }
     const posts = await r.json();
     return posts.filter(p => !isCartoon(p));
   };
@@ -242,7 +225,6 @@
     } finally { loading = false; }
   };
 
-  // ---------- router ----------
   const router = async () => {
     const parts = (location.hash || '#/').slice(2).split('/');
     switch (parts[0]) {
