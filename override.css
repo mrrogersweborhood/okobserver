@@ -189,3 +189,80 @@ body { scroll-padding-top: 90px; }
   display: block !important;
   border: 0;
 }
+/* --- Stabilize masonry columns: prevent overlapping cards --- */
+.posts-grid {
+  column-gap: 18px;                  /* consistent spacing between columns */
+}
+
+.post-card {
+  display: inline-block;             /* required for column-based masonry */
+  width: 100%;
+  margin: 0 0 18px;                  /* vertical spacing */
+  vertical-align: top;
+
+  /* stop the browser from splitting a card across columns */
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.post-card .thumb,
+.post-card img,
+.post-card iframe,
+.post-card video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* (optional) reduce reflow paint work on fades */
+.post-card { contain: layout paint; }
+/* === Masonry / Columns stabilization (2025-11-03 R1n+) === */
+.posts-grid {
+  column-gap: 18px;               /* consistent spacing */
+}
+
+.post-card {
+  display: inline-block;          /* ensure proper column item behavior */
+  width: 100%;
+  margin: 0 0 18px;
+  vertical-align: top;
+
+  break-inside: avoid;            /* don't split cards across columns */
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+
+  /* minor performance hint for fade-in */
+  contain: layout paint;
+}
+
+.post-card .thumb,
+.post-card img,
+.post-card iframe,
+.post-card video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Responsive media in detail hero and any inline players */
+.post-hero iframe,
+.post-hero video,
+.post-detail .post-hero iframe,
+.post-detail .post-hero video,
+.thumb iframe {
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  display: block !important;
+  border: 0;
+}
+
+/* Detail title color — OkObserver blue */
+.post-detail__title {
+  color: #1E90FF;
+  font-weight: 600;
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
