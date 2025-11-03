@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1E90FF" />
     <meta name="mobile-web-app-capable" content="yes" />
     <!-- Bump manifest version to pull latest -->
-    <link rel="manifest" href="./manifest.json?v=2025-10-31p" />
+    <link rel="manifest" href="./manifest.json?v=2025-11-02m" />
 
     <title>The Oklahoma Observer</title>
 
@@ -17,10 +17,7 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="icon-512.png" />
 
-    <!-- Main stylesheet (cache-busted) -->
-    <link rel="stylesheet" href="override.css?v=2025-10-31j" />
-
-    <!-- Inline fallback styles for immediate layout -->
+    <!-- Inline fallback styles (kept light) -->
     <style>
       :root { --brand:#1E90FF; --card:#fff; --ink:#111; --muted:#667; }
       * { box-sizing:border-box; }
@@ -28,7 +25,6 @@
       a { color:var(--brand); text-decoration:none; }
       a:hover { text-decoration:underline; }
 
-      /* Header */
       header { position:sticky; top:0; z-index:1000; background:var(--brand); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.06); }
       .header-inner { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; padding:14px 16px; }
       .logo { display:flex; flex-direction:column; gap:6px; }
@@ -37,26 +33,18 @@
       .hamburger { margin-left:auto; background:transparent; border:0; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:8px; }
       .hamburger:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
-      /* Nav */
       .nav-menu { display:none; position:sticky; top:56px; background:#0f6fcc; color:#fff; }
       .nav-menu.open { display:block; }
       .nav-menu a { display:inline-block; padding:10px 14px; color:#fff; }
 
-      /* Main grid fallback */
       main#app { max-width:1200px; margin:18px auto; padding:0 12px 80px; }
-      .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; }
-      @media (max-width:1100px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
-      @media (max-width:800px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-      @media (max-width:560px){.grid{grid-template-columns:1fr;}}
-
-      /* Card fallback */
-      .card { background:var(--card); border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); overflow:hidden; }
-      .card img { display:block; width:100%; height:auto; }
-      .card .body { padding:14px; }
       .loading { text-align:center; padding:2.5rem; color:var(--muted); }
 
       footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
     </style>
+
+    <!-- ALWAYS LOAD OVERRIDES LAST (cache-busted) -->
+    <link rel="stylesheet" href="override.css?v=2025-11-02m" />
   </head>
 
   <body>
@@ -102,10 +90,10 @@
     </script>
 
     <!-- App main (BUMPED) -->
-    <script src="main.js?v=2025-10-31p"></script>
+    <script src="main.js?v=2025-11-02m"></script>
 
     <!-- Grid enforcer -->
-    <script src="grid-enforcer.js?v=2025-10-31c"></script>
+    <script src="grid-enforcer.js?v=2025-11-02m"></script>
 
     <!-- SW registration (BUMPED) -->
     <script>
@@ -125,7 +113,7 @@
       // Service Worker
       if("serviceWorker" in navigator){
         window.addEventListener("load",()=>{
-          navigator.serviceWorker.register("./sw.js?v=2025-10-31p")
+          navigator.serviceWorker.register("./sw.js?v=2025-11-02m")
             .then(()=>console.log("[OkObserver] SW registered"))
             .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
         });
@@ -133,7 +121,7 @@
 
       // Footer info (BUMPED)
       document.getElementById("year").textContent=new Date().getFullYear();
-      document.getElementById("build").textContent="2025-10-31p";
+      document.getElementById("build").textContent="2025-11-02m";
     </script>
   </body>
 </html>

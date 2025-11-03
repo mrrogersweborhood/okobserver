@@ -1,66 +1,62 @@
-/* OkObserver Override Styles – 2025-11-02C2
+/* OkObserver Override Styles – 2025-11-02m
    COMPLETE REPLACEMENT
-   Keeps 3–4 column grid on desktop/tablet, 1 column mobile
-   Titles and bylines: OkObserver blue (#1E90FF) + bold bylines
-   Removes blue backgrounds permanently
-   Adds space between logo & motto
-   Featured images contained, not cropped
-   Performance: content-visibility virtualization for offscreen cards
+   - Titles/bylines/excerpts visible (no clipping)
+   - Summary page can use masonry (variable heights)
+   - Featured images contained (not cropped)
+   - Header spacing & sticky
+   - Performance hints kept, but never at the expense of hiding text
 */
 
-/* === Layout / Grid === */
+/* === Base layout (we’ll switch to masonry later) === */
 .post-grid,
 .posts-grid,
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.25rem;
-  justify-content: center;
-  align-content: start;
-  margin: 0 auto;
+  display: block;                  /* multicolumn masonry */
+  column-gap: 1.25rem;
   max-width: 1400px;
+  margin: 0 auto;
+  padding: 0;
 }
 
-/* maintain columns on all screen sizes */
 @media (min-width: 1200px) {
   .post-grid,
-  .posts-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+  .posts-grid { column-count: 4; }
 }
 @media (min-width: 768px) and (max-width: 1199px) {
   .post-grid,
-  .posts-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  .posts-grid { column-count: 3; }
 }
 @media (max-width: 767px) {
   .post-grid,
-  .posts-grid {
-    grid-template-columns: 1fr;
-  }
+  .posts-grid { column-count: 1; }
 }
 
-/* === Cards (virtualization hints) === */
+/* === Cards === */
 .post-card,
 .card {
+  display: inline-block;           /* needed for columns */
+  width: 100%;
+  margin: 0 0 1.25rem;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.15s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,.08);
+  transition: transform .15s ease;
 
-  /* performance */
+  /* performance hints — OK only if we don’t clip */
   content-visibility: auto;
-  contain-intrinsic-size: 360px 420px;
-  contain: layout paint size;
+  contain: layout paint style;
+  overflow: visible;               /* never hide text */
 }
 .post-card:hover { transform: translateY(-3px); }
-.thumb { background:#f3f3f3; }
 
-/* === Featured images (contained, not cropped) === */
+.post-card .body,
+.card .body {
+  padding: 14px 16px 16px;
+  overflow: visible;               /* ensure text not clipped */
+}
+
+/* === Media === */
+.thumb { background: #f3f3f3; }
 .post-card img,
 .thumb img,
 .post-hero img,
@@ -80,28 +76,35 @@
   font-weight: 600;
   background: transparent !important;
   text-decoration: none;
+  line-height: 1.25;
 }
 .post-title a:hover { text-decoration: underline; }
 
-/* byline under titles */
 .byline {
   color: #333 !important;
   font-weight: 600;
   background: transparent !important;
-  margin-bottom: 0.25rem;
+  margin: 0 0 .35rem 0;
+  font-size: .9rem;
 }
 
-/* excerpts */
+/* FULL excerpts (no clamp) */
 .post-card p,
 .post-excerpt,
 .post-summary {
   color: #444;
   background: transparent !important;
-  font-size: 0.95rem;
+  font-size: .95rem;
   line-height: 1.45;
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  white-space: normal !important;
 }
 
-/* === Header adjustments === */
+/* === Header === */
 header {
   display: flex;
   flex-direction: column;
@@ -114,33 +117,27 @@ header {
   top: 0;
   z-index: 1000;
 }
-header img.logo {
-  height: auto;
-  max-height: 70px;
-  width: auto;
-  margin-bottom: 6px; /* space between logo and motto */
-}
-header .motto { font-size: 0.95rem; margin-top: 3px; }
+header img.logo { height: auto; max-height: 70px; width: auto; margin-bottom: 6px; }
+header .motto { font-size: .95rem; margin-top: 3px; }
 
-/* === Buttons === */
+/* === Buttons (including Back to posts) === */
 a.button,
 button,
 footer a[href="#/"],
 footer a[href="#"] {
   background: #1E90FF !important;
   color: #fff !important;
-  border: none;
+  border: 0;
   border-radius: 10px;
   padding: 10px 16px;
   text-decoration: none;
   font-weight: 500;
-  transition: background 0.15s ease;
+  transition: background .15s ease;
 }
 a.button:hover,
 button:hover,
-footer a[href="#/"]:hover {
-  background: #187bcd !important;
-}
+footer a[href="#/"]:hover,
+footer a[href="#"]:hover { background: #187bcd !important; }
 
 /* === Misc === */
 body {
@@ -149,75 +146,6 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
 }
-/* Allow full-length excerpts and variable card heights */
-.post-card .body { overflow: visible; }         /* no clipping */
-.post-card p,
-.post-excerpt,
-.post-summary {
-  display: block;           /* ensure not clamped */
-  overflow: visible;        /* no hidden/ellipsis */
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  max-height: none;
-  white-space: normal;
-}
-/* === Masonry layout for the post summary grid === */
-/* Use CSS multicolumns so cards can be different heights and flow vertically */
 
-.post-grid,
-.posts-grid,
-.grid {
-  display: block;                  /* override previous grid display */
-  column-gap: 1.25rem;
-}
-
-@media (min-width: 1200px) {
-  .post-grid,
-  .posts-grid {
-    column-count: 4;               /* 4 columns on wide screens */
-  }
-}
-@media (min-width: 768px) and (max-width: 1199px) {
-  .post-grid,
-  .posts-grid {
-    column-count: 3;               /* 3 columns on tablets */
-  }
-}
-@media (max-width: 767px) {
-  .post-grid,
-  .posts-grid {
-    column-count: 1;               /* 1 column on phones */
-  }
-}
-
-/* Cards must be inline-blocks that avoid breaking across columns */
-.post-card,
-.card {
-  display: inline-block;           /* instead of flex/grid item */
-  width: 100%;
-  margin: 0 0 1.25rem;
-  break-inside: avoid;             /* prevent column splits */
-  -webkit-column-break-inside: avoid;
-  -moz-column-break-inside: avoid;
-}
-
-/* Keep your existing visual styles */
-.post-card img,
-.thumb img {
-  width: 100%;
-  height: auto;
-}
-
-/* Optional: ensure the infinite scroll sentinel stays outside masonry flow */
+/* Keep sentinel out of flow */
 #scrollSentinel { height: 1px; }
-/* ----- FIX: let card content expand; do not clip text ----- */
-.post-card,
-.card {
-  overflow: visible !important;            /* show body text */
-  contain-intrinsic-size: auto !important; /* no fake fixed height */
-}
-
-/* make sure the body itself isn't clipped by any old rules */
-.post-card .body {
-  overflow: visible !important;
-}
