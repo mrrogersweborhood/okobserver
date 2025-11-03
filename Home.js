@@ -1,11 +1,12 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H7
-   - FIX: wrong featured image bleed
+   Version: 2025-11-02H8
+   - FIX: wrong featured image bleed (kept from H7)
      • Resolve media by ID (not array position)
-     • Strict empty thumb when no media (prevents prior-image reuse)
+     • Strict empty thumb when no media
      • Per-post cache-buster on image URLs (?cb=<postId>)
      • One-time reload safeguard for incomplete/zero-width bitmaps
-   - PERF: same improvements from H6 (PER_PAGE=15, lazy excerpt mount, early IO)
+   - CHANGE: Excerpts are rendered IMMEDIATELY (no lazy mounting, no IO)
+   - PERF: Keep PER_PAGE=15 and early IntersectionObserver for infinite scroll
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -62,7 +63,7 @@ export async function renderHome($app, { VER } = {}) {
     return false;
   }
 
-  // --- FIX: select media by actual linked ID, not array order
+  // --- Select media by actual linked ID, not array order ---
   function pickRenditionById(p) {
     const linkId = (() => {
       try {
@@ -134,6 +135,7 @@ export async function renderHome($app, { VER } = {}) {
   const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   const buildExcerpt = (p) => (textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "").trim();
 
+  // --- IMMEDIATE excerpt rendering (no lazy mount) ---
   function cardHTML(p, indexInPage) {
     const title = buildTitle(p);
     const author = getAuthor(p);
@@ -150,7 +152,7 @@ export async function renderHome($app, { VER } = {}) {
           <div class="byline" style="font-size:.9rem; margin:0 0 .35rem 0;">
             ${author ? `${esc(author)} • ` : ""}${date}
           </div>
-          ${excerpt ? `<p class="excerpt" data-full="${esc(excerpt)}"></p>` : ``}
+          ${excerpt ? `<p class="excerpt">${esc(excerpt)}</p>` : ``}
         </div>
       </article>
     `;
@@ -193,9 +195,6 @@ export async function renderHome($app, { VER } = {}) {
     if (currentPage===1) $grid.innerHTML = html; else $grid.insertAdjacentHTML("beforeend", html);
     currentPage++; loading = false;
 
-    // Lazy mount excerpts
-    mountExcerptObserver();
-
     // One-time reload for any incomplete/zero-width bitmaps (defensive)
     requestAnimationFrame(() => {
       $grid.querySelectorAll('article.post-card img').forEach(img => {
@@ -206,21 +205,6 @@ export async function renderHome($app, { VER } = {}) {
         }
       });
     });
-  }
-
-  // Excerpt IO
-  let ioText;
-  function mountExcerptObserver(){
-    if (ioText) return;
-    ioText = new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{
-        if (!e.isIntersecting) return;
-        const el = e.target;
-        el.textContent = el.dataset.full || "";
-        ioText.unobserve(el);
-      });
-    }, { rootMargin: "1200px 0px" });
-    $grid.querySelectorAll('.excerpt[data-full]').forEach(el=>ioText.observe(el));
   }
 
   // initial load
