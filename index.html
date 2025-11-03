@@ -2,23 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-
-    <!-- Viewport & PWA basics -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
     <meta name="theme-color" content="#1E90FF" />
     <meta name="mobile-web-app-capable" content="yes" />
-
-    <!-- Manifest (cache-busted) -->
     <link rel="manifest" href="./manifest.json?v=2025-11-02R" />
 
     <title>The Oklahoma Observer</title>
 
-    <!-- Favicon -->
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="icon-512.png" />
 
-    <!-- Inline fallback style -->
+    <!-- Minimal fallback styles -->
     <style>
       :root { --brand:#1E90FF; --ink:#111; --muted:#667; }
       html,body { margin:0; padding:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#fff; color:var(--ink); }
@@ -37,7 +32,7 @@
       footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
     </style>
 
-    <!-- Override stylesheet (cache-busted) -->
+    <!-- Cache-busted overrides -->
     <link rel="stylesheet" href="override.css?v=2025-11-02R" />
   </head>
 
@@ -65,7 +60,7 @@
       Build <span id="build"></span>
     </footer>
 
-    <!-- MutationObserver grid enforcement -->
+    <!-- MutationObserver safeguard -->
     <script>
       (function(){
         function enforceGrid(){
@@ -77,7 +72,7 @@
       })();
     </script>
 
-    <!-- Main script (cache-busted) -->
+    <!-- App scripts (cache-busted) -->
     <script src="main.js?v=2025-11-02R"></script>
     <script src="grid-enforcer.js?v=2025-11-02R"></script>
 
@@ -86,7 +81,13 @@
       (function(){
         const b=document.getElementById("hamburger");
         const m=document.getElementById("navMenu");
-        if(b&&m){ b.addEventListener("click",()=>{const o=!m.classList.contains("open");m.classList.toggle("open",o);b.setAttribute("aria-expanded",o);});}
+        if(b&&m){
+          b.addEventListener("click",()=>{
+            const open=!m.classList.contains("open");
+            m.classList.toggle("open",open);
+            b.setAttribute("aria-expanded",open);
+          });
+        }
       })();
 
       // Service Worker registration
@@ -98,9 +99,9 @@
         });
       }
 
-      // Footer metadata
-      document.getElementById("year").textContent=new Date().getFullYear();
-      document.getElementById("build").textContent="2025-11-02R";
+      // Footer metadata (cleaned up — no double "Build")
+      document.getElementById("year").textContent = new Date().getFullYear();
+      document.getElementById("build").textContent = "2025-11-02R";
     </script>
   </body>
 </html>
