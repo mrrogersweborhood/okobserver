@@ -1,16 +1,9 @@
-/* OkObserver Post Detail
-   Version: 2025-11-02D3
-   - Media-first (video or image), title/byline beneath
-   - Title in OkObserver blue (#1E90FF), bold byline
-   - Back-to-posts button in brand blue
-   - Video handling (priority order):
-       1) Featured MP4 (native <video>)
-       2) Vimeo link in content (responsive iframe)
-       3) YouTube link in content (responsive iframe)
-       4) Facebook video link in content -> show poster + "Watch on Facebook" button (no iframe)
-       5) Fallback to featured image
-   - Cleans WordPress content to remove the *leading image/link block*
-     when we already render a hero (prevents big white gaps)
+/* OkObserver Post Detail (click-to-activate embeds)
+   Version: 2025-11-02D4
+   - _embed narrowed to author, wp:featuredmedia
+   - Defers heavy iframes: shows poster + "Play" button; builds iframe on click
+   - Cleans duplicate leading image in WP content when hero is shown
+   - Title blue, byline bold, Back button blue; hero images contained
 */
 
 export async function renderPost(id, { VER } = {}) {
@@ -33,7 +26,7 @@ export async function renderPost(id, { VER } = {}) {
   let post = null;
   try {
     const res = await fetch(
-      `${API_BASE}/posts/${id}?_embed=1&_=${encodeURIComponent(VER || "detail")}`,
+      `${API_BASE}/posts/${id}?_embed=wp:featuredmedia,author&_=${encodeURIComponent(VER || "detail")}`,
       { credentials: "omit", cache: "no-store", keepalive: false }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -51,23 +44,10 @@ export async function renderPost(id, { VER } = {}) {
   }
 
   // ---- Helpers ----
-  const textFromHTML = (html = "") => {
-    const d = document.createElement("div");
-    d.innerHTML = html;
-    return (d.textContent || d.innerText || "").trim();
-  };
-  const getAuthor = (p) => {
-    try { return p?._embedded?.author?.[0]?.name || ""; } catch {}
-    return "";
-  };
-  const fmtDate = (iso) => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-    } catch { return ""; }
-  };
+  const textFromHTML = (html = "") => { const d = document.createElement("div"); d.innerHTML = html; return (d.textContent || d.innerText || "").trim(); };
+  const getAuthor = (p) => { try { return p?._embedded?.author?.[0]?.name || ""; } catch {} return ""; };
+  const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); } catch { return ""; } };
 
-  // Featured media probe
   function getFeaturedInfo(p) {
     const m = p?._embedded?.["wp:featuredmedia"]?.[0] || null;
     if (!m) return null;
@@ -80,59 +60,39 @@ export async function renderPost(id, { VER } = {}) {
   }
 
   function detectLinksFromContent(html = "") {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
     const urls = new Set();
     const raw = (tmp.textContent || "").trim();
     const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
     (raw.match(urlRegex) || []).forEach((u) => urls.add(u.trim()));
     tmp.querySelectorAll("a[href]").forEach((a) => urls.add(a.getAttribute("href")));
-
     let vimeo = null, youtube = null, facebook = null;
-
     for (const u of urls) {
-      if (!vimeo) {
-        const m = u.match(/vimeo\.com\/(\d+)/i);
-        if (m && m[1]) vimeo = { id: m[1], url: u };
-      }
-      if (!youtube) {
+      if (!vimeo)  { const m = u.match(/vimeo\.com\/(\d+)/i); if (m && m[1]) vimeo = { id: m[1], url: u }; }
+      if (!youtube){
         const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
         const short  = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
         const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
         const vid = (vParam && vParam[1]) || (short && short[1]) || (shorts && shorts[1]) || "";
         if (vid) youtube = { id: vid, url: u };
       }
-      if (!facebook && /facebook\.com\/.*\/videos\/\d+/i.test(u)) {
-        facebook = { url: u };
-      }
+      if (!facebook && /facebook\.com\/.*\/videos\/\d+/i.test(u)) { facebook = { url: u }; }
       if (vimeo && youtube && facebook) break;
     }
-
     return { vimeo, youtube, facebook };
   }
 
   function cleanContent(html, { removeLeadingMedia } = { removeLeadingMedia: false }) {
     if (!html) return "";
-    const root = document.createElement("div");
-    root.innerHTML = html;
-
+    const root = document.createElement("div"); root.innerHTML = html;
     root.querySelectorAll('div.mceTemp, div[data-mce-bogus="all"]').forEach((n) => n.remove());
-
     if (removeLeadingMedia) {
       const first = root.firstElementChild;
-      if (first && first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) {
-        first.remove();
-      }
+      if (first && first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) first.remove();
       let cur = root.firstElementChild;
       if (cur) {
-        const isImgBlock =
-          cur.matches("p,div,figure") &&
-          cur.querySelector("img") &&
-          (cur.querySelector("a[href]") || cur.querySelector("img"));
-
+        const isImgBlock = cur.matches("p,div,figure") && cur.querySelector("img") && (cur.querySelector("a[href]") || cur.querySelector("img"));
         const isBareImg = cur.matches("img");
-
         if (isImgBlock || isBareImg) {
           cur.remove();
           while (root.firstElementChild && root.firstElementChild.textContent.trim() === "" && !root.firstElementChild.querySelector("img,video,iframe")) {
@@ -152,7 +112,24 @@ export async function renderPost(id, { VER } = {}) {
   const rawContentHTML = post?.content?.rendered || "";
   const links = featured && featured.mp4 ? {} : detectLinksFromContent(rawContentHTML);
 
-  // Build media block (priority)
+  // ---- Lazy embed helpers ----
+  function buttonHTML(label="Play"){
+    return `<button type="button" class="button" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;border:0;cursor:pointer;">${label}</button>`;
+  }
+  function mountOnClick($slot, makeIframe){
+    const $btn = $slot.querySelector("button"); if (!$btn) return;
+    $btn.addEventListener("click", ()=>{
+      const wrap = document.createElement("div");
+      wrap.className = "oko-embed";
+      wrap.style.cssText = "position:relative;width:100%;padding-top:56.25%;margin:12px 0;";
+      const iframe = makeIframe();
+      Object.assign(iframe.style, {position:"absolute",top:"0",left:"0",width:"100%",height:"100%",border:"0",borderRadius:"10px"});
+      wrap.appendChild(iframe);
+      $slot.replaceWith(wrap);
+    }, { once:true });
+  }
+
+  // Build hero block
   let mediaHTML = "";
   let removeLeadingMediaFromContent = false;
 
@@ -165,36 +142,20 @@ export async function renderPost(id, { VER } = {}) {
       </figure>`;
     removeLeadingMediaFromContent = true;
   } else if (links.vimeo) {
-    const src = `https://player.vimeo.com/video/${links.vimeo.id}`;
     mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;">
-        <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
-          <iframe src="${src}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture"
-                  allowfullscreen
-                  style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
-        </div>
+      <figure class="post-hero" style="margin:18px 0;text-align:center;">
+        ${buttonHTML("▶ Play Vimeo")}
       </figure>`;
     removeLeadingMediaFromContent = true;
   } else if (links.youtube) {
-    const src = `https://www.youtube.com/embed/${links.youtube.id}`;
     mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;">
-        <div class="oko-embed" style="position:relative;width:100%;padding-top:56.25%;margin:12px 0;">
-          <iframe src="${src}" frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowfullscreen
-                  style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:10px;"></iframe>
-        </div>
+      <figure class="post-hero" style="margin:18px 0;text-align:center;">
+        ${buttonHTML("▶ Play YouTube")}
       </figure>`;
     removeLeadingMediaFromContent = true;
   } else if (links.facebook) {
-    const fbBtn = `
-      <div style="text-align:center;margin:12px 0;">
-        <a href="${links.facebook.url}" target="_blank" rel="noopener"
-           style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">
-          ▶ Watch on Facebook
-        </a>
-      </div>`;
+    const fbBtn = `<a href="${links.facebook.url}" target="_blank" rel="noopener"
+           class="button" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">▶ Watch on Facebook</a>`;
     if (featured && featured.poster) {
       const alt = (featured.alt || title).replace(/"/g, "&quot;");
       const wAttr = featured.w ? ` width="${featured.w}"` : "";
@@ -203,10 +164,10 @@ export async function renderPost(id, { VER } = {}) {
         <figure class="post-hero" style="margin:18px 0; text-align:center;">
           <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
                style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
-          ${fbBtn}
+          <div style="margin-top:12px;">${fbBtn}</div>
         </figure>`;
     } else {
-      mediaHTML = `<figure class="post-hero" style="margin:18px 0;">${fbBtn}</figure>`;
+      mediaHTML = `<figure class="post-hero" style="margin:18px 0;text-align:center;">${fbBtn}</figure>`;
     }
     removeLeadingMediaFromContent = true;
   } else if (featured && featured.poster) {
@@ -223,7 +184,7 @@ export async function renderPost(id, { VER } = {}) {
 
   const contentHTML = cleanContent(rawContentHTML, { removeLeadingMedia: removeLeadingMediaFromContent });
 
-  // ---- Render page ----
+  // Render
   $detail.innerHTML = `
     ${mediaHTML || ""}
 
@@ -241,30 +202,30 @@ export async function renderPost(id, { VER } = {}) {
     </section>
 
     <footer class="post-footer" style="margin:28px 0 0 0;">
-      <a href="#/" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">← Back to posts</a>
+      <a href="#/" class="button" style="text-decoration:none;">← Back to posts</a>
     </footer>
   `;
 
-  // Make any stray iframes in content responsive (safety)
+  // Activate embeds on click (if applicable)
   try {
-    $detail.querySelectorAll('.oko-content iframe').forEach((iframe) => {
-      if (iframe.closest('.oko-embed')) return;
-      const wrap = document.createElement('div');
-      wrap.className = 'oko-embed';
-      wrap.style.position = 'relative';
-      wrap.style.width = '100%';
-      wrap.style.paddingTop = '56.25%';
-      wrap.style.margin = '12px 0';
-      iframe.parentNode.insertBefore(wrap, iframe);
-      iframe.style.position = 'absolute';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = '0';
-      iframe.style.borderRadius = '10px';
-      wrap.appendChild(iframe);
-    });
+    if (links.vimeo) {
+      const slot = $detail.querySelector('.post-hero');
+      mountOnClick(slot, () => {
+        const f = document.createElement('iframe');
+        f.src = `https://player.vimeo.com/video/${links.vimeo.id}`;
+        f.allow = "autoplay; fullscreen; picture-in-picture"; f.allowFullscreen = true;
+        return f;
+      });
+    }
+    if (links.youtube) {
+      const slot = $detail.querySelector('.post-hero');
+      mountOnClick(slot, () => {
+        const f = document.createElement('iframe');
+        f.src = `https://www.youtube.com/embed/${links.youtube.id}`;
+        f.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"; f.allowFullscreen = true;
+        return f;
+      });
+    }
   } catch {}
 
   // Keep header sticky (defensive)
