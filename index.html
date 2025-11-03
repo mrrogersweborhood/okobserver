@@ -9,46 +9,45 @@
   <link rel="icon" href="favicon.ico" />
   <link rel="manifest" href="manifest.json" />
 
+  <!-- keep fast warm-ups -->
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <link rel="stylesheet" href="override.css?v=2025-11-03R1c" />
+  <link rel="stylesheet" href="override.css?v=2025-11-03R1d" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
-  <header id="site-header" class="oo-header">
-    <div class="oo-header__inner">
-      <a class="oo-brand" href="#/">
-        <img class="oo-logo" src="logo.png" alt="OkObserver logo" />
-        <div class="oo-branding">
-          <div class="oo-title">The Oklahoma Observer</div>
-          <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
-        </div>
-      </a>
-      <button id="hamburger" class="oo-hamburger" aria-label="Open menu" aria-expanded="false">☰</button>
-      <nav id="menu" class="oo-menu" hidden>
-        <a href="#/" data-nav="posts">Posts</a>
-        <a href="#/about" data-nav="about">About</a>
-        <a href="#/settings" data-nav="settings">Settings</a>
-      </nav>
-    </div>
+  <!-- Header: matches override.css selectors (logo, motto) -->
+  <header>
+    <img class="logo" src="logo.png" alt="The Oklahoma Observer" />
+    <a href="#/" class="title-link">The Oklahoma Observer</a>
+    <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+    <button id="hamburger" aria-label="Open menu" aria-expanded="false">☰</button>
+    <nav id="menu" hidden>
+      <a href="#/" data-nav="posts">Posts</a>
+      <a href="#/about" data-nav="about">About</a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+    </nav>
   </header>
 
-  <main id="app" class="oo-app" aria-live="polite"></main>
-  <div id="sentinel" class="oo-sentinel" aria-hidden="true"></div>
+  <!-- App root -->
+  <main id="app" aria-live="polite"></main>
+  <!-- Infinite scroll sentinel -->
+  <div id="sentinel" aria-hidden="true"></div>
 
-  <footer class="oo-footer">
-    © 2025 The Oklahoma Observer · Build <b>2025-11-03R1c</b>
+  <footer>
+    © 2025 The Oklahoma Observer · Build 2025-11-03R1d
   </footer>
 
-  <script defer src="main.js?v=2025-11-03R1c"></script>
+  <!-- Plain JS only -->
+  <script defer src="main.js?v=2025-11-03R1d"></script>
   <script>
     if ('serviceWorker' in navigator) {
       addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js?v=2025-11-03R1c').catch(()=>{})
+        navigator.serviceWorker.register('sw.js?v=2025-11-03R1d').catch(()=>{})
       );
     }
-    console.log('%cOkObserver Build 2025-11-03R1c Loaded','color:#1E90FF;font-weight:bold');
+    console.log('[OkObserver] index.html 2025-11-03R1d');
   </script>
 </body>
 </html>
