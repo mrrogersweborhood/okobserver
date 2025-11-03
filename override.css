@@ -140,3 +140,127 @@ header .motto {
   text-decoration: underline;
 }
 .post-card:hover { transform: translateY(-2px); } /* subtle hover only */
+/* 🟢 override.css — 2025-11-03 R1p2 (restores header + clickable cards + grid no-overlap) */
+
+/* ===== Base / Reset ===== */
+:root { --oo-blue:#1E90FF; --oo-bg:#f7f7f9; --oo-card:#ffffff; --oo-border:#e9e9ee; --oo-text:#111; }
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; }
+body {
+  background: var(--oo-bg);
+  color: var(--oo-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans",
+               "Apple Color Emoji","Segoe UI Emoji";
+}
+a { color: inherit; text-decoration: none; }
+
+/* ===== Header (sticky, left-aligned, motto pill) ===== */
+header {
+  position: sticky; top: 0; z-index: 1000;
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border-bottom: 1px solid var(--oo-border);
+  padding: 10px 12px;
+}
+header .logo { height: 36px; width: auto; display:block; }
+header .title-link { font-weight: 700; font-size: 18px; margin-right: auto; }
+header .motto {
+  color: #fff; background: var(--oo-blue);
+  padding: 4px 8px; border-radius: 999px; display: inline-block;
+  white-space: nowrap; line-height: 1;
+}
+#hamburger { border: 0; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+#menu[hidden] { display: none; }
+#menu a { display: inline-block; padding: 8px 10px; border-radius: 10px; }
+#menu a:hover { background: #f1f4ff; color: #0a58ff; }
+
+/* ===== App Shell ===== */
+main#app { padding: 16px; }
+footer { padding: 18px; text-align: center; color: #666; }
+
+/* =======================================================
+   POSTS SUMMARY: CSS GRID (no overlap), soft cards
+   ======================================================= */
+.posts-grid {
+  display: grid;
+  grid-template-columns: repeat( auto-fill, minmax(280px, 1fr) );
+  gap: 18px;
+  align-items: start;
+}
+
+/* Card container */
+.post-card {
+  background: var(--oo-card);
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.06);
+  overflow: hidden;
+  margin: 0; /* spacing handled by grid gap */
+  transition: transform .08s ease, box-shadow .2s ease, opacity .3s ease;
+}
+.post-card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,.08); }
+
+/* Make the WHOLE card clickable (title+byline+excerpt) */
+.post-card .title-link { display: block; position: relative; z-index: 1; }
+
+/* Media at the top of the card */
+.post-card .thumb { background: #fff; }
+.post-card img,
+.post-card iframe,
+.post-card video {
+  display: block; width: 100%; height: auto; border: 0;
+  /* In summaries we don’t want media stealing clicks */
+  pointer-events: none;
+}
+
+/* Card text areas */
+.post-card .post-title { font-size: 18px; line-height: 1.25; margin: 12px 12px 6px; }
+.post-card .byline { font-size: 13px; color: #555; margin: 0 12px 8px; }
+.post-card .post-summary { font-size: 14px; color: #222; margin: 0 12px 14px; }
+
+/* Allow links inside excerpt to look like links */
+.post-card .post-summary a { text-decoration: underline; }
+
+/* =======================================================
+   POST DETAIL: hero media responsive, title in OkObserver blue
+   ======================================================= */
+.post-detail { max-width: 880px; margin: 0 auto; padding: 0 12px; }
+
+.post-hero img,
+.post-hero iframe,
+.post-hero video {
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  display: block !important;
+  border: 0;
+  /* Detail view should be interactable */
+  pointer-events: auto;
+}
+
+.post-detail__title {
+  color: var(--oo-blue);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+  line-height: 1.2;
+  margin: 8px 0;
+}
+
+.post-detail .byline { color: #444; margin: 0 0 16px 0; }
+
+/* =======================================================
+   RESPONSIVE: keep 3–4 columns desktop/tablet; 1 column mobile
+   ======================================================= */
+@media (min-width: 1200px) {
+  .posts-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 800px) and (max-width: 1199px) {
+  .posts-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 799px) {
+  .posts-grid { grid-template-columns: 1fr; }
+}
+
+/* =======================================================
+   MISC: subtle accessibility and stability tweaks
+   ======================================================= */
+.post-card { contain: layout paint; }             /* help perf on fade-in */
+a:focus-visible, button:focus-visible { outline: 2px solid var(--oo-blue); outline-offset: 2px; }
