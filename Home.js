@@ -1,11 +1,11 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H6
-   Changes vs H5:
-   - PER_PAGE = 15 (3x5) for faster first paint
-   - Earlier prefetch via IntersectionObserver rootMargin=1200px
-   - Full excerpts, but TEXT IS LAZY-MOUNTED when card nears viewport
-   - Correct requestIdleCallback usage
-   - _embed kept: author, wp:featuredmedia, wp:term (for filters)
+   Version: 2025-11-02H7
+   - FIX: wrong featured image bleed
+     • Resolve media by ID (not array position)
+     • Strict empty thumb when no media (prevents prior-image reuse)
+     • Per-post cache-buster on image URLs (?cb=<postId>)
+     • One-time reload safeguard for incomplete/zero-width bitmaps
+   - PERF: same improvements from H6 (PER_PAGE=15, lazy excerpt mount, early IO)
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -14,7 +14,6 @@ export async function renderHome($app, { VER } = {}) {
   let currentPage = 1, loading = false, done = false;
   if (!$app) return;
 
-  // Shell: masonry container + external sentinel (keeps IO simple)
   $app.innerHTML = `
     <div id="postsGrid" class="post-grid posts-grid grid">
       <div class="loading" style="text-align:center;padding:1.25rem 0;">Loading…</div>
@@ -24,7 +23,7 @@ export async function renderHome($app, { VER } = {}) {
   const $grid = document.getElementById("postsGrid");
   const $sentinel = document.getElementById("scrollSentinel");
 
-  // User prefs
+  // user prefs
   const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
   const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
 
@@ -38,7 +37,6 @@ export async function renderHome($app, { VER } = {}) {
   const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const escAttr = (s) => esc(s).replace(/`/g,"&#96;");
 
-  // Cartoon / test detection
   function isCartoon(p){
     const title = textFromHTML(p?.title?.rendered).toLowerCase();
     if (/\b(cartoon|illustration|toon)\b/.test(title)) return true;
@@ -64,18 +62,33 @@ export async function renderHome($app, { VER } = {}) {
     return false;
   }
 
-  // Image rendition picker
-  function pickRendition(m) {
-    const sizes = m?.media_details?.sizes || {};
-    const fallW = m?.media_details?.width || 0;
-    const fallH = m?.media_details?.height || 0;
+  // --- FIX: select media by actual linked ID, not array order
+  function pickRenditionById(p) {
+    const linkId = (() => {
+      try {
+        const href = p?._links?.['wp:featuredmedia']?.[0]?.href || "";
+        const m = href.match(/\/media\/(\d+)/);
+        return m ? Number(m[1]) : null;
+      } catch { return null; }
+    })();
+
+    const mediaArr = p?._embedded?.['wp:featuredmedia'] || [];
+    const media = linkId ? (mediaArr.find(x => Number(x?.id) === linkId) || mediaArr[0]) : mediaArr[0];
+    if (!media) return null;
+
+    const sizes = media?.media_details?.sizes || {};
+    const fallW = media?.media_details?.width || 0;
+    const fallH = media?.media_details?.height || 0;
     const get = (k) => sizes[k] && sizes[k].source_url ? sizes[k] : null;
+
     const medium      = get("medium");
     const mediumLarge = get("medium_large");
     const large       = get("large");
     const x1536       = get("1536x1536");
-    const full        = m?.source_url ? { source_url: m.source_url, width: fallW, height: fallH } : null;
+    const full        = media?.source_url ? { source_url: media.source_url, width: fallW, height: fallH } : null;
+
     const base = mediumLarge || large || x1536 || medium || full || null;
+    if (!base) return null;
 
     const set = [];
     if (medium      && medium.width)      set.push(`${medium.source_url} ${medium.width}w`);
@@ -85,38 +98,41 @@ export async function renderHome($app, { VER } = {}) {
     if (full        && full.width)        set.push(`${full.source_url} ${full.width}w`);
 
     return {
-      url: base ? base.source_url : "",
-      w: base?.width || fallW || 0,
-      h: base?.height || fallH || 0,
-      alt: m?.alt_text || "",
+      url: base.source_url,
+      w: base.width || fallW || 0,
+      h: base.height || fallH || 0,
+      alt: media?.alt_text || "",
       srcset: set.join(", ")
     };
   }
 
-  const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
-  function buildExcerpt(p) {
-    // FULL excerpt (no truncation)
-    return (textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "").trim();
-  }
-
   function cardMediaHTML(p, title, indexInPage) {
-    const m = p?._embedded?.["wp:featuredmedia"]?.[0];
+    const media = pickRenditionById(p);
     const href = `#/post/${p?.id}`;
-    if (!m) return `<a href="${href}" class="thumb media" aria-label="${escAttr(title)}"></a>`;
-    const r = pickRendition(m);
-    const alt = escAttr(r.alt || title);
-    const wAttr = r.w ? ` width="${r.w}"` : "";
-    const hAttr = r.h ? ` height="${r.h}"` : "";
-    const srcset = r.srcset ? ` srcset="${r.srcset}"` : "";
+    if (!media) {
+      return `<a href="${href}" class="thumb media" aria-label="${escAttr(title)}"></a>`;
+    }
+    const cb = String(p.id || 'x'); // per-post cache-buster
+    const src = media.url.includes('?') ? `${media.url}&cb=${cb}` : `${media.url}?cb=${cb}`;
+    const alt = escAttr(media.alt || title);
+    const wAttr = media.w ? ` width="${media.w}"` : "";
+    const hAttr = media.h ? ` height="${media.h}"` : "";
+    const srcset = media.srcset ? ` srcset="${media.srcset}"` : "";
     const sizes = ` sizes="(max-width:640px) 92vw, (max-width:1200px) 28vw, 22vw"`;
     const fetchPri = indexInPage < 2 ? ` fetchpriority="high"` : "";
+
     return `
-      <a href="${href}" class="thumb media" aria-label="${escAttr(title)}">
-        <img src="${r.url}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
-             alt="${alt}" loading="lazy" decoding="async" />
+      <a href="${href}" class="thumb media" aria-label="${escAttr(title)}" data-postid="${cb}">
+        <img
+          src="${src}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
+          alt="${alt}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        />
       </a>
     `;
   }
+
+  const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
+  const buildExcerpt = (p) => (textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "").trim();
 
   function cardHTML(p, indexInPage) {
     const title = buildTitle(p);
@@ -124,7 +140,6 @@ export async function renderHome($app, { VER } = {}) {
     const date = fmtDate(p?.date);
     const excerpt = buildExcerpt(p);
     const href = `#/post/${p?.id}`;
-    // Excerpt mounted lazily (we set data-full now; fill text when near viewport)
     return `
       <article class="post-card card" data-test="card">
         ${cardMediaHTML(p, title, indexInPage)}
@@ -161,6 +176,7 @@ export async function renderHome($app, { VER } = {}) {
   async function loadMore(){
     if (loading || done) return;
     loading = true;
+
     const batch = await fetchPosts(currentPage);
     if (!batch.length){ done = true; loading = false; return; }
 
@@ -170,15 +186,29 @@ export async function renderHome($app, { VER } = {}) {
       return true;
     });
 
-    const html = filtered.map((p, i) => cardHTML(p, (currentPage===1 ? i : i + PER_PAGE*(currentPage-1)))).join("");
+    const html = filtered.map((p, i) =>
+      cardHTML(p, (currentPage===1 ? i : i + PER_PAGE*(currentPage-1)))
+    ).join("");
+
     if (currentPage===1) $grid.innerHTML = html; else $grid.insertAdjacentHTML("beforeend", html);
     currentPage++; loading = false;
 
-    // Lazy mount excerpts when near viewport
+    // Lazy mount excerpts
     mountExcerptObserver();
+
+    // One-time reload for any incomplete/zero-width bitmaps (defensive)
+    requestAnimationFrame(() => {
+      $grid.querySelectorAll('article.post-card img').forEach(img => {
+        if (!img.complete || img.naturalWidth === 0) {
+          const u = new URL(img.src, location.href);
+          u.searchParams.set('rld', String(Date.now() % 1e7));
+          img.src = u.toString();
+        }
+      });
+    });
   }
 
-  // Excerpt IntersectionObserver (mount text just-in-time)
+  // Excerpt IO
   let ioText;
   function mountExcerptObserver(){
     if (ioText) return;
@@ -196,7 +226,7 @@ export async function renderHome($app, { VER } = {}) {
   // initial load
   await loadMore();
 
-  // attach infinite-scroll observer during idle
+  // infinite scroll (idle attach)
   function attachObserverIdle(sentinel, cb){
     const init = () => {
       const io = new IntersectionObserver((entries)=>{
@@ -209,7 +239,7 @@ export async function renderHome($app, { VER } = {}) {
   }
   attachObserverIdle($sentinel, () => loadMore());
 
-  // Speculative prefetch on hover/focus (warms detail request)
+  // speculative prefetch post detail
   $grid.addEventListener('mouseover', (e)=>{
     const a = e.target.closest('a[href^="#/post/"]');
     if (!a) return;
