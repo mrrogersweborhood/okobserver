@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1n+ (no autoplay, smooth insert, masonry-safe) */
+/* 🟢 main.js — 2025-11-03R1p (Grid layout compatible; no autoplay; smooth insert) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1n+';
+  window.AppVersion = '2025-11-03R1p';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -11,15 +11,14 @@
   let page = 1, loading = false, reachedEnd = false, route = 'home';
   const cachePages = new Map(), lru = [];
 
-  const app       = document.getElementById('app');
-  const sentinel  = document.getElementById('sentinel');
-  const menu      = document.getElementById('menu');
+  const app = document.getElementById('app');
+  const sentinel = document.getElementById('sentinel');
+  const menu = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // ---- cartoon filter ----
   const isCartoon = post => {
     const title = (post?.title?.rendered || '').toLowerCase();
     if (/\bcartoon(s)?\b/.test(title)) return true;
@@ -27,7 +26,6 @@
     return terms.some(t => (t.name||'').toLowerCase().includes('cartoon') || (t.slug||'').toLowerCase().includes('cartoon'));
   };
 
-  // ---- featured image helpers ----
   const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -42,7 +40,7 @@
     return `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  // ---- video extraction (detail only; autoplay removed) ----
+  // ---- video extraction for detail (autoplay removed) ----
   const extractVideo = html => {
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
     if (yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]||yt[2]}?rel=0` };
@@ -58,16 +56,14 @@
     return null;
   };
 
-  // ---- inline video (no autoplay) ----
+  // ---- inline video (no autoplay, responsive) ----
   const playInlineVideo = (container, playable) => {
     if (!playable || !container) return;
     container.innerHTML = '';
     if (playable.type === 'video') {
       const v = document.createElement('video');
       Object.assign(v, { src: playable.src, controls: true, playsInline: true });
-      v.style.width = '100%';
-      v.style.display = 'block';
-      v.style.aspectRatio = '16 / 9';
+      v.style.width = '100%'; v.style.display = 'block'; v.style.aspectRatio = '16 / 9';
       container.appendChild(v);
     } else {
       const f = document.createElement('iframe');
@@ -77,9 +73,7 @@
         frameBorder: '0',
         referrerPolicy: 'no-referrer-when-downgrade'
       });
-      f.style.width = '100%';
-      f.style.aspectRatio = '16 / 9';
-      f.style.display = 'block';
+      f.style.width = '100%'; f.style.display = 'block'; f.style.aspectRatio = '16 / 9';
       container.appendChild(f);
     }
   };
@@ -100,7 +94,7 @@
       </a>
     </article>`;
 
-  // ---- smooth renderPage (masonry-safe) ----
+  // ---- renderPage (fade-in; no column hacks needed with Grid) ----
   const renderPage = posts => {
     const feed = ensureFeed();
     const frag = document.createDocumentFragment();
@@ -108,15 +102,8 @@
       const wrap=document.createElement('div');
       wrap.innerHTML=cardHTML(p);
       const card=wrap.firstElementChild;
-
-      // Smooth fade-in
       card.style.opacity='0';
       card.style.transition='opacity 0.3s ease';
-
-      // Masonry stability in CSS columns
-      card.style.display='inline-block';
-      card.style.verticalAlign='top';
-
       frag.appendChild(card);
       requestAnimationFrame(()=>{card.style.opacity='1';});
     });
