@@ -1,119 +1,66 @@
-<!DOCTYPE html>
+<!-- 🟢 index.html -->
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
-    <meta name="theme-color" content="#1E90FF" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="./manifest.json?v=2025-11-02R2" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Oklahoma Observer</title>
 
-    <title>The Oklahoma Observer</title>
+  <!-- Icons & Manifest -->
+  <link rel="icon" href="favicon.ico" />
+  <link rel="manifest" href="manifest.json" />
 
-    <link rel="icon" href="favicon.ico" type="image/x-icon" />
-    <link rel="apple-touch-icon" href="icon-512.png" />
+  <!-- Preconnect / DNS prefetch for proxy -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
+  <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-    <!-- Preconnect / DNS Prefetch -->
-    <link rel="preconnect" href="https://okobserver.org" />
-    <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
-    <link rel="dns-prefetch" href="https://okobserver.org" />
-    <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="override.css?v=2025-11-03R1" />
 
-    <!-- Minimal fallback CSS -->
-    <style>
-      :root { --brand:#1E90FF; --ink:#111; --muted:#667; }
-      html,body { margin:0; padding:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#fff; color:var(--ink); }
-      a { color:var(--brand); text-decoration:none; }
-      a:hover { text-decoration:underline; }
-      header { background:var(--brand); color:#fff; position:sticky; top:0; z-index:1000; box-shadow:0 1px 0 rgba(0,0,0,.08); }
-      .header-inner { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; padding:14px 16px; }
-      .logo { display:flex; flex-direction:column; gap:6px; align-items:center; }
-      .logo img { height:48px; width:auto; display:block; }
-      .motto { font-size:12px; opacity:.9; }
-      .hamburger { margin-left:auto; background:none; border:0; color:#fff; font-size:24px; cursor:pointer; padding:8px; }
-      .nav-menu { display:none; position:sticky; top:56px; background:#0f6fcc; color:#fff; }
-      .nav-menu.open { display:block; }
-      .nav-menu a { color:#fff; padding:10px 14px; display:inline-block; }
-      main#app { max-width:1200px; margin:18px auto; padding:0 12px 80px; }
-      footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
-    </style>
-
-    <!-- Cache-busted overrides -->
-    <link rel="stylesheet" href="override.css?v=2025-11-02R2" />
-  </head>
-
-  <body>
-    <header>
-      <div class="header-inner">
-        <div class="logo">
-          <img src="logo.png" alt="The Oklahoma Observer logo" />
-          <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+  <!-- Theme color -->
+  <meta name="theme-color" content="#1E90FF">
+</head>
+<body>
+  <!-- Sticky header -->
+  <header id="site-header" class="oo-header">
+    <div class="oo-header__inner">
+      <a class="oo-brand" href="#/">
+        <img class="oo-logo" src="logo.png" alt="OkObserver logo" />
+        <div class="oo-branding">
+          <div class="oo-title">The Oklahoma Observer</div>
+          <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
         </div>
-        <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false">☰</button>
-      </div>
-      <nav id="navMenu" class="nav-menu">
-        <a href="#/">Posts</a>
-        <a href="#/about">About</a>
-        <a href="#/settings">Settings</a>
+      </a>
+      <button id="hamburger" class="oo-hamburger" aria-label="Open menu" aria-expanded="false">☰</button>
+      <nav id="menu" class="oo-menu" hidden>
+        <a href="#/" data-nav="posts">Posts</a>
+        <a href="#/about" data-nav="about">About</a>
+        <a href="#/settings" data-nav="settings">Settings</a>
       </nav>
-    </header>
+    </div>
+  </header>
 
-    <main id="app"><div class="loading">Loading…</div></main>
+  <!-- App root -->
+  <main id="app" class="oo-app" aria-live="polite"></main>
 
-    <footer>
-      © <span id="year"></span> The Oklahoma Observer
-      <br />
-      <span id="build"></span>
-    </footer>
+  <!-- Infinite scroll sentinel -->
+  <div id="sentinel" class="oo-sentinel" aria-hidden="true"></div>
 
-    <!-- MutationObserver safeguard -->
-    <script>
-      (function(){
-        function enforceGrid(){
-          const g=document.querySelector(".grid");
-          if(g&&!g.classList.contains("enforceGrid")) g.classList.add("enforceGrid");
-        }
-        new MutationObserver(enforceGrid).observe(document.body,{childList:true,subtree:true});
-        window.addEventListener("load",enforceGrid);
-      })();
-    </script>
+  <!-- Footer -->
+  <footer class="oo-footer">
+    © 2025 The Oklahoma Observer · Build 2025-11-03R1
+  </footer>
 
-    <!-- App scripts (cache-busted) -->
-    <script src="main.js?v=2025-11-02R2"></script>
-    <script src="grid-enforcer.js?v=2025-11-02R2"></script>
-
-    <script>
-      // Hamburger toggle
-      (function(){
-        const b=document.getElementById("hamburger");
-        const m=document.getElementById("navMenu");
-        if(b&&m){
-          b.addEventListener("click",()=>{
-            const open=!m.classList.contains("open");
-            m.classList.toggle("open",open);
-            b.setAttribute("aria-expanded",open);
-          });
-        }
-      })();
-
-      // Service Worker registration
-      if("serviceWorker" in navigator){
-        window.addEventListener("load",()=>{
-          navigator.serviceWorker.register("./sw.js?v=2025-11-02S1")
-            .then(()=>console.log("[OkObserver] SW registered"))
-            .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
-        });
-      }
-
-      // Footer metadata (deduplicated build)
-      (function(){
-        const year=document.getElementById("year");
-        const build=document.getElementById("build");
-        year.textContent=new Date().getFullYear();
-        const VER="Build 2025-11-02R2";
-        const existing=(build.textContent||"").trim().replace(/^Build\s+/i,"");
-        build.textContent="Build "+(existing||VER.replace(/^Build\s+/i,""));
-      })();
-    </script>
-  </body>
+  <!-- Scripts (plain JS only) -->
+  <script defer src="main.js?v=2025-11-03R1"></script>
+  <script>
+    // Service worker (cache-busted)
+    if ('serviceWorker' in navigator) {
+      addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js?v=2025-11-03R1').catch(()=>{});
+      });
+    }
+  </script>
+</body>
 </html>
+<!-- 🔴 index.html -->

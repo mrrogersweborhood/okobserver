@@ -1,11 +1,8 @@
-/* OkObserver Override Styles — 2025-11-02R
-   COMPLETE REPLACEMENT
-   Goals:
-   • Post summary cards show Title (blue), Byline (bold), FULL Excerpt (no clamp)
-   • No clipping anywhere; cards can be different heights
-   • Masonry (multicolumn) layout retained and stable
-   • Featured images contained, not cropped
-   • Header sticky with logo+motto spacing
+/* 🟢 OkObserver Override Styles — 2025-11-03R1
+   Based on 2025-11-02R with performance & compatibility extensions.
+   • Keeps masonry layout (columns)
+   • Preserves blue titles, full excerpts, sticky header
+   • Adds .oo-* selectors used by new JS build
 */
 
 /* ===== Header ===== */
@@ -20,28 +17,30 @@ header {
   align-items: center;
   padding: 10px 0 12px;
 }
-header img.logo { max-height: 70px; width: auto; height: auto; margin-bottom: 6px; }
-header .motto { font-size: .95rem; margin-top: 3px; }
+header img.logo,
+.oo-logo { max-height: 70px; width: auto; margin-bottom: 6px; }
+header .motto,
+.oo-motto { font-size: .95rem; margin-top: 3px; }
 
-/* ===== Masonry container =====
-   Use CSS columns so items can be different heights. */
+/* ===== Masonry container ===== */
 .post-grid,
 .posts-grid,
-.grid {
+.grid,
+.oo-grid {
   display: block !important;
   max-width: 1400px;
   margin: 0 auto;
   column-gap: 1.25rem;
   padding: 0;
 }
-@media (min-width:1200px){ .post-grid,.posts-grid{ column-count:4 !important; } }
-@media (min-width:768px) and (max-width:1199px){ .post-grid,.posts-grid{ column-count:3 !important; } }
-@media (max-width:767px){ .post-grid,.posts-grid{ column-count:1 !important; } }
+@media (min-width:1200px){ .post-grid,.posts-grid,.oo-grid{ column-count:4 !important; } }
+@media (min-width:768px) and (max-width:1199px){ .post-grid,.posts-grid,.oo-grid{ column-count:3 !important; } }
+@media (max-width:767px){ .post-grid,.posts-grid,.oo-grid{ column-count:1 !important; } }
 
-/* ===== Card block =====
-   FORCE block (not inline-block) so contents can expand reliably in columns. */
+/* ===== Card block ===== */
 .post-card,
-.card {
+.card,
+.oo-card {
   display: block !important;
   width: 100% !important;
   margin: 0 0 1.25rem !important;
@@ -52,25 +51,20 @@ header .motto { font-size: .95rem; margin-top: 3px; }
   break-inside: avoid !important;
   -webkit-column-break-inside: avoid !important;
   -moz-column-break-inside: avoid !important;
-
-  /* NEVER CLIP */
   overflow: visible !important;
-
-  /* Cancel any earlier fake size hints */
   contain-intrinsic-size: auto !important;
-
-  /* Keep perf hint without harming layout */
   content-visibility: auto;
   contain: layout paint style;
 }
-.post-card:hover { transform: translateY(-3px); }
+.post-card:hover,
+.oo-card:hover { transform: translateY(-3px); }
 
 .post-card .body,
-.card .body {
+.card .body,
+.oo-card__body {
   display: block !important;
   padding: 14px 16px 16px !important;
   background: transparent !important;
-  overflow: visible !important;
 }
 
 /* ===== Media ===== */
@@ -78,57 +72,60 @@ header .motto { font-size: .95rem; margin-top: 3px; }
 .post-card img,
 .thumb img,
 .post-hero img,
-.media img {
+.media img,
+.oo-card__img {
   width: 100% !important;
-  height: auto !important;
-  object-fit: contain !important;
+  height: 100% !important;
+  object-fit: cover !important; /* fully contained for responsive cards */
   display: block !important;
   border: 0;
   background: #fff;
 }
+.oo-card__imageWrap { aspect-ratio: 16/9; overflow:hidden; }
 
-/* ===== Text (must always show) ===== */
+/* ===== Text ===== */
 .post-title,
-.title-link {
+.title-link,
+.oo-card__title {
   color: #1E90FF !important;
   font-weight: 600 !important;
-  background: transparent !important;
   line-height: 1.25 !important;
   text-decoration: none !important;
   display: block !important;
+  background: transparent !important;
 }
-.post-title a:hover { text-decoration: underline !important; }
+.post-title a:hover,
+.oo-card__title:hover { text-decoration: underline !important; }
 
-.byline {
+.byline,
+.oo-card__byline {
   color: #333 !important;
   font-weight: 700 !important;
-  background: transparent !important;
   margin: 0 0 .35rem 0 !important;
   font-size: .9rem !important;
   display: block !important;
 }
 
-/* FULL excerpts; no clamp/ellipsis anywhere */
+/* FULL excerpts */
 .post-card p,
 .post-excerpt,
-.post-summary {
+.post-summary,
+.oo-card__excerpt {
   color: #444 !important;
   background: transparent !important;
   font-size: .95rem !important;
   line-height: 1.45 !important;
-  display: block !important;
   max-height: none !important;
   overflow: visible !important;
-  -webkit-line-clamp: unset !important;
-  line-clamp: unset !important;
   white-space: normal !important;
 }
 
-/* Buttons (incl. Back to posts) */
+/* Buttons */
 a.button,
 button,
 footer a[href="#/"],
-footer a[href="#"] {
+footer a[href="#"],
+.oo-backBtn {
   background: #1E90FF !important;
   color: #fff !important;
   border: 0 !important;
@@ -141,15 +138,23 @@ footer a[href="#"] {
 a.button:hover,
 button:hover,
 footer a[href="#/"]:hover,
-footer a[href="#"]:hover { background:#187bcd !important; }
+footer a[href="#"]:hover,
+.oo-backBtn:hover { background:#187bcd !important; }
 
 /* Page background & typography */
 body {
   background: #f9f9f9 !important;
   color: #111 !important;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif !important;
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif !important;
   line-height: 1.6 !important;
 }
 
-/* Keep sentinel out of visual flow */
-#scrollSentinel { height: 1px; }
+/* Sentinel and footer spacing */
+#scrollSentinel,
+.oo-sentinel { height: 1px; }
+.oo-footer { padding:16px; text-align:center; color:#333; }
+
+/* Ensure sticky header spacing on small screens */
+body { scroll-padding-top: 90px; }
+
+/* 🔴 override.css */
