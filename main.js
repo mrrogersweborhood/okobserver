@@ -2,28 +2,23 @@
 (function () {
   'use strict';
 
-  // ---- Config / Constants ----
-  const APP_VERSION = '2025-11-03R1';
+  const APP_VERSION = '2025-11-03R1a';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
-  const MAX_CARDS = 60; // ~2–3 screens worth, keeps DOM light
-  const IMG_BREAKPOINTS = [480, 768, 1024]; // responsive widths
+  const MAX_CARDS = 60;
 
-  // ---- State ----
   let page = 1;
   let loading = false;
   let reachedEnd = false;
-  let route = 'home'; // 'home' | 'about' | 'settings' | 'detail'
-  const cachePages = new Map(); // page -> posts[]
+  let route = 'home';
+  const cachePages = new Map();
   const lruKeys = [];
 
-  // ---- DOM ----
   const app = document.getElementById('app');
   const sentinel = document.getElementById('sentinel');
   const menu = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  // ---- Utilities ----
   const fmtDate = (iso) => {
     try {
       const d = new Date(iso);
@@ -32,7 +27,6 @@
   };
 
   const isCartoon = (post) => {
-    // Replace with your existing cartoon filter logic if different.
     const title = (post.title?.rendered || '').toLowerCase();
     const cats = (post.categories || []).join(',');
     return title.includes('cartoon') || /cartoon/i.test(cats);
@@ -46,18 +40,14 @@
 
   const getFeaturedId = (post) => post.featured_media || post.featured_media_id || null;
 
-  // Build responsive <img> HTML with cache-busting per post
+  // 🔁 HOTFIX: revert to baseline image URL (no &w=…)
   const buildImgHtml = (mediaId, postId) => {
     if (!mediaId) return '';
-    const src = `${API_BASE}/media/${mediaId}?cb=${postId}&w=${IMG_BREAKPOINTS[0]}`;
-    const srcset = IMG_BREAKPOINTS.map(w => `${API_BASE}/media/${mediaId}?cb=${postId}&w=${w} ${w}w`).join(', ');
-    const sizes = '(max-width: 640px) 100vw, (max-width: 1024px) 45vw, 30vw';
+    const src = `${API_BASE}/media/${mediaId}?cb=${postId}`;
     return `
       <img
         class="oo-card__img"
         src="${src}"
-        srcset="${srcset}"
-        sizes="${sizes}"
         decoding="async"
         loading="lazy"
         alt=""
@@ -71,21 +61,18 @@
     .replaceAll('>', '&gt;');
 
   const excerptHtml = (post) => {
-    // Immediate excerpt (no lazy mount)
     const ex = post.excerpt?.rendered || '';
     return `<div class="oo-card__excerpt">${ex}</div>`;
   };
 
-  // Simple LRU for page JSON (keeps backscroll snappy without DOM bloat)
   const rememberPage = (p, posts) => {
     if (cachePages.has(p)) {
-      // refresh position
       const idx = lruKeys.indexOf(p);
       if (idx > -1) lruKeys.splice(idx, 1);
     }
     cachePages.set(p, posts);
     lruKeys.push(p);
-    while (lruKeys.length > 6) { // ~6 pages of JSON
+    while (lruKeys.length > 6) {
       const k = lruKeys.shift();
       cachePages.delete(k);
     }
@@ -99,7 +86,6 @@
     }
   };
 
-  // ---- Rendering ----
   const ensureFeed = () => {
     let feed = document.getElementById('oo-feed');
     if (!feed) {
@@ -132,7 +118,6 @@
 
   const renderPostsPage = (posts) => {
     const feed = ensureFeed();
-    // Batch DOM write
     const html = posts.map(cardHtml).join('');
     feed.insertAdjacentHTML('beforeend', html);
     removeOldCards();
@@ -162,7 +147,6 @@
       const res = await fetch(`${API_BASE}/posts/${id}`);
       const post = await res.json();
 
-      // Featured image for detail
       const mediaId = getFeaturedId(post);
       const img = buildImgHtml(mediaId, id);
 
@@ -186,7 +170,6 @@
     }
   };
 
-  // ---- Data ----
   const fetchPosts = async (pageNum) => {
     const url = `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${pageNum}&_embed=1`;
     const r = await fetch(url);
@@ -195,9 +178,7 @@
       throw new Error(`HTTP ${r.status}`);
     }
     const posts = await r.json();
-    // Filter out cartoons permanently
-    const filtered = posts.filter(p => !isCartoon(p));
-    return filtered;
+    return posts.filter(p => !isCartoon(p));
   };
 
   const loadNextPage = async () => {
@@ -205,21 +186,16 @@
     loading = true;
     try {
       const posts = await fetchPosts(page);
-      if (!posts.length) {
-        reachedEnd = true;
-        return;
-      }
+      if (!posts.length) { reachedEnd = true; return; }
       rememberPage(page, posts);
       renderPostsPage(posts);
       page += 1;
     } catch (_) {
-      // swallow; sentinel will try again if user scrolls
     } finally {
       loading = false;
     }
   };
 
-  // ---- Router (hash-based) ----
   const router = async () => {
     const hash = location.hash || '#/';
     const parts = hash.slice(2).split('/');
@@ -248,7 +224,6 @@
     }
   };
 
-  // ---- Infinite Scroll ----
   const io = new IntersectionObserver(async (entries) => {
     const first = entries[0];
     if (!first.isIntersecting) return;
@@ -256,7 +231,6 @@
     await loadNextPage();
   }, { rootMargin: '1200px 0px 800px 0px', threshold: 0 });
 
-  // ---- MutationObserver grid enforcer (throttled) ----
   const gridTarget = document.body;
   let rafToken = null;
   const mo = new MutationObserver(() => {
@@ -265,14 +239,10 @@
       rafToken = null;
       const feed = document.getElementById('oo-feed');
       if (!feed) return;
-      // Ensure the grid class is present; avoid heavy recalcs here.
-      if (!feed.classList.contains('oo-grid')) {
-        feed.classList.add('oo-grid');
-      }
+      if (!feed.classList.contains('oo-grid')) feed.classList.add('oo-grid');
     });
   });
 
-  // ---- Menu toggle ----
   const toggleMenu = () => {
     const open = menu.hasAttribute('hidden') ? false : true;
     if (open) {
@@ -284,28 +254,21 @@
     }
   };
 
-  // ---- Init ----
   const start = async () => {
     window.addEventListener('hashchange', router);
     hamburger?.addEventListener('click', toggleMenu);
 
-    await router(); // set initial route
+    await router();
 
     if (route === 'home') {
       io.observe(sentinel);
-      await loadNextPage(); // load first page
+      await loadNextPage();
     }
 
-    // MutationObserver: keep it light
     mo.observe(gridTarget, { childList: true, subtree: true, attributes: true });
   };
 
-  // Kick off
   start();
-
-  // Debug banner (optional)
-  try {
-    console.info('[OkObserver] Performance build', APP_VERSION);
-  } catch {}
+  try { console.info('[OkObserver] Hotfix build', APP_VERSION); } catch {}
 })();
  /* 🔴 main.js */

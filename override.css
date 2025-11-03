@@ -1,11 +1,8 @@
-/* 🟢 OkObserver Override Styles — 2025-11-03R1
-   Based on 2025-11-02R with performance & compatibility extensions.
-   • Keeps masonry layout (columns)
-   • Preserves blue titles, full excerpts, sticky header
-   • Adds .oo-* selectors used by new JS build
+/* 🟢 OkObserver Override Styles — 2025-11-03R1a (Hotfix)
+   Reverts image sizing to baseline for masonry stability.
 */
 
-/* ===== Header ===== */
+/* Header */
 header {
   position: sticky;
   top: 0;
@@ -22,7 +19,7 @@ header img.logo,
 header .motto,
 .oo-motto { font-size: .95rem; margin-top: 3px; }
 
-/* ===== Masonry container ===== */
+/* Masonry container */
 .post-grid,
 .posts-grid,
 .grid,
@@ -37,7 +34,7 @@ header .motto,
 @media (min-width:768px) and (max-width:1199px){ .post-grid,.posts-grid,.oo-grid{ column-count:3 !important; } }
 @media (max-width:767px){ .post-grid,.posts-grid,.oo-grid{ column-count:1 !important; } }
 
-/* ===== Card block ===== */
+/* Card block */
 .post-card,
 .card,
 .oo-card {
@@ -67,7 +64,7 @@ header .motto,
   background: transparent !important;
 }
 
-/* ===== Media ===== */
+/* Media — HOTFIX: height:auto and no forced aspect-ratio */
 .thumb { background:#f3f3f3; }
 .post-card img,
 .thumb img,
@@ -75,15 +72,15 @@ header .motto,
 .media img,
 .oo-card__img {
   width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important; /* fully contained for responsive cards */
+  height: auto !important;       /* ← revert */
+  object-fit: contain !important;/* ← revert */
   display: block !important;
   border: 0;
   background: #fff;
 }
-.oo-card__imageWrap { aspect-ratio: 16/9; overflow:hidden; }
+.oo-card__imageWrap { overflow: visible; } /* no fixed aspect */
 
-/* ===== Text ===== */
+/* Text */
 .post-title,
 .title-link,
 .oo-card__title {
@@ -149,12 +146,10 @@ body {
   line-height: 1.6 !important;
 }
 
-/* Sentinel and footer spacing */
+/* Sentinel/footer */
 #scrollSentinel,
 .oo-sentinel { height: 1px; }
 .oo-footer { padding:16px; text-align:center; color:#333; }
 
-/* Ensure sticky header spacing on small screens */
 body { scroll-padding-top: 90px; }
-
 /* 🔴 override.css */
