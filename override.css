@@ -169,3 +169,23 @@ body { scroll-padding-top: 90px; }
   font-size: clamp(1.6rem, 2.2vw, 2.1rem);
   line-height: 1.2;
 }
+/* === Post Detail Title: OkObserver Blue === */
+.post-detail__title {
+  color: #1E90FF;              /* OkObserver blue */
+  font-weight: 600;
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+/* Responsive media in detail hero and any inline players */
+.post-hero iframe,
+.post-hero video,
+.post-detail .post-hero iframe,
+.post-detail .post-hero video,
+.thumb iframe {
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  display: block !important;
+  border: 0;
+}
