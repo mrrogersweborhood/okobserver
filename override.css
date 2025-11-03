@@ -84,3 +84,59 @@ footer{ padding:18px; text-align:center; color:#666; }
 @media (max-width: 799px){
   .posts-grid{ grid-template-columns: 1fr; }
 }
+/* === HOTFIX 2025-11-03 R1p-hf1 — restore header + clickable cards === */
+
+/* Header: left-align, no "button" look on motto */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header .title-link {
+  margin-right: auto;           /* push menu to the right */
+}
+header .motto {
+  margin-left: 0;
+  margin-right: 0;
+  color: #ffffff;               /* white text as spec */
+  background: #1E90FF;          /* OkObserver blue pill */
+  border: 0;                    /* remove any borders */
+  box-shadow: none;             /* remove button-like shadow */
+  text-decoration: none;
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+/* Card link should cover title + byline + excerpt so it's fully clickable */
+.post-card .title-link {
+  display: block;
+  position: static;
+  z-index: 0;
+  text-decoration: none;
+}
+
+/* Prevent overlays from blocking clicks */
+.post-card .thumb,
+.post-card img,
+.post-card iframe,
+.post-card video {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;         /* media itself won’t steal clicks in summaries */
+}
+
+/* Ensure text area is interactive */
+.post-card .post-title,
+.post-card .byline,
+.post-card .post-summary {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+/* Restore typical card text look */
+.post-card .post-summary a {
+  text-decoration: underline;
+}
+.post-card:hover { transform: translateY(-2px); } /* subtle hover only */
