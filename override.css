@@ -264,3 +264,45 @@ footer { padding: 18px; text-align: center; color: #666; }
    ======================================================= */
 .post-card { contain: layout paint; }             /* help perf on fade-in */
 a:focus-visible, button:focus-visible { outline: 2px solid var(--oo-blue); outline-offset: 2px; }
+/* 🟢 override.css — 2025-11-03 R1q-hf (header restore + excerpt not link) */
+
+:root { --oo-blue:#1E90FF; }
+
+/* Header back to baseline alignment */
+header {
+  position: sticky; top: 0; z-index: 1000;
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border-bottom: 1px solid #e9e9ee;
+  padding: 10px 12px;
+}
+header .logo { height: 36px; width: auto; display: block; }
+header .title-link { font-weight: 700; font-size: 18px; margin-right: auto; color: #111; }
+header .motto {
+  color: #fff; background: var(--oo-blue);
+  padding: 4px 8px; border-radius: 999px; display: inline-block; line-height:1; white-space: nowrap;
+}
+#hamburger { border: 0; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+#menu[hidden]{ display:none; }
+#menu a{ display:inline-block; padding:8px 10px; border-radius:10px; color:#111; }
+#menu a:hover{ background:#f1f4ff; color:#0a58ff; }
+
+/* Summary cards — link scope limited to image+title only */
+.post-card .title-link { color: inherit; text-decoration: none; }
+.post-card .post-title { color:#111; }
+.post-card .byline,
+.post-card .post-summary { color:#222; }
+
+/* Make sure summary media doesn't steal clicks or look like links */
+.post-card .thumb,
+.post-card img,
+.post-card iframe,
+.post-card video { pointer-events: none; }
+
+/* Preserve real links inside the excerpt from WP content */
+.post-card .post-summary a {
+  color: #0a58ff;
+  text-decoration: underline;
+}
+
+/* Detail title color (OkObserver blue) */
+.post-detail__title { color: var(--oo-blue); }

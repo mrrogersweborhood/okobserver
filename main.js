@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1p (Grid layout compatible; no autoplay; smooth insert) */
+/* 🟢 main.js — 2025-11-03R1q (summary: only image+title are links; header unchanged) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1p';
+  window.AppVersion = '2025-11-03R1q';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -11,9 +11,9 @@
   let page = 1, loading = false, reachedEnd = false, route = 'home';
   const cachePages = new Map(), lru = [];
 
-  const app = document.getElementById('app');
-  const sentinel = document.getElementById('sentinel');
-  const menu = document.getElementById('menu');
+  const app       = document.getElementById('app');
+  const sentinel  = document.getElementById('sentinel');
+  const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
@@ -56,7 +56,6 @@
     return null;
   };
 
-  // ---- inline video (no autoplay, responsive) ----
   const playInlineVideo = (container, playable) => {
     if (!playable || !container) return;
     container.innerHTML = '';
@@ -67,34 +66,27 @@
       container.appendChild(v);
     } else {
       const f = document.createElement('iframe');
-      Object.assign(f, {
-        src: playable.src,
-        allow: 'fullscreen; picture-in-picture; encrypted-media',
-        frameBorder: '0',
-        referrerPolicy: 'no-referrer-when-downgrade'
-      });
+      Object.assign(f, { src: playable.src, allow: 'fullscreen; picture-in-picture; encrypted-media', frameBorder: '0', referrerPolicy: 'no-referrer-when-downgrade' });
       f.style.width = '100%'; f.style.display = 'block'; f.style.aspectRatio = '16 / 9';
       container.appendChild(f);
     }
   };
 
-  // ---- feed helpers ----
   const remember = (k,v)=>{ if(cachePages.has(k)){const i=lru.indexOf(k);if(i>-1)lru.splice(i,1);} cachePages.set(k,v);lru.push(k);while(lru.length>6)cachePages.delete(lru.shift()); };
   const ensureFeed = ()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div');feed.className='posts-grid';app.innerHTML='';app.appendChild(feed);} return feed; };
   const trimCards = ()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
 
-  // ---- cards (summary: image only) ----
+  /* SUMMARY CARD — anchor wraps ONLY image + title. Byline & excerpt are NOT inside link. */
   const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
         <div class="thumb">${imgHTML(p)}</div>
         <h2 class="post-title">${p.title?.rendered || ''}</h2>
-        <div class="byline">${byline(p)}</div>
-        <div class="post-summary">${p.excerpt?.rendered || ''}</div>
       </a>
+      <div class="byline">${byline(p)}</div>
+      <div class="post-summary">${p.excerpt?.rendered || ''}</div>
     </article>`;
 
-  // ---- renderPage (fade-in; no column hacks needed with Grid) ----
   const renderPage = posts => {
     const feed = ensureFeed();
     const frag = document.createDocumentFragment();
@@ -102,8 +94,7 @@
       const wrap=document.createElement('div');
       wrap.innerHTML=cardHTML(p);
       const card=wrap.firstElementChild;
-      card.style.opacity='0';
-      card.style.transition='opacity 0.3s ease';
+      card.style.opacity='0'; card.style.transition='opacity 0.3s ease';
       frag.appendChild(card);
       requestAnimationFrame(()=>{card.style.opacity='1';});
     });
@@ -114,7 +105,6 @@
   const renderAbout = ()=>{app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`;};
   const renderSettings = ()=>{app.innerHTML=`<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`;};
 
-  // ---- detail view ----
   const renderDetail = async id=>{
     app.innerHTML='<div>Loading…</div>';
     try{
@@ -136,7 +126,6 @@
     }catch{app.innerHTML='<div>Failed to load post.</div>';}
   };
 
-  // ---- data + router ----
   const fetchPosts = async n=>{
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
     if(!r.ok){if(r.status===400||r.status===404)reachedEnd=true;throw new Error(r.status);}
