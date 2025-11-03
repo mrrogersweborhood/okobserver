@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1d (class alignment rollback) */
+/* 🟢 main.js — 2025-11-03R1e (fix featured image src to actual source_url) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1d';
+  window.AppVersion = '2025-11-03R1e';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -21,14 +21,24 @@
     catch { return ''; }
   };
   const isCartoon = p => (p.title?.rendered || '').toLowerCase().includes('cartoon');
-  const byline = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
-  const featuredId = p => p.featured_media || p.featured_media_id || null;
+  const byline   = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // Original image behavior (no width params)
-  const imgHTML = (mediaId, postId) => mediaId ? `
-    <img src="${API_BASE}/media/${mediaId}?cb=${postId}" alt=""
-         decoding="async" loading="lazy"
-         style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
+  // Pull actual image URL from _embedded featured media; fall back safely
+  const featuredSrc = (post) => {
+    const fm = post?._embedded?.['wp:featuredmedia']?.[0];
+    if (!fm) return '';
+    // prefer a medium/large size if available (keeps payloads reasonable)
+    const sz = fm.media_details?.sizes;
+    const pick = sz?.medium_large?.source_url || sz?.large?.source_url || sz?.medium?.source_url || fm.source_url || fm.guid?.rendered || '';
+    return pick ? `${pick}${pick.includes('?') ? '&' : '?'}cb=${post.id}` : '';
+  };
+
+  const imgHTML = (post) => {
+    const src = featuredSrc(post);
+    if (!src) return '';
+    return `<img src="${src}" alt="" decoding="async" loading="lazy"
+              style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
+  };
 
   const excerptHTML = p => `<div class="post-summary">${p.excerpt?.rendered || ''}</div>`;
 
@@ -42,7 +52,7 @@
     let feed = document.querySelector('.posts-grid');
     if (!feed) {
       feed = document.createElement('div');
-      feed.className = 'posts-grid'; // matches override.css
+      feed.className = 'posts-grid';
       app.innerHTML = '';
       app.appendChild(feed);
     }
@@ -55,18 +65,15 @@
     while (c.children.length > MAX_CARDS) c.removeChild(c.firstElementChild);
   };
 
-  const cardHTML = p => {
-    const id = p.id, mid = featuredId(p);
-    return `
-      <article class="post-card" data-id="${id}">
-        <a class="title-link" href="#/post/${id}">
-          <div class="thumb">${imgHTML(mid, id)}</div>
-          <h2 class="post-title">${p.title?.rendered || ''}</h2>
-          <div class="byline">${byline(p)}</div>
-          ${excerptHTML(p)}
-        </a>
-      </article>`;
-  };
+  const cardHTML = p => `
+    <article class="post-card" data-id="${p.id}">
+      <a class="title-link" href="#/post/${p.id}">
+        <div class="thumb">${imgHTML(p)}</div>
+        <h2 class="post-title">${p.title?.rendered || ''}</h2>
+        <div class="byline">${byline(p)}</div>
+        ${excerptHTML(p)}
+      </a>
+    </article>`;
 
   const renderPage = posts => {
     const feed = ensureFeed();
@@ -89,14 +96,13 @@
   const renderDetail = async (id) => {
     app.innerHTML = `<div>Loading…</div>`;
     try {
-      const r = await fetch(`${API_BASE}/posts/${id}`);
+      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       const p = await r.json();
-      const hero = imgHTML(featuredId(p), id);
       app.innerHTML = `
         <article>
           <h1>${p.title?.rendered || ''}</h1>
           <div class="byline">${byline(p)}</div>
-          <div class="post-hero">${hero}</div>
+          <div class="post-hero">${imgHTML(p)}</div>
           <div>${p.content?.rendered || ''}</div>
           <p><a class="button" href="#/">Back to Posts</a></p>
         </article>`;
@@ -106,6 +112,7 @@
   };
 
   const fetchPosts = async (n) => {
+    // IMPORTANT: include _embed so we have featured media URLs
     const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
     if (!r.ok) { if (r.status === 400 || r.status === 404) reachedEnd = true; throw new Error(r.status); }
     return (await r.json()).filter(p => !isCartoon(p));
