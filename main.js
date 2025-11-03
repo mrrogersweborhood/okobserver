@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1q (summary: only image+title are links; header unchanged) */
+/* 🟢 main.js — 2025-11-03R1r (adds tags on detail; no autoplay; grid; smooth insert) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1q';
+  window.AppVersion = '2025-11-03R1r';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -19,6 +19,7 @@
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
+  // ---- cartoon filter ----
   const isCartoon = post => {
     const title = (post?.title?.rendered || '').toLowerCase();
     if (/\bcartoon(s)?\b/.test(title)) return true;
@@ -26,6 +27,7 @@
     return terms.some(t => (t.name||'').toLowerCase().includes('cartoon') || (t.slug||'').toLowerCase().includes('cartoon'));
   };
 
+  // ---- featured image helpers ----
   const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -40,7 +42,7 @@
     return `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  // ---- video extraction for detail (autoplay removed) ----
+  // ---- video extraction (detail only; no autoplay) ----
   const extractVideo = html => {
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
     if (yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]||yt[2]}?rel=0` };
@@ -56,6 +58,7 @@
     return null;
   };
 
+  // ---- inline video (no autoplay, responsive) ----
   const playInlineVideo = (container, playable) => {
     if (!playable || !container) return;
     container.innerHTML = '';
@@ -72,6 +75,7 @@
     }
   };
 
+  // ---- feed helpers ----
   const remember = (k,v)=>{ if(cachePages.has(k)){const i=lru.indexOf(k);if(i>-1)lru.splice(i,1);} cachePages.set(k,v);lru.push(k);while(lru.length>6)cachePages.delete(lru.shift()); };
   const ensureFeed = ()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div');feed.className='posts-grid';app.innerHTML='';app.appendChild(feed);} return feed; };
   const trimCards = ()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
@@ -105,6 +109,31 @@
   const renderAbout = ()=>{app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`;};
   const renderSettings = ()=>{app.innerHTML=`<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`;};
 
+  // ---- detail utils: tags/categories chips ----
+  const tagsHTML = (post) => {
+    const groups = post?._embedded?.['wp:term'] || [];
+    // flatten and keep only "post_tag" & "category"
+    const terms = groups.flat().filter(t => t && (t.taxonomy === 'post_tag' || t.taxonomy === 'category'));
+    if (!terms.length) return '';
+    // de-dup by id
+    const seen = new Set();
+    const chips = [];
+    for (const t of terms) {
+      if (seen.has(t.id)) continue;
+      seen.add(t.id);
+      const name = (t.name || '').trim();
+      if (!name) continue;
+      // Skip any “cartoon” taxonomy labels entirely
+      const lower = name.toLowerCase();
+      if (lower.includes('cartoon')) continue;
+      // chip (non-link to avoid external nav issues); includes taxonomy hint via title attribute
+      chips.push(`<span class="tag-chip" title="${t.taxonomy}">${name}</span>`);
+    }
+    if (!chips.length) return '';
+    return `<div class="post-tags" aria-label="Post tags">${chips.join('')}</div>`;
+  };
+
+  // ---- detail view ----
   const renderDetail = async id=>{
     app.innerHTML='<div>Loading…</div>';
     try{
@@ -112,13 +141,17 @@
       const p=await r.json();
       const playable=extractVideo(p.content?.rendered||'');
       const hero=`<div class="post-hero" style="position:relative;margin:0 0 16px 0;"><div class="thumb">${imgHTML(p)}</div></div>`;
+      const tagsBlock = tagsHTML(p);
+
       app.innerHTML=`<article class="post-detail">
           ${hero}
           <h1 class="post-detail__title" style="margin:0 0 8px 0;">${p.title?.rendered||''}</h1>
-          <div class="byline" style="margin:0 0 16px 0;">${byline(p)}</div>
+          <div class="byline" style="margin:0 0 12px 0;">${byline(p)}</div>
+          ${tagsBlock ? `<div class="tags-row" style="margin:0 0 16px 0;">${tagsBlock}</div>` : ''}
           <div class="post-detail__content">${p.content?.rendered||''}</div>
           <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
         </article>`;
+
       if(playable){
         const ph=app.querySelector('.post-hero .thumb');
         playInlineVideo(ph,playable);
@@ -126,6 +159,7 @@
     }catch{app.innerHTML='<div>Failed to load post.</div>';}
   };
 
+  // ---- data + router ----
   const fetchPosts = async n=>{
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
     if(!r.ok){if(r.status===400||r.status===404)reachedEnd=true;throw new Error(r.status);}

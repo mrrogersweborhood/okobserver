@@ -389,3 +389,19 @@ a.button {
 a.button:hover { background: #0e7fe0; box-shadow: 0 3px 12px rgba(0,0,0,.16); }
 a.button:active { transform: translateY(1px); }
 a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
+/* Tag chips in post detail */
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag-chip {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f1f4ff;
+  color: #0a58ff;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid rgba(30,144,255,.25);
+}
