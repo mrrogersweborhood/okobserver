@@ -8,120 +8,99 @@
     <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
     <meta name="theme-color" content="#1E90FF" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <!-- Bump manifest version to pull latest -->
-    <link rel="manifest" href="./manifest.json?v=2025-11-02m" />
+
+    <!-- Manifest (cache-busted) -->
+    <link rel="manifest" href="./manifest.json?v=2025-11-02R" />
 
     <title>The Oklahoma Observer</title>
 
-    <!-- Icons -->
+    <!-- Favicon -->
     <link rel="icon" href="favicon.ico" type="image/x-icon" />
     <link rel="apple-touch-icon" href="icon-512.png" />
 
-    <!-- Inline fallback styles (kept light) -->
+    <!-- Inline fallback style -->
     <style>
-      :root { --brand:#1E90FF; --card:#fff; --ink:#111; --muted:#667; }
-      * { box-sizing:border-box; }
-      html, body { margin:0; padding:0; color:var(--ink); background:#fff; font-family:system-ui, -apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif; }
+      :root { --brand:#1E90FF; --ink:#111; --muted:#667; }
+      html,body { margin:0; padding:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:#fff; color:var(--ink); }
       a { color:var(--brand); text-decoration:none; }
       a:hover { text-decoration:underline; }
-
-      header { position:sticky; top:0; z-index:1000; background:var(--brand); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.06); }
+      header { background:var(--brand); color:#fff; position:sticky; top:0; z-index:1000; box-shadow:0 1px 0 rgba(0,0,0,.08); }
       .header-inner { display:flex; align-items:center; justify-content:space-between; max-width:1200px; margin:0 auto; padding:14px 16px; }
-      .logo { display:flex; flex-direction:column; gap:6px; }
+      .logo { display:flex; flex-direction:column; gap:6px; align-items:center; }
       .logo img { height:48px; width:auto; display:block; }
       .motto { font-size:12px; opacity:.9; }
-      .hamburger { margin-left:auto; background:transparent; border:0; color:#fff; font-size:24px; line-height:1; cursor:pointer; padding:8px; }
-      .hamburger:focus-visible { outline:2px solid #fff; outline-offset:2px; }
-
+      .hamburger { margin-left:auto; background:none; border:0; color:#fff; font-size:24px; cursor:pointer; padding:8px; }
       .nav-menu { display:none; position:sticky; top:56px; background:#0f6fcc; color:#fff; }
       .nav-menu.open { display:block; }
-      .nav-menu a { display:inline-block; padding:10px 14px; color:#fff; }
-
+      .nav-menu a { color:#fff; padding:10px 14px; display:inline-block; }
       main#app { max-width:1200px; margin:18px auto; padding:0 12px 80px; }
-      .loading { text-align:center; padding:2.5rem; color:var(--muted); }
-
       footer { text-align:center; color:var(--muted); padding:28px 10px 60px; }
     </style>
 
-    <!-- ALWAYS LOAD OVERRIDES LAST (cache-busted) -->
-    <link rel="stylesheet" href="override.css?v=2025-11-02m" />
+    <!-- Override stylesheet (cache-busted) -->
+    <link rel="stylesheet" href="override.css?v=2025-11-02R" />
   </head>
 
   <body>
-    <!-- HEADER -->
     <header>
       <div class="header-inner">
         <div class="logo">
           <img src="logo.png" alt="The Oklahoma Observer logo" />
           <div class="motto">To comfort the afflicted and afflict the comfortable</div>
         </div>
-        <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="navMenu">☰</button>
+        <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false">☰</button>
       </div>
-
-      <nav class="nav-menu" id="navMenu" role="navigation">
+      <nav id="navMenu" class="nav-menu">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
         <a href="#/settings">Settings</a>
       </nav>
     </header>
 
-    <!-- APP -->
-    <main id="app">
-      <div class="loading">Loading…</div>
-    </main>
+    <main id="app"><div class="loading">Loading…</div></main>
 
-    <!-- FOOTER -->
     <footer>
       © <span id="year"></span> The Oklahoma Observer
       <br />
       Build <span id="build"></span>
     </footer>
 
-    <!-- MutationObserver safeguard -->
+    <!-- MutationObserver grid enforcement -->
     <script>
       (function(){
-        function enforceGrid() {
-          const g = document.querySelector(".grid");
-          if (g && !g.classList.contains("enforceGrid")) g.classList.add("enforceGrid");
+        function enforceGrid(){
+          const g=document.querySelector(".grid");
+          if(g&&!g.classList.contains("enforceGrid")) g.classList.add("enforceGrid");
         }
-        new MutationObserver(enforceGrid).observe(document.body, { childList:true, subtree:true });
-        window.addEventListener("load", enforceGrid);
+        new MutationObserver(enforceGrid).observe(document.body,{childList:true,subtree:true});
+        window.addEventListener("load",enforceGrid);
       })();
     </script>
 
-    <!-- App main (BUMPED) -->
-    <script src="main.js?v=2025-11-02m"></script>
+    <!-- Main script (cache-busted) -->
+    <script src="main.js?v=2025-11-02R"></script>
+    <script src="grid-enforcer.js?v=2025-11-02R"></script>
 
-    <!-- Grid enforcer -->
-    <script src="grid-enforcer.js?v=2025-11-02m"></script>
-
-    <!-- SW registration (BUMPED) -->
     <script>
       // Hamburger toggle
       (function(){
-        const btn=document.getElementById("hamburger");
-        const menu=document.getElementById("navMenu");
-        if(btn&&menu){
-          btn.addEventListener("click",()=>{
-            const open=!menu.classList.contains("open");
-            menu.classList.toggle("open",open);
-            btn.setAttribute("aria-expanded",String(open));
-          });
-        }
+        const b=document.getElementById("hamburger");
+        const m=document.getElementById("navMenu");
+        if(b&&m){ b.addEventListener("click",()=>{const o=!m.classList.contains("open");m.classList.toggle("open",o);b.setAttribute("aria-expanded",o);});}
       })();
 
-      // Service Worker
+      // Service Worker registration
       if("serviceWorker" in navigator){
         window.addEventListener("load",()=>{
-          navigator.serviceWorker.register("./sw.js?v=2025-11-02m")
+          navigator.serviceWorker.register("./sw.js?v=2025-11-02R")
             .then(()=>console.log("[OkObserver] SW registered"))
             .catch(err=>console.warn("[OkObserver] SW registration failed:",err));
         });
       }
 
-      // Footer info (BUMPED)
+      // Footer metadata
       document.getElementById("year").textContent=new Date().getFullYear();
-      document.getElementById("build").textContent="2025-11-02m";
+      document.getElementById("build").textContent="2025-11-02R";
     </script>
   </body>
 </html>
