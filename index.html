@@ -6,22 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Oklahoma Observer</title>
 
-  <!-- Icons & Manifest -->
   <link rel="icon" href="favicon.ico" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Preconnect / DNS prefetch for proxy -->
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-03R1" />
-
-  <!-- Theme color -->
+  <link rel="stylesheet" href="override.css?v=2025-11-03R1c" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
-  <!-- Sticky header -->
   <header id="site-header" class="oo-header">
     <div class="oo-header__inner">
       <a class="oo-brand" href="#/">
@@ -40,26 +34,21 @@
     </div>
   </header>
 
-  <!-- App root -->
   <main id="app" class="oo-app" aria-live="polite"></main>
-
-  <!-- Infinite scroll sentinel -->
   <div id="sentinel" class="oo-sentinel" aria-hidden="true"></div>
 
-  <!-- Footer -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer · Build 2025-11-03R1
+    © 2025 The Oklahoma Observer · Build <b>2025-11-03R1c</b>
   </footer>
 
-  <!-- Scripts (plain JS only) -->
-  <script defer src="main.js?v=2025-11-03R1"></script>
+  <script defer src="main.js?v=2025-11-03R1c"></script>
   <script>
-    // Service worker (cache-busted)
     if ('serviceWorker' in navigator) {
-      addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2025-11-03R1').catch(()=>{});
-      });
+      addEventListener('load', () =>
+        navigator.serviceWorker.register('sw.js?v=2025-11-03R1c').catch(()=>{})
+      );
     }
+    console.log('%cOkObserver Build 2025-11-03R1c Loaded','color:#1E90FF;font-weight:bold');
   </script>
 </body>
 </html>
