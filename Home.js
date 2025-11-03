@@ -1,12 +1,8 @@
 /* OkObserver Home Grid with Infinite Scroll + Optimized Images
-   Version: 2025-11-02H8
-   - FIX: wrong featured image bleed (kept from H7)
-     • Resolve media by ID (not array position)
-     • Strict empty thumb when no media
-     • Per-post cache-buster on image URLs (?cb=<postId>)
-     • One-time reload safeguard for incomplete/zero-width bitmaps
-   - CHANGE: Excerpts are rendered IMMEDIATELY (no lazy mounting, no IO)
-   - PERF: Keep PER_PAGE=15 and early IntersectionObserver for infinite scroll
+   Version: 2025-11-02H10
+   - Always hide cartoon posts (no toggle)
+   - Immediate excerpt render
+   - ID-based media selection with per-post cache-bust
 */
 
 export async function renderHome($app, { VER } = {}) {
@@ -24,20 +20,21 @@ export async function renderHome($app, { VER } = {}) {
   const $grid = document.getElementById("postsGrid");
   const $sentinel = document.getElementById("scrollSentinel");
 
-  // user prefs
-  const hideCartoons = localStorage.getItem("okobsv.hideCartoons") !== "false";
-  const hideTests    = localStorage.getItem("okobsv.hideTests") !== "false";
-
-  // ---------- helpers ----------
   const textFromHTML = (html) => {
     const d = document.createElement("div"); d.innerHTML = html || "";
     return (d.textContent || d.innerText || "").trim();
   };
-  const getAuthor = (p) => { try { return p?._embedded?.author?.[0]?.name || ""; } catch {} return ""; };
-  const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});} catch { return ""; } };
-  const esc = (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  const getAuthor = (p) => p?._embedded?.author?.[0]?.name || "";
+  const fmtDate = (iso) => {
+    try { return new Date(iso).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}); }
+    catch { return ""; }
+  };
+  const esc = (s) => String(s ?? "")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const escAttr = (s) => esc(s).replace(/`/g,"&#96;");
 
+  // 🔒 Always hide cartoons
   function isCartoon(p){
     const title = textFromHTML(p?.title?.rendered).toLowerCase();
     if (/\b(cartoon|illustration|toon)\b/.test(title)) return true;
@@ -50,20 +47,8 @@ export async function renderHome($app, { VER } = {}) {
     } catch {}
     return false;
   }
-  function isTest(p){
-    const title = textFromHTML(p?.title?.rendered).toLowerCase();
-    if (/\b(test|lorem|dummy)\b/.test(title)) return true;
-    try {
-      const terms = (p?._embedded?.["wp:term"] || []).flat().filter(Boolean);
-      for (const t of terms) {
-        const n = (t?.name || "").toLowerCase();
-        if (/\b(test|sandbox|draft)\b/.test(n)) return true;
-      }
-    } catch {}
-    return false;
-  }
 
-  // --- Select media by actual linked ID, not array order ---
+  // pick correct image for each post
   function pickRenditionById(p) {
     const linkId = (() => {
       try {
@@ -72,7 +57,6 @@ export async function renderHome($app, { VER } = {}) {
         return m ? Number(m[1]) : null;
       } catch { return null; }
     })();
-
     const mediaArr = p?._embedded?.['wp:featuredmedia'] || [];
     const media = linkId ? (mediaArr.find(x => Number(x?.id) === linkId) || mediaArr[0]) : mediaArr[0];
     if (!media) return null;
@@ -81,156 +65,110 @@ export async function renderHome($app, { VER } = {}) {
     const fallW = media?.media_details?.width || 0;
     const fallH = media?.media_details?.height || 0;
     const get = (k) => sizes[k] && sizes[k].source_url ? sizes[k] : null;
-
     const medium      = get("medium");
     const mediumLarge = get("medium_large");
     const large       = get("large");
     const x1536       = get("1536x1536");
     const full        = media?.source_url ? { source_url: media.source_url, width: fallW, height: fallH } : null;
-
     const base = mediumLarge || large || x1536 || medium || full || null;
     if (!base) return null;
 
     const set = [];
-    if (medium      && medium.width)      set.push(`${medium.source_url} ${medium.width}w`);
-    if (mediumLarge && mediumLarge.width) set.push(`${mediumLarge.source_url} ${mediumLarge.width}w`);
-    if (large       && large.width)       set.push(`${large.source_url} ${large.width}w`);
-    if (x1536       && x1536.width)       set.push(`${x1536.source_url} ${x1536.width}w`);
-    if (full        && full.width)        set.push(`${full.source_url} ${full.width}w`);
+    [medium, mediumLarge, large, x1536, full].forEach(x=>{
+      if (x && x.width) set.push(`${x.source_url} ${x.width}w`);
+    });
 
-    return {
-      url: base.source_url,
-      w: base.width || fallW || 0,
-      h: base.height || fallH || 0,
-      alt: media?.alt_text || "",
-      srcset: set.join(", ")
-    };
+    return { url: base.source_url, w: base.width||fallW, h: base.height||fallH,
+             alt: media?.alt_text||"", srcset:set.join(", ") };
   }
 
   function cardMediaHTML(p, title, indexInPage) {
     const media = pickRenditionById(p);
     const href = `#/post/${p?.id}`;
-    if (!media) {
-      return `<a href="${href}" class="thumb media" aria-label="${escAttr(title)}"></a>`;
-    }
-    const cb = String(p.id || 'x'); // per-post cache-buster
+    if (!media) return `<a href="${href}" class="thumb media" aria-label="${escAttr(title)}"></a>`;
+    const cb = String(p.id || 'x');
     const src = media.url.includes('?') ? `${media.url}&cb=${cb}` : `${media.url}?cb=${cb}`;
-    const alt = escAttr(media.alt || title);
     const wAttr = media.w ? ` width="${media.w}"` : "";
     const hAttr = media.h ? ` height="${media.h}"` : "";
     const srcset = media.srcset ? ` srcset="${media.srcset}"` : "";
     const sizes = ` sizes="(max-width:640px) 92vw, (max-width:1200px) 28vw, 22vw"`;
     const fetchPri = indexInPage < 2 ? ` fetchpriority="high"` : "";
-
     return `
       <a href="${href}" class="thumb media" aria-label="${escAttr(title)}" data-postid="${cb}">
-        <img
-          src="${src}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
-          alt="${alt}" loading="lazy" decoding="async" referrerpolicy="no-referrer"
-        />
-      </a>
-    `;
+        <img src="${src}"${wAttr}${hAttr}${srcset}${sizes}${fetchPri}
+             alt="${escAttr(media.alt||title)}" loading="lazy" decoding="async"
+             referrerpolicy="no-referrer" />
+      </a>`;
   }
 
-  const buildTitle = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
+  const buildTitle   = (p) => textFromHTML(p?.title?.rendered) || (p?.slug||"Untitled").replace(/-/g," ");
   const buildExcerpt = (p) => (textFromHTML(p?.excerpt?.rendered) || textFromHTML(p?.content?.rendered) || "").trim();
 
-  // --- IMMEDIATE excerpt rendering (no lazy mount) ---
-  function cardHTML(p, indexInPage) {
+  function cardHTML(p, i) {
     const title = buildTitle(p);
     const author = getAuthor(p);
     const date = fmtDate(p?.date);
     const excerpt = buildExcerpt(p);
     const href = `#/post/${p?.id}`;
     return `
-      <article class="post-card card" data-test="card">
-        ${cardMediaHTML(p, title, indexInPage)}
+      <article class="post-card card">
+        ${cardMediaHTML(p, title, i)}
         <div class="body">
-          <h3 class="post-title" style="margin:0 0 .4rem 0; line-height:1.25; font-size:1.05rem;">
+          <h3 class="post-title" style="margin:0 0 .4rem;line-height:1.25;font-size:1.05rem;">
             <a href="${href}" class="title-link" style="text-decoration:none;">${esc(title)}</a>
           </h3>
-          <div class="byline" style="font-size:.9rem; margin:0 0 .35rem 0;">
-            ${author ? `${esc(author)} • ` : ""}${date}
-          </div>
+          <div class="byline" style="font-size:.9rem;margin:0 0 .35rem;"><b>${esc(author)}</b> • ${date}</div>
           ${excerpt ? `<p class="excerpt">${esc(excerpt)}</p>` : ``}
         </div>
-      </article>
-    `;
-  }
-
-  function timeoutFetch(resource, options = {}, ms = 8000) {
-    const ctrl = new AbortController();
-    const id = setTimeout(() => ctrl.abort(), ms);
-    return fetch(resource, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(id));
+      </article>`;
   }
 
   async function fetchPosts(page=1){
-    const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia,wp:term&per_page=${PER_PAGE}&page=${page}&_=${encodeURIComponent(VER || "home")}`;
+    const url = `${API_BASE}/posts?_embed=author,wp:featuredmedia,wp:term&per_page=${PER_PAGE}&page=${page}&_=${VER||"home"}`;
     try {
-      const res = await timeoutFetch(url, { credentials:"omit", cache:"no-store", keepalive: false });
+      const res = await fetch(url,{cache:"no-store"});
       if (!res.ok) return [];
       return await res.json();
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
 
   async function loadMore(){
     if (loading || done) return;
     loading = true;
-
     const batch = await fetchPosts(currentPage);
-    if (!batch.length){ done = true; loading = false; return; }
+    if (!batch.length){ done=true; loading=false; return; }
 
-    const filtered = batch.filter(p=>{
-      if (hideCartoons && isCartoon(p)) return false;
-      if (hideTests && isTest(p)) return false;
-      return true;
-    });
+    // 🔒 Always filter out cartoons
+    const filtered = batch.filter(p => !isCartoon(p));
 
-    const html = filtered.map((p, i) =>
-      cardHTML(p, (currentPage===1 ? i : i + PER_PAGE*(currentPage-1)))
-    ).join("");
+    const html = filtered.map((p,i)=>cardHTML(p,(currentPage-1)*PER_PAGE+i)).join("");
+    if (currentPage===1) $grid.innerHTML=html; else $grid.insertAdjacentHTML("beforeend",html);
+    currentPage++; loading=false;
 
-    if (currentPage===1) $grid.innerHTML = html; else $grid.insertAdjacentHTML("beforeend", html);
-    currentPage++; loading = false;
-
-    // One-time reload for any incomplete/zero-width bitmaps (defensive)
-    requestAnimationFrame(() => {
-      $grid.querySelectorAll('article.post-card img').forEach(img => {
-        if (!img.complete || img.naturalWidth === 0) {
-          const u = new URL(img.src, location.href);
-          u.searchParams.set('rld', String(Date.now() % 1e7));
-          img.src = u.toString();
+    requestAnimationFrame(()=>{
+      $grid.querySelectorAll("article.post-card img").forEach(img=>{
+        if (!img.complete || img.naturalWidth===0){
+          const u=new URL(img.src,location.href);
+          u.searchParams.set("rld",Date.now()%1e7);
+          img.src=u.toString();
         }
       });
     });
   }
 
-  // initial load
   await loadMore();
 
-  // infinite scroll (idle attach)
-  function attachObserverIdle(sentinel, cb){
-    const init = () => {
-      const io = new IntersectionObserver((entries)=>{
-        if (entries[0].isIntersecting && !loading && !done) cb();
-      }, { rootMargin: "1200px 0px" });
-      io.observe(sentinel);
-    };
-    if ("requestIdleCallback" in window) requestIdleCallback(init);
-    else setTimeout(init, 0);
-  }
-  attachObserverIdle($sentinel, () => loadMore());
+  const io = new IntersectionObserver(e=>{
+    if (e[0].isIntersecting && !loading && !done) loadMore();
+  },{rootMargin:"1200px 0px"});
+  io.observe($sentinel);
 
-  // speculative prefetch post detail
-  $grid.addEventListener('mouseover', (e)=>{
-    const a = e.target.closest('a[href^="#/post/"]');
-    if (!a) return;
-    const id = a.getAttribute('href').split('/').pop();
-    fetch(`${API_BASE}/posts/${id}?_embed=wp:featuredmedia,author&_=${Date.now()%1e7}`, { cache:'force-cache' })
-      .catch(()=>{});
-  }, { passive:true });
+  $grid.addEventListener("mouseover",e=>{
+    const a=e.target.closest('a[href^="#/post/"]');
+    if(!a) return;
+    const id=a.getAttribute("href").split("/").pop();
+    fetch(`${API_BASE}/posts/${id}?_embed=wp:featuredmedia,author&_=${Date.now()%1e7}`,{cache:"force-cache"});
+  },{passive:true});
 }
 
 export default renderHome;
