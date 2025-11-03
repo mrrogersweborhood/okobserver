@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '2025-11-03R1a';
+  const APP_VERSION = '2025-11-03R1b'; // class-name alignment hotfix
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
   const MAX_CARDS = 60;
@@ -40,17 +40,17 @@
 
   const getFeaturedId = (post) => post.featured_media || post.featured_media_id || null;
 
-  // 🔁 HOTFIX: revert to baseline image URL (no &w=…)
+  // Baseline image URL (no &w=…), matches your proxy and CSS expectations
   const buildImgHtml = (mediaId, postId) => {
     if (!mediaId) return '';
     const src = `${API_BASE}/media/${mediaId}?cb=${postId}`;
     return `
       <img
-        class="oo-card__img"
         src="${src}"
         decoding="async"
         loading="lazy"
         alt=""
+        style="width:100%;height:auto;display:block;border:0;background:#fff;"
       />
     `;
   };
@@ -62,7 +62,7 @@
 
   const excerptHtml = (post) => {
     const ex = post.excerpt?.rendered || '';
-    return `<div class="oo-card__excerpt">${ex}</div>`;
+    return `<div class="post-summary">${ex}</div>`;
   };
 
   const rememberPage = (p, posts) => {
@@ -79,7 +79,7 @@
   };
 
   const removeOldCards = () => {
-    const container = document.getElementById('oo-feed');
+    const container = document.querySelector('.posts-grid');
     if (!container) return;
     while (container.children.length > MAX_CARDS) {
       container.removeChild(container.firstElementChild);
@@ -87,11 +87,10 @@
   };
 
   const ensureFeed = () => {
-    let feed = document.getElementById('oo-feed');
+    let feed = document.querySelector('.posts-grid');
     if (!feed) {
       feed = document.createElement('div');
-      feed.id = 'oo-feed';
-      feed.className = 'oo-grid';
+      feed.className = 'posts-grid'; // ← your CSS expects this
       app.innerHTML = '';
       app.appendChild(feed);
     }
@@ -105,11 +104,11 @@
     const img = buildImgHtml(mediaId, postId);
     const line = escapeHTML(byline(post));
     return `
-      <article class="oo-card" data-id="${postId}">
-        <a class="oo-card__link" href="#/post/${postId}" aria-label="Open post">
-          <div class="oo-card__imageWrap">${img}</div>
-          <h2 class="oo-card__title">${title}</h2>
-          <div class="oo-card__byline">${line}</div>
+      <article class="post-card" data-id="${postId}">
+        <a class="title-link" href="#/post/${postId}" aria-label="Open post">
+          <div class="thumb">${img}</div>
+          <h2 class="post-title">${title}</h2>
+          <div class="byline">${line}</div>
           ${excerptHtml(post)}
         </a>
       </article>
@@ -136,7 +135,7 @@
     app.innerHTML = `
       <section class="oo-settings">
         <h1>Settings</h1>
-        <p>Performance build <strong>${APP_VERSION}</strong></p>
+        <p>Build <strong>${APP_VERSION}</strong></p>
       </section>
     `;
   };
@@ -158,14 +157,14 @@
         <article class="oo-detail">
           <h1 class="oo-detail__title">${title}</h1>
           <div class="oo-detail__byline">${line}</div>
-          <div class="oo-detail__imageWrap">${img}</div>
+          <div class="post-hero">${img}</div>
           <div class="oo-detail__content">${content}</div>
           <div class="oo-detail__back">
-            <a class="oo-backBtn" href="#/">Back to Posts</a>
+            <a class="button" href="#/">Back to Posts</a>
           </div>
         </article>
       `;
-    } catch (e) {
+    } catch {
       app.innerHTML = `<div class="oo-error">Failed to load post.</div>`;
     }
   };
@@ -190,7 +189,6 @@
       rememberPage(page, posts);
       renderPostsPage(posts);
       page += 1;
-    } catch (_) {
     } finally {
       loading = false;
     }
@@ -224,33 +222,28 @@
     }
   };
 
+  // Single-flight infinite scroll with early preload
   const io = new IntersectionObserver(async (entries) => {
     const first = entries[0];
-    if (!first.isIntersecting) return;
-    if (loading) return;
+    if (!first.isIntersecting || loading) return;
     await loadNextPage();
   }, { rootMargin: '1200px 0px 800px 0px', threshold: 0 });
 
-  const gridTarget = document.body;
-  let rafToken = null;
+  // Keep masonry class present without heavy work
   const mo = new MutationObserver(() => {
-    if (rafToken) return;
-    rafToken = requestAnimationFrame(() => {
-      rafToken = null;
-      const feed = document.getElementById('oo-feed');
-      if (!feed) return;
-      if (!feed.classList.contains('oo-grid')) feed.classList.add('oo-grid');
-    });
+    const feed = document.querySelector('.posts-grid');
+    if (!feed) return;
+    // nothing heavy here; your CSS handles columns
   });
 
   const toggleMenu = () => {
-    const open = menu.hasAttribute('hidden') ? false : true;
+    const open = menu?.hasAttribute('hidden') ? false : true;
     if (open) {
       menu.setAttribute('hidden', '');
-      hamburger.setAttribute('aria-expanded', 'false');
+      hamburger?.setAttribute('aria-expanded', 'false');
     } else {
-      menu.removeAttribute('hidden');
-      hamburger.setAttribute('aria-expanded', 'true');
+      menu?.removeAttribute('hidden');
+      hamburger?.setAttribute('aria-expanded', 'true');
     }
   };
 
@@ -265,10 +258,10 @@
       await loadNextPage();
     }
 
-    mo.observe(gridTarget, { childList: true, subtree: true, attributes: true });
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true });
   };
 
   start();
-  try { console.info('[OkObserver] Hotfix build', APP_VERSION); } catch {}
+  try { console.info('[OkObserver] class-name hotfix', APP_VERSION); } catch {}
 })();
  /* 🔴 main.js */
