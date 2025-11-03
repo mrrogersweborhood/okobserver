@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1e (fix featured image src to actual source_url) */
+/* 🟢 main.js — 2025-11-03R1f (robust cartoon filter + embedded images) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1e';
+  window.AppVersion = '2025-11-03R1f';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -17,19 +17,42 @@
   const hamburger = document.getElementById('hamburger');
 
   const fmtDate = iso => {
-    try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
-    catch { return ''; }
+    try {
+      return new Date(iso).toLocaleDateString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    } catch { return ''; }
   };
-  const isCartoon = p => (p.title?.rendered || '').toLowerCase().includes('cartoon');
-  const byline   = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
+  const byline = p =>
+    `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // Pull actual image URL from _embedded featured media; fall back safely
+  /* === Bullet-proof cartoon filter === */
+  const isCartoon = (post) => {
+    const title = (post?.title?.rendered || '').toLowerCase();
+    if (/\bcartoon(s)?\b/.test(title)) return true;
+
+    const termGroups = post?._embedded?.['wp:term'] || [];
+    const terms = termGroups.flat().filter(Boolean);
+    for (const t of terms) {
+      const name = (t?.name || '').toLowerCase();
+      const slug = (t?.slug || '').toLowerCase();
+      if (name.includes('cartoon') || slug.includes('cartoon')) return true;
+    }
+    return false;
+  };
+
+  // Featured image source URL from _embedded media
   const featuredSrc = (post) => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
-    // prefer a medium/large size if available (keeps payloads reasonable)
     const sz = fm.media_details?.sizes;
-    const pick = sz?.medium_large?.source_url || sz?.large?.source_url || sz?.medium?.source_url || fm.source_url || fm.guid?.rendered || '';
+    const pick =
+      sz?.medium_large?.source_url ||
+      sz?.large?.source_url ||
+      sz?.medium?.source_url ||
+      fm.source_url ||
+      fm.guid?.rendered ||
+      '';
     return pick ? `${pick}${pick.includes('?') ? '&' : '?'}cb=${post.id}` : '';
   };
 
@@ -40,11 +63,16 @@
               style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  const excerptHTML = p => `<div class="post-summary">${p.excerpt?.rendered || ''}</div>`;
+  const excerptHTML = p =>
+    `<div class="post-summary">${p.excerpt?.rendered || ''}</div>`;
 
   const remember = (k, v) => {
-    if (cachePages.has(k)) { const i = lru.indexOf(k); if (i>-1) lru.splice(i,1); }
-    cachePages.set(k, v); lru.push(k);
+    if (cachePages.has(k)) {
+      const i = lru.indexOf(k);
+      if (i > -1) lru.splice(i, 1);
+    }
+    cachePages.set(k, v);
+    lru.push(k);
     while (lru.length > 6) cachePages.delete(lru.shift());
   };
 
@@ -62,7 +90,8 @@
   const trimCards = () => {
     const c = document.querySelector('.posts-grid');
     if (!c) return;
-    while (c.children.length > MAX_CARDS) c.removeChild(c.firstElementChild);
+    while (c.children.length > MAX_CARDS)
+      c.removeChild(c.firstElementChild);
   };
 
   const cardHTML = p => `
@@ -83,7 +112,8 @@
 
   const renderAbout = () => {
     app.innerHTML = `<section><h1>About The Oklahoma Observer</h1>
-      <p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p>
+      <p>Independent journalism since 1969. Tips:
+         <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p>
     </section>`;
   };
 
@@ -112,10 +142,15 @@
   };
 
   const fetchPosts = async (n) => {
-    // IMPORTANT: include _embed so we have featured media URLs
-    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
-    if (!r.ok) { if (r.status === 400 || r.status === 404) reachedEnd = true; throw new Error(r.status); }
-    return (await r.json()).filter(p => !isCartoon(p));
+    const r = await fetch(
+      `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`
+    );
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 404) reachedEnd = true;
+      throw new Error(r.status);
+    }
+    const posts = await r.json();
+    return posts.filter(p => !isCartoon(p));
   };
 
   const loadNext = async () => {
@@ -148,8 +183,13 @@
 
   const toggleMenu = () => {
     const open = !menu.hasAttribute('hidden');
-    if (open) { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
-    else { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
+    if (open) {
+      menu.setAttribute('hidden', '');
+      hamburger.setAttribute('aria-expanded', 'false');
+    } else {
+      menu.removeAttribute('hidden');
+      hamburger.setAttribute('aria-expanded', 'true');
+    }
   };
 
   const start = async () => {
