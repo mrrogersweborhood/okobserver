@@ -149,3 +149,47 @@ body {
 
 /* Keep sentinel out of flow */
 #scrollSentinel { height: 1px; }
+/* ---- FIX: show title/byline/excerpt in masonry columns ---- */
+.post-grid,
+.posts-grid,
+.grid {
+  display: block;           /* keep multicolumn masonry */
+  column-gap: 1.25rem;
+}
+
+.post-card,
+.card {
+  /* switch from inline-block -> block so contents render correctly */
+  display: block !important;
+  width: 100%;
+  margin: 0 0 1.25rem;
+  break-inside: avoid !important;
+  -webkit-column-break-inside: avoid !important;
+  -moz-column-break-inside: avoid !important;
+
+  /* never clip text */
+  overflow: visible !important;
+  contain-intrinsic-size: auto !important;
+}
+
+.post-card .body,
+.card .body {
+  display: block !important;
+  overflow: visible !important;
+  padding: 14px 16px 16px;
+}
+
+/* belt-and-suspenders: make sure text isn’t clamped/hidden */
+.post-title,
+.title-link,
+.byline,
+.post-card p,
+.post-excerpt,
+.post-summary {
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
+  -webkit-line-clamp: unset !important;
+  line-clamp: unset !important;
+  white-space: normal !important;
+}
