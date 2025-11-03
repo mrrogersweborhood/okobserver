@@ -153,3 +153,19 @@ body {
 
 body { scroll-padding-top: 90px; }
 /* 🔴 override.css */
+.post-detail {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 0 12px;
+}
+.post-detail .post-hero img,
+.post-detail .post-hero iframe,
+.post-detail .post-hero video {
+  width: 100% !important;
+  height: auto !important;
+  display: block !important;
+}
+.post-detail__title {
+  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
+  line-height: 1.2;
+}

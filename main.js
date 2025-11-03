@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1g */
+/* 🟢 main.js — 2025-11-03R1h (detail: hero → title → byline; images/videos sized) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1g';
+  window.AppVersion = '2025-11-03R1h';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -62,27 +62,22 @@
   };
 
   // ---------- VIDEO helpers ----------
-  // Extract first playable embed from post content
   const extractVideo = (html = '') => {
-    // YouTube (watch or youtu.be)
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
     if (yt) {
       const id = (yt[1] || yt[2]);
       return { type: 'youtube', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
     }
-    // Vimeo
     const vimeo = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
     if (vimeo) {
       const id = vimeo[1];
       return { type: 'vimeo', src: `https://player.vimeo.com/video/${id}?autoplay=1` };
     }
-    // Native <video> tag
     const vidTag = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vidTag) return { type: 'video', src: vidTag[1] };
     return null;
   };
 
-  // Poster + play overlay; falls back to plain poster if no video present
   const posterWithPlay = (post, contentHTML) => {
     const poster = imgHTML(post);
     const playable = extractVideo(contentHTML);
@@ -108,7 +103,6 @@
     `;
   };
 
-  // Replace poster with iframe/video on click
   const wirePlayHandlers = (rootEl) => {
     rootEl.querySelectorAll('.thumb[data-has-video="1"] .oo-play').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -118,7 +112,6 @@
         const src  = decodeURIComponent(wrap?.dataset?.src || '');
         if (!wrap || !src) return;
 
-        // clear poster
         wrap.innerHTML = '';
         wrap.style.position = 'relative';
 
@@ -201,21 +194,28 @@
     </section>`;
   };
 
+  // ---------- detail (FIXED ORDER & SIZING) ----------
   const renderDetail = async (id) => {
     app.innerHTML = `<div>Loading…</div>`;
     try {
       const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       const p = await r.json();
+
+      const hero = `
+        <div class="post-hero" style="position:relative;margin:0 0 16px 0;">
+          ${posterWithPlay(p, p.content?.rendered || '')}
+        </div>
+      `;
+
       app.innerHTML = `
-        <article>
-          <h1>${p.title?.rendered || ''}</h1>
-          <div class="byline">${byline(p)}</div>
-          <div class="post-hero">
-            ${posterWithPlay(p, p.content?.rendered || '')}
-          </div>
-          <div>${p.content?.rendered || ''}</div>
-          <p><a class="button" href="#/">Back to Posts</a></p>
-        </article>`;
+        <article class="post-detail">
+          ${hero}
+          <h1 class="post-detail__title" style="margin:0 0 8px 0;">${p.title?.rendered || ''}</h1>
+          <div class="byline" style="margin:0 0 16px 0;">${byline(p)}</div>
+          <div class="post-detail__content">${p.content?.rendered || ''}</div>
+          <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
+        </article>
+      `;
       wirePlayHandlers(app);
     } catch {
       app.innerHTML = `<div>Failed to load post.</div>`;
@@ -263,8 +263,13 @@
   // ---------- menu ----------
   const toggleMenu = () => {
     const open = !menu.hasAttribute('hidden');
-    if (open) { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
-    else { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
+    if (open) {
+      menu.setAttribute('hidden','');
+      hamburger.setAttribute('aria-expanded','false');
+    } else {
+      menu.removeAttribute('hidden');
+      hamburger.setAttribute('aria-expanded','true');
+    }
   };
 
   // ---------- init ----------
