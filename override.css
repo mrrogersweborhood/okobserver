@@ -373,3 +373,19 @@ header .motto{
 
 /* Keep main content offset below the sticky header */
 main#app{ padding: 16px; }
+/* Back-to-Posts button — restore pill style */
+a.button {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #1E90FF;      /* OkObserver blue */
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  transition: transform .05s ease, box-shadow .2s ease, background .2s;
+}
+a.button:hover { background: #0e7fe0; box-shadow: 0 3px 12px rgba(0,0,0,.16); }
+a.button:active { transform: translateY(1px); }
+a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
