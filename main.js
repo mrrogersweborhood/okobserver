@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1j (videos only on detail view; none on summaries) */
+/* 🟢 main.js — 2025-11-03R1k (smooth scroll + videos only in detail) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1j';
+  window.AppVersion = '2025-11-03R1k';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -16,30 +16,28 @@
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  // ---------- utils ----------
   const fmtDate = iso => {
     try {
-      return new Date(iso).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+      return new Date(iso).toLocaleDateString(undefined,
+        { year: 'numeric', month: 'short', day: 'numeric' });
     } catch { return ''; }
   };
-  const byline = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
+  const byline = p =>
+    `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  /* Filter out cartoon posts */
-  const isCartoon = (post) => {
+  // ---- cartoon filter ----
+  const isCartoon = post => {
     const title = (post?.title?.rendered || '').toLowerCase();
     if (/\bcartoon(s)?\b/.test(title)) return true;
     const termGroups = post?._embedded?.['wp:term'] || [];
     const terms = termGroups.flat().filter(Boolean);
-    for (const t of terms) {
-      const name = (t?.name || '').toLowerCase();
-      const slug = (t?.slug || '').toLowerCase();
-      if (name.includes('cartoon') || slug.includes('cartoon')) return true;
-    }
-    return false;
+    return terms.some(t =>
+      (t.name || '').toLowerCase().includes('cartoon') ||
+      (t.slug || '').toLowerCase().includes('cartoon'));
   };
 
-  // ---------- featured images ----------
-  const featuredSrc = (post) => {
+  // ---- featured image helpers ----
+  const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
     const sz = fm.media_details?.sizes;
@@ -48,41 +46,32 @@
       sz?.large?.source_url ||
       sz?.medium?.source_url ||
       fm.source_url ||
-      fm.guid?.rendered ||
-      '';
-    return pick ? `${pick}${pick.includes('?') ? '&' : '?'}cb=${post.id}` : '';
+      fm.guid?.rendered || '';
+    return pick
+      ? `${pick}${pick.includes('?') ? '&' : '?'}cb=${post.id}`
+      : '';
   };
 
-  const imgHTML = (post) => {
+  const imgHTML = post => {
     const src = featuredSrc(post);
     if (!src) return '';
     return `<img src="${src}" alt="" decoding="async" loading="lazy"
-              style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
+            style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  // ---------- video extraction (detail only) ----------
-  const extractVideo = (html = '') => {
-    // YouTube
+  // ---- video extraction (detail only) ----
+  const extractVideo = html => {
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
-    if (yt) {
-      const id = (yt[1] || yt[2]);
-      return { type: 'youtube', src: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` };
-    }
-    // Vimeo
+    if (yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]||yt[2]}?autoplay=1&rel=0` };
     const vimeo = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
-    if (vimeo) {
-      const id = vimeo[1];
-      return { type: 'vimeo', src: `https://player.vimeo.com/video/${id}?autoplay=1` };
-    }
-    // Facebook
+    if (vimeo) return { type:'vimeo', src:`https://player.vimeo.com/video/${vimeo[1]}?autoplay=1` };
     const fb = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=|[^"']+\/videos\/)([0-9]+)/i);
     if (fb) {
       const orig = fb[0].includes('watch') ? `https://www.facebook.com/watch/?v=${fb[1]}` : fb[0];
-      return { type: 'facebook', src: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&autoplay=1&show_text=false` };
+      return { type:'facebook', src:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&autoplay=1&show_text=false` };
     }
-    // Native video
-    const vidTag = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
-    if (vidTag) return { type: 'video', src: vidTag[1] };
+    const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
+    if (vid) return { type:'video', src:vid[1] };
     return null;
   };
 
@@ -91,55 +80,41 @@
     container.innerHTML = '';
     if (playable.type === 'video') {
       const v = document.createElement('video');
-      v.src = playable.src;
-      v.controls = true;
-      v.autoplay = true;
-      v.playsInline = true;
-      v.style.width = '100%';
-      v.style.display = 'block';
+      Object.assign(v, { src: playable.src, controls: true, autoplay: true, playsInline: true });
+      v.style.width = '100%'; v.style.display = 'block';
       container.appendChild(v);
     } else {
-      const iframe = document.createElement('iframe');
-      iframe.src = playable.src;
-      iframe.allow = 'autoplay; fullscreen; picture-in-picture; encrypted-media';
-      iframe.frameBorder = '0';
-      iframe.referrerPolicy = 'no-referrer-when-downgrade';
-      iframe.style.width = '100%';
-      iframe.style.height = '315px';
-      iframe.style.display = 'block';
-      container.appendChild(iframe);
+      const f = document.createElement('iframe');
+      Object.assign(f, {
+        src: playable.src,
+        allow: 'autoplay; fullscreen; picture-in-picture; encrypted-media',
+        frameBorder: '0',
+        referrerPolicy: 'no-referrer-when-downgrade'
+      });
+      f.style.width = '100%'; f.style.height = '315px'; f.style.display = 'block';
+      container.appendChild(f);
     }
   };
 
-  // ---------- feed helpers ----------
-  const remember = (k, v) => {
-    if (cachePages.has(k)) {
-      const i = lru.indexOf(k);
-      if (i > -1) lru.splice(i, 1);
-    }
-    cachePages.set(k, v);
-    lru.push(k);
-    while (lru.length > 6) cachePages.delete(lru.shift());
+  // ---- feed helpers ----
+  const remember = (k,v)=>{
+    if(cachePages.has(k)) lru.splice(lru.indexOf(k),1);
+    cachePages.set(k,v); lru.push(k);
+    while(lru.length>6) cachePages.delete(lru.shift());
   };
 
-  const ensureFeed = () => {
-    let feed = document.querySelector('.posts-grid');
-    if (!feed) {
-      feed = document.createElement('div');
-      feed.className = 'posts-grid';
-      app.innerHTML = '';
-      app.appendChild(feed);
-    }
+  const ensureFeed = ()=>{
+    let feed=document.querySelector('.posts-grid');
+    if(!feed){feed=document.createElement('div');feed.className='posts-grid';app.innerHTML='';app.appendChild(feed);}
     return feed;
   };
 
-  const trimCards = () => {
-    const c = document.querySelector('.posts-grid');
-    if (!c) return;
-    while (c.children.length > MAX_CARDS) c.removeChild(c.firstElementChild);
+  const trimCards = ()=>{
+    const c=document.querySelector('.posts-grid');
+    if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild);
   };
 
-  // ---------- post summaries (no playable videos) ----------
+  // ---- cards ----
   const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
@@ -150,117 +125,100 @@
       </a>
     </article>`;
 
+  // ---- smooth renderPage ----
   const renderPage = posts => {
     const feed = ensureFeed();
-    feed.insertAdjacentHTML('beforeend', posts.map(cardHTML).join(''));
+    const frag = document.createDocumentFragment();
+    posts.forEach(p=>{
+      const wrap=document.createElement('div');
+      wrap.innerHTML=cardHTML(p);
+      const card=wrap.firstElementChild;
+      card.style.opacity='0';
+      card.style.transition='opacity 0.3s ease';
+      frag.appendChild(card);
+      requestAnimationFrame(()=>{card.style.opacity='1';});
+    });
+    feed.appendChild(frag);
     trimCards();
   };
 
-  const renderAbout = () => {
-    app.innerHTML = `<section><h1>About The Oklahoma Observer</h1>
-      <p>Independent journalism since 1969. Tips:
-        <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p>
-    </section>`;
-  };
+  const renderAbout = ()=>{app.innerHTML=`<section><h1>About The Oklahoma Observer</h1>
+    <p>Independent journalism since 1969. Tips:
+    <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`;};
 
-  const renderSettings = () => {
-    app.innerHTML = `<section><h1>Settings</h1>
-      <p>Build <strong>${window.AppVersion}</strong></p>
-    </section>`;
-  };
+  const renderSettings = ()=>{app.innerHTML=`<section><h1>Settings</h1>
+    <p>Build <strong>${window.AppVersion}</strong></p></section>`;};
 
-  // ---------- post detail (videos playable here only) ----------
-  const renderDetail = async (id) => {
-    app.innerHTML = `<div>Loading…</div>`;
-    try {
-      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
-      const p = await r.json();
-      const playable = extractVideo(p.content?.rendered || '');
-
-      const hero = `
-        <div class="post-hero" style="position:relative;margin:0 0 16px 0;">
-          <div class="thumb">${imgHTML(p)}</div>
-        </div>
-      `;
-      app.innerHTML = `
-        <article class="post-detail">
+  // ---- detail view ----
+  const renderDetail = async id=>{
+    app.innerHTML='<div>Loading…</div>';
+    try{
+      const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
+      const p=await r.json();
+      const playable=extractVideo(p.content?.rendered||'');
+      const hero=`<div class="post-hero" style="position:relative;margin:0 0 16px 0;">
+                    <div class="thumb">${imgHTML(p)}</div></div>`;
+      app.innerHTML=`<article class="post-detail">
           ${hero}
-          <h1 class="post-detail__title" style="margin:0 0 8px 0;">${p.title?.rendered || ''}</h1>
+          <h1 class="post-detail__title" style="margin:0 0 8px 0;">${p.title?.rendered||''}</h1>
           <div class="byline" style="margin:0 0 16px 0;">${byline(p)}</div>
-          <div class="post-detail__content">${p.content?.rendered || ''}</div>
+          <div class="post-detail__content">${p.content?.rendered||''}</div>
           <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
-        </article>
-      `;
-
-      // replace poster with playable video only if found
-      if (playable) {
-        const ph = app.querySelector('.post-hero .thumb');
-        playInlineVideo(ph, playable);
+        </article>`;
+      if(playable){
+        const ph=app.querySelector('.post-hero .thumb');
+        playInlineVideo(ph,playable);
       }
-    } catch {
-      app.innerHTML = `<div>Failed to load post.</div>`;
-    }
+    }catch{app.innerHTML='<div>Failed to load post.</div>';}
   };
 
-  // ---------- data + router ----------
-  const fetchPosts = async (n) => {
-    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
-    if (!r.ok) {
-      if (r.status === 400 || r.status === 404) reachedEnd = true;
-      throw new Error(r.status);
-    }
-    const posts = await r.json();
-    return posts.filter(p => !isCartoon(p));
+  // ---- data + router ----
+  const fetchPosts = async n=>{
+    const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
+    if(!r.ok){if(r.status===400||r.status===404)reachedEnd=true;throw new Error(r.status);}
+    const posts=await r.json();
+    return posts.filter(p=>!isCartoon(p));
   };
 
-  const loadNext = async () => {
-    if (loading || reachedEnd || route !== 'home') return;
-    loading = true;
-    try {
-      const posts = await fetchPosts(page);
-      if (!posts.length) { reachedEnd = true; return; }
-      remember(page, posts);
+  const loadNext = async ()=>{
+    if(loading||reachedEnd||route!=='home')return;
+    loading=true;
+    try{
+      const posts=await fetchPosts(page);
+      if(!posts.length){reachedEnd=true;return;}
+      remember(page,posts);
       renderPage(posts);
-      page += 1;
-    } finally { loading = false; }
+      page+=1;
+    }finally{loading=false;}
   };
 
-  const router = async () => {
-    const parts = (location.hash || '#/').slice(2).split('/');
-    switch (parts[0]) {
-      case '': case 'posts': route = 'home'; ensureFeed(); break;
-      case 'about':         route = 'about';   return renderAbout();
-      case 'settings':      route = 'settings';return renderSettings();
-      case 'post':          route = 'detail';  return renderDetail(parts[1]);
-      default:              route = 'home';    ensureFeed(); break;
+  const router = async ()=>{
+    const parts=(location.hash||'#/').slice(2).split('/');
+    switch(parts[0]){
+      case '':case 'posts':route='home';ensureFeed();break;
+      case 'about':route='about';return renderAbout();
+      case 'settings':route='settings';return renderSettings();
+      case 'post':route='detail';return renderDetail(parts[1]);
+      default:route='home';ensureFeed();break;
     }
   };
 
-  // ---------- infinite scroll ----------
-  const io = new IntersectionObserver(async (entries) => {
-    if (!entries[0].isIntersecting || loading) return;
+  const io=new IntersectionObserver(async e=>{
+    if(!e[0].isIntersecting||loading)return;
     await loadNext();
-  }, { rootMargin: '1200px 0px 800px 0px', threshold: 0 });
+  },{rootMargin:'1200px 0px 800px 0px',threshold:0});
 
-  // ---------- menu ----------
-  const toggleMenu = () => {
-    const open = !menu.hasAttribute('hidden');
-    if (open) {
-      menu.setAttribute('hidden','');
-      hamburger.setAttribute('aria-expanded','false');
-    } else {
-      menu.removeAttribute('hidden');
-      hamburger.setAttribute('aria-expanded','true');
-    }
+  const toggleMenu=()=>{
+    const open=!menu.hasAttribute('hidden');
+    if(open){menu.setAttribute('hidden','');hamburger.setAttribute('aria-expanded','false');}
+    else{menu.removeAttribute('hidden');hamburger.setAttribute('aria-expanded','true');}
   };
 
-  // ---------- init ----------
-  const start = async () => {
-    addEventListener('hashchange', router);
-    hamburger?.addEventListener('click', toggleMenu);
-
+  const start=async()=>{
+    addEventListener('hashchange',router);
+    hamburger?.addEventListener('click',toggleMenu);
     await router();
-    if (route === 'home') { io.observe(sentinel); await loadNext(); }
+    if(route==='home'){io.observe(sentinel);await loadNext();}
   };
 
   start();
