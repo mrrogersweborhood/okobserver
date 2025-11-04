@@ -1,14 +1,10 @@
-/* 🟢 main.js — 2025-11-03 R1al
-   Fix duplicates + ordering:
-   - Global Set seenIds for dedupe across entire session (restore/seek/append)
-   - Client-side sort by date desc for every fetched page
-   - Disable sticky ordering impact by re-sorting and using ignore-sticky semantics
-   - On restore, we rehydrate cards from cached HTML but still pass through dedupe pipeline
-   Keeps: pre-router return-to-place with RETURN_TOKEN + seek-until-found
+/* 🟢 main.js — 2025-11-03 R1am
+   Adds: placeSentinelAfterLastCard(), stronger IO rootMargin, watchdog kick (interval + scroll)
+   Keeps: date-desc order, global dedupe, return-to-place restore, hoisted renderDetail()
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1al';
+  window.AppVersion = '2025-11-03R1am';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -21,7 +17,6 @@
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  // Global dedupe across whole session
   const seenIds = new Set();
 
   const SS = {
@@ -41,19 +36,16 @@
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // Tight cartoon filter
   const isCartoon = post => {
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
     return terms.some(t => {
-      if (!t || !t.taxonomy) return false;
       const slug = (t.slug || '').toLowerCase();
       const name = (t.name || '').toLowerCase();
       return slug === 'cartoon' || name === 'cartoon';
     });
   };
 
-  // Featured image helpers
   const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -66,7 +58,6 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
-  // Video detection
   const decodeEntities = (s='') => { try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; } catch { return s; } };
   const findUrls = (raw='') => { const txt=decodeEntities(raw); const out=[]; const re=/https?:\/\/[^\s"'<>)]+/gi; let m; while((m=re.exec(txt))) out.push(m[0]); return out; };
   const extractVideo = html => {
@@ -125,7 +116,6 @@
     return wrap.innerHTML;
   }
 
-  // Feed helpers
   const ensureFeed=()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div'); feed.className='posts-grid'; app.innerHTML=''; app.appendChild(feed);} return feed; };
   const trimCards=()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
 
@@ -139,8 +129,17 @@
       <div class="post-summary">${p.excerpt?.rendered || ''}</div>
     </article>`;
 
+  function placeSentinelAfterLastCard() {
+    const feed = document.querySelector('.posts-grid');
+    if (!feed) return;
+    if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
+    feed.appendChild(sentinel); // always after the last card
+    // Make sure it has some height (CSS should set, this is just a guard)
+    sentinel.style.minHeight = '2px';
+    sentinel.style.display   = 'block';
+  }
+
   function appendPosts(posts) {
-    // enforce date desc + dedupe
     posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
     const feed = ensureFeed();
     const frag = document.createDocumentFragment();
@@ -153,7 +152,7 @@
     });
     if (frag.childNodes.length) feed.appendChild(frag);
     trimCards();
-    document.body.appendChild(sentinel);
+    placeSentinelAfterLastCard();
   }
 
   const tagsHTML = p => {
@@ -219,15 +218,12 @@
   }
 
   async function fetchPosts(n){
-    // Ask for date desc; stickies could still appear, so we re-sort and dedupe locally.
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
     let posts=await r.json();
-    // filter & sort & dedupe
     posts = posts.filter(p=>!isCartoon(p))
-                 .sort((a,b)=> new Date(b.date) - new Date(a.date));
-    // drop already-seen ids (in case API repeats around boundaries)
-    posts = posts.filter(p=> !seenIds.has(p.id));
+                 .sort((a,b)=> new Date(b.date) - new Date(a.date))
+                 .filter(p=>!seenIds.has(p.id));
     return posts;
   }
 
@@ -236,26 +232,29 @@
     if (io) io.disconnect();
     io = new IntersectionObserver(async entries => {
       const e = entries[0];
-      if (!e.isIntersecting || loading || reachedEnd || route !== 'home') return;
+      if (!e || !e.isIntersecting || loading || reachedEnd || route !== 'home') return;
       await loadNext();
-    }, { root:null, rootMargin:'2000px 0px 1400px 0px', threshold:0 });
-    if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
+    }, { root:null, rootMargin:'1800px 0px 1400px 0px', threshold:0 });
+    placeSentinelAfterLastCard();
     io.observe(sentinel);
   }
-  function maybeKick(){
-    if (route!=='home'||loading||reachedEnd) return;
+
+  function kick(){
+    if (route!=='home' || loading || reachedEnd) return;
     const doc=document.documentElement;
-    const nearBottom = doc.scrollHeight - (doc.scrollTop + window.innerHeight) < 800;
-    if (nearBottom && (now()-lastAppendTs)>1500) loadNext();
+    const remaining = doc.scrollHeight - (doc.scrollTop + window.innerHeight);
+    if (remaining < 1000) loadNext();
   }
+  setInterval(kick, 1500);
+  addEventListener('scroll', kick, { passive:true });
+
   async function loadNext(){
     if (loading||reachedEnd||route!=='home') return;
     loading=true;
     try{
       const posts=await fetchPosts(page);
       if(!posts.length){ reachedEnd=true; return; }
-      appendPosts(posts);
-      lastAppendTs=now(); page+=1;
+      appendPosts(posts); lastAppendTs=now(); page+=1;
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
       }
@@ -304,7 +303,6 @@
     } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
   }
 
-  // PRE-ROUTER RESTORE (rehydrates & continues dedupe)
   async function preRouterRestoreIfReturning(){
     const token = sessionStorage.getItem(SS.RETURN_TOKEN);
     if (!token) return false;
@@ -320,14 +318,10 @@
     const yState    = (getState().y ?? yStored) | 0;
     const activeId  = sessionStorage.getItem(SS.ACTIVE_ID) || null;
 
-    // Rehydrate cards, but run them through dedupe (seenIds)
     const feed = ensureFeed();
     feed.innerHTML = '';
-    // Parse cached HTML safely:
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
     const cachedCards = [...tmp.querySelectorAll('.post-card')];
-    // turn cached cards back into minimal objects to pass through appendPosts
     const cachedData = cachedCards.map(card => {
       const id = Number(card.getAttribute('data-id'));
       const title = card.querySelector('.post-title')?.innerHTML || '';
@@ -356,9 +350,8 @@
     restoreFocusToActiveCard();
 
     attachObserver();
-    if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-      (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
-    }
+    kick(); // initial nudge
+
     return true;
   }
 
@@ -373,7 +366,6 @@
           page=1; reachedEnd=false; loading=false;
           feed.innerHTML=''; attachObserver(); await loadNext();
         } else {
-          // Same rehydrate path even without RETURN_TOKEN, to enforce dedupe/order
           const html=sessionStorage.getItem(SS.FEED_HTML);
           feed.innerHTML='';
           const tmp = document.createElement('div'); tmp.innerHTML = html;
@@ -394,7 +386,7 @@
             const y=Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
             window.scrollTo({ top:y, behavior:'auto' });
           });
-          attachObserver(); maybeKick();
+          attachObserver(); kick();
         }
         break;
       }
@@ -417,7 +409,6 @@
     }
   }
 
-  // Nav snapshots + RETURN token
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a.title-link');
     if (!a) return;

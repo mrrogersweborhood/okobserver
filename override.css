@@ -473,3 +473,12 @@ a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
 
 /* Clear floats so following paragraphs don't overlap */
 .post-detail__content::after { content:""; display:block; clear:both; }
+/* IO sentinel must be hittable */
+#sentinel {
+  display: block;
+  width: 100%;
+  height: 2px;          /* non-zero so it can intersect */
+}
+.posts-grid {
+  min-height: 140vh;    /* ensures first intersection on tall viewports */
+}
