@@ -1,8 +1,7 @@
-/* 🟢 main.js — 2025-11-03 R1ah
-   Guaranteed return-to-place:
-   - PUSH feed state on card click (history.pushState)
-   - Save scrollY, activeId, and a CSS path fallback
-   - On return, render cached feed first, sync scroll + focus, then resume fetching
+/* 🟢 main.js — 2025-11-03 R1ai
+   Return-to-place: now SEEK-UNTIL-FOUND on Back
+   - On return to feed, if active card (e.g., 381796) isn’t in DOM, keep loadNext() until it appears (with sane cap)
+   - Then scroll to saved Y and focus the active card
    Retains:
    - No feed leak into detail; tight cartoon filter (slug/name === 'cartoon')
    - HTML sanitize; robust video detection; resilient infinite scroll
@@ -10,7 +9,7 @@
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ah';
+  window.AppVersion = '2025-11-03R1ai';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -33,19 +32,13 @@
   };
 
   const getState = () => (history.state && typeof history.state === 'object') ? history.state : {};
-  const setState = (patch) => {
-    const next = { ...(getState() || {}), ...patch };
-    try { history.replaceState(next, ''); } catch {}
-  };
-  const pushState = (patch) => {
-    const next = { ...(getState() || {}), ...patch };
-    try { history.pushState(next, ''); } catch {}
-  };
+  const setState = (patch) => { const next = { ...(getState() || {}), ...patch }; try { history.replaceState(next, ''); } catch {} };
+  const pushState = (patch) => { const next = { ...(getState() || {}), ...patch }; try { history.pushState(next, ''); } catch {} };
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // cartoon filter
+  // Cartoon filter (tight)
   const isCartoon = post => {
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
@@ -69,7 +62,7 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
-  // video detection
+  // Video helpers
   const decodeEntities = (s='') => { try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; } catch { return s; } };
   const findUrls = (raw='') => { const txt=decodeEntities(raw); const out=[]; const re=/https?:\/\/[^\s"'<>)]+/gi; let m; while((m=re.exec(txt))) out.push(m[0]); return out; };
   const extractVideo = html => {
@@ -93,8 +86,7 @@
       const btn = document.createElement('div');
       btn.style.marginTop = '8px';
       btn.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${playable.orig || '#'}">View on Facebook</a>`;
-      container.appendChild(btn);
-      return;
+      container.appendChild(btn); return;
     }
     if (playable.type === 'video') {
       const v=document.createElement('video');
@@ -108,6 +100,7 @@
     container.appendChild(f);
   };
 
+  // Sanitize WP HTML
   const sanitizePostHTML = (html) => {
     const wrap=document.createElement('div'); wrap.innerHTML=html;
     wrap.querySelectorAll('.wp-caption').forEach(c=>{
@@ -129,7 +122,7 @@
     return wrap.innerHTML;
   };
 
-  // ----- FEED helpers -----
+  // Feed helpers
   const ensureFeed=()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div'); feed.className='posts-grid'; app.innerHTML=''; app.appendChild(feed);} return feed; };
   const trimCards=()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
   const cardHTML = p => `
@@ -155,7 +148,7 @@
     document.body.appendChild(sentinel);
   };
 
-  // Tags, About, NotFound
+  // Meta blocks
   const tagsHTML = p => {
     const groups = p?._embedded?.['wp:term'] || [];
     const terms = groups.flat().filter(t => t && (t.taxonomy==='post_tag'||t.taxonomy==='category'));
@@ -179,15 +172,14 @@
     </article>`;
   };
 
-  // ---- Return-to-place core ----
+  // Return-to-place core
   const cssPath = (el) => {
     if (!el || !el.nodeType) return '';
     const path = [];
     for (let node = el; node && node.nodeType === 1 && node !== document; node = node.parentElement) {
       let sel = node.nodeName.toLowerCase();
       if (node.id) { sel += `#${CSS.escape(node.id)}`; path.unshift(sel); break; }
-      let sib = node;
-      let idx = 1;
+      let sib = node, idx = 1;
       while ((sib = sib.previousElementSibling) != null) { if (sib.nodeName === node.nodeName) idx++; }
       sel += `:nth-of-type(${idx})`;
       path.unshift(sel);
@@ -198,8 +190,7 @@
   const snapshotFeed = () => {
     try {
       if (route !== 'home') return;
-      const feed = document.querySelector('.posts-grid');
-      if (!feed) return;
+      const feed = document.querySelector('.posts-grid'); if (!feed) return;
       const y = window.scrollY || 0;
       sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
       sessionStorage.setItem(SS.FEED_PAGE, String(page));
@@ -222,38 +213,53 @@
     } catch {}
   };
 
-  const restoreFeedIfAvailable = () => {
+  // NEW: seek-until-found restore (tries to load pages until activeId appears or cap reached)
+  const seekUntilFound = async (activeId, maxExtraPages = 6) => {
+    if (!activeId) return;
+    let attempts = 0;
+    while (!document.querySelector(`.post-card[data-id="${activeId}"]`) && !reachedEnd && attempts < maxExtraPages) {
+      await loadNext(); // this respects guards and appends next page
+      attempts++;
+    }
+  };
+
+  const restoreFeedIfAvailable = async () => {
     if (route !== 'home') return false;
     try {
       const html = sessionStorage.getItem(SS.FEED_HTML);
       if (!html) return false;
 
-      // Paint cached DOM FIRST, then scroll+focus, then resume fetching if needed
       const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
       const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
       const yStored   = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
       const yState    = (getState().y ?? yStored) | 0;
+      const activeId  = sessionStorage.getItem(SS.ACTIVE_ID) || null;
 
       const feed = ensureFeed();
       feed.innerHTML = html;
       page = Math.max(1, savedPage);
       reachedEnd = !!savedEnd;
 
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: yState, behavior: 'auto' });
-        restoreFocusToActiveCard();
+      // 1) Paint cached DOM first
+      await new Promise(requestAnimationFrame);
 
-        attachObserver();
-        if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-          (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
-        }
-      });
+      // 2) If active card missing, keep loading pages until we find it (or we hit cap/end)
+      await seekUntilFound(activeId);
 
+      // 3) Scroll + focus
+      window.scrollTo({ top: yState, behavior: 'auto' });
+      restoreFocusToActiveCard();
+
+      // 4) Reattach IO and continue if needed
+      attachObserver();
+      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+      }
       return true;
     } catch { return false; }
   };
 
-  // ---- Detail rendering ----
+  // Detail
   const renderDetail = async id=>{
     try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
     app.innerHTML = '';
@@ -281,14 +287,14 @@
     } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
   };
 
-  // ---- Data ----
+  // Data
   const fetchPosts = async n=>{
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
     const posts=await r.json(); return posts.filter(p=>!isCartoon(p));
   };
 
-  // ---- Infinite Scroll ----
+  // Infinite Scroll
   let io; let lastAppendTs=0; const now=()=>performance.now();
   const attachObserver = () => {
     if (io) io.disconnect();
@@ -320,8 +326,7 @@
     } finally { loading=false; }
   };
 
-  // ---- Navigation & snapshots ----
-  // Capture state on card click; push into history.state so Back returns with our data
+  // Navigation & snapshots
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a.title-link');
     if (!a) return;
@@ -330,9 +335,8 @@
         const card = e.target.closest('.post-card');
         const y = window.scrollY || 0;
         const id = card?.dataset?.id || null;
-        const path = cssPath(card);
+        const path = (card && cssPath(card)) || '';
         const feed = document.querySelector('.posts-grid');
-
         sessionStorage.setItem(SS.SCROLL_Y, String(y));
         if (id) sessionStorage.setItem(SS.ACTIVE_ID, String(id));
         if (path) sessionStorage.setItem(SS.ACTIVE_PATH, String(path));
@@ -346,11 +350,9 @@
     }
   }, { capture:true });
 
-  const preserveScroll = () => {
-    try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
-  };
+  const preserveScroll = () => { try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {} };
 
-  // ---- Router ----
+  // Router
   const router = async ()=>{
     preserveScroll();
     const parts=(location.hash||'#/').slice(2).split('/');
@@ -358,8 +360,7 @@
       case '':
       case 'posts': {
         route='home';
-        // Try immediate restore (paints from cache, then resumes)
-        if (!restoreFeedIfAvailable()) {
+        if (!(await restoreFeedIfAvailable())) {
           const feed=ensureFeed();
           page=1; reachedEnd=false; loading=false;
           feed.innerHTML=''; attachObserver(); await loadNext();
@@ -379,15 +380,15 @@
   };
 
   // Back/Forward + tab visibility assists
-  addEventListener('pageshow', () => {
+  addEventListener('pageshow', async () => {
     if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) && route !== 'home') {
       route = 'home';
-      if (!restoreFeedIfAvailable()) router();
+      if (!(await restoreFeedIfAvailable())) router();
     }
   });
-  addEventListener('popstate', () => {
+  addEventListener('popstate', async () => {
     if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts'))) {
-      if (!restoreFeedIfAvailable()) router();
+      if (!(await restoreFeedIfAvailable())) router();
     }
   });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') snapshotFeed(); });
