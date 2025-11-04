@@ -1,499 +1,422 @@
-/* 🟢 main.js — 2025-11-03 R1an
-   Adds: page-fill loader (keeps fetching while filtered pages are sparse),
-         sentinel placement + watchdog kick (from R1am),
-         strict date-desc + global dedupe, return-to-place restore.
-*/
+/* =========================================================================
+   OkObserver main.js — Build 2025-11-03 R1an + Snapshot Restore v2025-11-04a
+   Plain JS (no ESM). Preserves grid enforcer & design/behavior rules.
+   ========================================================================= */
+
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1an';
-  console.log('[OkObserver] main.js', window.AppVersion);
 
-  const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
-  const PAGE_SIZE = 12;         // You can bump to 16/20 if desired
-  const MAX_CARDS = 60;
+  // ------------------------------
+  // Version & constants
+  // ------------------------------
+  const BUILD = '2025-11-03R1an+SR-2025-11-04a';
+  const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  const PER_PAGE = 12;
+  const ORDER_QS = '&orderby=date&order=desc';
+  const VQ = `?v=${BUILD}`;
 
-  let page = 1, loading = false, reachedEnd = false, route = 'home';
-  const app       = document.getElementById('app');
-  const sentinel  = document.getElementById('sentinel');
-  const menu      = document.getElementById('menu');
-  const hamburger = document.getElementById('hamburger');
+  // SessionStorage keys (keep stable names)
+  const SS = {
+    FEED_IDS: 'okob.feed.ids',
+    FEED_BYID: 'okob.feed.byid',
+    FEED_PAGE: 'okob.feed.page',
+    FEED_END:  'okob.feed.end',
+    SCROLL_Y:  'okob.scrollY',
+    ACTIVE_ID: 'okob.activeId',
+    ACTIVE_PATH: 'okob.activePath',
+    RETURN_TOKEN: 'okob.returnToken'
+  };
 
-  // Global dedupe across session
+  // ------------------------------
+  // In-memory app state
+  // ------------------------------
+  let route = 'home';
+  let page = 1;
+  let loading = false;
+  let reachedEnd = false;
+
+  // Canonical feed snapshot we control
+  const feedIds = [];
+  const feedById = Object.create(null);
   const seenIds = new Set();
 
-  // Session storage keys
-  const SS = {
-    FEED_HTML:   'okob.feed.html',
-    FEED_PAGE:   'okob.feed.page',
-    FEED_END:    'okob.feed.end',
-    SCROLL_Y:    'okob.feed.scrollY',
-    ACTIVE_ID:   'okob.feed.activeCardId',
-    ACTIVE_PATH: 'okob.feed.activeCssPath',
-    RETURN_TOKEN:'okob.feed.returnToken'
-  };
+  // ------------------------------
+  // DOM hooks
+  // ------------------------------
+  const $   = (s, r = document) => r.querySelector(s);
+  const $$  = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  const getState = () => (history.state && typeof history.state === 'object') ? history.state : {};
-  const setState = (patch) => { try { history.replaceState({ ...(getState()||{}), ...patch }, ''); } catch {} };
-  const pushState = (patch) => { try { history.pushState({ ...(getState()||{}), ...patch }, ''); } catch {} };
+  const appRoot   = $('#app') || document.body;
+  const gridEl    = $('#post-grid');
+  const versionEl = $('#build-version');
 
-  const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
-  const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
+  if (versionEl) versionEl.textContent = `Build ${BUILD}`;
 
-  // Tight cartoon filter: only slug/name "cartoon"
-  const isCartoon = post => {
-    const groups = post?._embedded?.['wp:term'] || [];
-    const terms  = groups.flat().filter(Boolean);
-    return terms.some(t => {
-      const slug = (t.slug || '').toLowerCase();
-      const name = (t.name || '').toLowerCase();
-      return slug === 'cartoon' || name === 'cartoon';
-    });
-  };
-
-  // Featured image helpers
-  const featuredSrc = post => {
-    const fm = post?._embedded?.['wp:featuredmedia']?.[0];
-    if (!fm) return '';
-    const sz = fm.media_details?.sizes;
-    const pick = sz?.medium_large?.source_url || sz?.large?.source_url || sz?.medium?.source_url || fm.source_url || fm.guid?.rendered || '';
-    return pick ? `${pick}${pick.includes('?') ? '&' : '?'}cb=${post.id}` : '';
-  };
-  const imgHTML = post => {
-    const src = featuredSrc(post);
-    return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
-  };
-
-  // Video detection (no autoplay)
-  const decodeEntities = (s='') => { try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; } catch { return s; } };
-  const findUrls = (raw='') => { const txt=decodeEntities(raw); const out=[]; const re=/https?:\/\/[^\s"'<>)]+/gi; let m; while((m=re.exec(txt))) out.push(m[0]); return out; };
-  const extractVideo = html => {
-    const urls = findUrls(html);
-    const vimeo = urls.find(u => /\/\/(?:www\.)?vimeo\.com\/(\d+)/i.test(u));
-    if (vimeo) { const id=(vimeo.match(/vimeo\.com\/(\d+)/i)||[])[1]; if (id) return { type:'vimeo', src:`https://player.vimeo.com/video/${id}` }; }
-    const ytu = urls.find(u => /youtube\.com\/watch\?v=|youtu\.be\//i.test(u));
-    if (ytu) { const id=(ytu.match(/v=([A-Za-z0-9_-]{11})/)||[])[1]||(ytu.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)||[])[1]; if (id) return { type:'youtube', src:`https://www.youtube.com/embed/${id}?rel=0` }; }
-    const fbu = urls.find(u => /facebook\.com\/(?:watch\/?\?v=|.*\/videos\/\d+)/i.test(u));
-    if (fbu) return { type:'facebook', src:'', orig:fbu };
-    const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
-    if (vid) return { type:'video', src:vid[1] };
-    return null;
-  };
-
-  function playInlineVideo(container, playable, post) {
-    if (!playable || !container) return;
-    container.innerHTML = '';
-    if (playable.type === 'facebook') {
-      container.innerHTML = imgHTML(post) || '';
-      const btn = document.createElement('div');
-      btn.style.marginTop = '8px';
-      btn.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${playable.orig || '#'}">View on Facebook</a>`;
-      container.appendChild(btn);
-      return;
+  // ------------------------------
+  // Snapshot helpers (store ordered IDs + slim byId + page + end + scrollY)
+  // ------------------------------
+  function saveFeedSnapshotData({ ids, byId, nextPage, reachedEnd: endFlag }) {
+    try {
+      sessionStorage.setItem(SS.FEED_IDS, JSON.stringify(ids || []));
+      const slim = {};
+      (ids || []).forEach(id => {
+        const p = byId[id];
+        if (!p) return;
+        slim[id] = {
+          id: p.id,
+          date: p.date,
+          title: p.title,
+          excerpt: p.excerpt,
+          author_name: p.author_name,
+          categories: p.categories,
+          featured_media: p.featured_media || null,
+          featured_src: p.featured_src || null,
+          _embedded: p._embedded || null,
+          content: p.content || null
+        };
+      });
+      sessionStorage.setItem(SS.FEED_BYID, JSON.stringify(slim));
+      sessionStorage.setItem(SS.FEED_PAGE, String(nextPage || 1));
+      sessionStorage.setItem(SS.FEED_END, String(!!endFlag));
+      sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0));
+    } catch (e) {
+      console.warn('[OkObserver] snapshot save failed', e);
     }
-    if (playable.type === 'video') {
-      const v=document.createElement('video');
-      Object.assign(v,{src:playable.src,controls:true,playsInline:true});
-      v.style.width='100%'; v.style.aspectRatio='16/9'; v.style.display='block';
-      container.appendChild(v); return;
+  }
+
+  function readFeedSnapshotData() {
+    try {
+      const ids = JSON.parse(sessionStorage.getItem(SS.FEED_IDS) || '[]');
+      const byId = JSON.parse(sessionStorage.getItem(SS.FEED_BYID) || '{}');
+      if (!Array.isArray(ids) || !ids.length) return null;
+      return { ids, byId };
+    } catch {
+      return null;
     }
-    const f=document.createElement('iframe');
-    Object.assign(f,{src:playable.src,allow:'fullscreen; picture-in-picture; encrypted-media',frameBorder:'0',referrerPolicy:'no-referrer-when-downgrade'});
-    f.style.width='100%'; f.style.aspectRatio='16/9'; f.style.display='block';
-    container.appendChild(f);
   }
 
-  // Clean up WP markup (links underlined, images responsive)
-  function sanitizePostHTML(html) {
-    const wrap=document.createElement('div'); wrap.innerHTML=html;
-    wrap.querySelectorAll('.wp-caption').forEach(c=>{
-      const fig=document.createElement('figure'); [...c.childNodes].forEach(n=>fig.appendChild(n));
-      const cap=fig.querySelector('.wp-caption-text'); if (cap){const fc=document.createElement('figcaption'); fc.innerHTML=cap.innerHTML; cap.replaceWith(fc);}
-      c.replaceWith(fig);
-    });
-    wrap.querySelectorAll('a').forEach(a=>{
-      const onlyImg=a.children.length===1 && a.firstElementChild?.tagName==='IMG' && (a.textContent||'').trim()==='';
-      if (onlyImg) a.replaceWith(a.firstElementChild);
-    });
-    wrap.querySelectorAll('a').forEach(a=>{
-      const txt=(a.textContent||'').replace(/\s+/g,''); const hasImg=!!a.querySelector('img,picture,svg'); const hasEmb=!!a.querySelector('iframe,video');
-      if (!txt && !hasImg && !hasEmb) a.remove();
-    });
-    wrap.querySelectorAll('img').forEach(img=>{
-      img.removeAttribute('width'); img.removeAttribute('height'); img.style.maxWidth='100%'; img.style.height='auto'; img.style.display='block';
-    });
-    return wrap.innerHTML;
+  function clearFeedSnapshotData() {
+    try {
+      sessionStorage.removeItem(SS.FEED_IDS);
+      sessionStorage.removeItem(SS.FEED_BYID);
+      sessionStorage.removeItem(SS.FEED_PAGE);
+      sessionStorage.removeItem(SS.FEED_END);
+      sessionStorage.removeItem(SS.SCROLL_Y);
+    } catch {}
   }
 
-  // Feed helpers
-  const ensureFeed=()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div'); feed.className='posts-grid'; app.innerHTML=''; app.appendChild(feed);} return feed; };
-  const trimCards=()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
+  // Clear snapshot only on true hard reload, not back/forward
+  window.addEventListener('pageshow', () => {
+    if (performance?.navigation?.type === 1) {
+      clearFeedSnapshotData();
+    }
+  });
 
-  const cardHTML = p => `
-    <article class="post-card" data-id="${p.id}">
-      <a class="title-link" href="#/post/${p.id}">
-        <div class="thumb">${imgHTML(p)}</div>
-        <h2 class="post-title">${p.title?.rendered || ''}</h2>
-      </a>
-      <div class="byline">${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}</div>
-      <div class="post-summary">${p.excerpt?.rendered || ''}</div>
-    </article>`;
-
-  function placeSentinelAfterLastCard() {
-    const feed = document.querySelector('.posts-grid');
-    if (!feed) return;
-    if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
-    feed.appendChild(sentinel); // keep at end
-    sentinel.style.minHeight = '2px';
-    sentinel.style.display   = 'block';
+  // ------------------------------
+  // Filters / normalization
+  // ------------------------------
+  function isCartoon(post) {
+    const cats = (post._embedded?.['wp:term'] || [])
+      .flat()
+      .map(t => (t?.slug || t?.name || '').toString().toLowerCase());
+    return cats.includes('cartoon');
   }
 
-  function appendPosts(posts) {
-    posts.sort((a,b)=> new Date(b.date) - new Date(a.date));
-    const feed = ensureFeed();
+  function normalizePost(p) {
+    const id = p.id;
+    const title = (p.title?.rendered || '').trim();
+    const excerpt = (p.excerpt?.rendered || '').trim();
+    const content = (p.content?.rendered || '').trim();
+    const date = p.date;
+    const author_name = p._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+
+    // Featured image
+    let featured_src = null;
+    if (p._embedded?.['wp:featuredmedia']?.[0]?.media_details?.sizes) {
+      const sizes = p._embedded['wp:featuredmedia'][0].media_details.sizes;
+      const best = sizes.large || sizes.medium_large || sizes.medium || sizes.full;
+      featured_src = best?.source_url || null;
+    } else if (p._embedded?.['wp:featuredmedia']?.[0]?.source_url) {
+      featured_src = p._embedded['wp:featuredmedia'][0].source_url;
+    }
+    if (featured_src) {
+      const sep = featured_src.includes('?') ? '&' : '?';
+      featured_src = `${featured_src}${sep}cb=${id}`;
+    }
+
+    return {
+      id, date, title, excerpt, content,
+      link: `#/post/${id}`,
+      author_name,
+      categories: p.categories || [],
+      featured_media: p.featured_media || null,
+      featured_src,
+      _embedded: p._embedded || null
+    };
+  }
+
+  // ------------------------------
+  // Rendering
+  // ------------------------------
+  function clearGrid() {
+    if (gridEl) gridEl.innerHTML = '';
+  }
+
+  function cardHTML(p) {
+    return `
+      <article class="post-card" data-id="${p.id}" tabindex="0">
+        ${p.featured_src ? `<div class="post-card-image"><img src="${p.featured_src}" alt="" loading="lazy"></div>` : ``}
+        <div class="post-card-body">
+          <h3 class="post-card-title"><a href="${p.link}">${p.title}</a></h3>
+          <div class="post-card-byline"><strong>${p.author_name}</strong> · ${new Date(p.date).toLocaleDateString()}</div>
+          <div class="post-card-excerpt">${p.excerpt}</div>
+        </div>
+      </article>
+    `;
+  }
+
+  function mountGrid(posts) {
+    if (!gridEl) return;
+    gridEl.innerHTML = posts.map(cardHTML).join('');
+    wireCardClicks();
+  }
+
+  function mountGridAppend(posts) {
+    if (!gridEl || !posts.length) return;
     const frag = document.createDocumentFragment();
-    posts.forEach(p=>{
-      if (seenIds.has(p.id)) return;
-      seenIds.add(p.id);
-      const wrap=document.createElement('div'); wrap.innerHTML=cardHTML(p);
-      const card=wrap.firstElementChild; card.style.opacity='0'; card.style.transition='opacity .3s ease';
-      frag.appendChild(card); requestAnimationFrame(()=>{card.style.opacity='1';});
-    });
-    if (frag.childNodes.length) feed.appendChild(frag);
-    trimCards();
-    placeSentinelAfterLastCard();
-  }
-
-  const tagsHTML = p => {
-    const groups = p?._embedded?.['wp:term'] || [];
-    const terms = groups.flat().filter(t => t && (t.taxonomy==='post_tag'||t.taxonomy==='category'));
-    if (!terms.length) return '';
-    const seen=new Set(), chips=[];
-    for(const t of terms){
-      if(seen.has(t.id)) continue; seen.add(t.id);
-      const name=(t.name||'').trim(); if(!name) continue;
-      if (name.toLowerCase()==='cartoon') continue;
-      chips.push(`<span class="tag-chip" title="${t.taxonomy}">${name}</span>`);
-    }
-    return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
-  };
-
-  function notFound(id, status='Not found') {
-    app.innerHTML = `<article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
-      <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
-      <div class="byline" style="font-weight:600;margin:0 0 16px;">ID ${id} • ${status}</div>
-      <p>We couldn’t load this article. It may have been removed or is restricted.</p>
-      <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
-    </article>`;
-  }
-
-  // Focus helpers for return-to-place
-  function cssPath(el) {
-    if (!el || !el.nodeType) return '';
-    const path = [];
-    for (let node = el; node && node.nodeType === 1 && node !== document; node = node.parentElement) {
-      let sel = node.nodeName.toLowerCase();
-      if (node.id) { sel += `#${CSS.escape(node.id)}`; path.unshift(sel); break; }
-      let sib=node, idx=1; while ((sib=sib.previousElementSibling) != null) { if (sib.nodeName === node.nodeName) idx++; }
-      sel += `:nth-of-type(${idx})`;
-      path.unshift(sel);
-    }
-    return path.join(' > ');
-  }
-
-  function snapshotFeed() {
-    try {
-      if (route !== 'home') return;
-      const feed = document.querySelector('.posts-grid'); if (!feed) return;
-      const y = window.scrollY || 0;
-      sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
-      sessionStorage.setItem(SS.FEED_PAGE, String(page));
-      sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
-      sessionStorage.setItem(SS.SCROLL_Y,  String(y));
-      setState({ y, route:'home' });
-    } catch {}
-  }
-
-  function restoreFocusToActiveCard() {
-    try {
-      const id = sessionStorage.getItem(SS.ACTIVE_ID);
-      const path = sessionStorage.getItem(SS.ACTIVE_PATH);
-      let link = id ? document.querySelector(`.post-card[data-id="${id}"] a.title-link`) : null;
-      if (!link && path) {
-        const el = document.querySelector(path);
-        link = el?.querySelector?.('a.title-link') || null;
+    posts.forEach(p => {
+      // maintain canonical feed structures
+      if (!seenIds.has(p.id)) {
+        feedIds.push(p.id);
+        feedById[p.id] = p;
+        seenIds.add(p.id);
       }
-      if (link) link.focus({ preventScroll:true });
-    } catch {}
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = cardHTML(p);
+      frag.appendChild(wrapper.firstElementChild);
+    });
+    gridEl.appendChild(frag);
+    wireCardClicks();
   }
 
-  // === FETCH & LOAD (with fill) ===
-  async function fetchPosts(n){
-    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
-    if (!r.ok) {
-      if (r.status === 400 || r.status === 404) return { posts: [], rawCount: 0, end: true };
-      throw new Error(r.status);
+  function wireCardClicks() {
+    $$('.post-card a').forEach(a => {
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const href = ev.currentTarget.getAttribute('href') || '';
+        const id = href.split('/').pop();
+        // snapshot exact feed + scroll before routing
+        saveFeedSnapshotData({
+          ids: feedIds,
+          byId: feedById,
+          nextPage: page,
+          reachedEnd
+        });
+        sessionStorage.setItem(SS.ACTIVE_ID, String(id));
+        sessionStorage.setItem(SS.ACTIVE_PATH, href);
+        sessionStorage.setItem(SS.RETURN_TOKEN, String(Date.now()));
+        navigateTo(href);
+      }, { passive: false });
+    });
+  }
+
+  // ------------------------------
+  // Networking
+  // ------------------------------
+  async function fetchPage(pageNum) {
+    const url = `${API_BASE}/posts?per_page=${PER_PAGE}&page=${pageNum}${ORDER_QS}&_embed=1`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      if (res.status === 400 || res.status === 404) return [];
+      throw new Error(`HTTP ${res.status}`);
     }
-    let raw = await r.json();
-    const rawCount = Array.isArray(raw) ? raw.length : 0;
-    let posts = raw
-      .filter(p => !isCartoon(p))
-      .sort((a,b) => new Date(b.date) - new Date(a.date))
-      .filter(p => !seenIds.has(p.id));
-    return { posts, rawCount, end: rawCount === 0 };
+    return res.json();
+  }
+
+  // Fill-until-enough loader
+  async function loadNext() {
+    if (loading || reachedEnd) return;
+    loading = true;
+
+    let appended = 0;
+    const target = PER_PAGE;
+    let guard = 8;
+
+    while (appended < target && guard-- > 0) {
+      const raw = await fetchPage(page);
+      if (!raw.length) {
+        reachedEnd = true;
+        break;
+      }
+      const keep = raw.filter(p => !isCartoon(p));
+      const normalized = keep.map(normalizePost);
+
+      mountGridAppend(normalized);
+
+      appended += normalized.length;
+      page += 1;
+    }
+
+    // Persist exact snapshot after each cycle
+    saveFeedSnapshotData({
+      ids: feedIds,
+      byId: feedById,
+      nextPage: page,
+      reachedEnd
+    });
+
+    loading = false;
+  }
+
+  // ------------------------------
+  // Infinite scroll sentinel/watchdog
+  // ------------------------------
+  let sentinel = $('#infinite-sentinel');
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.id = 'infinite-sentinel';
+    sentinel.setAttribute('aria-hidden', 'true');
+    sentinel.style.height = '1px';
+    appRoot.appendChild(sentinel);
   }
 
   let io;
-  function attachObserver(){
+  function attachObserver() {
     if (io) io.disconnect();
-    io = new IntersectionObserver(async entries => {
-      const e = entries[0];
-      if (!e || !e.isIntersecting || loading || reachedEnd || route !== 'home') return;
-      await loadNext();
-    }, { root:null, rootMargin:'1800px 0px 1400px 0px', threshold:0 });
-    placeSentinelAfterLastCard();
+    io = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) loadNext();
+    }, { rootMargin: '800px 0px 800px 0px' });
     io.observe(sentinel);
   }
 
-  // Watchdog kick (if IO starves)
-  function kick(){
-    if (route!=='home' || loading || reachedEnd) return;
-    const doc=document.documentElement;
-    const remaining = doc.scrollHeight - (doc.scrollTop + window.innerHeight);
-    if (remaining < 1000) loadNext();
+  function detachObserver() {
+    if (io) io.disconnect();
   }
-  setInterval(kick, 1500);
-  addEventListener('scroll', kick, { passive:true });
 
-  // Fill loader: keep fetching forward until we append enough or reach end.
-  async function loadNext(){
-    if (loading || reachedEnd || route !== 'home') return;
-    loading = true;
-    try {
-      const MIN_TO_APPEND = 6;     // try to show at least this many cards per turn
-      const MAX_PAGES_HOP = 4;     // cap forward hops per turn
+  // ------------------------------
+  // Router
+  // ------------------------------
+  function parseRoute() {
+    const h = location.hash || '#/';
+    if (h.startsWith('#/post/')) return { name: 'post', id: h.split('/').pop() };
+    return { name: 'home' };
+  }
 
-      let appended = 0;
-      let hops = 0;
+  // Home: try restore before any fetch
+  async function renderHome() {
+    detachObserver();
 
-      while (!reachedEnd && hops < MAX_PAGES_HOP && appended < MIN_TO_APPEND) {
-        const { posts, rawCount, end } = await fetchPosts(page);
-        if (end || rawCount === 0) {
-          reachedEnd = true;
-          break;
-        }
-        if (posts.length) {
-          appendPosts(posts);
-          appended += posts.length;
-        }
-        page += 1;
-        hops += 1;
-      }
+    const snap = readFeedSnapshotData();
+    if (snap) {
+      const list = snap.ids.map(id => snap.byId[id]).filter(Boolean);
+      // Sync in-memory sets so we don’t duplicate later
+      feedIds.length = 0;
+      list.forEach(p => {
+        feedIds.push(p.id);
+        feedById[p.id] = p;
+        seenIds.add(p.id);
+      });
 
-      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-        (window.requestIdleCallback || setTimeout)(() => loadNext(), 80);
-      }
+      mountGrid(list);
 
-      snapshotFeed();
-    } finally {
+      page = Math.max(1, Number(sessionStorage.getItem(SS.FEED_PAGE) || '1'));
+      reachedEnd = sessionStorage.getItem(SS.FEED_END) === 'true';
       loading = false;
+
+      // scroll restore
+      const y = Number(sessionStorage.getItem(SS.SCROLL_Y) || '0');
+      requestAnimationFrame(() => window.scrollTo(0, y));
+
+      attachObserver(); // resume infinite scroll
+      return;
     }
-  }
 
-  async function renderDetail(id){
-    try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
-    app.innerHTML = '';
-    const orphan = document.querySelector('.posts-grid'); if (orphan) orphan.remove();
-    app.innerHTML = '<div>Loading…</div>';
-    try{
-      const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
-      if (!r.ok) { notFound(id, `HTTP ${r.status}`); return; }
-      const p=await r.json(); if (!p || !p.id) { notFound(id,'Unavailable'); return; }
-      const playable=extractVideo(p.content?.rendered||'');
-      const hero=`<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${imgHTML(p)}</div></div>`;
-      const cleaned=sanitizePostHTML(p.content?.rendered||'');
-      const tagsBlock=(function(){
-        const groups = p?._embedded?.['wp:term'] || [];
-        const terms = groups.flat().filter(t => t && (t.taxonomy==='post_tag'||t.taxonomy==='category'));
-        if (!terms.length) return '';
-        const seen=new Set(), chips=[];
-        for(const t of terms){
-          if(seen.has(t.id)) continue; seen.add(t.id);
-          const name=(t.name||'').trim(); if(!name) continue;
-          if (name.toLowerCase()==='cartoon') continue;
-          chips.push(`<span class="tag-chip" title="${t.taxonomy}">${name}</span>`);
-        }
-        return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
-      })();
+    // Cold load
+    clearGrid();
+    feedIds.length = 0;
+    for (const k in feedById) delete feedById[k];
+    seenIds.clear();
+    page = 1; reachedEnd = false; loading = false;
 
-      app.innerHTML=`<article class="post-detail">
-        ${hero}
-        <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
-        <div class="byline" style="font-weight:600;margin:0 0 16px;">${byline(p)}</div>
-        <div class="post-detail__content">${cleaned}</div>
-        ${tagsBlock?`<div class="tags-row" style="margin:16px 0;">${tagsBlock}</div>`:''}
-        <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
-      </article>`;
-
-      if (playable) {
-        const ph=app.querySelector('.post-hero .thumb'); playInlineVideo(ph,playable,p);
-      }
-    } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
-  }
-
-  // === Restore / Router ===
-  async function preRouterRestoreIfReturning(){
-    const token = sessionStorage.getItem(SS.RETURN_TOKEN);
-    if (!token) return false;
-    sessionStorage.removeItem(SS.RETURN_TOKEN);
-
-    route = 'home';
-    const html = sessionStorage.getItem(SS.FEED_HTML);
-    if (!html) return false;
-
-    const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
-    const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
-    const yStored   = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-    const yState    = (getState().y ?? yStored) | 0;
-    const activeId  = sessionStorage.getItem(SS.ACTIVE_ID) || null;
-
-    const feed = ensureFeed();
-    feed.innerHTML = '';
-    const tmp = document.createElement('div'); tmp.innerHTML = html;
-    const cachedCards = [...tmp.querySelectorAll('.post-card')];
-    const cachedData = cachedCards.map(card => {
-      const id = Number(card.getAttribute('data-id'));
-      const title = card.querySelector('.post-title')?.innerHTML || '';
-      const excerpt = card.querySelector('.post-summary')?.innerHTML || '';
-      const dateText = card.querySelector('.byline')?.textContent || '';
-      const dateGuess = (dateText.split('·').pop() || '').trim();
-      return { id, title:{ rendered:title }, excerpt:{ rendered:excerpt }, date: new Date(dateGuess).toISOString(), _embedded:{} };
-    }).filter(x=>x.id);
-
-    appendPosts(cachedData);
-
-    page = Math.max(1, savedPage);
-    reachedEnd = !!savedEnd;
-
-    async function seekUntilFound(activeId, maxExtraPages = 8) {
-      if (!activeId) return;
-      let tries = 0;
-      while (!document.querySelector(`.post-card[data-id="${activeId}"]`) && !reachedEnd && tries < maxExtraPages) {
-        await loadNext();
-        tries++;
-      }
-    }
-    await seekUntilFound(activeId);
-
-    window.scrollTo({ top: yState, behavior: 'auto' });
-    restoreFocusToActiveCard();
-
+    await loadNext();
     attachObserver();
-    kick(); // initial nudge
-    return true;
   }
 
-  async function router(){
-    const parts=(location.hash||'#/').slice(2).split('/');
-    switch(parts[0]){
-      case '':
-      case 'posts': {
-        route='home';
-        const feed=ensureFeed();
-        if (!sessionStorage.getItem(SS.FEED_HTML)) {
-          page=1; reachedEnd=false; loading=false;
-          feed.innerHTML=''; attachObserver(); await loadNext();
-        } else {
-          const html=sessionStorage.getItem(SS.FEED_HTML);
-          feed.innerHTML='';
-          const tmp = document.createElement('div'); tmp.innerHTML = html;
-          const cachedCards = [...tmp.querySelectorAll('.post-card')];
-          const cachedData = cachedCards.map(card => {
-            const id = Number(card.getAttribute('data-id'));
-            const title = card.querySelector('.post-title')?.innerHTML || '';
-            const excerpt = card.querySelector('.post-summary')?.innerHTML || '';
-            const dateText = card.querySelector('.byline')?.textContent || '';
-            const dateGuess = (dateText.split('·').pop() || '').trim();
-            return { id, title:{ rendered:title }, excerpt:{ rendered:excerpt }, date: new Date(dateGuess).toISOString(), _embedded:{} };
-          }).filter(x=>x.id);
-          appendPosts(cachedData);
+  async function renderDetail(id) {
+    detachObserver();
+    clearGrid();
 
-          page=Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
-          reachedEnd=sessionStorage.getItem(SS.FEED_END)==='true';
-          requestAnimationFrame(()=>{
-            const y=Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-            window.scrollTo({ top:y, behavior:'auto' });
-          });
-          attachObserver(); kick();
-        }
-        break;
+    const holder = document.createElement('div');
+    holder.id = 'post-detail';
+    gridEl.appendChild(holder);
+
+    let post = feedById[id];
+    if (!post) {
+      const res = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
+      if (res.ok) post = normalizePost(await res.json());
+    }
+
+    if (!post) {
+      holder.innerHTML = `<p>Post not found.</p><p><a class="back-to-posts" href="#/">Back to Posts</a></p>`;
+      wireBack(holder);
+      return;
+    }
+
+    holder.innerHTML = `
+      <article class="post-detail">
+        ${post.featured_src ? `<div class="detail-hero"><img src="${post.featured_src}" alt=""></div>` : ``}
+        <h1 class="detail-title">${post.title}</h1>
+        <div class="detail-byline"><strong>${post.author_name}</strong> · ${new Date(post.date).toLocaleDateString()}</div>
+        <div class="detail-content">${post.content || ''}</div>
+        <p class="back-wrap"><a class="back-to-posts" href="#/">Back to Posts</a></p>
+      </article>
+    `;
+    wireBack(holder);
+  }
+
+  function wireBack(scope) {
+    const back = scope.querySelector('.back-to-posts');
+    if (back) {
+      back.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateTo('#/'); // Home will restore from snapshot
+      });
+    }
+  }
+
+  async function router() {
+    const r = parseRoute();
+    route = r.name;
+    if (r.name === 'post') {
+      await renderDetail(r.id);
+    } else {
+      await renderHome();
+    }
+  }
+
+  function navigateTo(hash) {
+    if (location.hash === hash) router();
+    else location.hash = hash;
+  }
+
+  // keyboard open (Enter/Space)
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.classList.contains('post-card')) {
+      const id = document.activeElement.getAttribute('data-id');
+      if (id) {
+        saveFeedSnapshotData({
+          ids: feedIds,
+          byId: feedById,
+          nextPage: page,
+          reachedEnd
+        });
+        navigateTo(`#/post/${id}`);
       }
-      case 'about':
-        route='about'; if (io) io.disconnect(); app.innerHTML='';
-        app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`;
-        break;
-      case 'settings':
-        route='settings'; if (io) io.disconnect();
-        app.innerHTML = `<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`;
-        break;
-      case 'post':
-        route='detail';
-        if (io) io.disconnect();
-        const oldGrid=document.querySelector('.posts-grid'); if (oldGrid) oldGrid.remove();
-        await renderDetail(parts[1]);
-        break;
-      default:
-        route='home'; ensureFeed(); attachObserver(); break;
-    }
-  }
-
-  // Save state on click-through to detail
-  document.addEventListener('click', (e) => {
-    const a = e.target.closest('a.title-link');
-    if (!a) return;
-    if (route === 'home') {
-      try {
-        const card = e.target.closest('.post-card');
-        const y = window.scrollY || 0;
-        const id = card?.dataset?.id || null;
-        const path = (card && cssPath(card)) || '';
-        const feed = document.querySelector('.posts-grid');
-        sessionStorage.setItem(SS.SCROLL_Y, String(y));
-        if (id) sessionStorage.setItem(SS.ACTIVE_ID, String(id));
-        if (path) sessionStorage.setItem(SS.ACTIVE_PATH, String(path));
-        if (feed) {
-          sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
-          sessionStorage.setItem(SS.FEED_PAGE, String(page));
-          sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
-        }
-        sessionStorage.setItem(SS.RETURN_TOKEN, '1');
-        pushState({ y, route:'home', activeId:id, activePath:path });
-      } catch {}
-    }
-  }, { capture:true });
-
-  addEventListener('pageshow', async () => {
-    if (location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) {
-      if (await preRouterRestoreIfReturning()) return;
-      await router();
-    }
-  });
-  addEventListener('popstate', async () => {
-    if (location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) {
-      if (await preRouterRestoreIfReturning()) return;
-      await router();
     }
   });
 
-  hamburger?.addEventListener('click',()=>{
-    if (menu.hasAttribute('hidden')) { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
-    else { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
-  });
+  window.addEventListener('hashchange', router);
+  window.addEventListener('DOMContentLoaded', router);
 
-  addEventListener('hashchange', router);
-  addEventListener('scroll', () => { requestAnimationFrame(() => { if(route==='home') sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); }); }, { passive:true });
-  addEventListener('beforeunload', snapshotFeed);
-  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') snapshotFeed(); });
-
-  (async ()=>{ if (!(await preRouterRestoreIfReturning())) await router(); })();
+  console.log(`[OkObserver] main.js loaded: ${BUILD}`);
 })();
- /* 🔴 main.js */
