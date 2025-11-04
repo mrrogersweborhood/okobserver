@@ -1,4 +1,5 @@
-/* 🟢 main.js — 2025-11-03 R1ac
+/* 🟢 main.js — 2025-11-03 R1ad
+   - Cartoon filter tightened: hide ONLY when a term name/slug is exactly "cartoon"
    - Sanitize post HTML: remove empty anchors, unwrap image-only anchors, normalize captions
    - Robust video detection (finds links in captions/attributes)
    - Resilient infinite scroll (IO + timer + near-bottom kick)
@@ -6,11 +7,10 @@
    - Robust post 404 page (no fallback to home)
    - Facebook: always featured image + "View on Facebook" (no iframe)
    - Tags at bottom; byline bold; no autoplay
-   - Cartoon posts filtered from feed
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ac';
+  window.AppVersion = '2025-11-03R1ad';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -35,15 +35,16 @@
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
   /* ---------- filters / media helpers ---------- */
+
+  // NEW: only hide posts explicitly categorized/tagged "cartoon"
   const isCartoon = post => {
-    const title = (post?.title?.rendered || '').toLowerCase();
-    if (/cartoon/.test(title)) return true;
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
     return terms.some(t => {
-      const n = (t.name||'').toLowerCase();
-      const s = (t.slug||'').toLowerCase();
-      return n.includes('cartoon') || s.includes('cartoon');
+      if (!t || !t.taxonomy) return false;
+      const slug = (t.slug || '').toLowerCase();
+      const name = (t.name || '').toLowerCase();
+      return slug === 'cartoon' || name === 'cartoon';
     });
   };
 
@@ -133,15 +134,13 @@
     // 1) Normalize WP caption wrappers to semantic figure/figcaption
     wrapper.querySelectorAll('.wp-caption').forEach(caption => {
       const fig = document.createElement('figure');
-      // move children
       [...caption.childNodes].forEach(n => fig.appendChild(n));
-      // move caption text
       const cap = fig.querySelector('.wp-caption-text');
       if (cap) { const fc = document.createElement('figcaption'); fc.innerHTML = cap.innerHTML; cap.replaceWith(fc); }
       caption.replaceWith(fig);
     });
 
-    // 2) Unwrap anchors that only wrap a single IMG (keeps the image visible; link stays on the image)
+    // 2) Unwrap anchors that only wrap a single IMG (image remains, link on the image preserved)
     wrapper.querySelectorAll('a').forEach(a => {
       const onlyImg = a.children.length === 1 && a.firstElementChild?.tagName === 'IMG' && (a.textContent || '').trim() === '';
       if (onlyImg) { a.replaceWith(a.firstElementChild); }
@@ -189,7 +188,7 @@
     });
     feed.appendChild(frag);
     trimCards();
-    document.body.appendChild(sentinel);
+    document.body.appendChild(sentinel); // keep sentinel at end
   };
 
   /* ---------- detail helpers ---------- */
@@ -201,7 +200,7 @@
     for(const t of terms){
       if(seen.has(t.id)) continue; seen.add(t.id);
       const name=(t.name||'').trim(); if(!name) continue;
-      if (name.toLowerCase().includes('cartoon')) continue;
+      if (name.toLowerCase() === 'cartoon') continue; // keep consistent with filter
       chips.push(`<span class="tag-chip" title="${t.taxonomy}">${name}</span>`);
     }
     return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
@@ -231,7 +230,6 @@
       const playable=extractVideo(p.content?.rendered||'');
       const hero=`<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${imgHTML(p)}</div></div>`;
       const tagsBlock=tagsHTML(p);
-
       const cleaned = sanitizePostHTML(p.content?.rendered || '');
 
       app.innerHTML=`<article class="post-detail">
@@ -255,7 +253,9 @@
 
   /* ---------- data ---------- */
   const fetchPosts = async n=>{
-    const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1`);
+    const r=await fetch(
+      `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`
+    );
     if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
     const posts=await r.json();
     return posts.filter(p=>!isCartoon(p));
