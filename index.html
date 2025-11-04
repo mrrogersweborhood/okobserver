@@ -1,4 +1,4 @@
-<!-- 🟢 index.html — Build 2025-11-03 R1af -->
+<!-- 🟢 index.html — Build 2025-11-03 R1ag -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,21 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Oklahoma Observer</title>
 
-  <!-- Favicon & Manifest -->
   <link rel="icon" href="favicon.ico" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Proxy preconnect -->
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-03R1af" />
+  <link rel="stylesheet" href="override.css?v=2025-11-03R1ag" />
   <meta name="theme-color" content="#1E90FF">
 </head>
-
 <body>
-  <!-- Header -->
   <header>
     <img class="logo" src="logo.png" alt="The Oklahoma Observer" />
     <a href="#/" class="title-link">The Oklahoma Observer</a>
@@ -33,26 +28,20 @@
     </nav>
   </header>
 
-  <!-- App root -->
   <main id="app" aria-live="polite"></main>
-
-  <!-- Infinite scroll sentinel -->
   <div id="sentinel" aria-hidden="true"></div>
 
-  <!-- Footer -->
-  <footer>
-    © 2025 The Oklahoma Observer · Build 2025-11-03 R1af
-  </footer>
+  <footer>© 2025 The Oklahoma Observer · Build 2025-11-03 R1ag</footer>
 
-  <!-- Scripts (cache-busted to R1af) -->
-  <script defer src="main.js?v=2025-11-03R1af"></script>
+  <script defer src="main.js?v=2025-11-03R1ag"></script>
   <script>
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     if ('serviceWorker' in navigator) {
       addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js?v=2025-11-03R1af').catch(() => {})
+        navigator.serviceWorker.register('sw.js?v=2025-11-03R1ag').catch(() => {})
       );
     }
-    console.log('%cOkObserver Build 2025-11-03 R1af Loaded','color:#1E90FF;font-weight:bold');
+    console.log('%cOkObserver Build 2025-11-03 R1ag Loaded','color:#1E90FF;font-weight:bold');
   </script>
 </body>
 </html>
