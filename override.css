@@ -440,3 +440,36 @@ a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
   color: #111;
   margin-bottom: 0.6em;
 }
+/* --- Inline images & captions in post detail (2025-11-03 R1ab-imgfix) --- */
+.post-detail__content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* WordPress caption wrappers */
+.post-detail__content figure,
+.post-detail__content .wp-caption {
+  max-width: 100%;
+  margin: 12px auto;
+}
+.post-detail__content .wp-caption img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.post-detail__content figcaption,
+.post-detail__content .wp-caption-text {
+  font-size: 0.9rem;
+  color: #555;
+  text-align: center;
+  margin-top: 6px;
+}
+
+/* Common WP alignment classes */
+.post-detail__content .aligncenter { display:block; margin-left:auto; margin-right:auto; }
+.post-detail__content .alignleft   { float:left;  margin:0 16px 8px 0; }
+.post-detail__content .alignright  { float:right; margin:0 0 8px 16px; }
+
+/* Clear floats so following paragraphs don't overlap */
+.post-detail__content::after { content:""; display:block; clear:both; }
