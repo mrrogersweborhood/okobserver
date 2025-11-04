@@ -1,20 +1,21 @@
-/* 🟢 main.js — 2025-11-03 R1x
-   - Robust post route: shows "Post not found" (no fallback to home)
-   - Infinite scroll hardened (R1v)
+/* 🟢 main.js — 2025-11-03 R1y
+   - Restore feed DOM + scroll when returning from detail
+   - Robust post 404 page (no fallback to home)
+   - Infinite scroll hardened
    - Facebook blocked embed → featured image + "View on Facebook"
    - Tags at bottom; byline bold; no autoplay
    - Cartoon posts filtered from feed
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1x';
+  window.AppVersion = '2025-11-03R1y';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
   const MAX_CARDS = 60;
 
-  // runtime state
+  // runtime state (non-persistent)
   let page = 1, loading = false, reachedEnd = false, route = 'home';
 
   // DOM
@@ -23,8 +24,16 @@
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  // small LRU for pages
+  // small LRU for API pages (in-memory)
   const cachePages = new Map(); const lru = [];
+
+  // session persistence keys (per-tab)
+  const SS = {
+    FEED_HTML: 'okob.feed.html',
+    FEED_PAGE: 'okob.feed.page',
+    FEED_END : 'okob.feed.end',
+    SCROLL_Y : 'okob.feed.scrollY',
+  };
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
@@ -134,8 +143,7 @@
     });
     feed.appendChild(frag);
     trimCards();
-    // keep sentinel at end so IO can fire
-    document.body.appendChild(sentinel);
+    document.body.appendChild(sentinel); // keep sentinel after content
   };
 
   /* ---------- detail helpers ---------- */
@@ -161,18 +169,19 @@
       <article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
         <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
         <div class="byline" style="font-weight:600;margin:0 0 16px;">ID ${id} • ${statusText}</div>
-        <p>We couldn’t load this article. It may have been removed or is restricted. You can return to the feed below.</p>
+        <p>We couldn’t load this article. It may have been removed or is restricted.</p>
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
   };
 
   const renderDetail = async id=>{
+    // Save scroll position before leaving feed
+    try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); } catch {}
     app.innerHTML='<div>Loading…</div>';
     try{
       const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       if (!r.ok) { notFound(id, `HTTP ${r.status}`); return; }
       const p=await r.json();
-      // if the API returned something unexpected (no id), treat as 404
       if (!p || !p.id) { notFound(id, 'Unavailable'); return; }
 
       const playable=extractVideo(p.content?.rendered||'');
@@ -232,7 +241,46 @@
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
       }
+      // Snapshot feed state after render
+      snapshotFeed();
     } finally { loading = false; }
+  };
+
+  /* ---------- feed snapshot / restore ---------- */
+  const snapshotFeed = () => {
+    try {
+      const feed = document.querySelector('.posts-grid');
+      if (!feed) return;
+      sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
+      sessionStorage.setItem(SS.FEED_PAGE, String(page));
+      sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
+    } catch {}
+  };
+
+  const restoreFeedIfAvailable = () => {
+    try {
+      const html = sessionStorage.getItem(SS.FEED_HTML);
+      if (!html) return false;
+      const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
+      const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
+      const feed = ensureFeed();
+      feed.innerHTML = html;
+      page = Math.max(1, savedPage);
+      reachedEnd = !!savedEnd;
+      // Re-attach click handlers are not needed because cards are plain anchors.
+      // Restore scroll after next frame so layout is settled
+      requestAnimationFrame(() => {
+        const y = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
+        window.scrollTo({ top: y, behavior: 'instant' in window ? 'instant' : 'auto' });
+      });
+      // Ensure sentinel is observed again
+      attachObserver();
+      // If we restored to a short page and not at end, load more
+      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+      }
+      return true;
+    } catch { return false; }
   };
 
   /* ---------- router ---------- */
@@ -242,14 +290,13 @@
       case '':
       case 'posts': {
         route='home';
-        const feed=ensureFeed();
-        if (!feed.children.length) {
+        // Try to restore feed and position; if no snapshot, do a fresh mount
+        if (!restoreFeedIfAvailable()) {
+          const feed=ensureFeed();
           page=1; reachedEnd=false; loading=false;
           feed.innerHTML='';
           attachObserver();
           await loadNext();
-        } else {
-          attachObserver();
         }
         break;
       }
@@ -274,6 +321,7 @@
   });
 
   addEventListener('hashchange', router);
+  addEventListener('beforeunload', snapshotFeed); // snapshot if user reloads
 
   // boot
   (async ()=>{ await router(); if(route==='home') attachObserver(); })();
