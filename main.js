@@ -1,14 +1,15 @@
-/* 🟢 main.js — 2025-11-03 R1z
+/* 🟢 main.js — 2025-11-03 R1ab
+   - Robust video detection: finds Vimeo/YouTube links even inside [caption] shortcodes and attributes
+   - Resilient infinite scroll (IO + timer + near-bottom kick)
    - Restore feed DOM + scroll when returning from detail
    - Robust post 404 page (no fallback to home)
-   - Infinite scroll hardened
-   - Facebook blocked embed → featured image + "View on Facebook"
+   - Facebook: always featured image + "View on Facebook" (no iframe)
    - Tags at bottom; byline bold; no autoplay
    - Cartoon posts filtered from feed
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1z';
+  window.AppVersion = '2025-11-03R1ab';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -57,18 +58,48 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
+  /* ---------- Video extraction (caption-aware, attribute-safe) ---------- */
+  const decodeEntities = (s='') => {
+    try {
+      const el = document.createElement('textarea');
+      el.innerHTML = s;
+      return el.value;
+    } catch { return s; }
+  };
+
+  // Pull raw URLs from any text (attributes, captions, HTML)
+  const findUrls = (raw='') => {
+    const txt = decodeEntities(raw);
+    const urls = [];
+    const re = /https?:\/\/[^\s"'<>)]+/gi;
+    let m;
+    while ((m = re.exec(txt))) urls.push(m[0]);
+    return urls;
+  };
+
   const extractVideo = html => {
-    const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
-    if (yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]||yt[2]}?rel=0` };
-    const vimeo = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
-    if (vimeo) return { type:'vimeo', src:`https://player.vimeo.com/video/${vimeo[1]}` };
-    const fb = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=|[^"']+\/videos\/)([0-9]+)/i);
-    if (fb) {
-      const orig = fb[0].includes('watch') ? `https://www.facebook.com/watch/?v=${fb[1]}` : fb[0];
-      return { type:'facebook', src:'', orig };
+    const urls = findUrls(html);
+
+    // Prefer Vimeo/YouTube if present anywhere (caption/attributes included)
+    const vimeo = urls.find(u => /\/\/(?:www\.)?vimeo\.com\/(\d+)/i.test(u));
+    if (vimeo) {
+      const idMatch = vimeo.match(/vimeo\.com\/(\d+)/i);
+      if (idMatch) return { type:'vimeo', src:`https://player.vimeo.com/video/${idMatch[1]}` };
     }
+
+    const ytu = urls.find(u => /youtube\.com\/watch\?v=|youtu\.be\//i.test(u));
+    if (ytu) {
+      const id = (ytu.match(/v=([A-Za-z0-9_-]{11})/)||[])[1] || (ytu.match(/youtu\.be\/([A-Za-z0-9_-]{11})/)||[])[1];
+      if (id) return { type:'youtube', src:`https://www.youtube.com/embed/${id}?rel=0` };
+    }
+
+    const fbu = urls.find(u => /facebook\.com\/(?:watch\/?\?v=|.*\/videos\/\d+)/i.test(u));
+    if (fbu) return { type:'facebook', src:'', orig: fbu };
+
+    // <video src="...">
     const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vid) return { type:'video', src:vid[1] };
+
     return null;
   };
 
@@ -201,18 +232,30 @@
     return posts.filter(p=>!isCartoon(p));
   };
 
-  /* ---------- infinite scroll ---------- */
+  /* ---------- infinite scroll (resilient) ---------- */
   let io;
+  let lastAppendTs = 0;
+  const now = () => performance.now();
+
   const attachObserver = () => {
     if (io) io.disconnect();
     io = new IntersectionObserver(async entries => {
       const e = entries[0];
       if (!e.isIntersecting || loading || reachedEnd || route !== 'home') return;
       await loadNext();
-    }, { root: null, rootMargin: '1400px 0px 1000px 0px', threshold: 0 });
+    }, { root: null, rootMargin: '2000px 0px 1400px 0px', threshold: 0 });
 
     if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
     io.observe(sentinel);
+  };
+
+  const maybeKick = () => {
+    if (route !== 'home' || loading || reachedEnd) return;
+    const doc = document.documentElement;
+    const nearBottom = doc.scrollHeight - (doc.scrollTop + window.innerHeight) < 800;
+    if (nearBottom && (now() - lastAppendTs) > 1500) {
+      loadNext();
+    }
   };
 
   const loadNext = async ()=>{
@@ -223,6 +266,7 @@
       if (!posts.length) { reachedEnd = true; return; }
       remember(page, posts);
       renderPage(posts);
+      lastAppendTs = now();
       page += 1;
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
@@ -231,6 +275,7 @@
     } finally { loading = false; }
   };
 
+  /* ---------- feed snapshot / restore ---------- */
   const snapshotFeed = () => {
     try {
       const feed = document.querySelector('.posts-grid');
@@ -263,6 +308,7 @@
     } catch { return false; }
   };
 
+  /* ---------- router ---------- */
   const router = async ()=>{
     const parts=(location.hash||'#/').slice(2).split('/');
     switch(parts[0]){
@@ -275,6 +321,9 @@
           feed.innerHTML='';
           attachObserver();
           await loadNext();
+        } else {
+          attachObserver();
+          maybeKick();
         }
         break;
       }
@@ -292,13 +341,21 @@
     }
   };
 
+  /* ---------- UI & fallbacks ---------- */
   hamburger?.addEventListener('click',()=>{
     if (menu.hasAttribute('hidden')) { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
     else { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
   });
 
   addEventListener('hashchange', router);
+  let kickRAF = 0;
+  addEventListener('scroll', () => {
+    cancelAnimationFrame(kickRAF);
+    kickRAF = requestAnimationFrame(maybeKick);
+  }, { passive: true });
+
   addEventListener('beforeunload', snapshotFeed);
+
   (async ()=>{ await router(); if(route==='home') attachObserver(); })();
 })();
  /* 🔴 main.js */
