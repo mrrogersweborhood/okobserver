@@ -1,18 +1,16 @@
-/* 🟢 main.js — 2025-11-03 R1ag
-   Return-to-place upgrade:
-   - history.scrollRestoration = 'manual' (set in index.html)
-   - Save/restore feed scroll + activeCardId via history.state + sessionStorage
-   - Snapshot on card click, before route change, and on visibility change
-   - Immediate restore on pageshow/popstate/home route
-   Other retained fixes:
-   - No feed leak into detail
-   - Tight cartoon filter (slug/name === 'cartoon')
-   - FB videos: show featured image + “View on Facebook” (no iframe)
-   - HTML sanitize; resilient infinite scroll; bold byline; blue titles; tags at bottom; no autoplay
+/* 🟢 main.js — 2025-11-03 R1ah
+   Guaranteed return-to-place:
+   - PUSH feed state on card click (history.pushState)
+   - Save scrollY, activeId, and a CSS path fallback
+   - On return, render cached feed first, sync scroll + focus, then resume fetching
+   Retains:
+   - No feed leak into detail; tight cartoon filter (slug/name === 'cartoon')
+   - HTML sanitize; robust video detection; resilient infinite scroll
+   - FB = featured image + “View on Facebook”; tags bottom; bold byline; blue titles; no autoplay
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ag';
+  window.AppVersion = '2025-11-03R1ah';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -25,19 +23,23 @@
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  const cachePages = new Map(); const lru = [];
   const SS = {
     FEED_HTML: 'okob.feed.html',
     FEED_PAGE: 'okob.feed.page',
     FEED_END : 'okob.feed.end',
     SCROLL_Y : 'okob.feed.scrollY',
     ACTIVE_ID: 'okob.feed.activeCardId',
+    ACTIVE_PATH: 'okob.feed.activeCssPath',
   };
 
   const getState = () => (history.state && typeof history.state === 'object') ? history.state : {};
   const setState = (patch) => {
     const next = { ...(getState() || {}), ...patch };
     try { history.replaceState(next, ''); } catch {}
+  };
+  const pushState = (patch) => {
+    const next = { ...(getState() || {}), ...patch };
+    try { history.pushState(next, ''); } catch {}
   };
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
@@ -127,11 +129,9 @@
     return wrap.innerHTML;
   };
 
-  // feed rendering
-  const remember=(k,v)=>{ if(cachePages.has(k)){const i=lru.indexOf(k);if(i>-1)lru.splice(i,1);} cachePages.set(k,v); lru.push(k); while(lru.length>6) cachePages.delete(lru.shift()); };
+  // ----- FEED helpers -----
   const ensureFeed=()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div'); feed.className='posts-grid'; app.innerHTML=''; app.appendChild(feed);} return feed; };
   const trimCards=()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
-
   const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
@@ -141,7 +141,6 @@
       <div class="byline">${byline(p)}</div>
       <div class="post-summary">${p.excerpt?.rendered || ''}</div>
     </article>`;
-
   const renderPage = posts => {
     if (route !== 'home') return;
     const feed = ensureFeed();
@@ -156,7 +155,7 @@
     document.body.appendChild(sentinel);
   };
 
-  // tags
+  // Tags, About, NotFound
   const tagsHTML = p => {
     const groups = p?._embedded?.['wp:term'] || [];
     const terms = groups.flat().filter(t => t && (t.taxonomy==='post_tag'||t.taxonomy==='category'));
@@ -170,7 +169,6 @@
     }
     return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
   };
-
   const renderAbout = ()=>{ app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`; };
   const notFound = (id, status='Not found')=>{
     app.innerHTML = `<article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
@@ -181,7 +179,22 @@
     </article>`;
   };
 
-  // FEED SNAPSHOT
+  // ---- Return-to-place core ----
+  const cssPath = (el) => {
+    if (!el || !el.nodeType) return '';
+    const path = [];
+    for (let node = el; node && node.nodeType === 1 && node !== document; node = node.parentElement) {
+      let sel = node.nodeName.toLowerCase();
+      if (node.id) { sel += `#${CSS.escape(node.id)}`; path.unshift(sel); break; }
+      let sib = node;
+      let idx = 1;
+      while ((sib = sib.previousElementSibling) != null) { if (sib.nodeName === node.nodeName) idx++; }
+      sel += `:nth-of-type(${idx})`;
+      path.unshift(sel);
+    }
+    return path.join(' > ');
+  };
+
   const snapshotFeed = () => {
     try {
       if (route !== 'home') return;
@@ -198,9 +211,13 @@
 
   const restoreFocusToActiveCard = () => {
     try {
-      const activeId = sessionStorage.getItem(SS.ACTIVE_ID);
-      if (!activeId) return;
-      const link = document.querySelector(`.post-card[data-id="${activeId}"] a.title-link`);
+      const id = sessionStorage.getItem(SS.ACTIVE_ID);
+      const path = sessionStorage.getItem(SS.ACTIVE_PATH);
+      let link = id ? document.querySelector(`.post-card[data-id="${id}"] a.title-link`) : null;
+      if (!link && path) {
+        const el = document.querySelector(path);
+        link = el?.querySelector?.('a.title-link') || null;
+      }
       if (link) link.focus({ preventScroll:true });
     } catch {}
   };
@@ -210,9 +227,12 @@
     try {
       const html = sessionStorage.getItem(SS.FEED_HTML);
       if (!html) return false;
+
+      // Paint cached DOM FIRST, then scroll+focus, then resume fetching if needed
       const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
       const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
       const yStored   = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
+      const yState    = (getState().y ?? yStored) | 0;
 
       const feed = ensureFeed();
       feed.innerHTML = html;
@@ -220,26 +240,26 @@
       reachedEnd = !!savedEnd;
 
       requestAnimationFrame(() => {
-        const y = (getState().y ?? yStored) | 0;
-        window.scrollTo({ top: y, behavior: 'auto' });
+        window.scrollTo({ top: yState, behavior: 'auto' });
         restoreFocusToActiveCard();
+
+        attachObserver();
+        if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+          (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+        }
       });
 
-      attachObserver();
-      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !savedEnd) {
-        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
-      }
       return true;
     } catch { return false; }
   };
 
-  // detail
+  // ---- Detail rendering ----
   const renderDetail = async id=>{
-    try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); setState({ y: window.scrollY||0 }); } catch {}
+    try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
     app.innerHTML = '';
     const orphan = document.querySelector('.posts-grid'); if (orphan) orphan.remove();
     app.innerHTML = '<div>Loading…</div>';
-    try {
+    try{
       const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       if (!r.ok) { notFound(id, `HTTP ${r.status}`); return; }
       const p=await r.json(); if (!p || !p.id) { notFound(id,'Unavailable'); return; }
@@ -261,14 +281,14 @@
     } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
   };
 
-  // data
+  // ---- Data ----
   const fetchPosts = async n=>{
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
     const posts=await r.json(); return posts.filter(p=>!isCartoon(p));
   };
 
-  // infinite scroll
+  // ---- Infinite Scroll ----
   let io; let lastAppendTs=0; const now=()=>performance.now();
   const attachObserver = () => {
     if (io) io.disconnect();
@@ -292,7 +312,7 @@
     try{
       const posts=await fetchPosts(page);
       if(!posts.length){ reachedEnd=true; return; }
-      remember(page,posts); renderPage(posts); lastAppendTs=now(); page+=1;
+      renderPage(posts); lastAppendTs=now(); page+=1;
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
       }
@@ -300,33 +320,37 @@
     } finally { loading=false; }
   };
 
-  // Snapshot on card click (stores active card id + scroll)
+  // ---- Navigation & snapshots ----
+  // Capture state on card click; push into history.state so Back returns with our data
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a.title-link');
     if (!a) return;
-    const card = e.target.closest('.post-card');
     if (route === 'home') {
       try {
+        const card = e.target.closest('.post-card');
         const y = window.scrollY || 0;
+        const id = card?.dataset?.id || null;
+        const path = cssPath(card);
+        const feed = document.querySelector('.posts-grid');
+
         sessionStorage.setItem(SS.SCROLL_Y, String(y));
-        if (card?.dataset?.id) sessionStorage.setItem(SS.ACTIVE_ID, String(card.dataset.id));
-        const feed=document.querySelector('.posts-grid');
+        if (id) sessionStorage.setItem(SS.ACTIVE_ID, String(id));
+        if (path) sessionStorage.setItem(SS.ACTIVE_PATH, String(path));
         if (feed) {
           sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
           sessionStorage.setItem(SS.FEED_PAGE, String(page));
           sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
         }
-        setState({ y, route:'home', activeId: card?.dataset?.id || null });
+        pushState({ y, route:'home', activeId:id, activePath:path });
       } catch {}
     }
   }, { capture:true });
 
-  // Preserve latest scroll frequently
   const preserveScroll = () => {
     try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
   };
 
-  // router
+  // ---- Router ----
   const router = async ()=>{
     preserveScroll();
     const parts=(location.hash||'#/').slice(2).split('/');
@@ -334,6 +358,7 @@
       case '':
       case 'posts': {
         route='home';
+        // Try immediate restore (paints from cache, then resumes)
         if (!restoreFeedIfAvailable()) {
           const feed=ensureFeed();
           page=1; reachedEnd=false; loading=false;
