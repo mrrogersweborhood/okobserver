@@ -1,4 +1,4 @@
-<!-- 🟢 index.html — Build 2025-11-03 R1an (updated for exact-feed restore) -->
+🟢 index.html
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,11 +12,10 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <link rel="stylesheet" href="override.css?v=2025-11-03R1an" />
+  <link rel="stylesheet" href="override.css?v=2025-11-04SR1" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
-  <!-- Header/nav preserved -->
   <header>
     <img class="logo" src="logo.png" alt="The Oklahoma Observer" />
     <a href="#/" class="title-link">The Oklahoma Observer</a>
@@ -29,54 +28,47 @@
     </nav>
   </header>
 
-  <!-- Main app root; inside we now render a dedicated #post-grid for the list route
-       (detail view can replace contents, as your router already does). -->
-  <main id="app" aria-live="polite">
-    <section id="post-grid" aria-live="polite"></section>
-  </main>
+  <!-- main.js will inject .posts-grid into #app -->
+  <main id="app" aria-live="polite"></main>
 
-  <!-- Infinite scroll sentinel (ID standardized for main.js) -->
-  <div id="infinite-sentinel" aria-hidden="true" style="height:1px;"></div>
+  <!-- must remain id="sentinel" for current script pair -->
+  <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
-  <!-- Footer with explicit build version span (main.js updates this text) -->
-  <footer>
-    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-03 R1an</span>
-  </footer>
+  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-04 SR1</span></footer>
 
-  <!-- Keep manual scroll restoration to allow precise return-to-place -->
-  <script>
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  </script>
+  <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual';</script>
 
-  <!-- MutationObserver grid enforcer (do not remove) -->
+  <!-- Grid enforcer: keep the grid healthy even if CSS hiccups -->
   <script>
     (function () {
-      const grid = document.getElementById('post-grid');
-      if (!grid) return;
-      const enforce = () => {
-        // Ensure grid layout is never lost by 3rd-party DOM changes
+      const ensure = () => {
+        const grid = document.querySelector('.posts-grid');
+        if (!grid) return;
         grid.style.display = 'grid';
-        grid.style.gap = grid.style.gap || '16px';
+        if (!grid.style.gap) grid.style.gap = '16px';
       };
-      enforce();
-      const mo = new MutationObserver(enforce);
-      mo.observe(grid, { attributes: true, childList: false, subtree: false });
-      window.__okobsGridMO = mo;
+      const mo = new MutationObserver(ensure);
+      const hook = () => {
+        const grid = document.querySelector('.posts-grid');
+        if (grid) {
+          ensure();
+          mo.observe(grid, { attributes:true, childList:false, subtree:false });
+        }
+      };
+      hook();
+      document.addEventListener('DOMContentLoaded', hook);
     })();
   </script>
 
-  <!-- Main script (no ESM) -->
-  <script defer src="main.js?v=2025-11-03R1an"></script>
+  <script defer src="main.js?v=2025-11-04SR1"></script>
 
-  <!-- Service worker registration -->
   <script>
     if ('serviceWorker' in navigator) {
       addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js?v=2025-11-03R1an').catch(() => {})
+        navigator.serviceWorker.register('sw.js?v=2025-11-04SR1').catch(()=>{})
       );
     }
-    console.log('%cOkObserver Build 2025-11-03 R1an Loaded','color:#1E90FF;font-weight:bold');
   </script>
 </body>
 </html>
-<!-- 🔴 index.html -->
+🔴 index.html

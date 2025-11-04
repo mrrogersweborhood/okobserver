@@ -1,94 +1,76 @@
-/* 🟢 sw.js */
-const SW_VERSION = '2025-11-03R1';
-const SHELL_CACHE = `okobs-shell-${SW_VERSION}`;
-const RUNTIME_CACHE = `okobs-runtime-${SW_VERSION}`;
+/* 🟢 sw.js — OkObserver Service Worker
+   Build 2025-11-04SR1
+   Plain JS, network-first for posts, cache-first for static.
+*/
 
-const SHELL_ASSETS = [
-  '/',               // GH Pages path root will map to index.html
-  '/index.html',
-  '/override.css?v=2025-11-03R1',
-  '/main.js?v=2025-11-03R1',
-  '/favicon.ico',
-  '/logo.png'
+const CACHE_NAME = 'okobserver-cache-2025-11-04SR1';
+const STATIC_ASSETS = [
+  './',
+  './index.html?v=2025-11-04SR1',
+  './main.js?v=2025-11-04SR1',
+  './override.css?v=2025-11-04SR1',
+  './favicon.ico',
+  './logo.png',
+  './manifest.json'
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil((async () => {
-    const cache = await caches.open(SHELL_CACHE);
-    try { await cache.addAll(SHELL_ASSETS); } catch (_) {}
-    self.skipWaiting();
-  })());
+// 🔹 install — pre-cache static assets
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
+  );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => {
-      if (k !== SHELL_CACHE && k !== RUNTIME_CACHE) return caches.delete(k);
-    }));
-    self.clients.claim();
-  })());
+// 🔹 activate — clear old caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE_NAME)
+            .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
-const isProxyApi = (url) =>
-  url.hostname.includes('okobserver-proxy') &&
-  url.pathname.includes('/wp-json/wp/v2/');
+// 🔹 fetch — network-first for JSON/posts, cache-first for everything else
+self.addEventListener('fetch', event => {
+  const { request } = event;
+  const url = new URL(request.url);
 
-self.addEventListener('fetch', (e) => {
-  const req = e.request;
-  const url = new URL(req.url);
+  // bypass Chrome extensions & opaque requests
+  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
 
-  // Only handle GET
-  if (req.method !== 'GET') return;
-
-  // Images: cache-first + revalidate
-  if (req.destination === 'image') {
-    e.respondWith(cacheFirstRevalidate(req));
+  if (url.pathname.includes('/wp-json/wp/v2/posts')) {
+    // network-first for API
+    event.respondWith(
+      fetch(request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          return res;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 
-  // API: stale-while-revalidate (fast)
-  if (isProxyApi(url)) {
-    e.respondWith(staleWhileRevalidate(req));
-    return;
-  }
-
-  // Shell/static: network-first with fallback to cache
-  if (req.destination === 'document' || req.destination === 'script' || req.destination === 'style') {
-    e.respondWith(networkFirst(req));
-    return;
-  }
+  // cache-first for static resources
+  event.respondWith(
+    caches.match(request).then(res =>
+      res ||
+      fetch(request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+        return response;
+      }).catch(() => res)
+    )
+  );
 });
 
-async function cacheFirstRevalidate(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-  const cached = await cache.match(request);
-  const networkPromise = fetch(request).then(resp => {
-    cache.put(request, resp.clone()).catch(()=>{});
-    return resp;
-  }).catch(() => cached);
-  return cached || networkPromise;
-}
-
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-  const cached = await cache.match(request);
-  const networkPromise = fetch(request).then(resp => {
-    cache.put(request, resp.clone()).catch(()=>{});
-    return resp;
-  }).catch(() => cached);
-  return cached || networkPromise;
-}
-
-async function networkFirst(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-  try {
-    const resp = await fetch(request);
-    cache.put(request, resp.clone()).catch(()=>{});
-    return resp;
-  } catch {
-    const cached = await cache.match(request);
-    return cached || Response.error();
-  }
-}
-/* 🔴 sw.js */
+// 🔹 optional: manual skipWaiting trigger
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
