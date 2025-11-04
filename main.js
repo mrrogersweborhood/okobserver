@@ -1,20 +1,20 @@
-/* 🟢 main.js — 2025-11-03 R1ae
-   - Fix: prevent feed grid leaking into post-detail
-     * Clear feed snapshot on entering detail
-     * Never restore feed unless route === 'home'
-     * Re-check route before rendering feed
-     * Remove stray .posts-grid before detail render
+/* 🟢 main.js — 2025-11-03 R1af
+   - Reliable feed restore when returning from detail:
+     * Snapshot on card click + before any route change
+     * Restore on pageshow/popstate if on home route
+     * Keep snapshot when entering detail (we still remove live grid node)
+   - Prevent feed grid leaking into post-detail
    - Cartoon filter tightened: only hide when name/slug === 'cartoon'
    - Sanitize post HTML (remove empty anchors, unwrap image-only anchors, normalize captions)
-   - Robust video detection (works in captions/attributes)
+   - Robust video detection (also in captions/attributes)
    - Resilient infinite scroll (IO + timer + near-bottom kick)
-   - Scroll-restore when returning to feed
-   - FB: featured image + “View on Facebook”, no iframe
+   - Scroll-restore to exact Y
+   - FB videos: show featured image + “View on Facebook” button (no iframe)
    - Tags at bottom; bold bylines; blue titles; no autoplay
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ae';
+  window.AppVersion = '2025-11-03R1af';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -223,14 +223,42 @@
       </article>`;
   };
 
-  const clearFeedSnapshot = () => {
+  /* ---------- feed snapshot helpers ---------- */
+  const snapshotFeed = () => {
     try {
-      sessionStorage.removeItem(SS.FEED_HTML);
-      sessionStorage.removeItem(SS.FEED_PAGE);
-      sessionStorage.removeItem(SS.FEED_END);
+      if (route !== 'home') return;
+      const feed = document.querySelector('.posts-grid');
+      if (!feed) return;
+      sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
+      sessionStorage.setItem(SS.FEED_PAGE, String(page));
+      sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
     } catch {}
   };
 
+  const restoreFeedIfAvailable = () => {
+    if (route !== 'home') return false; // guard
+    try {
+      const html = sessionStorage.getItem(SS.FEED_HTML);
+      if (!html) return false;
+      const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
+      const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
+      const feed = ensureFeed();
+      feed.innerHTML = html;
+      page = Math.max(1, savedPage);
+      reachedEnd = !!savedEnd;
+      requestAnimationFrame(() => {
+        const y = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
+        window.scrollTo({ top: y, behavior: 'auto' });
+      });
+      attachObserver();
+      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+      }
+      return true;
+    } catch { return false; }
+  };
+
+  /* ---------- render detail ---------- */
   const renderDetail = async id=>{
     try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); } catch {}
     // Full replace; also remove any stray grid before showing "Loading…"
@@ -322,44 +350,33 @@
     } finally { loading = false; }
   };
 
-  /* ---------- feed snapshot / restore ---------- */
-  const snapshotFeed = () => {
-    try {
-      if (route !== 'home') return;
-      const feed = document.querySelector('.posts-grid');
-      if (!feed) return;
-      sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
-      sessionStorage.setItem(SS.FEED_PAGE, String(page));
-      sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
-    } catch {}
-  };
+  /* ---------- route + navigation helpers ---------- */
 
-  const restoreFeedIfAvailable = () => {
-    // Guard: never restore unless we are on the home route
-    if (route !== 'home') return false;
-    try {
-      const html = sessionStorage.getItem(SS.FEED_HTML);
-      if (!html) return false;
-      const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
-      const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
-      const feed = ensureFeed();
-      feed.innerHTML = html;
-      page = Math.max(1, savedPage);
-      reachedEnd = !!savedEnd;
-      requestAnimationFrame(() => {
-        const y = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-        window.scrollTo({ top: y, behavior: 'auto' });
-      });
-      attachObserver();
-      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
-      }
-      return true;
-    } catch { return false; }
+  // Snapshot feed before navigating to detail (fresh DOM + scroll)
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a.title-link');
+    if (!a) return;
+    if (route === 'home') {
+      try {
+        sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0));
+        const feed = document.querySelector('.posts-grid');
+        if (feed) {
+          sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
+          sessionStorage.setItem(SS.FEED_PAGE, String(page));
+          sessionStorage.setItem(SS.FEED_END, String(reachedEnd));
+        }
+      } catch {}
+    }
+  }, { capture: true });
+
+  // Preserve latest scroll before any route change
+  const preserveScroll = () => {
+    try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0)); } catch {}
   };
 
   /* ---------- router ---------- */
   const router = async ()=>{
+    preserveScroll();
     const parts=(location.hash||'#/').slice(2).split('/');
     switch(parts[0]){
       case '':
@@ -387,14 +404,26 @@
         route='detail';
         if (io) io.disconnect();
         const oldGrid = document.querySelector('.posts-grid');
-        if (oldGrid) oldGrid.remove();
-        clearFeedSnapshot();                // prevent late feed restore
+        if (oldGrid) oldGrid.remove(); // prevent grid leak
         await renderDetail(parts[1]);
         break;
       default:
         route='home'; ensureFeed(); attachObserver(); break;
     }
   };
+
+  /* ---------- Back/Forward assists ---------- */
+  addEventListener('pageshow', () => {
+    if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) && route !== 'home') {
+      route = 'home';
+      if (!restoreFeedIfAvailable()) router();
+    }
+  });
+  addEventListener('popstate', () => {
+    if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts'))) {
+      if (!restoreFeedIfAvailable()) router();
+    }
+  });
 
   /* ---------- UI & fallbacks ---------- */
   hamburger?.addEventListener('click',()=>{
