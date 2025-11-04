@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-04SR1-fixA';
+  const BUILD = '2025-11-04SR1-fixA3';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -278,9 +278,10 @@
   }
 
   async function renderDetail(id){
+    document.body.dataset.route = 'post';         // route flag (CSS kill-switch)
     try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0)); } catch {}
     route = 'post';
-    detachObserver();                               // stop background home loader
+    detachObserver();                              // stop background home loader
     const feed = document.querySelector('.posts-grid'); if (feed) feed.remove();
     app.innerHTML = '<div>Loading…</div>';
     try{
@@ -306,6 +307,7 @@
   // ------------------------------
   async function renderHome(){
     detachObserver();                               // start home clean
+    document.body.dataset.route = 'home';           // route flag
     const snap = readFeedSnapshotData();
     if (snap){
       route='home';
@@ -315,8 +317,7 @@
       list.forEach(p=>{ feedIds.push(p.id); feedById[p.id]=p; seenIds.add(p.id); });
 
       app.innerHTML = ''; ensureFeed();
-      // prime DOM then render all at once
-      appendPosts([]);                              // ensures sentinel placement logic has a container
+      appendPosts([]);                              // ensure container exists
       const feed = ensureFeed(); feed.innerHTML = list.map(cardHTML).join('');
       wireCardClicks(feed);
       placeSentinelAfterLastCard();
@@ -354,6 +355,7 @@
   async function router(){
     const r = currentRoute();
     route = r.name;                                  // set route first
+    document.body.dataset.route = route;             // expose to CSS kill-switch
     if (r.name === 'post') await renderDetail(r.id);
     else await renderHome();
   }
