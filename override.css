@@ -427,3 +427,16 @@ a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
 .post-detail__content a:focus {
   text-decoration-thickness: 2px;
 }
+/* --- Summary card title & byline styling (2025-11-03 R1y) --- */
+.post-card .post-title {
+  color: #1E90FF;
+  font-weight: 600;
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.post-card .byline {
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 0.6em;
+}

@@ -1,4 +1,4 @@
-/* 🟢 main.js — 2025-11-03 R1y
+/* 🟢 main.js — 2025-11-03 R1z
    - Restore feed DOM + scroll when returning from detail
    - Robust post 404 page (no fallback to home)
    - Infinite scroll hardened
@@ -8,26 +8,20 @@
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1y';
+  window.AppVersion = '2025-11-03R1z';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
   const MAX_CARDS = 60;
 
-  // runtime state (non-persistent)
   let page = 1, loading = false, reachedEnd = false, route = 'home';
-
-  // DOM
   const app       = document.getElementById('app');
   const sentinel  = document.getElementById('sentinel');
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
-  // small LRU for API pages (in-memory)
   const cachePages = new Map(); const lru = [];
-
-  // session persistence keys (per-tab)
   const SS = {
     FEED_HTML: 'okob.feed.html',
     FEED_PAGE: 'okob.feed.page',
@@ -71,17 +65,26 @@
     const fb = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=|[^"']+\/videos\/)([0-9]+)/i);
     if (fb) {
       const orig = fb[0].includes('watch') ? `https://www.facebook.com/watch/?v=${fb[1]}` : fb[0];
-      const plugin = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&show_text=false`;
-      return { type:'facebook', src: plugin, orig };
+      return { type:'facebook', src:'', orig };
     }
     const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vid) return { type:'video', src:vid[1] };
     return null;
   };
 
+  // ---- inline media (NO FB iframe; always image + link) ----
   const playInlineVideo = (container, playable, post) => {
     if (!playable || !container) return;
     container.innerHTML = '';
+
+    if (playable.type === 'facebook') {
+      container.innerHTML = imgHTML(post) || '';
+      const btn = document.createElement('div');
+      btn.style.marginTop = '8px';
+      btn.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${playable.orig || '#'}">View on Facebook</a>`;
+      container.appendChild(btn);
+      return;
+    }
 
     if (playable.type === 'video') {
       const v = document.createElement('video');
@@ -91,6 +94,7 @@
       return;
     }
 
+    // YouTube / Vimeo
     const f = document.createElement('iframe');
     Object.assign(f, {
       src: playable.src,
@@ -100,22 +104,6 @@
     });
     f.style.width = '100%'; f.style.aspectRatio = '16/9'; f.style.display = 'block';
     container.appendChild(f);
-
-    // FB fallback: swap to featured image + button if blocked
-    if (playable.type === 'facebook') {
-      const fbLink = playable.orig;
-      const fallback = () => {
-        container.innerHTML = imgHTML(post) || '';
-        const btn = document.createElement('div');
-        btn.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${fbLink}">View on Facebook</a>`;
-        btn.style.marginTop = '8px';
-        container.appendChild(btn);
-      };
-      const check = setTimeout(() => {
-        if (!f.contentWindow || f.offsetHeight < 100) fallback();
-      }, 2000);
-      f.addEventListener('error', () => { clearTimeout(check); fallback(); });
-    }
   };
 
   /* ---------- feed rendering ---------- */
@@ -143,7 +131,7 @@
     });
     feed.appendChild(frag);
     trimCards();
-    document.body.appendChild(sentinel); // keep sentinel after content
+    document.body.appendChild(sentinel);
   };
 
   /* ---------- detail helpers ---------- */
@@ -161,7 +149,6 @@
     return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
   };
 
-  /* ---------- views ---------- */
   const renderAbout = ()=>{ app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`; };
 
   const notFound = (id, statusText='Not found') => {
@@ -175,7 +162,6 @@
   };
 
   const renderDetail = async id=>{
-    // Save scroll position before leaving feed
     try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); } catch {}
     app.innerHTML='<div>Loading…</div>';
     try{
@@ -215,7 +201,7 @@
     return posts.filter(p=>!isCartoon(p));
   };
 
-  /* ---------- infinite scroll (robust) ---------- */
+  /* ---------- infinite scroll ---------- */
   let io;
   const attachObserver = () => {
     if (io) io.disconnect();
@@ -241,12 +227,10 @@
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
       }
-      // Snapshot feed state after render
       snapshotFeed();
     } finally { loading = false; }
   };
 
-  /* ---------- feed snapshot / restore ---------- */
   const snapshotFeed = () => {
     try {
       const feed = document.querySelector('.posts-grid');
@@ -267,15 +251,11 @@
       feed.innerHTML = html;
       page = Math.max(1, savedPage);
       reachedEnd = !!savedEnd;
-      // Re-attach click handlers are not needed because cards are plain anchors.
-      // Restore scroll after next frame so layout is settled
       requestAnimationFrame(() => {
         const y = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-        window.scrollTo({ top: y, behavior: 'instant' in window ? 'instant' : 'auto' });
+        window.scrollTo({ top: y, behavior: 'auto' });
       });
-      // Ensure sentinel is observed again
       attachObserver();
-      // If we restored to a short page and not at end, load more
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
       }
@@ -283,14 +263,12 @@
     } catch { return false; }
   };
 
-  /* ---------- router ---------- */
   const router = async ()=>{
     const parts=(location.hash||'#/').slice(2).split('/');
     switch(parts[0]){
       case '':
       case 'posts': {
         route='home';
-        // Try to restore feed and position; if no snapshot, do a fresh mount
         if (!restoreFeedIfAvailable()) {
           const feed=ensureFeed();
           page=1; reachedEnd=false; loading=false;
@@ -314,16 +292,13 @@
     }
   };
 
-  /* ---------- UI ---------- */
   hamburger?.addEventListener('click',()=>{
     if (menu.hasAttribute('hidden')) { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
     else { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
   });
 
   addEventListener('hashchange', router);
-  addEventListener('beforeunload', snapshotFeed); // snapshot if user reloads
-
-  // boot
+  addEventListener('beforeunload', snapshotFeed);
   (async ()=>{ await router(); if(route==='home') attachObserver(); })();
 })();
  /* 🔴 main.js */
