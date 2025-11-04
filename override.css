@@ -536,3 +536,23 @@ a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
     grid-template-columns: 1fr;
   }
 }
+/* Fix: featured image should never be squashed */
+.post-hero .thumb {
+  max-width: 100%;
+  height: auto;
+}
+
+.post-hero .thumb img {
+  display: block;
+  width: 100%;          /* fill container width */
+  height: auto !important; /* keep natural aspect */
+  object-fit: contain;  /* avoid cropping/stretching */
+  aspect-ratio: auto;   /* ignore any bogus ratios */
+}
+
+/* Also ensure summary cards can’t distort thumbs */
+.post-card .thumb,
+.post-card .thumb img {
+  height: auto !important;
+  object-fit: cover;    /* summary cards usually ok with cover */
+}
