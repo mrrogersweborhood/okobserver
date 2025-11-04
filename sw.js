@@ -1,20 +1,22 @@
 /* 🟢 sw.js — OkObserver Service Worker
-   Build 2025-11-04SR1
-   Plain JS, network-first for posts, cache-first for static.
+   Build 2025-11-04SR1-fixA
+   Strategy: network-first for API; cache-first for static.
+   Plain JS (no ESM).
 */
 
-const CACHE_NAME = 'okobserver-cache-2025-11-04SR1';
+const CACHE_NAME = 'okobserver-cache-2025-11-04SR1-fixA';
+
 const STATIC_ASSETS = [
   './',
-  './index.html?v=2025-11-04SR1',
-  './main.js?v=2025-11-04SR1',
-  './override.css?v=2025-11-04SR1',
+  './index.html?v=2025-11-04SR1-fixA',
+  './main.js?v=2025-11-04SR1-fixA',
+  './override.css?v=2025-11-04SR1-fixA',
   './favicon.ico',
   './logo.png',
   './manifest.json'
 ];
 
-// 🔹 install — pre-cache static assets
+// Install: pre-cache static shell
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -23,54 +25,56 @@ self.addEventListener('install', event => {
   );
 });
 
-// 🔹 activate — clear old caches
+// Activate: clear old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys.filter(k => k !== CACHE_NAME)
-            .map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
   );
 });
 
-// 🔹 fetch — network-first for JSON/posts, cache-first for everything else
+// Fetch: network-first for WP API; cache-first for others
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  const url = new URL(request.url);
+  const req = event.request;
 
-  // bypass Chrome extensions & opaque requests
-  if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') return;
+  // Ignore extension/opaque requests
+  if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
 
+  const url = new URL(req.url);
+
+  // API: posts endpoint (network-first to keep feed fresh)
   if (url.pathname.includes('/wp-json/wp/v2/posts')) {
-    // network-first for API
     event.respondWith(
-      fetch(request)
+      fetch(req)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(request))
+        .catch(() => caches.match(req))
     );
     return;
   }
 
-  // cache-first for static resources
+  // Everything else: cache-first
   event.respondWith(
-    caches.match(request).then(res =>
-      res ||
-      fetch(request).then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-        return response;
-      }).catch(() => res)
+    caches.match(req).then(cached =>
+      cached ||
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(req, copy));
+        return res;
+      }).catch(() => cached)
     )
   );
 });
 
-// 🔹 optional: manual skipWaiting trigger
+// Optional: allow page to trigger immediate activation
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
+
+/* 🔴 sw.js */

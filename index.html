@@ -1,4 +1,3 @@
-🟢 index.html
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,7 +11,7 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <link rel="stylesheet" href="override.css?v=2025-11-04SR1" />
+  <link rel="stylesheet" href="override.css?v=2025-11-04SR1-fixA" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
@@ -28,17 +27,18 @@
     </nav>
   </header>
 
-  <!-- main.js will inject .posts-grid into #app -->
   <main id="app" aria-live="polite"></main>
 
-  <!-- must remain id="sentinel" for current script pair -->
+  <!-- Sentinel anchor for infinite scroll -->
   <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
-  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-04 SR1</span></footer>
+  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-04 SR1-fixA</span></footer>
 
-  <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual';</script>
+  <script>
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  </script>
 
-  <!-- Grid enforcer: keep the grid healthy even if CSS hiccups -->
+  <!-- Grid enforcer: ensures persistent multi-column layout -->
   <script>
     (function () {
       const ensure = () => {
@@ -60,15 +60,15 @@
     })();
   </script>
 
-  <script defer src="main.js?v=2025-11-04SR1"></script>
+  <script defer src="main.js?v=2025-11-04SR1-fixA"></script>
 
   <script>
     if ('serviceWorker' in navigator) {
       addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js?v=2025-11-04SR1').catch(()=>{})
+        navigator.serviceWorker.register('sw.js?v=2025-11-04SR1-fixA').catch(()=>{})
       );
     }
   </script>
 </body>
 </html>
-🔴 index.html
+<!-- 🔴 index.html -->

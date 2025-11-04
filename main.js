@@ -2,10 +2,11 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-04SR1';
+  const BUILD = '2025-11-04SR1-fixA';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
+  // SessionStorage keys
   const SS = {
     FEED_IDS:   'okob.feed.ids',
     FEED_BYID:  'okob.feed.byid',
@@ -17,6 +18,7 @@
     RETURN_TOKEN:'okob.returnToken'
   };
 
+  // App state
   let route = 'home';
   let page = 1;
   let loading = false;
@@ -25,12 +27,16 @@
   const app = document.getElementById('app');
   const sentinel = document.getElementById('sentinel');
 
+  // Canonical feed snapshot structures
   const feedIds = [];
   const feedById = Object.create(null);
   const seenIds = new Set();
 
   const fmtDate = d => new Date(d).toLocaleDateString();
 
+  // ------------------------------
+  // Filters / helpers
+  // ------------------------------
   function isCartoon(p){
     const groups = p?._embedded?.['wp:term'] || [];
     const cats = groups.flat().map(t => (t?.slug||t?.name||'').toString().toLowerCase());
@@ -74,34 +80,52 @@
     while (c.children.length > MAX_CARDS) c.removeChild(c.firstElementChild);
   }
 
+  // ------------------------------
+  // Observer wiring
+  // ------------------------------
+  let io;
+
   function placeSentinelAfterLastCard(){
-    const feed = document.querySelector('.posts-grid'); if (!feed) return;
+    if (route !== 'home') return;                  // guard
+    const feed = document.querySelector('.posts-grid');
+    if (!feed) return;
     if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
     feed.appendChild(sentinel);
     sentinel.style.minHeight = '2px';
     sentinel.style.display = 'block';
   }
 
-  function wireCardClicks(scope){
-    (scope || document).querySelectorAll('.post-card a.title-link').forEach(a=>{
-      a.addEventListener('click', e=>{
-        e.preventDefault();
-        const href = a.getAttribute('href'); 
-        const id = href.split('/').pop();
-        saveFeedSnapshotData({
-          ids: feedIds,
-          byId: feedById,
-          nextPage: page,
-          reachedEnd
-        });
-        sessionStorage.setItem(SS.ACTIVE_ID, String(id));
-        sessionStorage.setItem(SS.ACTIVE_PATH, href);
-        sessionStorage.setItem(SS.RETURN_TOKEN, String(Date.now()));
-        navigateTo(href);
-      }, { passive:false });
-    });
+  function attachObserver(){
+    if (io) io.disconnect();
+    io = new IntersectionObserver(async entries=>{
+      const e = entries[0];
+      if (!e || !e.isIntersecting || loading || reachedEnd || route!=='home') return;
+      await loadNext();
+    }, { root:null, rootMargin:'1800px 0px 1400px 0px', threshold:0 });
+    placeSentinelAfterLastCard();
+    io.observe(sentinel);
   }
 
+  function detachObserver() {
+    if (io) { try { io.disconnect(); } catch {} ; io = null; }
+    try {
+      if (sentinel && sentinel.parentNode) sentinel.parentNode.removeChild(sentinel);
+    } catch {}
+  }
+
+  function kick(){
+    if (route!=='home' || loading || reachedEnd) return;
+    const doc=document.documentElement;
+    const remaining = doc.scrollHeight - (doc.scrollTop + window.innerHeight);
+    if (remaining < 900) loadNext();
+  }
+
+  setInterval(kick, 1500);
+  addEventListener('scroll', kick, { passive:true });
+
+  // ------------------------------
+  // Snapshot persistence
+  // ------------------------------
   function saveFeedSnapshotData({ ids, byId, nextPage, reachedEnd: endFlag }) {
     try {
       sessionStorage.setItem(SS.FEED_IDS, JSON.stringify(ids||[]));
@@ -138,6 +162,9 @@
     if (performance?.navigation?.type === 1) clearFeedSnapshotData();
   });
 
+  // ------------------------------
+  // Networking & append
+  // ------------------------------
   async function fetchPosts(n){
     const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if (!r.ok) {
@@ -165,7 +192,7 @@
       const wrap = document.createElement('div');
       wrap.innerHTML = cardHTML(p);
       const card = wrap.firstElementChild;
-      card.style.opacity = '0'; 
+      card.style.opacity = '0';
       card.style.transition = 'opacity .25s ease';
       frag.appendChild(card);
       requestAnimationFrame(()=> card.style.opacity = '1');
@@ -176,30 +203,12 @@
     wireCardClicks(feed);
   }
 
-  let io;
-  function attachObserver(){
-    if (io) io.disconnect();
-    io = new IntersectionObserver(async entries=>{
-      const e = entries[0];
-      if (!e || !e.isIntersecting || loading || reachedEnd || route!=='home') return;
-      await loadNext();
-    }, { root:null, rootMargin:'1800px 0px 1400px 0px', threshold:0 });
-    placeSentinelAfterLastCard();
-    io.observe(sentinel);
-  }
-
-  function kick(){
-    if (route!=='home' || loading || reachedEnd) return;
-    const doc=document.documentElement;
-    const remaining = doc.scrollHeight - (doc.scrollTop + window.innerHeight);
-    if (remaining < 900) loadNext();
-  }
-
-  setInterval(kick, 1500);
-  addEventListener('scroll', kick, { passive:true });
-
+  // ------------------------------
+  // Loader
+  // ------------------------------
   async function loadNext(){
-    if (loading || reachedEnd || route!=='home') return;
+    if (route !== 'home') return;                 // hard guard
+    if (loading || reachedEnd) return;
     loading = true;
     try{
       const MIN_TO_APPEND = 6;
@@ -220,6 +229,32 @@
     } finally { loading = false; }
   }
 
+  // ------------------------------
+  // Card wiring
+  // ------------------------------
+  function wireCardClicks(scope){
+    (scope || document).querySelectorAll('.post-card a.title-link').forEach(a=>{
+      a.addEventListener('click', e=>{
+        e.preventDefault();
+        const href = a.getAttribute('href');
+        const id = href.split('/').pop();
+        saveFeedSnapshotData({
+          ids: feedIds,
+          byId: feedById,
+          nextPage: page,
+          reachedEnd
+        });
+        sessionStorage.setItem(SS.ACTIVE_ID, String(id));
+        sessionStorage.setItem(SS.ACTIVE_PATH, href);
+        sessionStorage.setItem(SS.RETURN_TOKEN, String(Date.now()));
+        navigateTo(href);
+      }, { passive:false });
+    });
+  }
+
+  // ------------------------------
+  // Detail render
+  // ------------------------------
   function notFound(id, status='Not found'){
     app.innerHTML = `<article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
       <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
@@ -243,11 +278,10 @@
   }
 
   async function renderDetail(id){
-    try{
-      const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y));
-    } catch{}
-    app.innerHTML = '';
-    const orphan = document.querySelector('.posts-grid'); if (orphan) orphan.remove();
+    try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0)); } catch {}
+    route = 'post';
+    detachObserver();                               // stop background home loader
+    const feed = document.querySelector('.posts-grid'); if (feed) feed.remove();
     app.innerHTML = '<div>Loading…</div>';
     try{
       const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
@@ -267,7 +301,11 @@
     } catch(e){ console.warn('Post load failed', e); notFound(id, 'Network error'); }
   }
 
+  // ------------------------------
+  // Home render
+  // ------------------------------
   async function renderHome(){
+    detachObserver();                               // start home clean
     const snap = readFeedSnapshotData();
     if (snap){
       route='home';
@@ -277,7 +315,8 @@
       list.forEach(p=>{ feedIds.push(p.id); feedById[p.id]=p; seenIds.add(p.id); });
 
       app.innerHTML = ''; ensureFeed();
-      appendPosts([]);
+      // prime DOM then render all at once
+      appendPosts([]);                              // ensures sentinel placement logic has a container
       const feed = ensureFeed(); feed.innerHTML = list.map(cardHTML).join('');
       wireCardClicks(feed);
       placeSentinelAfterLastCard();
@@ -293,6 +332,7 @@
       return;
     }
 
+    // Cold load
     route='home';
     app.innerHTML=''; ensureFeed();
     feedIds.length = 0; for (const k in feedById) delete feedById[k];
@@ -302,6 +342,9 @@
     attachObserver();
   }
 
+  // ------------------------------
+  // Router
+  // ------------------------------
   function currentRoute(){
     const h = location.hash || '#/';
     if (h.startsWith('#/post/')) return { name:'post', id: h.split('/').pop() };
@@ -310,6 +353,7 @@
 
   async function router(){
     const r = currentRoute();
+    route = r.name;                                  // set route first
     if (r.name === 'post') await renderDetail(r.id);
     else await renderHome();
   }
