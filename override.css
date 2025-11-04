@@ -557,3 +557,8 @@ a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
   object-fit: cover;    /* summary cards usually ok with cover */
 }
 body[data-route="post"] .posts-grid { display: none !important; }
+/* Prevent feed flash on post pages */
+body[data-route="post"] .posts-grid { display: none !important; }
+
+/* Optional: iframe sizing for embeds */
+.video-container iframe { width: 100%; height: 480px; max-width: 880px; display: block; margin: 0 auto; border: none; }
