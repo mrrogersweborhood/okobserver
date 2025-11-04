@@ -1,15 +1,18 @@
-/* 🟢 main.js — 2025-11-03 R1ai
-   Return-to-place: now SEEK-UNTIL-FOUND on Back
-   - On return to feed, if active card (e.g., 381796) isn’t in DOM, keep loadNext() until it appears (with sane cap)
-   - Then scroll to saved Y and focus the active card
-   Retains:
-   - No feed leak into detail; tight cartoon filter (slug/name === 'cartoon')
-   - HTML sanitize; robust video detection; resilient infinite scroll
-   - FB = featured image + “View on Facebook”; tags bottom; bold byline; blue titles; no autoplay
+/* 🟢 main.js — 2025-11-03 R1aj
+   Deterministic return-to-place:
+   - Saves feed HTML, page, reachedEnd, scrollY, activeId, cssPath on every card click and before route change
+   - Sets a one-shot "RETURN_TOKEN" when navigating into detail
+   - On coming back to home, a pre-router restore runs FIRST:
+       * paints cached feed
+       * seek-until-found active card (loadNext until present, with cap)
+       * scrolls to saved Y and focuses the active card
+       * only then allows normal router/fetch to continue
+   - Prevents feed leak into detail; tightened cartoon filter; robust video detection
+   - FB videos: featured image + “View on Facebook”; tags bottom; bold byline; blue titles; no autoplay
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ai';
+  window.AppVersion = '2025-11-03R1aj';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -23,22 +26,23 @@
   const hamburger = document.getElementById('hamburger');
 
   const SS = {
-    FEED_HTML: 'okob.feed.html',
-    FEED_PAGE: 'okob.feed.page',
-    FEED_END : 'okob.feed.end',
-    SCROLL_Y : 'okob.feed.scrollY',
-    ACTIVE_ID: 'okob.feed.activeCardId',
+    FEED_HTML:   'okob.feed.html',
+    FEED_PAGE:   'okob.feed.page',
+    FEED_END:    'okob.feed.end',
+    SCROLL_Y:    'okob.feed.scrollY',
+    ACTIVE_ID:   'okob.feed.activeCardId',
     ACTIVE_PATH: 'okob.feed.activeCssPath',
+    RETURN_TOKEN:'okob.feed.returnToken'
   };
 
   const getState = () => (history.state && typeof history.state === 'object') ? history.state : {};
-  const setState = (patch) => { const next = { ...(getState() || {}), ...patch }; try { history.replaceState(next, ''); } catch {} };
-  const pushState = (patch) => { const next = { ...(getState() || {}), ...patch }; try { history.pushState(next, ''); } catch {} };
+  const setState = (patch) => { try { history.replaceState({ ...(getState()||{}), ...patch }, ''); } catch {} };
+  const pushState = (patch) => { try { history.pushState({ ...(getState()||{}), ...patch }, ''); } catch {} };
 
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
-  // Cartoon filter (tight)
+  // Tight cartoon filter
   const isCartoon = post => {
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
@@ -50,6 +54,7 @@
     });
   };
 
+  // Featured image helpers
   const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -62,7 +67,7 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
-  // Video helpers
+  // Video detection
   const decodeEntities = (s='') => { try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; } catch { return s; } };
   const findUrls = (raw='') => { const txt=decodeEntities(raw); const out=[]; const re=/https?:\/\/[^\s"'<>)]+/gi; let m; while((m=re.exec(txt))) out.push(m[0]); return out; };
   const extractVideo = html => {
@@ -78,6 +83,7 @@
     return null;
   };
 
+  // Inline playable
   const playInlineVideo = (container, playable, post) => {
     if (!playable || !container) return;
     container.innerHTML = '';
@@ -100,7 +106,7 @@
     container.appendChild(f);
   };
 
-  // Sanitize WP HTML
+  // Sanitize post HTML
   const sanitizePostHTML = (html) => {
     const wrap=document.createElement('div'); wrap.innerHTML=html;
     wrap.querySelectorAll('.wp-caption').forEach(c=>{
@@ -148,7 +154,6 @@
     document.body.appendChild(sentinel);
   };
 
-  // Meta blocks
   const tagsHTML = p => {
     const groups = p?._embedded?.['wp:term'] || [];
     const terms = groups.flat().filter(t => t && (t.taxonomy==='post_tag'||t.taxonomy==='category'));
@@ -162,7 +167,9 @@
     }
     return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
   };
+
   const renderAbout = ()=>{ app.innerHTML=`<section><h1>About The Oklahoma Observer</h1><p>Independent journalism since 1969. Tips: <a href="mailto:okobserver@outlook.com">okobserver@outlook.com</a></p></section>`; };
+
   const notFound = (id, status='Not found')=>{
     app.innerHTML = `<article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
       <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
@@ -172,15 +179,14 @@
     </article>`;
   };
 
-  // Return-to-place core
+  // Utilities for snapshots
   const cssPath = (el) => {
     if (!el || !el.nodeType) return '';
     const path = [];
     for (let node = el; node && node.nodeType === 1 && node !== document; node = node.parentElement) {
       let sel = node.nodeName.toLowerCase();
       if (node.id) { sel += `#${CSS.escape(node.id)}`; path.unshift(sel); break; }
-      let sib = node, idx = 1;
-      while ((sib = sib.previousElementSibling) != null) { if (sib.nodeName === node.nodeName) idx++; }
+      let sib=node, idx=1; while ((sib=sib.previousElementSibling) != null) { if (sib.nodeName === node.nodeName) idx++; }
       sel += `:nth-of-type(${idx})`;
       path.unshift(sel);
     }
@@ -213,88 +219,14 @@
     } catch {}
   };
 
-  // NEW: seek-until-found restore (tries to load pages until activeId appears or cap reached)
-  const seekUntilFound = async (activeId, maxExtraPages = 6) => {
-    if (!activeId) return;
-    let attempts = 0;
-    while (!document.querySelector(`.post-card[data-id="${activeId}"]`) && !reachedEnd && attempts < maxExtraPages) {
-      await loadNext(); // this respects guards and appends next page
-      attempts++;
-    }
-  };
-
-  const restoreFeedIfAvailable = async () => {
-    if (route !== 'home') return false;
-    try {
-      const html = sessionStorage.getItem(SS.FEED_HTML);
-      if (!html) return false;
-
-      const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
-      const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
-      const yStored   = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-      const yState    = (getState().y ?? yStored) | 0;
-      const activeId  = sessionStorage.getItem(SS.ACTIVE_ID) || null;
-
-      const feed = ensureFeed();
-      feed.innerHTML = html;
-      page = Math.max(1, savedPage);
-      reachedEnd = !!savedEnd;
-
-      // 1) Paint cached DOM first
-      await new Promise(requestAnimationFrame);
-
-      // 2) If active card missing, keep loading pages until we find it (or we hit cap/end)
-      await seekUntilFound(activeId);
-
-      // 3) Scroll + focus
-      window.scrollTo({ top: yState, behavior: 'auto' });
-      restoreFocusToActiveCard();
-
-      // 4) Reattach IO and continue if needed
-      attachObserver();
-      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
-      }
-      return true;
-    } catch { return false; }
-  };
-
-  // Detail
-  const renderDetail = async id=>{
-    try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {}
-    app.innerHTML = '';
-    const orphan = document.querySelector('.posts-grid'); if (orphan) orphan.remove();
-    app.innerHTML = '<div>Loading…</div>';
-    try{
-      const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
-      if (!r.ok) { notFound(id, `HTTP ${r.status}`); return; }
-      const p=await r.json(); if (!p || !p.id) { notFound(id,'Unavailable'); return; }
-      const playable=extractVideo(p.content?.rendered||'');
-      const hero=`<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${imgHTML(p)}</div></div>`;
-      const tagsBlock=tagsHTML(p);
-      const cleaned=sanitizePostHTML(p.content?.rendered||'');
-      app.innerHTML=`<article class="post-detail">
-        ${hero}
-        <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
-        <div class="byline" style="font-weight:600;margin:0 0 16px;">${byline(p)}</div>
-        <div class="post-detail__content">${cleaned}</div>
-        ${tagsBlock?`<div class="tags-row" style="margin:16px 0;">${tagsBlock}</div>`:''}
-        <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
-      </article>`;
-      if (playable) {
-        const ph=app.querySelector('.post-hero .thumb'); playInlineVideo(ph,playable,p);
-      }
-    } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
-  };
-
-  // Data
+  // Load data
   const fetchPosts = async n=>{
     const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
     const posts=await r.json(); return posts.filter(p=>!isCartoon(p));
   };
 
-  // Infinite Scroll
+  // Infinite scroll
   let io; let lastAppendTs=0; const now=()=>performance.now();
   const attachObserver = () => {
     if (io) io.disconnect();
@@ -326,7 +258,7 @@
     } finally { loading=false; }
   };
 
-  // Navigation & snapshots
+  // Navigation snapshots + RETURN token
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a.title-link');
     if (!a) return;
@@ -345,65 +277,141 @@
           sessionStorage.setItem(SS.FEED_PAGE, String(page));
           sessionStorage.setItem(SS.FEED_END,  String(reachedEnd));
         }
+        // Mark that the next visit to home should restore BEFORE router runs
+        sessionStorage.setItem(SS.RETURN_TOKEN, '1');
         pushState({ y, route:'home', activeId:id, activePath:path });
       } catch {}
     }
   }, { capture:true });
 
-  const preserveScroll = () => { try { const y=window.scrollY||0; sessionStorage.setItem(SS.SCROLL_Y,String(y)); setState({ y }); } catch {} };
+  // PRE-ROUTER RESTORE: runs before first router pass if we’re returning
+  const preRouterRestoreIfReturning = async () => {
+    const token = sessionStorage.getItem(SS.RETURN_TOKEN);
+    if (!token) return false; // normal flow
+    // consume token
+    sessionStorage.removeItem(SS.RETURN_TOKEN);
+
+    route = 'home';
+    // 1) paint cached DOM
+    const html = sessionStorage.getItem(SS.FEED_HTML);
+    if (!html) return false;
+    const savedPage = Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
+    const savedEnd  = sessionStorage.getItem(SS.FEED_END)==='true';
+    const yStored   = Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
+    const yState    = (getState().y ?? yStored) | 0;
+    const activeId  = sessionStorage.getItem(SS.ACTIVE_ID) || null;
+
+    const feed = ensureFeed();
+    feed.innerHTML = html;
+    page = Math.max(1, savedPage);
+    reachedEnd = !!savedEnd;
+
+    // 2) ensure the active card exists (seek)
+    const seekUntilFound = async (activeId, maxExtraPages = 8) => {
+      if (!activeId) return;
+      let tries = 0;
+      while (!document.querySelector(`.post-card[data-id="${activeId}"]`) && !reachedEnd && tries < maxExtraPages) {
+        await loadNext();
+        tries++;
+      }
+    };
+    await seekUntilFound(activeId);
+
+    // 3) scroll + focus
+    window.scrollTo({ top: yState, behavior: 'auto' });
+    restoreFocusToActiveCard();
+
+    // 4) attach IO and allow normal router to continue later
+    attachObserver();
+    if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+      (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+    }
+    return true;
+  };
 
   // Router
   const router = async ()=>{
-    preserveScroll();
     const parts=(location.hash||'#/').slice(2).split('/');
     switch(parts[0]){
       case '':
       case 'posts': {
         route='home';
-        if (!(await restoreFeedIfAvailable())) {
+        // If pre-router restore already handled it, do nothing
+        const alreadyRestored = false;
+        if (!alreadyRestored) {
+          // Normal home render (if user arrived fresh or no snapshot)
           const feed=ensureFeed();
-          page=1; reachedEnd=false; loading=false;
-          feed.innerHTML=''; attachObserver(); await loadNext();
-        } else { attachObserver(); maybeKick(); }
+          if (!sessionStorage.getItem(SS.FEED_HTML)) {
+            page=1; reachedEnd=false; loading=false;
+            feed.innerHTML=''; attachObserver(); await loadNext();
+          } else {
+            // If snapshot still exists but no token, try gentle restore (no seek)
+            const html=sessionStorage.getItem(SS.FEED_HTML);
+            if (html) {
+              feed.innerHTML=html;
+              page=Number(sessionStorage.getItem(SS.FEED_PAGE)||'1');
+              reachedEnd=sessionStorage.getItem(SS.FEED_END)==='true';
+              requestAnimationFrame(()=>{
+                const y=Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
+                window.scrollTo({ top:y, behavior:'auto' });
+              });
+              attachObserver(); maybeKick();
+            } else {
+              page=1; reachedEnd=false; loading=false;
+              feed.innerHTML=''; attachObserver(); await loadNext();
+            }
+          }
+        }
         break;
       }
-      case 'about': route='about'; if (io) io.disconnect(); app.innerHTML=''; renderAbout(); break;
-      case 'settings': route='settings'; if (io) io.disconnect(); app.innerHTML=`<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`; break;
+      case 'about':
+        route='about'; if (io) io.disconnect(); app.innerHTML=''; renderAbout(); break;
+      case 'settings':
+        route='settings'; if (io) io.disconnect();
+        app.innerHTML = `<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`;
+        break;
       case 'post':
         route='detail';
         if (io) io.disconnect();
         const oldGrid=document.querySelector('.posts-grid'); if (oldGrid) oldGrid.remove();
+        // keep snapshot intact for return
+        // render
         await renderDetail(parts[1]);
         break;
-      default: route='home'; ensureFeed(); attachObserver(); break;
+      default:
+        route='home'; ensureFeed(); attachObserver(); break;
     }
   };
 
-  // Back/Forward + tab visibility assists
+  // Back/Forward + lifecycle
   addEventListener('pageshow', async () => {
-    if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) && route !== 'home') {
-      route = 'home';
-      if (!(await restoreFeedIfAvailable())) router();
+    // If returning to posts/home, try pre-router restore FIRST
+    if (location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) {
+      if (await preRouterRestoreIfReturning()) return;
+      // else normal flow
+      await router();
     }
   });
-  addEventListener('popstate', async () => {
-    if ((location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts'))) {
-      if (!(await restoreFeedIfAvailable())) router();
-    }
-  });
-  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') snapshotFeed(); });
 
-  // UI
+  addEventListener('popstate', async () => {
+    if (location.hash === '' || location.hash === '#/' || location.hash.startsWith('#/posts')) {
+      if (await preRouterRestoreIfReturning()) return;
+      await router();
+    }
+  });
+
+  // UI & misc
   hamburger?.addEventListener('click',()=>{
     if (menu.hasAttribute('hidden')) { menu.removeAttribute('hidden'); hamburger.setAttribute('aria-expanded','true'); }
     else { menu.setAttribute('hidden',''); hamburger.setAttribute('aria-expanded','false'); }
   });
 
   addEventListener('hashchange', router);
-  let kickRAF=0;
-  addEventListener('scroll', () => { cancelAnimationFrame(kickRAF); kickRAF=requestAnimationFrame(maybeKick); }, {passive:true});
+  addEventListener('scroll', () => { requestAnimationFrame(() => { if(route==='home') sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); }); }, { passive:true });
   addEventListener('beforeunload', snapshotFeed);
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') snapshotFeed(); });
 
-  (async ()=>{ await router(); if(route==='home') attachObserver(); })();
+  // Initial boot: prefer pre-router restore; if not returning, run router
+  (async ()=>{ if (!(await preRouterRestoreIfReturning())) await router(); })();
 })();
  /* 🔴 main.js */
