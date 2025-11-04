@@ -1,7 +1,7 @@
-/* 🟢 main.js — 2025-11-03R1s (tags at bottom; no autoplay; grid; smooth insert) */
+/* 🟢 main.js — 2025-11-03R1t (facebook fallback; tags at bottom; no autoplay; grid; smooth insert) */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1s';
+  window.AppVersion = '2025-11-03R1t';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -42,36 +42,57 @@
     return `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">`;
   };
 
-  // ---- video extraction (detail only; autoplay removed) ----
+  // ---- video extraction (detail only; no autoplay) ----
   const extractVideo = html => {
     const yt = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})|https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})/i);
     if (yt) return { type:'youtube', src:`https://www.youtube.com/embed/${yt[1]||yt[2]}?rel=0` };
+
     const vimeo = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
     if (vimeo) return { type:'vimeo', src:`https://player.vimeo.com/video/${vimeo[1]}` };
+
     const fb = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/?\?v=|[^"']+\/videos\/)([0-9]+)/i);
     if (fb) {
+      // Build both plugin embed URL and original FB URL for fallback
       const orig = fb[0].includes('watch') ? `https://www.facebook.com/watch/?v=${fb[1]}` : fb[0];
-      return { type:'facebook', src:`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&show_text=false` };
+      const plugin = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(orig)}&show_text=false`;
+      return { type:'facebook', src: plugin, orig };
     }
+
     const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vid) return { type:'video', src:vid[1] };
+
     return null;
   };
 
-  // ---- inline video (no autoplay; responsive) ----
+  // ---- inline video (no autoplay; responsive; FB fallback button) ----
   const playInlineVideo = (container, playable) => {
     if (!playable || !container) return;
     container.innerHTML = '';
+
     if (playable.type === 'video') {
       const v = document.createElement('video');
       Object.assign(v, { src: playable.src, controls: true, playsInline: true });
       v.style.width = '100%'; v.style.display = 'block'; v.style.aspectRatio = '16 / 9';
       container.appendChild(v);
-    } else {
-      const f = document.createElement('iframe');
-      Object.assign(f, { src: playable.src, allow: 'fullscreen; picture-in-picture; encrypted-media', frameBorder: '0', referrerPolicy: 'no-referrer-when-downgrade' });
-      f.style.width = '100%'; f.style.display = 'block'; f.style.aspectRatio = '16 / 9';
-      container.appendChild(f);
+      return;
+    }
+
+    const f = document.createElement('iframe');
+    Object.assign(f, {
+      src: playable.src,
+      allow: 'fullscreen; picture-in-picture; encrypted-media',
+      frameBorder: '0',
+      referrerPolicy: 'no-referrer-when-downgrade'
+    });
+    f.style.width = '100%'; f.style.aspectRatio = '16 / 9'; f.style.display = 'block';
+    container.appendChild(f);
+
+    // If this is a Facebook video, always show a "View on Facebook" fallback link
+    if (playable.type === 'facebook' && playable.orig) {
+      const wrap = document.createElement('div');
+      wrap.style.marginTop = '8px';
+      wrap.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${playable.orig}">View on Facebook</a>`;
+      container.appendChild(wrap);
     }
   };
 
@@ -131,7 +152,7 @@
     return `<div class="post-tags" aria-label="Post tags">${chips.join('')}</div>`;
   };
 
-  // ---- detail view (tags moved after content) ----
+  // ---- detail view (tags after content; FB fallback handled in playInlineVideo) ----
   const renderDetail = async id=>{
     app.innerHTML='<div>Loading…</div>';
     try{
