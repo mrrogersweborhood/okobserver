@@ -1,4 +1,4 @@
-🟢 main.js
+// 🟢 main.js
 (function(){
   'use strict';
 
@@ -6,7 +6,6 @@
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
-  // SessionStorage keys (stable)
   const SS = {
     FEED_IDS:   'okob.feed.ids',
     FEED_BYID:  'okob.feed.byid',
@@ -18,7 +17,6 @@
     RETURN_TOKEN:'okob.returnToken'
   };
 
-  // App state
   let route = 'home';
   let page = 1;
   let loading = false;
@@ -27,21 +25,18 @@
   const app = document.getElementById('app');
   const sentinel = document.getElementById('sentinel');
 
-  // Canonical feed snapshot we control
   const feedIds = [];
   const feedById = Object.create(null);
   const seenIds = new Set();
 
   const fmtDate = d => new Date(d).toLocaleDateString();
 
-  // === Cartoon filter
   function isCartoon(p){
     const groups = p?._embedded?.['wp:term'] || [];
     const cats = groups.flat().map(t => (t?.slug||t?.name||'').toString().toLowerCase());
     return cats.includes('cartoon');
   }
 
-  // === Images
   function imgHTML(p){
     let src = null;
     const fm = p._embedded?.['wp:featuredmedia']?.[0];
@@ -52,7 +47,6 @@
     return src ? `<img src="${src}" alt="" loading="lazy">` : '';
   }
 
-  // === Cards
   const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
@@ -63,7 +57,6 @@
       <div class="post-summary">${p.excerpt?.rendered || ''}</div>
     </article>`;
 
-  // Ensure grid container exists
   function ensureFeed(){
     let feed = document.querySelector('.posts-grid');
     if (!feed) {
@@ -75,7 +68,6 @@
     return feed;
   }
 
-  // Keep feed length in check if you cap
   const MAX_CARDS = 400;
   function trimCards(){
     const c = document.querySelector('.posts-grid'); if (!c) return;
@@ -92,10 +84,10 @@
 
   function wireCardClicks(scope){
     (scope || document).querySelectorAll('.post-card a.title-link').forEach(a=>{
-      a.addEventListener('click', (e)=>{
+      a.addEventListener('click', e=>{
         e.preventDefault();
-        const href = a.getAttribute('href'); const id = href.split('/').pop();
-        // snapshot exact feed before routing
+        const href = a.getAttribute('href'); 
+        const id = href.split('/').pop();
         saveFeedSnapshotData({
           ids: feedIds,
           byId: feedById,
@@ -110,7 +102,6 @@
     });
   }
 
-  // === Snapshot helpers (IDs + slim byId + page + end + scrollY)
   function saveFeedSnapshotData({ ids, byId, nextPage, reachedEnd: endFlag }) {
     try {
       sessionStorage.setItem(SS.FEED_IDS, JSON.stringify(ids||[]));
@@ -119,7 +110,7 @@
         const p = byId[id]; if (!p) return;
         slim[id] = {
           id:p.id, date:p.date, title:p.title, excerpt:p.excerpt,
-          _embedded:p._embedded, // enough for cardHTML()
+          _embedded:p._embedded
         };
       });
       sessionStorage.setItem(SS.FEED_BYID, JSON.stringify(slim));
@@ -128,6 +119,7 @@
       sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0));
     } catch(e){ console.warn('snapshot save failed', e); }
   }
+
   function readFeedSnapshotData(){
     try{
       const ids = JSON.parse(sessionStorage.getItem(SS.FEED_IDS)||'[]');
@@ -136,14 +128,16 @@
       return { ids, byId };
     } catch { return null; }
   }
+
   function clearFeedSnapshotData(){
-    [SS.FEED_IDS,SS.FEED_BYID,SS.FEED_PAGE,SS.FEED_END,SS.SCROLL_Y].forEach(k=>sessionStorage.removeItem(k));
+    [SS.FEED_IDS,SS.FEED_BYID,SS.FEED_PAGE,SS.FEED_END,SS.SCROLL_Y]
+      .forEach(k=>sessionStorage.removeItem(k));
   }
+
   window.addEventListener('pageshow', ()=>{
-    if (performance?.navigation?.type === 1) clearFeedSnapshotData(); // true reload
+    if (performance?.navigation?.type === 1) clearFeedSnapshotData();
   });
 
-  // === Fetch
   async function fetchPosts(n){
     const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
     if (!r.ok) {
@@ -157,7 +151,6 @@
   }
 
   function appendPosts(posts){
-    // keep canonical state first
     posts.forEach(p=>{
       if (seenIds.has(p.id)) return;
       seenIds.add(p.id);
@@ -172,7 +165,8 @@
       const wrap = document.createElement('div');
       wrap.innerHTML = cardHTML(p);
       const card = wrap.firstElementChild;
-      card.style.opacity = '0'; card.style.transition = 'opacity .25s ease';
+      card.style.opacity = '0'; 
+      card.style.transition = 'opacity .25s ease';
       frag.appendChild(card);
       requestAnimationFrame(()=> card.style.opacity = '1');
     });
@@ -182,7 +176,6 @@
     wireCardClicks(feed);
   }
 
-  // === Infinite Scroll
   let io;
   function attachObserver(){
     if (io) io.disconnect();
@@ -194,12 +187,14 @@
     placeSentinelAfterLastCard();
     io.observe(sentinel);
   }
+
   function kick(){
     if (route!=='home' || loading || reachedEnd) return;
     const doc=document.documentElement;
     const remaining = doc.scrollHeight - (doc.scrollTop + window.innerHeight);
     if (remaining < 900) loadNext();
   }
+
   setInterval(kick, 1500);
   addEventListener('scroll', kick, { passive:true });
 
@@ -218,7 +213,6 @@
         page += 1; hops += 1;
       }
 
-      // persist after each cycle
       saveFeedSnapshotData({ ids:feedIds, byId:feedById, nextPage:page, reachedEnd });
       if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
         (window.requestIdleCallback || setTimeout)(() => loadNext(), 80);
@@ -226,7 +220,6 @@
     } finally { loading = false; }
   }
 
-  // === Detail
   function notFound(id, status='Not found'){
     app.innerHTML = `<article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
       <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
@@ -270,25 +263,21 @@
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
       const back = app.querySelector('.button[href="#/"]');
-      if (back) back.addEventListener('click', (e)=>{ e.preventDefault(); navigateTo('#/'); });
+      if (back) back.addEventListener('click', e=>{ e.preventDefault(); navigateTo('#/'); });
     } catch(e){ console.warn('Post load failed', e); notFound(id, 'Network error'); }
   }
 
-  // === Home restore or cold load
   async function renderHome(){
-    // try restoring exact snapshot first
     const snap = readFeedSnapshotData();
     if (snap){
       route='home';
       const list = snap.ids.map(id => snap.byId[id]).filter(Boolean);
-      // sync in-memory so we don’t duplicate
       feedIds.length = 0; seenIds.clear();
       for (const k in feedById) delete feedById[k];
       list.forEach(p=>{ feedIds.push(p.id); feedById[p.id]=p; seenIds.add(p.id); });
 
       app.innerHTML = ''; ensureFeed();
-      appendPosts([]); // ensures sentinel placement
-      // render all at once
+      appendPosts([]);
       const feed = ensureFeed(); feed.innerHTML = list.map(cardHTML).join('');
       wireCardClicks(feed);
       placeSentinelAfterLastCard();
@@ -304,7 +293,6 @@
       return;
     }
 
-    // cold load
     route='home';
     app.innerHTML=''; ensureFeed();
     feedIds.length = 0; for (const k in feedById) delete feedById[k];
@@ -314,17 +302,18 @@
     attachObserver();
   }
 
-  // === Router
   function currentRoute(){
     const h = location.hash || '#/';
     if (h.startsWith('#/post/')) return { name:'post', id: h.split('/').pop() };
     return { name:'home' };
   }
+
   async function router(){
     const r = currentRoute();
     if (r.name === 'post') await renderDetail(r.id);
     else await renderHome();
   }
+
   function navigateTo(hash){
     if (location.hash === hash) router();
     else location.hash = hash;
@@ -339,4 +328,5 @@
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
-🔴 main.js
+
+// 🔴 main.js
