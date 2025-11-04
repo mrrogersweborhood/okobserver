@@ -1,5 +1,6 @@
-/* 🟢 main.js — 2025-11-03 R1ab
-   - Robust video detection: finds Vimeo/YouTube links even inside [caption] shortcodes and attributes
+/* 🟢 main.js — 2025-11-03 R1ac
+   - Sanitize post HTML: remove empty anchors, unwrap image-only anchors, normalize captions
+   - Robust video detection (finds links in captions/attributes)
    - Resilient infinite scroll (IO + timer + near-bottom kick)
    - Restore feed DOM + scroll when returning from detail
    - Robust post 404 page (no fallback to home)
@@ -9,7 +10,7 @@
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ab';
+  window.AppVersion = '2025-11-03R1ac';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -58,34 +59,22 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
-  /* ---------- Video extraction (caption-aware, attribute-safe) ---------- */
+  /* ---------- Video extraction (caption/attribute aware) ---------- */
   const decodeEntities = (s='') => {
-    try {
-      const el = document.createElement('textarea');
-      el.innerHTML = s;
-      return el.value;
-    } catch { return s; }
+    try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; }
+    catch { return s; }
   };
-
-  // Pull raw URLs from any text (attributes, captions, HTML)
   const findUrls = (raw='') => {
     const txt = decodeEntities(raw);
-    const urls = [];
-    const re = /https?:\/\/[^\s"'<>)]+/gi;
-    let m;
+    const urls = []; const re = /https?:\/\/[^\s"'<>)]+/gi; let m;
     while ((m = re.exec(txt))) urls.push(m[0]);
     return urls;
   };
-
   const extractVideo = html => {
     const urls = findUrls(html);
 
-    // Prefer Vimeo/YouTube if present anywhere (caption/attributes included)
     const vimeo = urls.find(u => /\/\/(?:www\.)?vimeo\.com\/(\d+)/i.test(u));
-    if (vimeo) {
-      const idMatch = vimeo.match(/vimeo\.com\/(\d+)/i);
-      if (idMatch) return { type:'vimeo', src:`https://player.vimeo.com/video/${idMatch[1]}` };
-    }
+    if (vimeo) { const id = (vimeo.match(/vimeo\.com\/(\d+)/i)||[])[1]; if (id) return { type:'vimeo', src:`https://player.vimeo.com/video/${id}` }; }
 
     const ytu = urls.find(u => /youtube\.com\/watch\?v=|youtu\.be\//i.test(u));
     if (ytu) {
@@ -96,7 +85,6 @@
     const fbu = urls.find(u => /facebook\.com\/(?:watch\/?\?v=|.*\/videos\/\d+)/i.test(u));
     if (fbu) return { type:'facebook', src:'', orig: fbu };
 
-    // <video src="...">
     const vid = html.match(/<video[^>]*src=["']([^"']+)["'][^>]*>/i);
     if (vid) return { type:'video', src:vid[1] };
 
@@ -135,6 +123,45 @@
     });
     f.style.width = '100%'; f.style.aspectRatio = '16/9'; f.style.display = 'block';
     container.appendChild(f);
+  };
+
+  /* ---------- HTML sanitizer for post content ---------- */
+  const sanitizePostHTML = (html) => {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+
+    // 1) Normalize WP caption wrappers to semantic figure/figcaption
+    wrapper.querySelectorAll('.wp-caption').forEach(caption => {
+      const fig = document.createElement('figure');
+      // move children
+      [...caption.childNodes].forEach(n => fig.appendChild(n));
+      // move caption text
+      const cap = fig.querySelector('.wp-caption-text');
+      if (cap) { const fc = document.createElement('figcaption'); fc.innerHTML = cap.innerHTML; cap.replaceWith(fc); }
+      caption.replaceWith(fig);
+    });
+
+    // 2) Unwrap anchors that only wrap a single IMG (keeps the image visible; link stays on the image)
+    wrapper.querySelectorAll('a').forEach(a => {
+      const onlyImg = a.children.length === 1 && a.firstElementChild?.tagName === 'IMG' && (a.textContent || '').trim() === '';
+      if (onlyImg) { a.replaceWith(a.firstElementChild); }
+    });
+
+    // 3) Remove truly empty anchors (no visible content)
+    wrapper.querySelectorAll('a').forEach(a => {
+      const txt = (a.textContent || '').replace(/\s+/g,'');
+      const hasImg = !!a.querySelector('img, picture, svg');
+      const hasEmbed = !!a.querySelector('iframe, video');
+      if (!txt && !hasImg && !hasEmbed) a.remove();
+    });
+
+    // 4) Ensure images are responsive
+    wrapper.querySelectorAll('img').forEach(img => {
+      img.removeAttribute('width'); img.removeAttribute('height');
+      img.style.maxWidth = '100%'; img.style.height = 'auto'; img.style.display = 'block';
+    });
+
+    return wrapper.innerHTML;
   };
 
   /* ---------- feed rendering ---------- */
@@ -205,11 +232,13 @@
       const hero=`<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${imgHTML(p)}</div></div>`;
       const tagsBlock=tagsHTML(p);
 
+      const cleaned = sanitizePostHTML(p.content?.rendered || '');
+
       app.innerHTML=`<article class="post-detail">
         ${hero}
         <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
         <div class="byline" style="font-weight:600;margin:0 0 16px;">${byline(p)}</div>
-        <div class="post-detail__content">${p.content?.rendered||''}</div>
+        <div class="post-detail__content">${cleaned}</div>
         ${tagsBlock?`<div class="tags-row" style="margin:16px 0;">${tagsBlock}</div>`:''}
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
