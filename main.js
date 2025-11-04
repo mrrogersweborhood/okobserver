@@ -1,14 +1,15 @@
-/* 🟢 main.js — 2025-11-03 R1am
-   Adds: placeSentinelAfterLastCard(), stronger IO rootMargin, watchdog kick (interval + scroll)
-   Keeps: date-desc order, global dedupe, return-to-place restore, hoisted renderDetail()
+/* 🟢 main.js — 2025-11-03 R1an
+   Adds: page-fill loader (keeps fetching while filtered pages are sparse),
+         sentinel placement + watchdog kick (from R1am),
+         strict date-desc + global dedupe, return-to-place restore.
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1am';
+  window.AppVersion = '2025-11-03R1an';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 12;         // You can bump to 16/20 if desired
   const MAX_CARDS = 60;
 
   let page = 1, loading = false, reachedEnd = false, route = 'home';
@@ -17,8 +18,10 @@
   const menu      = document.getElementById('menu');
   const hamburger = document.getElementById('hamburger');
 
+  // Global dedupe across session
   const seenIds = new Set();
 
+  // Session storage keys
   const SS = {
     FEED_HTML:   'okob.feed.html',
     FEED_PAGE:   'okob.feed.page',
@@ -36,6 +39,7 @@
   const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});} catch { return ''; } };
   const byline  = p => `${p._embedded?.author?.[0]?.name || 'Staff'} · ${fmtDate(p.date)}`;
 
+  // Tight cartoon filter: only slug/name "cartoon"
   const isCartoon = post => {
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
@@ -46,6 +50,7 @@
     });
   };
 
+  // Featured image helpers
   const featuredSrc = post => {
     const fm = post?._embedded?.['wp:featuredmedia']?.[0];
     if (!fm) return '';
@@ -58,6 +63,7 @@
     return src ? `<img src="${src}" alt="" decoding="async" loading="lazy" style="width:100%;height:auto;display:block;border:0;background:#fff;">` : '';
   };
 
+  // Video detection (no autoplay)
   const decodeEntities = (s='') => { try { const el=document.createElement('textarea'); el.innerHTML=s; return el.value; } catch { return s; } };
   const findUrls = (raw='') => { const txt=decodeEntities(raw); const out=[]; const re=/https?:\/\/[^\s"'<>)]+/gi; let m; while((m=re.exec(txt))) out.push(m[0]); return out; };
   const extractVideo = html => {
@@ -81,7 +87,8 @@
       const btn = document.createElement('div');
       btn.style.marginTop = '8px';
       btn.innerHTML = `<a class="button" target="_blank" rel="noopener" href="${playable.orig || '#'}">View on Facebook</a>`;
-      container.appendChild(btn); return;
+      container.appendChild(btn);
+      return;
     }
     if (playable.type === 'video') {
       const v=document.createElement('video');
@@ -95,6 +102,7 @@
     container.appendChild(f);
   }
 
+  // Clean up WP markup (links underlined, images responsive)
   function sanitizePostHTML(html) {
     const wrap=document.createElement('div'); wrap.innerHTML=html;
     wrap.querySelectorAll('.wp-caption').forEach(c=>{
@@ -116,6 +124,7 @@
     return wrap.innerHTML;
   }
 
+  // Feed helpers
   const ensureFeed=()=>{ let feed=document.querySelector('.posts-grid'); if(!feed){feed=document.createElement('div'); feed.className='posts-grid'; app.innerHTML=''; app.appendChild(feed);} return feed; };
   const trimCards=()=>{ const c=document.querySelector('.posts-grid'); if(!c)return; while(c.children.length>MAX_CARDS)c.removeChild(c.firstElementChild); };
 
@@ -133,8 +142,7 @@
     const feed = document.querySelector('.posts-grid');
     if (!feed) return;
     if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
-    feed.appendChild(sentinel); // always after the last card
-    // Make sure it has some height (CSS should set, this is just a guard)
+    feed.appendChild(sentinel); // keep at end
     sentinel.style.minHeight = '2px';
     sentinel.style.display   = 'block';
   }
@@ -178,6 +186,7 @@
     </article>`;
   }
 
+  // Focus helpers for return-to-place
   function cssPath(el) {
     if (!el || !el.nodeType) return '';
     const path = [];
@@ -217,17 +226,23 @@
     } catch {}
   }
 
+  // === FETCH & LOAD (with fill) ===
   async function fetchPosts(n){
-    const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
-    if(!r.ok){ if(r.status===400||r.status===404) reachedEnd=true; throw new Error(r.status); }
-    let posts=await r.json();
-    posts = posts.filter(p=>!isCartoon(p))
-                 .sort((a,b)=> new Date(b.date) - new Date(a.date))
-                 .filter(p=>!seenIds.has(p.id));
-    return posts;
+    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
+    if (!r.ok) {
+      if (r.status === 400 || r.status === 404) return { posts: [], rawCount: 0, end: true };
+      throw new Error(r.status);
+    }
+    let raw = await r.json();
+    const rawCount = Array.isArray(raw) ? raw.length : 0;
+    let posts = raw
+      .filter(p => !isCartoon(p))
+      .sort((a,b) => new Date(b.date) - new Date(a.date))
+      .filter(p => !seenIds.has(p.id));
+    return { posts, rawCount, end: rawCount === 0 };
   }
 
-  let io; let lastAppendTs=0; const now=()=>performance.now();
+  let io;
   function attachObserver(){
     if (io) io.disconnect();
     io = new IntersectionObserver(async entries => {
@@ -239,6 +254,7 @@
     io.observe(sentinel);
   }
 
+  // Watchdog kick (if IO starves)
   function kick(){
     if (route!=='home' || loading || reachedEnd) return;
     const doc=document.documentElement;
@@ -248,18 +264,39 @@
   setInterval(kick, 1500);
   addEventListener('scroll', kick, { passive:true });
 
+  // Fill loader: keep fetching forward until we append enough or reach end.
   async function loadNext(){
-    if (loading||reachedEnd||route!=='home') return;
-    loading=true;
-    try{
-      const posts=await fetchPosts(page);
-      if(!posts.length){ reachedEnd=true; return; }
-      appendPosts(posts); lastAppendTs=now(); page+=1;
-      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
-        (window.requestIdleCallback || setTimeout)(() => loadNext(), 50);
+    if (loading || reachedEnd || route !== 'home') return;
+    loading = true;
+    try {
+      const MIN_TO_APPEND = 6;     // try to show at least this many cards per turn
+      const MAX_PAGES_HOP = 4;     // cap forward hops per turn
+
+      let appended = 0;
+      let hops = 0;
+
+      while (!reachedEnd && hops < MAX_PAGES_HOP && appended < MIN_TO_APPEND) {
+        const { posts, rawCount, end } = await fetchPosts(page);
+        if (end || rawCount === 0) {
+          reachedEnd = true;
+          break;
+        }
+        if (posts.length) {
+          appendPosts(posts);
+          appended += posts.length;
+        }
+        page += 1;
+        hops += 1;
       }
+
+      if (document.documentElement.scrollHeight <= window.innerHeight + 200 && !reachedEnd) {
+        (window.requestIdleCallback || setTimeout)(() => loadNext(), 80);
+      }
+
       snapshotFeed();
-    } finally { loading=false; }
+    } finally {
+      loading = false;
+    }
   }
 
   async function renderDetail(id){
@@ -303,6 +340,7 @@
     } catch(e){ console.warn('Post load failed',e); notFound(id,'Network error'); }
   }
 
+  // === Restore / Router ===
   async function preRouterRestoreIfReturning(){
     const token = sessionStorage.getItem(SS.RETURN_TOKEN);
     if (!token) return false;
@@ -351,7 +389,6 @@
 
     attachObserver();
     kick(); // initial nudge
-
     return true;
   }
 
@@ -409,6 +446,7 @@
     }
   }
 
+  // Save state on click-through to detail
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a.title-link');
     if (!a) return;
