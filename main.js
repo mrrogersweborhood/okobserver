@@ -1,16 +1,20 @@
-/* 🟢 main.js — 2025-11-03 R1ad
-   - Cartoon filter tightened: hide ONLY when a term name/slug is exactly "cartoon"
-   - Sanitize post HTML: remove empty anchors, unwrap image-only anchors, normalize captions
-   - Robust video detection (finds links in captions/attributes)
+/* 🟢 main.js — 2025-11-03 R1ae
+   - Fix: prevent feed grid leaking into post-detail
+     * Clear feed snapshot on entering detail
+     * Never restore feed unless route === 'home'
+     * Re-check route before rendering feed
+     * Remove stray .posts-grid before detail render
+   - Cartoon filter tightened: only hide when name/slug === 'cartoon'
+   - Sanitize post HTML (remove empty anchors, unwrap image-only anchors, normalize captions)
+   - Robust video detection (works in captions/attributes)
    - Resilient infinite scroll (IO + timer + near-bottom kick)
-   - Restore feed DOM + scroll when returning from detail
-   - Robust post 404 page (no fallback to home)
-   - Facebook: always featured image + "View on Facebook" (no iframe)
-   - Tags at bottom; byline bold; no autoplay
+   - Scroll-restore when returning to feed
+   - FB: featured image + “View on Facebook”, no iframe
+   - Tags at bottom; bold bylines; blue titles; no autoplay
 */
 (function () {
   'use strict';
-  window.AppVersion = '2025-11-03R1ad';
+  window.AppVersion = '2025-11-03R1ae';
   console.log('[OkObserver] main.js', window.AppVersion);
 
   const API_BASE  = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -36,7 +40,7 @@
 
   /* ---------- filters / media helpers ---------- */
 
-  // NEW: only hide posts explicitly categorized/tagged "cartoon"
+  // Only hide posts explicitly categorized/tagged "cartoon"
   const isCartoon = post => {
     const groups = post?._embedded?.['wp:term'] || [];
     const terms  = groups.flat().filter(Boolean);
@@ -140,7 +144,7 @@
       caption.replaceWith(fig);
     });
 
-    // 2) Unwrap anchors that only wrap a single IMG (image remains, link on the image preserved)
+    // 2) Unwrap anchors that only wrap a single IMG (image remains; link on image preserved)
     wrapper.querySelectorAll('a').forEach(a => {
       const onlyImg = a.children.length === 1 && a.firstElementChild?.tagName === 'IMG' && (a.textContent || '').trim() === '';
       if (onlyImg) { a.replaceWith(a.firstElementChild); }
@@ -179,6 +183,7 @@
     </article>`;
 
   const renderPage = posts => {
+    if (route !== 'home') return; // guard: don't render feed after navigating away
     const feed = ensureFeed();
     const frag = document.createDocumentFragment();
     posts.forEach(p=>{
@@ -200,7 +205,7 @@
     for(const t of terms){
       if(seen.has(t.id)) continue; seen.add(t.id);
       const name=(t.name||'').trim(); if(!name) continue;
-      if (name.toLowerCase() === 'cartoon') continue; // keep consistent with filter
+      if (name.toLowerCase() === 'cartoon') continue; // consistent with filter
       chips.push(`<span class="tag-chip" title="${t.taxonomy}">${name}</span>`);
     }
     return chips.length ? `<div class="post-tags">${chips.join('')}</div>` : '';
@@ -211,16 +216,29 @@
   const notFound = (id, statusText='Not found') => {
     app.innerHTML = `
       <article class="post-detail" style="max-width:880px;margin:0 auto;padding:0 12px;">
-        <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
-        <div class="byline" style="font-weight:600;margin:0 0 16px;">ID ${id} • ${statusText}</div>
-        <p>We couldn’t load this article. It may have been removed or is restricted.</p>
-        <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
+      <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">Post not found</h1>
+      <div class="byline" style="font-weight:600;margin:0 0 16px;">ID ${id} • ${statusText}</div>
+      <p>We couldn’t load this article. It may have been removed or is restricted.</p>
+      <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
+  };
+
+  const clearFeedSnapshot = () => {
+    try {
+      sessionStorage.removeItem(SS.FEED_HTML);
+      sessionStorage.removeItem(SS.FEED_PAGE);
+      sessionStorage.removeItem(SS.FEED_END);
+    } catch {}
   };
 
   const renderDetail = async id=>{
     try { sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY||0)); } catch {}
-    app.innerHTML='<div>Loading…</div>';
+    // Full replace; also remove any stray grid before showing "Loading…"
+    app.innerHTML = '';
+    const orphan = document.querySelector('.posts-grid');
+    if (orphan) orphan.remove();
+    app.innerHTML = '<div>Loading…</div>';
+
     try{
       const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       if (!r.ok) { notFound(id, `HTTP ${r.status}`); return; }
@@ -307,6 +325,7 @@
   /* ---------- feed snapshot / restore ---------- */
   const snapshotFeed = () => {
     try {
+      if (route !== 'home') return;
       const feed = document.querySelector('.posts-grid');
       if (!feed) return;
       sessionStorage.setItem(SS.FEED_HTML, feed.innerHTML);
@@ -316,6 +335,8 @@
   };
 
   const restoreFeedIfAvailable = () => {
+    // Guard: never restore unless we are on the home route
+    if (route !== 'home') return false;
     try {
       const html = sessionStorage.getItem(SS.FEED_HTML);
       if (!html) return false;
@@ -357,14 +378,19 @@
         break;
       }
       case 'about':
-        route='about'; if (io) io.disconnect(); renderAbout(); break;
+        route='about'; if (io) io.disconnect(); app.innerHTML=''; renderAbout(); break;
       case 'settings':
         route='settings'; if (io) io.disconnect();
         app.innerHTML = `<section><h1>Settings</h1><p>Build <strong>${window.AppVersion}</strong></p></section>`;
         break;
       case 'post':
-        route='detail'; if (io) io.disconnect();
-        await renderDetail(parts[1]); break;
+        route='detail';
+        if (io) io.disconnect();
+        const oldGrid = document.querySelector('.posts-grid');
+        if (oldGrid) oldGrid.remove();
+        clearFeedSnapshot();                // prevent late feed restore
+        await renderDetail(parts[1]);
+        break;
       default:
         route='home'; ensureFeed(); attachObserver(); break;
     }
