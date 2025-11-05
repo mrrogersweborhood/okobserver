@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-05SR1-fixA10';
+  const BUILD = '2025-11-05SR1-fixA10a';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -113,8 +113,7 @@
       return{ids,byId};
     }catch{return null;}
   }
-
-  // (Removed the pageshow-clearing code to preserve session snapshots)
+  // (No pageshow-clearing code; snapshots persist during session)
 
   // ---------- fetch / append ----------
   async function fetchPosts(n){
@@ -177,14 +176,30 @@
   // ---------- sanitize / detail ----------
   function sanitizePostHTML(html){
     const wrap=document.createElement('div');wrap.innerHTML=html;
+
+    // unwrap <a><img></a>
     wrap.querySelectorAll('a').forEach(a=>{
       const onlyImg=a.children.length===1&&a.firstElementChild?.tagName==='IMG'&&!a.textContent.trim();
       if(onlyImg)a.replaceWith(a.firstElementChild);
     });
+
+    // normalize images only (don’t strip videos)
     wrap.querySelectorAll('img').forEach(img=>{
       img.removeAttribute('width');img.removeAttribute('height');
       img.style.maxWidth='100%';img.style.height='auto';img.style.display='block';
     });
+
+    // make author-provided <video> responsive if present
+    wrap.querySelectorAll('video').forEach(v=>{
+      if(!v.getAttribute('controls')) v.setAttribute('controls','');
+      v.setAttribute('playsinline','');
+      v.style.maxWidth = v.style.maxWidth || '100%';
+      v.style.height   = v.style.height   || 'auto';
+      v.style.display  = v.style.display  || 'block';
+      if(!v.style.margin) v.style.margin  = '12px auto';
+      if(!v.style.borderRadius) v.style.borderRadius = '8px';
+    });
+
     return wrap.innerHTML;
   }
 
@@ -200,33 +215,49 @@
       if(!r.ok){app.innerHTML='<p>Not found.</p>';return;}
       const p=await r.json();const cleaned=sanitizePostHTML(p.content?.rendered||'');
 
-      // --- inline video (with Facebook fallback to image + button) ---
+      // --- inline video (YouTube/Vimeo/Facebook/HTML5) ---
       let videoEmbed='';const content=p.content?.rendered||'';
+
+      // 1) existing iframe
       const iframeMatch=content.match(/<iframe[^>]+src="([^"]+)"[^>]*><\/iframe>/i);
       if(iframeMatch&&iframeMatch[1]){
         videoEmbed=`<div class="video-container" style="margin:12px 0;">
           <iframe src="${iframeMatch[1]}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
         </div>`;
       }else{
+        // 2) platform links
         const ytWatch=content.match(/youtube\.com\/watch\?v=([A-Za-z0-9_-]{6,})/i);
         const ytShort=content.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
-        const vimeo=content.match(/vimeo\.com\/(\d+)/i);
-        const fb=content.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+/i);
+        const vimeo  =content.match(/vimeo\.com\/(\d+)/i);
+        const fb     =content.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+/i);
+
+        // 3) HTML5 <video>…</video>
+        const html5Block=content.match(/<video[\s\S]*?<\/video>/i);
+
         let embedSrc='';
-        if(ytWatch||ytShort){const id=(ytWatch&&ytWatch[1])||(ytShort&&ytShort[1]);embedSrc=`https://www.youtube.com/embed/${id}`;}
-        else if(vimeo){embedSrc=`https://player.vimeo.com/video/${vimeo[1]}`;}
-        else if(fb){
-          // Fallback: show featured image with "View on Facebook" button (no new tab logic change needed)
-          const fbUrl = fb[0];
-          const fm = p._embedded?.['wp:featuredmedia']?.[0];
-          const imgTag = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
-          const button = `<p style="margin-top:10px;"><a href="${fbUrl}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
-          videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${imgTag}${button}</div>`;
-        }
-        if(embedSrc){
+        if(ytWatch||ytShort){
+          const id=(ytWatch&&ytWatch[1])||(ytShort&&ytShort[1]);
+          embedSrc=`https://www.youtube.com/embed/${id}`;
           videoEmbed=`<div class="video-container" style="margin:12px 0;">
             <iframe src="${embedSrc}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
           </div>`;
+        }else if(vimeo){
+          embedSrc=`https://player.vimeo.com/video/${vimeo[1]}`;
+          videoEmbed=`<div class="video-container" style="margin:12px 0;">
+            <iframe src="${embedSrc}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+          </div>`;
+        }else if(html5Block){
+          // keep author’s sources/poster; enforce responsive style
+          const raw=html5Block[0]
+            .replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
+          videoEmbed=`<div class="video-html5" style="margin:12px 0;">${raw}</div>`;
+        }else if(fb){
+          // FB embed often blocked → use featured image + button
+          const fbUrl=fb[0];
+          const fm=p._embedded?.['wp:featuredmedia']?.[0];
+          const imgTag=fm?.source_url?`<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">`:'';
+          const button=`<p style="margin-top:10px;"><a href="${fbUrl}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
+          videoEmbed=`<div class="video-fallback" style="text-align:center;margin:20px 0;">${imgTag}${button}</div>`;
         }
       }
 
