@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-05SR1-fixA9';
+  const BUILD = '2025-11-05SR1-fixA10';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -114,7 +114,7 @@
     }catch{return null;}
   }
 
-  // 🚫 removed the “pageshow” listener that cleared sessionStorage
+  // (Removed the pageshow-clearing code to preserve session snapshots)
 
   // ---------- fetch / append ----------
   async function fetchPosts(n){
@@ -200,7 +200,7 @@
       if(!r.ok){app.innerHTML='<p>Not found.</p>';return;}
       const p=await r.json();const cleaned=sanitizePostHTML(p.content?.rendered||'');
 
-      // --- inline video ---
+      // --- inline video (with Facebook fallback to image + button) ---
       let videoEmbed='';const content=p.content?.rendered||'';
       const iframeMatch=content.match(/<iframe[^>]+src="([^"]+)"[^>]*><\/iframe>/i);
       if(iframeMatch&&iframeMatch[1]){
@@ -211,11 +211,18 @@
         const ytWatch=content.match(/youtube\.com\/watch\?v=([A-Za-z0-9_-]{6,})/i);
         const ytShort=content.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
         const vimeo=content.match(/vimeo\.com\/(\d+)/i);
-        const fb=content.match(/facebook\.com\/[^"'<\s]+/i);
+        const fb=content.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+/i);
         let embedSrc='';
         if(ytWatch||ytShort){const id=(ytWatch&&ytWatch[1])||(ytShort&&ytShort[1]);embedSrc=`https://www.youtube.com/embed/${id}`;}
         else if(vimeo){embedSrc=`https://player.vimeo.com/video/${vimeo[1]}`;}
-        else if(fb){const pageUrl=encodeURIComponent(fb[0]);embedSrc=`https://www.facebook.com/plugins/video.php?href=${pageUrl}&show_text=false`;}
+        else if(fb){
+          // Fallback: show featured image with "View on Facebook" button (no new tab logic change needed)
+          const fbUrl = fb[0];
+          const fm = p._embedded?.['wp:featuredmedia']?.[0];
+          const imgTag = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
+          const button = `<p style="margin-top:10px;"><a href="${fbUrl}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
+          videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${imgTag}${button}</div>`;
+        }
         if(embedSrc){
           videoEmbed=`<div class="video-container" style="margin:12px 0;">
             <iframe src="${embedSrc}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>

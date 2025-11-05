@@ -9,7 +9,8 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
-  <link rel="stylesheet" href="override.css?v=2025-11-05SR1-fixA9" />
+  <!-- SR1-fixA10 -->
+  <link rel="stylesheet" href="override.css?v=2025-11-05SR1-fixA10" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
@@ -28,9 +29,9 @@
   <main id="app" aria-live="polite"></main>
   <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
-  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-05 SR1-fixA9</span></footer>
+  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-05 SR1-fixA10</span></footer>
 
-  <script>if('scrollRestoration'in history)history.scrollRestoration='manual';</script>
+  <script>if('scrollRestoration' in history) history.scrollRestoration = 'manual';</script>
 
   <!-- Grid enforcer -->
   <script>
@@ -50,10 +51,11 @@
     })();
   </script>
 
-  <script defer src="main.js?v=2025-11-05SR1-fixA9"></script>
+  <!-- Build refs -->
+  <script defer src="main.js?v=2025-11-05SR1-fixA10"></script>
   <script>
-    if('serviceWorker'in navigator){
-      addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v=2025-11-05SR1-fixA9').catch(()=>{}));
+    if('serviceWorker' in navigator){
+      addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v=2025-11-05SR1-fixA10').catch(()=>{}));
     }
   </script>
 </body>
