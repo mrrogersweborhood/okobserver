@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-04SR1-fixA4';
+  const BUILD = '2025-11-04SR1-fixA6';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -71,7 +71,6 @@
     sentinel.style.minHeight='2px';
     sentinel.style.display='block';
   }
-
   function attachObserver(){
     if(io) io.disconnect();
     io=new IntersectionObserver(async e=>{
@@ -82,12 +81,10 @@
     placeSentinelAfterLastCard();
     io.observe(sentinel);
   }
-
   function detachObserver(){
     if(io){try{io.disconnect();}catch{} io=null;}
     try{if(sentinel&&sentinel.parentNode) sentinel.parentNode.removeChild(sentinel);}catch{}
   }
-
   function kick(){
     if(route!=='home'||loading||reachedEnd)return;
     const doc=document.documentElement;
@@ -110,7 +107,6 @@
       sessionStorage.setItem(SS.SCROLL_Y,String(window.scrollY||0));
     }catch(e){console.warn('snapshot save failed',e);}
   }
-
   function readFeedSnapshotData(){
     try{
       const ids=JSON.parse(sessionStorage.getItem(SS.FEED_IDS)||'[]');
@@ -119,7 +115,6 @@
       return{ids,byId};
     }catch{return null;}
   }
-
   window.addEventListener('pageshow',()=>{
     if(performance?.navigation?.type===1)
       [SS.FEED_IDS,SS.FEED_BYID,SS.FEED_PAGE,SS.FEED_END,SS.SCROLL_Y]
@@ -137,7 +132,6 @@
     const posts=raw.filter(p=>!isCartoon(p)&&!seenIds.has(p.id));
     return{posts,rawCount:raw.length,end:!raw.length};
   }
-
   function appendPosts(posts){
     const feed=ensureFeed();
     const frag=document.createDocumentFragment();
@@ -155,7 +149,6 @@
     placeSentinelAfterLastCard();
     wireCardClicks(feed);
   }
-
   async function loadNext(){
     if(route!=='home'||loading||reachedEnd)return;
     loading=true;
@@ -215,29 +208,40 @@
       const p=await r.json();
       const cleaned=sanitizePostHTML(p.content?.rendered||'');
 
-      // --- VIDEO HANDLING RESTORED ---
-      let videoEmbed='';
-      const content=p.content?.rendered||'';
-      const lower=content.toLowerCase();
-      if(lower.includes('youtube.com')||lower.includes('vimeo.com')){
-        const match=content.match(/<iframe[^>]+src="([^"]+)"[^>]*><\/iframe>/i);
-        if(match&&match[1]){
-          videoEmbed=`<div class="video-container" style="margin:12px 0;">
-            <iframe src="${match[1]}" frameborder="0" allowfullscreen loading="lazy"></iframe>
-          </div>`;
+      // --- VIDEO HANDLING (inline iframe, no new tab) ---
+      let videoEmbed = '';
+      const content = p.content?.rendered || '';
+
+      // 1) Prefer an existing iframe if present
+      const iframeMatch = content.match(/<iframe[^>]+src="([^"]+)"[^>]*><\/iframe>/i);
+      if (iframeMatch && iframeMatch[1]) {
+        const src = iframeMatch[1];
+        videoEmbed = `<div class="video-container" style="margin:12px 0;">
+          <iframe src="${src}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+        </div>`;
+      } else {
+        // 2) Try to sniff a raw video URL and convert to an embed URL
+        const ytWatch = content.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([A-Za-z0-9_\-]{6,})/i);
+        const ytShort = content.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_\-]{6,})/i);
+        const vimeo   = content.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
+        const fb      = content.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+/i);
+
+        let embedSrc = '';
+
+        if (ytWatch || ytShort) {
+          const id = (ytWatch && ytWatch[1]) || (ytShort && ytShort[1]);
+          embedSrc = `https://www.youtube.com/embed/${id}`;
+        } else if (vimeo) {
+          embedSrc = `https://player.vimeo.com/video/${vimeo[1]}`;
+        } else if (fb) {
+          const pageUrl = encodeURIComponent(fb[0]);
+          embedSrc = `https://www.facebook.com/plugins/video.php?href=${pageUrl}&show_text=false`;
         }
-      } else if(lower.includes('facebook.com')&&!lower.includes('<iframe')){
-        const fbUrl=(content.match(/https:\/\/www\.facebook\.com\/[^"'<>]+/)||[])[0];
-        if(fbUrl){
-          const thumb=imgHTML(p);
-          videoEmbed=`
-            <div class="video-fallback" style="margin:12px 0;text-align:center;">
-              ${thumb}
-              <a href="${fbUrl}" target="_blank" rel="noopener noreferrer"
-                 style="display:inline-block;margin-top:8px;padding:8px 14px;background:#1E90FF;color:white;border-radius:4px;text-decoration:none;">
-                 View on Facebook
-              </a>
-            </div>`;
+
+        if (embedSrc) {
+          videoEmbed = `<div class="video-container" style="margin:12px 0;">
+            <iframe src="${embedSrc}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+          </div>`;
         }
       }
 
@@ -281,7 +285,6 @@
     const h=location.hash||'#/';if(h.startsWith('#/post/'))return{name:'post',id:h.split('/').pop()};
     return{name:'home'};
   }
-
   async function router(){
     const r=currentRoute();route=r.name;document.body.dataset.route=route;
     if(r.name==='post')await renderDetail(r.id);else await renderHome();
