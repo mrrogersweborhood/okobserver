@@ -578,3 +578,12 @@ body[data-route="post"] .posts-grid { display: none !important; }
 /* Ensure hero/thumb images keep aspect */
 .post-hero .thumb img,
 .video-hero img { width:100%; height:auto; display:block; }
+/* Prevent feed flash on post pages */
+body[data-route="post"] .posts-grid { display: none !important; }
+
+/* Video containers */
+.video-container iframe { width:100%; max-width:880px; height:480px; display:block; margin:0 auto; border:0; }
+
+/* Avoid layout jumps on restore */
+.posts-grid img { max-width:100%; height:auto; display:block; }
+.posts-grid .post-card { contain: layout paint; }
