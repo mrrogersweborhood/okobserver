@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-04SR1-fixA8';
+  const BUILD = '2025-11-05SR1-fixA9';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -59,7 +59,7 @@
     return feed;
   }
 
-  // ---------- observer controls ----------
+  // ---------- observer ----------
   let io;
   function placeSentinelAfterLastCard(){
     if(RESTORING||route!=='home')return;
@@ -113,11 +113,8 @@
       return{ids,byId};
     }catch{return null;}
   }
-  window.addEventListener('pageshow',()=>{
-    if(performance?.navigation?.type===1)
-      [SS.FEED_IDS,SS.FEED_BYID,SS.FEED_PAGE,SS.FEED_END,SS.SCROLL_Y]
-      .forEach(k=>sessionStorage.removeItem(k));
-  });
+
+  // 🚫 removed the “pageshow” listener that cleared sessionStorage
 
   // ---------- fetch / append ----------
   async function fetchPosts(n){
@@ -173,7 +170,7 @@
         sessionStorage.setItem(SS.ACTIVE_ID,String(id));
         sessionStorage.setItem(SS.ACTIVE_PATH,href);
         navigateTo(href);
-      },{passive:false});
+      });
     });
   }
 
