@@ -1,18 +1,15 @@
+<!-- 🟢 index.html -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Oklahoma Observer</title>
-
   <link rel="icon" href="favicon.ico" />
   <link rel="manifest" href="manifest.json" />
-
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
-
-  <!-- Build SR1-fixA7 -->
-  <link rel="stylesheet" href="override.css?v=2025-11-04SR1-fixA7" />
+  <link rel="stylesheet" href="override.css?v=2025-11-04SR1-fixA8" />
   <meta name="theme-color" content="#1E90FF">
 </head>
 <body>
@@ -29,45 +26,34 @@
   </header>
 
   <main id="app" aria-live="polite"></main>
-
-  <!-- Sentinel anchor for infinite scroll -->
   <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
-  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-04 SR1-fixA7</span></footer>
+  <footer>© 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-04 SR1-fixA8</span></footer>
 
-  <script>
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  </script>
+  <script>if('scrollRestoration'in history)history.scrollRestoration='manual';</script>
 
   <!-- Grid enforcer -->
   <script>
-    (function () {
-      const ensure = () => {
-        const grid = document.querySelector('.posts-grid');
-        if (!grid) return;
-        grid.style.display = 'grid';
-        if (!grid.style.gap) grid.style.gap = '16px';
+    (function(){
+      const ensure=()=>{
+        const grid=document.querySelector('.posts-grid');
+        if(!grid)return;
+        grid.style.display='grid';
+        if(!grid.style.gap)grid.style.gap='16px';
       };
-      const mo = new MutationObserver(ensure);
-      const hook = () => {
-        const grid = document.querySelector('.posts-grid');
-        if (grid) {
-          ensure();
-          mo.observe(grid, { attributes:true, childList:false, subtree:false });
-        }
+      const mo=new MutationObserver(ensure);
+      const hook=()=>{
+        const grid=document.querySelector('.posts-grid');
+        if(grid){ensure();mo.observe(grid,{attributes:true,childList:false,subtree:false});}
       };
-      hook();
-      document.addEventListener('DOMContentLoaded', hook);
+      hook();document.addEventListener('DOMContentLoaded',hook);
     })();
   </script>
 
-  <!-- Build refs -->
-  <script defer src="main.js?v=2025-11-04SR1-fixA7"></script>
+  <script defer src="main.js?v=2025-11-04SR1-fixA8"></script>
   <script>
-    if ('serviceWorker' in navigator) {
-      addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js?v=2025-11-04SR1-fixA').catch(()=>{})
-      );
+    if('serviceWorker'in navigator){
+      addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v=2025-11-04SR1-fixA').catch(()=>{}));
     }
   </script>
 </body>
