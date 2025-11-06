@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const BUILD = '2025-11-05SR1-fixA10a';
+  const BUILD = '2025-11-06SR1-fixB1';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -215,10 +215,10 @@
       if(!r.ok){app.innerHTML='<p>Not found.</p>';return;}
       const p=await r.json();const cleaned=sanitizePostHTML(p.content?.rendered||'');
 
-      // --- inline video (YouTube/Vimeo/Facebook/HTML5) ---
+      // --- inline video (YouTube/Vimeo/Facebook/HTML5/.mp4) ---
       let videoEmbed='';const content=p.content?.rendered||'';
 
-      // 1) existing iframe
+      // 1) iframe already present?
       const iframeMatch=content.match(/<iframe[^>]+src="([^"]+)"[^>]*><\/iframe>/i);
       if(iframeMatch&&iframeMatch[1]){
         videoEmbed=`<div class="video-container" style="margin:12px 0;">
@@ -233,6 +233,10 @@
 
         // 3) HTML5 <video>…</video>
         const html5Block=content.match(/<video[\s\S]*?<\/video>/i);
+
+        // 4) MP4-only patterns (either <source src="…mp4"> or bare .mp4 link)
+        const mp4Source = content.match(/<source[^>]+src="([^"]+\.mp4[^"]*)"[^>]*>/i);
+        const mp4Link   = content.match(/https?:\/\/[^"'<\s>]+\.mp4\b/i);
 
         let embedSrc='';
         if(ytWatch||ytShort){
@@ -251,6 +255,17 @@
           const raw=html5Block[0]
             .replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
           videoEmbed=`<div class="video-html5" style="margin:12px 0;">${raw}</div>`;
+        }else if(mp4Source||mp4Link){
+          const src=(mp4Source&&mp4Source[1])||(mp4Link&&mp4Link[0])||'';
+          const poster=p._embedded?.['wp:featuredmedia']?.[0]?.source_url||'';
+          const posterAttr=poster?` poster="${poster}"`:'';
+          videoEmbed=`
+            <div class="video-html5" style="margin:12px 0;">
+              <video playsinline controls${posterAttr} style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;">
+                <source src="${src}" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+            </div>`;
         }else if(fb){
           // FB embed often blocked → use featured image + button
           const fbUrl=fb[0];
