@@ -1,7 +1,7 @@
-// 🟢 main.js — Build 2025-11-06 SR1-fixB3b (IO rootMargin fix + hardened)
+// 🟢 main.js — Build 2025-11-06 SR1-fixB3c (plaintext Vimeo/YouTube detection + all prior fixes)
 (function(){
   'use strict';
-  const BUILD='2025-11-06SR1-fixB3b';
+  const BUILD='2025-11-06SR1-fixB3c';
   const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE=12;
 
@@ -57,22 +57,13 @@
     feed.appendChild(sentinel);
   }
   function buildObserver(){
-    // Try generous margins; fall back to 0px if the browser complains
     const make = (margin) => new IntersectionObserver(async entries=>{
       const entry=entries[0];
       if(!entry||!entry.isIntersecting||RESTORING||loading||reachedEnd||route!=='home')return;
       await loadNext();
     },{root:null,rootMargin:margin,threshold:0});
-
-    try{
-      return make('2200px 0px 1800px 0px');
-    }catch(e1){
-      console.warn('[OkObserver] IO construct failed, retrying with 0px rootMargin', e1);
-      try{ return make('0px'); }catch(e2){
-        console.error('[OkObserver] IO totally unsupported?', e2);
-        return null;
-      }
-    }
+    try{ return make('2200px 0px 1800px 0px'); }
+    catch(e1){ try{ return make('0px'); } catch(e2){ console.error('[OkObserver] IO unsupported',e2); return null; } }
   }
   function attachObserver(){
     if(io)try{io.disconnect();}catch{}
@@ -225,23 +216,30 @@
       const iframe=doc.querySelector('iframe[src]');
       const hrefs=Array.from(doc.querySelectorAll('a[href]')).map(a=>a.href);
       const textMp4=(rawHTML.match(/https?:\/\/\S+?\.mp4\b/i)||[])[0]||'';
-      const yt=hrefs.find(h=>/youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
-      const vi=hrefs.find(h=>/vimeo\.com\/\d+/i.test(h));
+      const ytLink=hrefs.find(h=>/youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
+      const viLink=hrefs.find(h=>/vimeo\.com\/\d+/i.test(h));
       const fb=hrefs.find(h=>/facebook\.com\//i.test(h));
       const videoTag=doc.querySelector('video');
       const mp4Source=doc.querySelector('source[src$=".mp4"], source[src*=".mp4?"]');
       const firstImg=doc.querySelector('img');
 
-      diag={hasIframe:!!iframe,hasVideoTag:!!videoTag,hasMp4Source:!!mp4Source,hasTextMp4:!!textMp4,yt:!!yt,vi:!!vi,fb:!!fb,hasFirstImg:!!firstImg};
+      // NEW: plaintext URL detection
+      const ytPlain=(rawHTML.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}|youtu\.be\/[A-Za-z0-9_-]{6,})/i)||[])[0]||'';
+      const viPlain=(rawHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/i)||[])[0]||'';
+
+      diag={hasIframe:!!iframe,hasVideoTag:!!videoTag,hasMp4Source:!!mp4Source,
+            hasTextMp4:!!textMp4,ytLink:!!ytLink,viLink:!!viLink,ytPlain:!!ytPlain,viPlain:!!viPlain,fb:!!fb,hasFirstImg:!!firstImg};
 
       if(iframe){
         const src=iframe.getAttribute('src')||'';
         if(src)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="${src}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
-      }else if(yt){
-        const id=(yt.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1]||(yt.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
+      }else if(ytLink||ytPlain){
+        const url=ytLink||ytPlain;
+        const id=(url.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1]||(url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
         if(id)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
-      }else if(vi){
-        const vid=(vi.match(/vimeo\.com\/(\d+)/)||[])[1];
+      }else if(viLink||viPlain){
+        const url=viLink||viPlain;
+        const vid=(url.match(/vimeo\.com\/(\d+)/)||[])[1];
         if(vid)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="https://player.vimeo.com/video/${vid}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
       }else if(videoTag){
         const tmp=document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
@@ -280,7 +278,7 @@
         ${hero||''}
         <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
         <div class="byline" style="font-weight:600;margin:0 0 16px;">${p._embedded?.author?.[0]?.name||'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
-        <div class="post-detail__content">${sanitizePostHTML(rawHTML)}</div>
+        <div class="post-detail__content">${cleaned}</div>
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
 
@@ -327,4 +325,4 @@
   window.addEventListener('DOMContentLoaded',()=>{ const v=document.getElementById('build-version'); if(v) v.textContent='Build '+BUILD; router(); });
   console.log('[OkObserver] main.js loaded:',BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06 SR1-fixB3b
+ // 🔴 main.js — Build 2025-11-06 SR1-fixB3c

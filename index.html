@@ -1,3 +1,4 @@
+<!-- 🟢 index.html — Build 2025-11-06 SR1-fixB3c -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,7 +12,7 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-fixB3b" />
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-fixB3c" />
   <meta name="theme-color" content="#1E90FF">
 
   <style>
@@ -52,14 +53,11 @@
   <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
   <footer>
-    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-06 SR1-fixB3b</span>
+    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-06 SR1-fixB3c</span>
   </footer>
 
-  <script>
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  </script>
+  <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual';</script>
 
-  <!-- MutationObserver grid enforcer -->
   <script>
     (function () {
       const ensure = () => {
@@ -78,17 +76,14 @@
     })();
   </script>
 
-  <!-- App -->
-  <script defer src="main.js?v=2025-11-06SR1-fixB3b"></script>
-
-  <!-- Service Worker -->
+  <script defer src="main.js?v=2025-11-06SR1-fixB3c"></script>
   <script>
     if ('serviceWorker' in navigator) {
       addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-fixB3b').catch(()=>{});
+        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-fixB3c').catch(()=>{});
       });
     }
   </script>
 </body>
 </html>
-<!-- 🔴 index.html — Build 2025-11-06 SR1-fixB3b -->
+<!-- 🔴 index.html — Build 2025-11-06 SR1-fixB3c -->
