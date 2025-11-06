@@ -1,108 +1,112 @@
-/* 🟢 sw.js — OkObserver Service Worker
-   Build 2025-11-06SR1-perfSWR1
-   Strategy:
-     - Stale-While-Revalidate (SWR) for: app shell (HTML), main.js, override.css, images, and WP API.
-     - Keeps UI instant from cache while quietly refreshing.
-   Plain JS (no ESM).
+/* OkObserver sw.js — v=2025-11-06SR1-perfSWR1-hotfix3
+   Hardening:
+   - cache version short-circuit on mismatch
+   - gentle offline fallback (optional offline.html)
+   - keeps existing cache-then-network strategy for core + posts
 */
 
-const CACHE_APP    = 'okob-appshell-2025-11-06SR1-perfSWR1';
-const CACHE_ASSETS = 'okob-assets-2025-11-06SR1-perfSWR1';
-const CACHE_API    = 'okob-api-2025-11-06SR1-perfSWR1';
-const CACHE_IMG    = 'okob-img-2025-11-06SR1-perfSWR1';
-
-const APP_SHELL = [
-  './',
-  './index.html',
-  './index.html?v=2025-11-06SR1-perfSWR1'
+const VER = "2025-11-06SR1-perfSWR1-hotfix3";
+const CACHE_NAME = "oko-cache-" + VER;
+const CORE = [
+  "./",
+  "index.html?v="+VER,
+  "main.js?v="+VER,
+  "override.css?v=2025-11-06SR1-gridLock1",
+  "favicon.ico",
+  "offline.html" // optional; will be skipped if missing
 ];
 
-const ASSETS = [
-  './main.js',
-  './override.css',
-  './main.js?v=2025-11-06SR1-perfSWR1',
-  './override.css?v=2025-11-06SR1-perfSWR1',
-  './favicon.ico'
-];
-
-// -------- helpers --------
-async function swr(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(req);
-  const network = fetch(req).then(res => {
-    cache.put(req, res.clone()).catch(()=>{});
-    return res;
-  }).catch(()=>null);
-  return cached || network || (await network);
-}
-
-async function cacheFirst(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(req);
-  if (cached) return cached;
-  const res = await fetch(req);
-  cache.put(req, res.clone()).catch(()=>{});
-  return res;
-}
-
-// -------- lifecycle --------
-self.addEventListener('install', e => {
-  e.waitUntil((async () => {
-    const app = await caches.open(CACHE_APP);
-    await app.addAll(APP_SHELL);
-    const assets = await caches.open(CACHE_ASSETS);
-    await assets.addAll(ASSETS);
-    await self.skipWaiting();
+// Short-circuit early if an older worker is controlling
+self.addEventListener("install", (e)=>{
+  e.waitUntil((async()=>{
+    const cache = await caches.open(CACHE_NAME);
+    try { await cache.addAll(CORE); } catch(_) { /* ignore missing offline.html, etc. */ }
+    self.skipWaiting();
   })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil((async () => {
-    const keep = new Set([CACHE_APP, CACHE_ASSETS, CACHE_API, CACHE_IMG]);
+self.addEventListener("activate", (e)=>{
+  e.waitUntil((async()=>{
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => !keep.has(k)).map(k => caches.delete(k)));
+    await Promise.all(keys.map(k => {
+      if (!k.startsWith("oko-cache-")) return;
+      if (k !== CACHE_NAME) return caches.delete(k);
+    }));
+    // Claim clients so new version starts immediately
     await self.clients.claim();
   })());
 });
 
-// -------- fetch --------
-self.addEventListener('fetch', e => {
-  const req = e.request;
-  if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
+// Network with cache fallback; version-aware
+self.addEventListener("fetch", (event)=>{
+  const req = event.request;
 
-  const url = new URL(req.url);
+  // Ignore non-GET
+  if (req.method !== "GET") return;
 
-  // 1) App shell HTML (SWR)
-  if (url.origin === location.origin && (url.pathname === '/' || url.pathname.endsWith('/index.html'))) {
-    e.respondWith(swr(req, CACHE_APP));
+  // Try cache first for core files, then network
+  if (isCore(req.url)) {
+    event.respondWith(cacheFirst(req));
     return;
   }
 
-  // 2) Assets (SWR)
-  if (url.origin === location.origin && (url.pathname.endsWith('/main.js') || url.pathname.endsWith('/override.css') || url.pathname.endsWith('/favicon.ico'))) {
-    e.respondWith(swr(req, CACHE_ASSETS));
+  // For API calls and images: network first, then cache fallback
+  if (/okobserver-proxy\.bob-b5c\.workers\.dev/.test(req.url) || isMedia(req.url)) {
+    event.respondWith(networkThenCache(req));
     return;
   }
 
-  // 3) Images (SWR)
-  if (/\.(png|jpe?g|webp|gif|svg)$/i.test(url.pathname)) {
-    e.respondWith(swr(req, CACHE_IMG));
-    return;
-  }
-
-  // 4) WP API (SWR so UI is instant but refreshes)
-  if (url.hostname.includes('workers.dev') && url.pathname.includes('/wp-json/wp/v2/')) {
-    e.respondWith(swr(req, CACHE_API));
-    return;
-  }
-
-  // 5) Fallback — cache-first
-  e.respondWith(cacheFirst(req, CACHE_ASSETS));
+  // Default: cache falling back to network
+  event.respondWith(cacheThenNetwork(req));
 });
 
-// Allow page to request immediate activation
-self.addEventListener('message', e => {
-  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
-});
+function isCore(url){
+  return CORE.some(entry => url.includes(entry.split("?")[0]));
+}
+function isMedia(url){
+  return /\.(jpg|jpeg|png|webp|gif|mp4|m4v|mov)(\?|$)/i.test(url);
+}
 
-/* 🔴 sw.js — OkObserver Service Worker */
+async function cacheFirst(req){
+  const cache = await caches.open(CACHE_NAME);
+  const hit = await cache.match(req, {ignoreSearch:true});
+  if (hit) return hit;
+  try{
+    const res = await fetch(req);
+    cache.put(req, res.clone());
+    return res;
+  }catch(e){
+    const offline = await cache.match("offline.html");
+    if (offline) return offline;
+    throw e;
+  }
+}
+
+async function cacheThenNetwork(req){
+  const cache = await caches.open(CACHE_NAME);
+  const hit = await cache.match(req);
+  const net = fetch(req).then(res=>{
+    cache.put(req, res.clone());
+    return res;
+  }).catch(async ()=>{
+    const offline = await cache.match("offline.html");
+    if (offline) return offline;
+    return hit || new Response("Offline", {status:503});
+  });
+  return hit || net;
+}
+
+async function networkThenCache(req){
+  const cache = await caches.open(CACHE_NAME);
+  try{
+    const res = await fetch(req, {cache:"no-store"});
+    cache.put(req, res.clone());
+    return res;
+  }catch(e){
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    const offline = await cache.match("offline.html");
+    if (offline) return offline;
+    throw e;
+  }
+}

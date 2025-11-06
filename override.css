@@ -1,658 +1,97 @@
-/* 🟢 override.css — 2025-11-03R1p (Grid layout; no overlap; brand-safe) */
+/* OkObserver override.css — v=2025-11-06SR1-gridLock1 (compatible with hotfix3) */
+/* Keep existing visual identity; add tiny polish + focus states + hover softness */
 
 /* Base */
-:root { --oo-blue:#1E90FF; }
-* { box-sizing:border-box; }
-body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji"; background:#f7f7f9; color:#111; }
-a { color:inherit; text-decoration:none; }
+:root{
+  --oko-blue:#1E90FF;
+  --oko-gap:18px;            /* small bump for clearer column separation */
+  --oko-card-radius:14px;
+  --oko-shadow:0 2px 10px rgba(0,0,0,.08);
+  --oko-shadow-hover:0 6px 20px rgba(0,0,0,.14);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;
+  color:#111;
+  background:#f7f8fa;
+}
 
 /* Header */
-header { position:sticky; top:0; z-index:1000; background:#fff; border-bottom:1px solid #e9e9ee; display:flex; align-items:center; gap:12px; padding:10px 12px; }
-header .logo { height:36px; width:auto; }
-header .title-link { font-weight:700; font-size:18px; margin-right:auto; }
-header .motto { font-size:12px; color:#fff; background:var(--oo-blue); padding:4px 8px; border-radius:999px; }
-#hamburger { border:0; background:#fff; font-size:20px; line-height:1; cursor:pointer; }
-#menu[hidden]{display:none;}
-#menu a{display:inline-block;padding:8px 10px;border-radius:10px;}
-#menu a:hover{background:#f1f4ff;color:#0a58ff}
+.oo-header{
+  position:sticky;top:0;z-index:1000;
+  background:linear-gradient(0deg,#1E90FF,#1E90FF);
+  color:#fff;
+  padding:.5rem 1rem;
+  box-shadow:0 1px 10px rgba(0,0,0,.12);
+}
+.oo-brand{display:flex;align-items:center;gap:.75rem}
+.oo-logo{width:28px;height:28px;border-radius:6px}
+.oo-title{display:flex;flex-direction:column}
+.oo-name{margin:0;font-size:1.125rem;line-height:1.2}
+.oo-motto{margin:2px 0 0;font-size:.8rem;opacity:.95}
+.oo-menu{
+  margin-left:auto;border:0;background:transparent;color:#fff;
+  font-size:1.35rem;line-height:1;padding:.25rem .5rem;border-radius:10px;cursor:pointer
+}
+.oo-menu:focus-visible{outline:3px solid #fff;outline-offset:3px}
 
-/* App area */
-main#app { padding:16px; }
+/* Nav */
+.oo-nav{display:flex;gap:1rem;padding:.5rem 0}
+.oo-nav a{color:#fff;text-decoration:none;opacity:.95}
+.oo-nav a:focus-visible{outline:2px dashed #fff;outline-offset:3px;border-radius:6px}
 
-/* =========================
-   POSTS GRID — CSS GRID (no overlap)
-   ========================= */
-.posts-grid{
+/* App shell */
+.oo-app{max-width:1200px;margin:1rem auto;padding:0 1rem}
+
+/* GRID */
+.oo-grid{
   display:grid;
-  grid-template-columns: repeat( auto-fill, minmax(280px, 1fr) );
-  gap:18px;
-  align-items:start;
+  grid-template-columns:1fr;
+  gap:var(--oko-gap);
+}
+@media (min-width:768px){
+  .oo-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media (min-width:1024px){
+  .oo-grid{grid-template-columns:repeat(4,1fr)}
 }
 
 /* Cards */
-.post-card{
-  background:#fff; border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.06);
-  overflow:hidden; margin:0; /* grid gap handles spacing */
-  transition:transform .08s ease, box-shadow .2s ease, opacity .3s ease;
+.oo-card{
+  background:#fff;border-radius:var(--oko-card-radius);
+  box-shadow:var(--oko-shadow);overflow:hidden;transition:transform .18s ease, box-shadow .18s ease;
 }
-.post-card:hover{ transform:translateY(-2px); box-shadow:0 6px 22px rgba(0,0,0,.08); }
-.post-card .thumb{ background:#fff; }
-.post-card img{ display:block; width:100%; height:auto; }
-.post-card .post-title{ font-size:18px; line-height:1.25; margin:12px 12px 6px; }
-.post-card .byline{ font-size:13px; color:#555; margin:0 12px 8px; }
-.post-card .post-summary{ font-size:14px; color:#222; margin:0 12px 14px; }
-.post-card .title-link{ display:block; }
+.oo-card:hover{transform:translateY(-2px);box-shadow:var(--oko-shadow-hover)}
+.oo-card:focus-within{outline:2px solid var(--oko-blue);outline-offset:2px}
 
-/* Ensure third-party embeds (if any leak into summaries) don’t overflow */
-.post-card iframe,
-.post-card video{ width:100%; height:auto; display:block; }
+/* Media */
+.oo-media{
+  width:100%;aspect-ratio:16/9;background:#e9eef5;
+  display:block;object-fit:cover;object-position:center center;
+}
 
-/* =========================
-   DETAIL VIEW
-   ========================= */
-.post-detail{
-  max-width: 880px; margin:0 auto; padding:0 12px;
-}
-.post-hero img,
-.post-hero iframe,
-.post-hero video{
-  width:100% !important;
-  aspect-ratio:16/9 !important;
-  height:auto !important;
-  display:block !important;
-  border:0;
-}
-.post-detail__title{
-  color:var(--oo-blue);
-  font-weight:600;
-  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
-  line-height:1.2;
-  margin:8px 0;
-}
-.post-detail .byline{ color:#444; margin:0 0 16px 0; }
+/* Content */
+.oo-card-body{padding:12px 14px 14px}
+.oo-titlelink{color:#0a1f44;text-decoration:none}
+.oo-titlelink:focus-visible{outline:2px dashed var(--oko-blue);outline-offset:3px;border-radius:6px}
+.oo-titletext{margin:0 0 .35rem;font-size:1.02rem;line-height:1.25}
+
+/* Meta (byline/tags/date) */
+.oo-meta{display:flex;flex-wrap:wrap;gap:.35rem .6rem;margin:.25rem 0;color:#445}
+.oo-meta .oo-byline{font-weight:600}
+.oo-meta .oo-date{opacity:.8}
+.oo-tag{font-size:.78rem;line-height:1;border:1px solid #d8deea;border-radius:999px;padding:.2rem .45rem;background:#f4f7fb}
+
+/* Excerpt */
+.oo-excerpt{margin:.5rem 0 0;color:#1a2233}
 
 /* Footer */
-footer{ padding:18px; text-align:center; color:#666; }
-
-/* Responsive tweaks */
-@media (min-width: 1200px){
-  .posts-grid{ grid-template-columns: repeat(4, 1fr); }
-}
-@media (min-width: 800px) and (max-width:1199px){
-  .posts-grid{ grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 799px){
-  .posts-grid{ grid-template-columns: 1fr; }
-}
-/* === HOTFIX 2025-11-03 R1p-hf1 — restore header + clickable cards === */
-
-/* Header: left-align, no "button" look on motto */
-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-header .title-link {
-  margin-right: auto;           /* push menu to the right */
-}
-header .motto {
-  margin-left: 0;
-  margin-right: 0;
-  color: #ffffff;               /* white text as spec */
-  background: #1E90FF;          /* OkObserver blue pill */
-  border: 0;                    /* remove any borders */
-  box-shadow: none;             /* remove button-like shadow */
-  text-decoration: none;
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
+.oo-footer{
+  text-align:center;font-size:.9rem;color:#556;
+  padding:2rem 1rem 3rem
 }
 
-/* Card link should cover title + byline + excerpt so it's fully clickable */
-.post-card .title-link {
-  display: block;
-  position: static;
-  z-index: 0;
-  text-decoration: none;
-}
-
-/* Prevent overlays from blocking clicks */
-.post-card .thumb,
-.post-card img,
-.post-card iframe,
-.post-card video {
-  position: relative;
-  z-index: 0;
-  pointer-events: none;         /* media itself won’t steal clicks in summaries */
-}
-
-/* Ensure text area is interactive */
-.post-card .post-title,
-.post-card .byline,
-.post-card .post-summary {
-  position: relative;
-  z-index: 1;
-  pointer-events: auto;
-}
-
-/* Restore typical card text look */
-.post-card .post-summary a {
-  text-decoration: underline;
-}
-.post-card:hover { transform: translateY(-2px); } /* subtle hover only */
-/* 🟢 override.css — 2025-11-03 R1p2 (restores header + clickable cards + grid no-overlap) */
-
-/* ===== Base / Reset ===== */
-:root { --oo-blue:#1E90FF; --oo-bg:#f7f7f9; --oo-card:#ffffff; --oo-border:#e9e9ee; --oo-text:#111; }
-* { box-sizing: border-box; }
-html, body { margin:0; padding:0; }
-body {
-  background: var(--oo-bg);
-  color: var(--oo-text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans",
-               "Apple Color Emoji","Segoe UI Emoji";
-}
-a { color: inherit; text-decoration: none; }
-
-/* ===== Header (sticky, left-aligned, motto pill) ===== */
-header {
-  position: sticky; top: 0; z-index: 1000;
-  display: flex; align-items: center; gap: 12px;
-  background: #fff; border-bottom: 1px solid var(--oo-border);
-  padding: 10px 12px;
-}
-header .logo { height: 36px; width: auto; display:block; }
-header .title-link { font-weight: 700; font-size: 18px; margin-right: auto; }
-header .motto {
-  color: #fff; background: var(--oo-blue);
-  padding: 4px 8px; border-radius: 999px; display: inline-block;
-  white-space: nowrap; line-height: 1;
-}
-#hamburger { border: 0; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
-#menu[hidden] { display: none; }
-#menu a { display: inline-block; padding: 8px 10px; border-radius: 10px; }
-#menu a:hover { background: #f1f4ff; color: #0a58ff; }
-
-/* ===== App Shell ===== */
-main#app { padding: 16px; }
-footer { padding: 18px; text-align: center; color: #666; }
-
-/* =======================================================
-   POSTS SUMMARY: CSS GRID (no overlap), soft cards
-   ======================================================= */
-.posts-grid {
-  display: grid;
-  grid-template-columns: repeat( auto-fill, minmax(280px, 1fr) );
-  gap: 18px;
-  align-items: start;
-}
-
-/* Card container */
-.post-card {
-  background: var(--oo-card);
-  border-radius: 14px;
-  box-shadow: 0 4px 18px rgba(0,0,0,.06);
-  overflow: hidden;
-  margin: 0; /* spacing handled by grid gap */
-  transition: transform .08s ease, box-shadow .2s ease, opacity .3s ease;
-}
-.post-card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,.08); }
-
-/* Make the WHOLE card clickable (title+byline+excerpt) */
-.post-card .title-link { display: block; position: relative; z-index: 1; }
-
-/* Media at the top of the card */
-.post-card .thumb { background: #fff; }
-.post-card img,
-.post-card iframe,
-.post-card video {
-  display: block; width: 100%; height: auto; border: 0;
-  /* In summaries we don’t want media stealing clicks */
-  pointer-events: none;
-}
-
-/* Card text areas */
-.post-card .post-title { font-size: 18px; line-height: 1.25; margin: 12px 12px 6px; }
-.post-card .byline { font-size: 13px; color: #555; margin: 0 12px 8px; }
-.post-card .post-summary { font-size: 14px; color: #222; margin: 0 12px 14px; }
-
-/* Allow links inside excerpt to look like links */
-.post-card .post-summary a { text-decoration: underline; }
-
-/* =======================================================
-   POST DETAIL: hero media responsive, title in OkObserver blue
-   ======================================================= */
-.post-detail { max-width: 880px; margin: 0 auto; padding: 0 12px; }
-
-.post-hero img,
-.post-hero iframe,
-.post-hero video {
-  width: 100% !important;
-  aspect-ratio: 16 / 9 !important;
-  height: auto !important;
-  display: block !important;
-  border: 0;
-  /* Detail view should be interactable */
-  pointer-events: auto;
-}
-
-.post-detail__title {
-  color: var(--oo-blue);
-  font-weight: 600;
-  font-size: clamp(1.6rem, 2.2vw, 2.1rem);
-  line-height: 1.2;
-  margin: 8px 0;
-}
-
-.post-detail .byline { color: #444; margin: 0 0 16px 0; }
-
-/* =======================================================
-   RESPONSIVE: keep 3–4 columns desktop/tablet; 1 column mobile
-   ======================================================= */
-@media (min-width: 1200px) {
-  .posts-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (min-width: 800px) and (max-width: 1199px) {
-  .posts-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 799px) {
-  .posts-grid { grid-template-columns: 1fr; }
-}
-
-/* =======================================================
-   MISC: subtle accessibility and stability tweaks
-   ======================================================= */
-.post-card { contain: layout paint; }             /* help perf on fade-in */
-a:focus-visible, button:focus-visible { outline: 2px solid var(--oo-blue); outline-offset: 2px; }
-/* 🟢 override.css — 2025-11-03 R1q-hf (header restore + excerpt not link) */
-
-:root { --oo-blue:#1E90FF; }
-
-/* Header back to baseline alignment */
-header {
-  position: sticky; top: 0; z-index: 1000;
-  display: flex; align-items: center; gap: 12px;
-  background: #fff; border-bottom: 1px solid #e9e9ee;
-  padding: 10px 12px;
-}
-header .logo { height: 36px; width: auto; display: block; }
-header .title-link { font-weight: 700; font-size: 18px; margin-right: auto; color: #111; }
-header .motto {
-  color: #fff; background: var(--oo-blue);
-  padding: 4px 8px; border-radius: 999px; display: inline-block; line-height:1; white-space: nowrap;
-}
-#hamburger { border: 0; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
-#menu[hidden]{ display:none; }
-#menu a{ display:inline-block; padding:8px 10px; border-radius:10px; color:#111; }
-#menu a:hover{ background:#f1f4ff; color:#0a58ff; }
-
-/* Summary cards — link scope limited to image+title only */
-.post-card .title-link { color: inherit; text-decoration: none; }
-.post-card .post-title { color:#111; }
-.post-card .byline,
-.post-card .post-summary { color:#222; }
-
-/* Make sure summary media doesn't steal clicks or look like links */
-.post-card .thumb,
-.post-card img,
-.post-card iframe,
-.post-card video { pointer-events: none; }
-
-/* Preserve real links inside the excerpt from WP content */
-.post-card .post-summary a {
-  color: #0a58ff;
-  text-decoration: underline;
-}
-
-/* Detail title color (OkObserver blue) */
-.post-detail__title { color: var(--oo-blue); }
-/* === HEADER HOTFIX — center logo + motto, hamburger top-right (2025-11-03 R1q-hf2) === */
-
-/* Make the header a blue strip and center its contents */
-header{
-  position: sticky; top: 0; z-index: 1000;
-  background: #1E90FF;          /* OkObserver blue bar */
-  border-bottom: 1px solid rgba(0,0,0,.06);
-  padding: 12px 48px 16px;      /* extra right padding for hamburger space */
-  display: block;               /* break out of previous flex rules */
-  text-align: center;           /* center everything by default */
-  color: #fff;
-}
-
-/* Center the logo */
-header .logo{
-  display: block;
-  height: 48px;
-  width: auto;
-  margin: 0 auto 6px auto;      /* centered with small gap above motto */
-}
-
-/* Hide the inline title text (the logo is the title) */
-header .title-link{
-  display: none !important;
-}
-
-/* Motto directly under the logo, centered, NO pill/button look */
-header .motto{
-  display: block;
-  margin: 0 auto;
-  padding: 0;                   /* remove chip padding */
-  background: transparent;      /* no blue pill */
-  color: #fff;                  /* white text over blue bar */
-  border: 0;
-  box-shadow: none;
-  font-size: 14px;
-  line-height: 1.3;
-  text-align: center;           /* explicit centering */
-}
-
-/* Hamburger pinned to the top-right over the blue bar */
-#hamburger{
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  background: transparent;
-  border: 0;
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-/* Slide-out menu styling remains sane */
-#menu[hidden]{ display:none; }
-#menu a{
-  display: inline-block;
-  padding: 8px 10px;
-  border-radius: 10px;
-  color: #111;
-  background: #fff;
-  margin: 8px 6px 0;
-}
-#menu a:hover{ background:#f1f4ff; color:#0a58ff; }
-
-/* Keep main content offset below the sticky header */
-main#app{ padding: 16px; }
-/* Back-to-Posts button — restore pill style */
-a.button {
-  display: inline-block;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: #1E90FF;      /* OkObserver blue */
-  color: #fff !important;
-  text-decoration: none;
-  font-weight: 600;
-  line-height: 1;
-  box-shadow: 0 2px 8px rgba(0,0,0,.12);
-  transition: transform .05s ease, box-shadow .2s ease, background .2s;
-}
-a.button:hover { background: #0e7fe0; box-shadow: 0 3px 12px rgba(0,0,0,.16); }
-a.button:active { transform: translateY(1px); }
-a.button:focus-visible { outline: 2px solid #0e7fe0; outline-offset: 2px; }
-/* Tag chips in post detail */
-.post-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.tag-chip {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #f1f4ff;
-  color: #0a58ff;
-  font-size: 12px;
-  line-height: 1;
-  border: 1px solid rgba(30,144,255,.25);
-}
-/* Tag row spacing for bottom placement */
-.tags-row {
-  border-top: 1px solid #e9e9ee;
-  padding-top: 12px;
-  margin-top: 24px !important;
-}
-/* --- Byline emphasis fix (2025-11-03 R1s-hf) --- */
-.post-detail .byline {
-  font-weight: 600;
-  color: #111;
-}
-/* --- Restore link styles in post detail (2025-11-03 R1v-linkfix) --- */
-.post-detail__content a {
-  color: #1E90FF;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.post-detail__content a:hover,
-.post-detail__content a:focus {
-  text-decoration-thickness: 2px;
-}
-/* --- Summary card title & byline styling (2025-11-03 R1y) --- */
-.post-card .post-title {
-  color: #1E90FF;
-  font-weight: 600;
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
-}
-
-.post-card .byline {
-  font-weight: 600;
-  color: #111;
-  margin-bottom: 0.6em;
-}
-/* --- Inline images & captions in post detail (2025-11-03 R1ab-imgfix) --- */
-.post-detail__content img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-
-/* WordPress caption wrappers */
-.post-detail__content figure,
-.post-detail__content .wp-caption {
-  max-width: 100%;
-  margin: 12px auto;
-}
-.post-detail__content .wp-caption img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-.post-detail__content figcaption,
-.post-detail__content .wp-caption-text {
-  font-size: 0.9rem;
-  color: #555;
-  text-align: center;
-  margin-top: 6px;
-}
-
-/* Common WP alignment classes */
-.post-detail__content .aligncenter { display:block; margin-left:auto; margin-right:auto; }
-.post-detail__content .alignleft   { float:left;  margin:0 16px 8px 0; }
-.post-detail__content .alignright  { float:right; margin:0 0 8px 16px; }
-
-/* Clear floats so following paragraphs don't overlap */
-.post-detail__content::after { content:""; display:block; clear:both; }
-/* IO sentinel must be hittable */
-#sentinel {
-  display: block;
-  width: 100%;
-  height: 2px;          /* non-zero so it can intersect */
-}
-.posts-grid {
-  min-height: 140vh;    /* ensures first intersection on tall viewports */
-}
-/* IO sentinel must be hittable */
-#sentinel { display:block; width:100%; height:2px; }
-.posts-grid { min-height:140vh; }
-/* 🟢 OkObserver SR1 — confirm responsive grid & card spacing */
-
-.posts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  align-items: start;
-  margin: 0 auto;
-  max-width: 1200px;
-  padding: 16px;
-}
-
-.post-card {
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.post-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-}
-
-.post-card .thumb img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.post-title {
-  color: #1E90FF;
-  margin: 8px 0 6px;
-}
-
-.byline {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.post-summary {
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-@media (max-width: 768px) {
-  .posts-grid {
-    grid-template-columns: 1fr;
-  }
-}
-/* Fix: featured image should never be squashed */
-.post-hero .thumb {
-  max-width: 100%;
-  height: auto;
-}
-
-.post-hero .thumb img {
-  display: block;
-  width: 100%;          /* fill container width */
-  height: auto !important; /* keep natural aspect */
-  object-fit: contain;  /* avoid cropping/stretching */
-  aspect-ratio: auto;   /* ignore any bogus ratios */
-}
-
-/* Also ensure summary cards can’t distort thumbs */
-.post-card .thumb,
-.post-card .thumb img {
-  height: auto !important;
-  object-fit: cover;    /* summary cards usually ok with cover */
-}
-body[data-route="post"] .posts-grid { display: none !important; }
-/* Prevent feed flash on post pages */
-body[data-route="post"] .posts-grid { display: none !important; }
-
-/* Optional: iframe sizing for embeds */
-.video-container iframe { width: 100%; height: 480px; max-width: 880px; display: block; margin: 0 auto; border: none; }
-/* Prevent feed flash on post pages */
-body[data-route="post"] .posts-grid { display: none !important; }
-
-/* Video containers */
-.video-container iframe {
-  width: 100%;
-  max-width: 880px;
-  height: 480px;
-  display: block;
-  margin: 0 auto;
-  border: 0;
-}
-
-/* Ensure hero/thumb images keep aspect */
-.post-hero .thumb img,
-.video-hero img { width:100%; height:auto; display:block; }
-/* Prevent feed flash on post pages */
-body[data-route="post"] .posts-grid { display: none !important; }
-
-/* Video containers */
-.video-container iframe { width:100%; max-width:880px; height:480px; display:block; margin:0 auto; border:0; }
-
-/* Avoid layout jumps on restore */
-.posts-grid img { max-width:100%; height:auto; display:block; }
-.posts-grid .post-card { contain: layout paint; }
-/* ==== OkObserver perf patch (non-destructive) ==== */
-
-/* Make large feeds cheaper to render without changing layout */
-.posts-grid{
-  content-visibility:auto;
-  contain-intrinsic-size: 400px 600px; /* prevents jump while offscreen */
-}
-
-/* Isolate card work to avoid grid-wide reflows */
-.post-card{
-  contain: layout paint;
-}
-
-/* Ensure hero media never squashes and reserves space immediately */
-.post-hero img,
-.post-hero iframe,
-.post-hero video{
-  width:100% !important;
-  height:auto !important;
-  aspect-ratio:16/9 !important;
-  display:block !important;
-  border:0;
-}
-
-/* Preserve grid on post pages (prevents feed flash) */
-body[data-route="post"] .posts-grid { display:none !important; }
-/* ==== OkObserver grid columns lock (safe append) ==== */
-
-/* Base = mobile-first: 1 column */
-.posts-grid{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  align-items:start;
-}
-
-/* Tablet: 3 columns */
-@media (min-width: 768px){
-  .posts-grid{
-    grid-template-columns: repeat(3, minmax(0,1fr));
-  }
-}
-
-/* Desktop: 4 columns */
-@media (min-width: 1024px){
-  .posts-grid{
-    grid-template-columns: repeat(4, minmax(0,1fr));
-  }
-}
-
-/* Make sure cards size nicely in the grid */
-.post-card{
-  display:block;
-  background:#fff;
-  border-radius:12px;
-  box-shadow:0 2px 10px rgba(0,0,0,.06);
-  overflow:hidden;
-}
-
-/* Thumbs behave */
-.post-card .thumb img{
-  width:100%;
-  height:auto;
-  display:block;
-}
-
-/* (Optional perf helpers—kept additive) */
-.posts-grid{ content-visibility:auto; contain-intrinsic-size: 400px 600px; }
-.post-card{ contain: layout paint; }
+/* Accessibility focus baseline for interactive pieces inside cards */
+a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-offset:3px;border-radius:8px}

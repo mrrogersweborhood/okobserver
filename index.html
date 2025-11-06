@@ -1,74 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>The Oklahoma Observer</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1E90FF">
-  <link rel="icon" href="favicon.ico">
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>OkObserver</title>
+  <meta name="theme-color" content="#1E90FF" />
+
+  <!-- Preconnects / DNS hints (safe) -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
+  <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
+
+  <!-- Favicon (keep your preferred filename) -->
+  <link rel="icon" href="favicon.ico" sizes="any">
+
   <!-- Styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1">
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1" />
+
   <style>
-    html,body{margin:0;padding:0;background:#f5f6fa;color:#111;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica Neue,Arial,sans-serif;}
-    header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;
-      padding:12px 48px 16px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06);}
-    .logo{display:block;margin:0 auto 6px;height:48px}
-    .motto{font-size:14px;color:#fff;margin-top:2px;line-height:1.3}
-    #hamburger{position:absolute;right:16px;top:12px;background:transparent;
-      border:none;color:#fff;font-size:24px;cursor:pointer}
-    #menu[hidden]{display:none}
-    main#app{padding:16px;min-height:60vh}
-    footer{padding:18px;text-align:center;color:#777;font-size:14px}
-    .title-link{display:none}
-    /* prevent feed flash on detail */
-    body[data-route="post"] .posts-grid{display:none!important}
+    /* Minimal critical CSS guard: ensure grid retains columns before CSS loads fully */
+    .oo-grid{display:grid;gap:16px}
   </style>
 </head>
-
 <body>
-  <header>
-    <button id="hamburger" aria-label="Menu">☰</button>
-    <a href="#/" class="title-link" aria-label="Home"></a>
-    <img src="logo.png" alt="The Oklahoma Observer" class="logo" onerror="this.style.display='none'">
-    <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-    <nav id="menu" hidden></nav>
+  <header id="oo-header" class="oo-header">
+    <div class="oo-brand">
+      <img src="favicon.ico" alt="" class="oo-logo" decoding="async" />
+      <div class="oo-title">
+        <h1 class="oo-name">The Oklahoma Observer</h1>
+        <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
+      </div>
+      <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
+    </div>
+    <nav id="oo-nav" class="oo-nav" hidden>
+      <a href="#/">Posts</a>
+      <a href="#/about">About</a>
+    </nav>
   </header>
 
-  <main id="app" role="main" aria-live="polite"></main>
+  <main id="app" class="oo-app" inert>
+    <!-- App content mounts here -->
+  </main>
 
-  <!-- Infinite scroll sentinel -->
-  <div id="sentinel" style="height:1px;width:100%;"></div>
-
-  <footer>
-    © 2025 The Oklahoma Observer · 
-    <span id="build-version">Build 2025-11-06SR1-perfSWR1-hotfix2</span>
+  <footer class="oo-footer">
+    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3</span>
   </footer>
 
-  <!-- Grid Enforcer (must remain) -->
+  <!-- App core (no ES modules) -->
   <script>
-    (function(){
-      const enforceGrid=()=>{
-        const grid=document.querySelector('.posts-grid');
-        if(!grid)return;
-        grid.style.gap=grid.style.gap||'18px';
-      };
-      const mo=new MutationObserver(enforceGrid);
-      mo.observe(document.documentElement,{subtree:true,childList:true});
-      document.addEventListener('DOMContentLoaded',enforceGrid);
-    })();
+    // Version banner surfaced early for SW + cache bust
+    window.__OKO__ = window.__OKO__ || {};
+    window.__OKO__.VER = "2025-11-06SR1-perfSWR1-hotfix3";
+    window.__OKO__.DEBUG = false; // flip to true to enable observability logs/counters
+  </script>
+  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3"></script>
+  <script>
+    // Defer non-critical enabling using requestIdleCallback (safe)
+    (window.requestIdleCallback || function(cb){return setTimeout(cb,50)})(function(){
+      document.getElementById('app')?.removeAttribute('inert');
+    });
   </script>
 
-  <!-- Service Worker -->
+  <!-- SW registration stays identical; file hardened in sw.js -->
   <script>
     (function(){
-      if('serviceWorker'in navigator){
-        navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-perfSWR1-hotfix3')
+          .catch(console.warn);
       }
     })();
   </script>
-
-  <!-- App script (cache-busted hard) -->
-  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix2"></script>
 </body>
 </html>
