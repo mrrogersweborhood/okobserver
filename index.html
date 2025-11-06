@@ -1,4 +1,3 @@
-<!-- 🟢 index.html — Build 2025-11-06 SR1-fixB3a -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,21 +8,17 @@
   <link rel="icon" href="favicon.ico" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Perf hints for proxy -->
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <!-- Styles (cache-busted) -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-fixB3a" />
-
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-fixB3b" />
   <meta name="theme-color" content="#1E90FF">
+
   <style>
-    /* minimal safety if override.css hiccups */
     :root{--blue:#1E90FF}
     body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#f4f6f8;color:#111}
     header{position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;padding:14px 12px;text-align:center}
     header .logo{height:34px;display:block;margin:0 auto 6px auto}
-    header .title-link{color:#fff;text-decoration:none;font-weight:700;font-size:18px;display:none}
     header .motto{color:#fff;opacity:.9;font-size:13px}
     #hamburger{position:absolute;right:12px;top:12px;border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}
     #menu[hidden]{display:none}
@@ -44,7 +39,6 @@
 <body>
   <header>
     <img class="logo" src="logo.png" alt="The Oklahoma Observer" />
-    <a href="#/" class="title-link">The Oklahoma Observer</a>
     <div class="motto">To comfort the afflicted and afflict the comfortable</div>
     <button id="hamburger" aria-label="Open menu" aria-expanded="false">☰</button>
     <nav id="menu" hidden>
@@ -58,22 +52,21 @@
   <div id="sentinel" aria-hidden="true" style="height:1px;"></div>
 
   <footer>
-    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-06 SR1-fixB3a</span>
+    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-06 SR1-fixB3b</span>
   </footer>
 
-  <!-- Prevent browser auto-restoring scroll; we manage it -->
   <script>
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   </script>
 
-  <!-- MutationObserver grid enforcer (must remain) -->
+  <!-- MutationObserver grid enforcer -->
   <script>
     (function () {
       const ensure = () => {
         const grid = document.querySelector('.posts-grid');
         if (!grid) return;
         grid.style.display = 'grid';
-        if (!grid.style.gap) grid.style.gap = '16px';
+        grid.style.gap ||= '16px';
       };
       const mo = new MutationObserver(ensure);
       const hook = () => {
@@ -85,17 +78,17 @@
     })();
   </script>
 
-  <!-- App (cache-busted) -->
-  <script defer src="main.js?v=2025-11-06SR1-fixB3a"></script>
+  <!-- App -->
+  <script defer src="main.js?v=2025-11-06SR1-fixB3b"></script>
 
-  <!-- Service Worker (cache-busted) -->
+  <!-- Service Worker -->
   <script>
     if ('serviceWorker' in navigator) {
       addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-fixB3a').catch(() => {});
+        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-fixB3b').catch(()=>{});
       });
     }
   </script>
 </body>
 </html>
-<!-- 🔴 index.html — Build 2025-11-06 SR1-fixB3a -->
+<!-- 🔴 index.html — Build 2025-11-06 SR1-fixB3b -->

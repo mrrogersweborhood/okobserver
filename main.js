@@ -1,7 +1,7 @@
-// 🟢 main.js — Build 2025-11-06 SR1-fixB3a (infinite scroll hardening)
+// 🟢 main.js — Build 2025-11-06 SR1-fixB3b (IO rootMargin fix + hardened)
 (function(){
   'use strict';
-  const BUILD='2025-11-06SR1-fixB3a';
+  const BUILD='2025-11-06SR1-fixB3b';
   const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE=12;
 
@@ -52,20 +52,33 @@
   function placeSentinelAfterLastCard(){
     if(RESTORING||route!=='home')return;
     const feed=document.querySelector('.posts-grid'); if(!feed)return;
-    // ensure sentinel exists & is last
     if(!document.body.contains(sentinel))document.body.appendChild(sentinel);
     sentinel.style.minHeight='2px'; sentinel.style.display='block';
     feed.appendChild(sentinel);
   }
-  function attachObserver(){
-    if(io)try{io.disconnect();}catch{}
-    io=new IntersectionObserver(async entries=>{
+  function buildObserver(){
+    // Try generous margins; fall back to 0px if the browser complains
+    const make = (margin) => new IntersectionObserver(async entries=>{
       const entry=entries[0];
       if(!entry||!entry.isIntersecting||RESTORING||loading||reachedEnd||route!=='home')return;
       await loadNext();
-    },{root:null,rootMargin:'2200px 0px 1800px 0px',threshold:0});
+    },{root:null,rootMargin:margin,threshold:0});
+
+    try{
+      return make('2200px 0px 1800px 0px');
+    }catch(e1){
+      console.warn('[OkObserver] IO construct failed, retrying with 0px rootMargin', e1);
+      try{ return make('0px'); }catch(e2){
+        console.error('[OkObserver] IO totally unsupported?', e2);
+        return null;
+      }
+    }
+  }
+  function attachObserver(){
+    if(io)try{io.disconnect();}catch{}
+    io=buildObserver();
     placeSentinelAfterLastCard();
-    io.observe(sentinel);
+    if(io) io.observe(sentinel);
   }
   function detachObserver(){
     if(io){try{io.disconnect();}catch{} io=null;}
@@ -76,7 +89,7 @@
     const doc=document.documentElement;
     if(doc.scrollHeight-(doc.scrollTop+window.innerHeight)<1200) loadNext();
   }
-  const kickTimer=setInterval(kick,1400);
+  setInterval(kick,1400);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) setTimeout(kick,250); }, {passive:true});
   addEventListener('scroll',kick,{passive:true});
 
@@ -114,7 +127,6 @@
     const posts=raw.filter(p=>!isCartoon(p)&&!seenIds.has(p.id));
     return {posts,rawCount:raw.length,end:!raw.length};
   }
-
   function appendPosts(posts){
     const feed=ensureFeed();
     const frag=document.createDocumentFragment();
@@ -128,18 +140,15 @@
       requestAnimationFrame(()=>card.style.opacity='1');
     });
     if(frag.childNodes.length) feed.appendChild(frag);
-    // re-seat and re-observe sentinel after every append
     placeSentinelAfterLastCard();
     if(io){ try{ io.unobserve(sentinel); }catch{} try{ io.observe(sentinel); }catch{} }
     wireCardClicks(feed);
   }
-
   async function loadNext(){
     if(RESTORING||route!=='home'||loading||reachedEnd)return;
     loading=true;
     try{
       let appended=0, hops=0;
-      // keep hopping pages until we add enough cards or hit several pages
       while(!reachedEnd && hops<6 && appended<9){
         const {posts,rawCount,end}=await fetchPosts(page);
         if(end || !rawCount){ reachedEnd=true; break; }
@@ -147,7 +156,6 @@
         page++; hops++;
       }
       saveFeedSnapshotData({ids:feedIds,byId:feedById,nextPage:page,reachedEnd});
-      // If still near bottom, schedule another nudge
       setTimeout(kick,200);
     }finally{
       loading=false;
@@ -168,7 +176,7 @@
         sessionStorage.setItem(SS.ACTIVE_ID,String(id));
         sessionStorage.setItem(SS.ACTIVE_PATH,href);
         navigateTo(href);
-      }, {once:false});
+      });
     });
   }
 
@@ -210,7 +218,7 @@
       const rawHTML=p.content?.rendered||'';
       const cleaned=sanitizePostHTML(rawHTML);
 
-      // media detection (DOM parser)
+      // media detection
       let videoEmbed=''; let diag={};
       const parser=new DOMParser(); const doc=parser.parseFromString(rawHTML,'text/html');
 
@@ -272,7 +280,7 @@
         ${hero||''}
         <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
         <div class="byline" style="font-weight:600;margin:0 0 16px;">${p._embedded?.author?.[0]?.name||'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
-        <div class="post-detail__content">${cleaned}</div>
+        <div class="post-detail__content">${sanitizePostHTML(rawHTML)}</div>
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
 
@@ -319,4 +327,4 @@
   window.addEventListener('DOMContentLoaded',()=>{ const v=document.getElementById('build-version'); if(v) v.textContent='Build '+BUILD; router(); });
   console.log('[OkObserver] main.js loaded:',BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06 SR1-fixB3a
+ // 🔴 main.js — Build 2025-11-06 SR1-fixB3b
