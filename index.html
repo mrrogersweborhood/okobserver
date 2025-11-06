@@ -1,56 +1,72 @@
-<!-- 🟢 index.html — Build 2025-11-06 SR1-fixB3e3 -->
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
   <title>The Oklahoma Observer</title>
-
-  <link rel="icon" href="favicon.ico" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-fixB3e3" />
-  <meta name="theme-color" content="#1E90FF" />
-  <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable." />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#1E90FF">
+  <link rel="icon" href="favicon.ico">
+  <!-- Styles -->
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-perfSWR1">
+  <style>
+    html,body{margin:0;padding:0;background:#f5f6fa;color:#111;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica Neue,Arial,sans-serif;}
+    header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;
+      padding:12px 48px 16px;text-align:center;border-bottom:1px solid rgba(0,0,0,0.06);}
+    .logo{display:block;margin:0 auto 6px;height:48px}
+    .motto{font-size:14px;color:#fff;margin-top:2px;line-height:1.3}
+    #hamburger{position:absolute;right:16px;top:12px;background:transparent;
+      border:none;color:#fff;font-size:24px;cursor:pointer}
+    #menu[hidden]{display:none}
+    main#app{padding:16px;min-height:60vh}
+    footer{padding:18px;text-align:center;color:#777;font-size:14px}
+    .title-link{display:none}
+    body[data-route="post"] .posts-grid{display:none!important}
+  </style>
 </head>
+
 <body>
-  <header id="site-header" style="background:#1E90FF;color:#fff;position:sticky;top:0;z-index:10;">
-    <div style="display:flex;align-items:center;justify-content:center;flex-direction:column;padding:10px 12px;">
-      <img src="logo.png" alt="The Oklahoma Observer" style="max-height:48px;margin:4px auto;" />
-      <div style="font-size:.9rem;color:#fff;opacity:.95">To comfort the afflicted and afflict the comfortable</div>
-    </div>
+  <header>
+    <button id="hamburger" aria-label="Menu">☰</button>
+    <a href="#/" class="title-link" aria-label="Home"></a>
+    <img src="logo.png" alt="The Oklahoma Observer" class="logo" onerror="this.style.display='none'">
+    <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+    <nav id="menu" hidden></nav>
   </header>
 
-  <main id="app" aria-live="polite"></main>
-  <div id="sentinel" aria-hidden="true"></div>
+  <main id="app" role="main"></main>
 
-  <footer style="text-align:center;margin:36px 0 20px;color:#444;font-size:.9rem;">
-    © 2025 The Oklahoma Observer · <span id="build-version">Build 2025-11-06 SR1-fixB3e3</span>
+  <div id="sentinel" style="height:1px;width:100%;"></div>
+
+  <footer>
+    © 2025 The Oklahoma Observer · 
+    <span id="build-version">Build 2025-11-06SR1-perfSWR1-hotfix</span>
   </footer>
 
-  <script>if('scrollRestoration' in history) history.scrollRestoration='manual';</script>
-
-  <!-- MutationObserver grid enforcer (do not remove) -->
+  <!-- Grid Enforcer -->
   <script>
     (function(){
-      const ensure=()=>{
+      const enforceGrid=()=>{
         const grid=document.querySelector('.posts-grid');
-        if(!grid) return;
-        grid.style.display='grid';
-        grid.style.gridTemplateColumns='repeat(auto-fit,minmax(280px,1fr))';
-        grid.style.gap='16px';
+        if(!grid)return;
+        grid.style.gap=grid.style.gap||'18px';
       };
-      const mo=new MutationObserver(ensure);
-      mo.observe(document.body,{childList:true,subtree:true});
-      window.addEventListener('load',ensure);
+      const mo=new MutationObserver(enforceGrid);
+      mo.observe(document.documentElement,{subtree:true,childList:true});
+      document.addEventListener('DOMContentLoaded',enforceGrid);
     })();
   </script>
 
-  <script defer src="main.js?v=2025-11-06SR1-fixB3e3"></script>
+  <!-- Service Worker -->
   <script>
-    if('serviceWorker' in navigator){
-      addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-fixB3e3').catch(()=>{}); });
-    }
+    (function(){
+      if('serviceWorker'in navigator){
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      }
+    })();
   </script>
+
+  <!-- App script -->
+  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix"></script>
 </body>
 </html>
-<!-- 🔴 index.html — Build 2025-11-06 SR1-fixB3e3 -->

@@ -1,9 +1,9 @@
-// 🟢 main.js — Build 2025-11-06SR1-perfSWR1
+// 🟢 main.js — Build 2025-11-06SR1-perfSWR1-hotfix
 (function(){
   'use strict';
 
   // ------------ BUILD + CONSTANTS ------------
-  const BUILD = '2025-11-06SR1-perfSWR1';
+  const BUILD = '2025-11-06SR1-perfSWR1-hotfix';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
   const DEV = false;
@@ -149,12 +149,11 @@
   }
 
   // ------------ FETCH + APPEND POSTS ------------
-  // shrink payload using _fields (works alongside _embed)
-  const WP_FIELDS = '_fields=id,date,title,excerpt,content,_embedded&' +
-                    '_embed=author,wp:term,wp:featuredmedia';
+  // HOTFIX: restore full embedded payload (so featured images & cartoon filter work)
+  const WP_FIELDS = '';  // leave empty => no _fields trimming
 
   async function fetchPosts(n){
-    const url = `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&${WP_FIELDS}&orderby=date&order=desc&status=publish`;
+    const url = `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&${WP_FIELDS}&orderby=date&order=desc&status=publish&_embed=1`;
     const r = await fetch(url);
     if (!r.ok){
       if ([400,404].includes(r.status)) return { posts: [], rawCount: 0, end: true };
@@ -308,7 +307,7 @@
     app.innerHTML = '<div>Loading…</div>';
 
     try{
-      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1&${WP_FIELDS}`);
+      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
       if (!r.ok){ app.innerHTML = '<p>Not found.</p>'; return; }
       const p = await r.json();
 
@@ -355,16 +354,6 @@
         const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
         const btn = `<p style="margin-top:10px;"><a href="${fbLink}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
         videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
-      }
-
-      if (!videoEmbed && (vimeoURL || ytURL)){
-        const fm = p._embedded?.['wp:featuredmedia']?.[0];
-        const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
-        const btns = [
-          vimeoURL ? `<a href="${vimeoURL}" target="_blank" style="background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;margin-right:8px;display:inline-block">Watch on Vimeo</a>` : '',
-          ytURL    ? `<a href="${ytURL}" target="_blank" style="background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Watch on YouTube</a>` : ''
-        ].join('');
-        videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}<p style="margin-top:10px;">${btns}</p></div>`;
       }
 
       const fmHTML = imgHTML(p);
@@ -482,4 +471,4 @@
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06SR1-perfSWR1
+ // 🔴 main.js — Build 2025-11-06SR1-perfSWR1-hotfix
