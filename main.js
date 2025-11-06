@@ -1,7 +1,7 @@
-// 🟢 main.js — Build 2025-11-06 SR1-fixB3c (plaintext Vimeo/YouTube detection + all prior fixes)
+// 🟢 main.js — Build 2025-11-06SR1-fixB3d (plaintext Vimeo/YouTube + explicit aspect-ratio, IO fix, greedy loader)
 (function(){
   'use strict';
-  const BUILD='2025-11-06SR1-fixB3c';
+  const BUILD='2025-11-06SR1-fixB3d';
   const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE=12;
 
@@ -57,13 +57,13 @@
     feed.appendChild(sentinel);
   }
   function buildObserver(){
-    const make = (margin) => new IntersectionObserver(async entries=>{
-      const entry=entries[0];
-      if(!entry||!entry.isIntersecting||RESTORING||loading||reachedEnd||route!=='home')return;
+    const make=(margin)=>new IntersectionObserver(async entries=>{
+      const e=entries[0];
+      if(!e||!e.isIntersecting||RESTORING||loading||reachedEnd||route!=='home')return;
       await loadNext();
     },{root:null,rootMargin:margin,threshold:0});
     try{ return make('2200px 0px 1800px 0px'); }
-    catch(e1){ try{ return make('0px'); } catch(e2){ console.error('[OkObserver] IO unsupported',e2); return null; } }
+    catch{ try{ return make('0px'); }catch{ return null; } }
   }
   function attachObserver(){
     if(io)try{io.disconnect();}catch{}
@@ -96,7 +96,7 @@
       sessionStorage.setItem(SS.FEED_PAGE,String(nextPage||1));
       sessionStorage.setItem(SS.FEED_END,String(!!e));
       sessionStorage.setItem(SS.SCROLL_Y,String(window.scrollY||0));
-    }catch(err){console.warn('snapshot save failed',err);}
+    }catch{}
   }
   function readFeedSnapshotData(){
     try{
@@ -148,9 +148,7 @@
       }
       saveFeedSnapshotData({ids:feedIds,byId:feedById,nextPage:page,reachedEnd});
       setTimeout(kick,200);
-    }finally{
-      loading=false;
-    }
+    }finally{ loading=false; }
   }
 
   // ---------- clicks ----------
@@ -223,24 +221,28 @@
       const mp4Source=doc.querySelector('source[src$=".mp4"], source[src*=".mp4?"]');
       const firstImg=doc.querySelector('img');
 
-      // NEW: plaintext URL detection
+      // plaintext URL detection
       const ytPlain=(rawHTML.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}|youtu\.be\/[A-Za-z0-9_-]{6,})/i)||[])[0]||'';
       const viPlain=(rawHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/i)||[])[0]||'';
 
-      diag={hasIframe:!!iframe,hasVideoTag:!!videoTag,hasMp4Source:!!mp4Source,
-            hasTextMp4:!!textMp4,ytLink:!!ytLink,viLink:!!viLink,ytPlain:!!ytPlain,viPlain:!!viPlain,fb:!!fb,hasFirstImg:!!firstImg};
+      // iframe snippet with explicit aspect ratio to avoid zero-height boxes
+      const makeIframe = (src) =>
+        `<div class="video-container" style="margin:12px 0;">
+           <iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;display:block"
+                   allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+         </div>`;
 
       if(iframe){
         const src=iframe.getAttribute('src')||'';
-        if(src)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="${src}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        if(src)videoEmbed=makeIframe(src);
       }else if(ytLink||ytPlain){
         const url=ytLink||ytPlain;
         const id=(url.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1]||(url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
-        if(id)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        if(id)videoEmbed=makeIframe(`https://www.youtube.com/embed/${id}`);
       }else if(viLink||viPlain){
         const url=viLink||viPlain;
         const vid=(url.match(/vimeo\.com\/(\d+)/)||[])[1];
-        if(vid)videoEmbed=`<div class="video-container" style="margin:12px 0;"><iframe src="https://player.vimeo.com/video/${vid}" frameborder="0" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        if(vid)videoEmbed=makeIframe(`https://player.vimeo.com/video/${vid}`);
       }else if(videoTag){
         const tmp=document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
         const html=tmp.innerHTML.replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
@@ -272,7 +274,7 @@
         }
       }
 
-      console.log('[OkObserver] media detect', diag);
+      console.log('[OkObserver] media detect', {id, hasIframe:!!iframe, ytLink:!!ytLink, ytPlain:!!ytPlain, viLink:!!viLink, viPlain:!!viPlain, mp4:!!(mp4Source||textMp4), fb:!!fb, heroFrom:'videoEmbed? '+!!videoEmbed});
 
       app.innerHTML=`<article class="post-detail">
         ${hero||''}
@@ -325,4 +327,4 @@
   window.addEventListener('DOMContentLoaded',()=>{ const v=document.getElementById('build-version'); if(v) v.textContent='Build '+BUILD; router(); });
   console.log('[OkObserver] main.js loaded:',BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06 SR1-fixB3c
+ // 🔴 main.js — Build 2025-11-06SR1-fixB3d
