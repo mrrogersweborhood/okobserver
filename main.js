@@ -1,9 +1,9 @@
-// 🟢 main.js — Build 2025-11-06SR1-fixB3e2 (bulletproof Vimeo/YT detect + guaranteed fallback + detailed logs)
+// 🟢 main.js — Build 2025-11-06SR1-fixB3e3
 (function(){
   'use strict';
 
   // ------------ BUILD + CONSTANTS ------------
-  const BUILD = '2025-11-06SR1-fixB3e2';
+  const BUILD = '2025-11-06SR1-fixB3e3';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -269,6 +269,18 @@
            (String(url).match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1] || '';
   }
 
+  function isTrustedPlayerSrc(src){
+    if (!src) return false;
+    const s = String(src);
+    return /player\.vimeo\.com\/video\//.test(s) || /youtube\.com\/embed\//.test(s);
+  }
+
+  const makeIframe = (src) =>
+    `<div class="video-container" style="margin:12px 0;">
+       <iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;display:block"
+               allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+     </div>`;
+
   // ------------ DETAIL VIEW ------------
   async function renderDetail(id){
     document.body.dataset.route = 'post';
@@ -290,7 +302,8 @@
       const parser = new DOMParser();
       const doc = parser.parseFromString(rawHTML, 'text/html');
 
-      const iframe = doc.querySelector('iframe[src]');
+      const iframeEl = doc.querySelector('iframe[src]');
+      const iframeSrc = iframeEl?.getAttribute('src') || '';
       const hrefs = Array.from(doc.querySelectorAll('a[href]')).map(a => a.href);
       const textMp4 = (rawHTML.match(/https?:\/\/\S+?\.mp4\b/i)||[])[0] || '';
       const videoTag = doc.querySelector('video');
@@ -303,25 +316,21 @@
       const vimeoID  = vimeoIdFrom(vimeoURL);
       const ytID     = youTubeIdFrom(ytURL);
 
-      const makeIframe = (src) =>
-        `<div class="video-container" style="margin:12px 0;">
-           <iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;display:block"
-                   allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
-         </div>`;
-
       let videoEmbed = '';
       let hero = '';
 
-      if (iframe){
-        const src = iframe.getAttribute('src') || '';
-        if (src) videoEmbed = makeIframe(src);
+      // 1) TRUST ONLY real player iframes; otherwise ignore placeholder iframes
+      if (iframeEl && isTrustedPlayerSrc(iframeSrc)){
+        videoEmbed = makeIframe(iframeSrc);
 
+      // 2) Build our own embeds from detected URLs
       } else if (ytID){
         videoEmbed = makeIframe(`https://www.youtube.com/embed/${ytID}`);
 
       } else if (vimeoID){
         videoEmbed = makeIframe(`https://player.vimeo.com/video/${vimeoID}`);
 
+      // 3) Native video or mp4 source in content
       } else if (videoTag){
         const tmp = document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
         const html = tmp.innerHTML.replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
@@ -333,6 +342,7 @@
         const posterAttr = poster ? ` poster="${poster}"` : '';
         videoEmbed = `<div class="video-html5" style="margin:12px 0;"><video playsinline controls${posterAttr} style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"><source src="${mp4Url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
 
+      // 4) Facebook fallback to image + button (same-tab)
       } else if (fbLink){
         const fm = p._embedded?.['wp:featuredmedia']?.[0];
         const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
@@ -340,7 +350,7 @@
         videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
       }
 
-      // If we still didn't embed but we saw a Vimeo/YouTube URL, show watch buttons
+      // 5) If we saw a Vimeo/YouTube URL but still didn’t embed, show image + watch button(s)
       if (!videoEmbed && (vimeoURL || ytURL)){
         const fm = p._embedded?.['wp:featuredmedia']?.[0];
         const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
@@ -368,7 +378,8 @@
       console.log('[OkObserver] media detect', {
         id,
         hero: !!hero,
-        iframe: !!iframe,
+        iframeTrusted: isTrustedPlayerSrc(iframeSrc),
+        iframeSrc,
         vimeoURL, vimeoID,
         ytURL, ytID,
         mp4: !!(mp4Source || textMp4),
@@ -463,4 +474,4 @@
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06SR1-fixB3e2
+ // 🔴 main.js — Build 2025-11-06SR1-fixB3e3
