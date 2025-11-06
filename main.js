@@ -1,14 +1,16 @@
 /* 🟢 main.js */
-/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3d
-   - Keep _embed=1 for summaries and detail
-   - Stronger featured-image resolver (checks sizes & content fallback)
-   - Stronger cartoon filter using embedded category names
-   - Preserves: 4/3/1 grid, 1 fetch/page, return-to-scroll, no ESM
+/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3e (logo + hamburger-only + Back button)
+   - _embed=1 retained
+   - Robust featured-image resolver (sizes + content fallback)
+   - Cartoon filter via embedded category names (plus ID fallback)
+   - Hamburger-only nav kept hidden by default; simple toggle wiring
+   - "Back to Posts" is a real button at the bottom only, OkObserver blue
+   - 4/3/1 grid, return-to-scroll, 1 fetch/page, no ESM
 */
 (function(){
   "use strict";
 
-  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3d";
+  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3e";
   var DEBUG = !!(window.__OKO__ && window.__OKO__.DEBUG);
 
   var API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/";
@@ -25,8 +27,21 @@
   var SS_SCROLL = "oko:scrollTop:v1";
   var SS_PAGE = "oko:page:v1";
 
+  // Router
   window.addEventListener("hashchange", router);
-  document.addEventListener("DOMContentLoaded", router);
+  document.addEventListener("DOMContentLoaded", function(){
+    // hamburger-only: toggle nav visibility
+    var btn = el("#oo-menu");
+    var nav = el("#oo-nav");
+    if (btn && nav) {
+      btn.addEventListener("click", function(){
+        var open = !nav.hasAttribute("hidden");
+        if (open){ nav.setAttribute("hidden",""); btn.setAttribute("aria-expanded","false"); }
+        else { nav.removeAttribute("hidden"); btn.setAttribute("aria-expanded","true"); }
+      });
+    }
+    router();
+  });
 
   function deferIdle(fn){ (window.requestIdleCallback || function(cb){return setTimeout(cb,60)})(fn); }
 
@@ -40,24 +55,14 @@
     return img;
   }
 
-  // ---- Cartoon filter: check embedded category names + fallback to ids/strings ----
+  // Cartoon filter
   function isCartoon(post){
     try{
-      // Embedded categories are in wp:term[0]
       var terms = post._embedded && post._embedded["wp:term"] && post._embedded["wp:term"][0] || [];
-      var byName = terms.some(function(t){
-        var n = (t && t.name || "").toLowerCase();
-        return n.includes("cartoon") || n === "cartoons";
-      });
-      if (byName) return true;
-
-      // Fallback: category IDs/strings if present
+      if (terms.some(function(t){ var n=(t&&t.name||"").toLowerCase(); return n.includes("cartoon") || n==="cartoons"; })) return true;
       var cats = post.categories || [];
-      return cats.some(function(c){
-        var s = String(c).toLowerCase();
-        return s.includes("cartoon") || s === "1109" || s === "cartoons";
-      });
-    }catch(_){ }
+      return cats.some(function(c){ var s=String(c).toLowerCase(); return s.includes("cartoon") || s==="1109" || s==="cartoons"; });
+    }catch(_){}
     return false;
   }
 
@@ -66,18 +71,15 @@
   var gridObserver;
   function mountGridObserver(grid){
     if (gridObserver) { try{gridObserver.disconnect();}catch(e){} }
-    gridObserver = new MutationObserver(function(){
-      grid.style.display = "grid";
-    });
+    gridObserver = new MutationObserver(function(){ grid.style.display = "grid"; });
     gridObserver.observe(grid, {childList:true, subtree:false});
   }
 
-  // ===== Fetch posts (1 fetch per page) =====
+  // Fetch posts (1 fetch per page)
   async function fetchPage(page){
     if (state.loading || state.done) return [];
     state.loading = true;
-    var label = "fetchPage#" + page;
-    time(label); metrics.fetchPages++;
+    var label = "fetchPage#" + page; time(label); metrics.fetchPages++;
 
     var url = API_BASE + "posts?per_page=" + PAGE_SIZE + "&page=" + page + "&_embed=1&orderby=date&order=desc";
     var res = await fetch(url, { credentials: "omit" });
@@ -141,7 +143,6 @@
     if (state.list.length===0) next = 1;
 
     var posts = await fetchPage(next);
-
     posts = posts.filter(function(p){ return !isCartoon(p); });
 
     posts.forEach(function(p){
@@ -158,6 +159,7 @@
     }
   }
 
+  // SUMMARY CARD (no tags on summary)
   function cardFromPost(post){
     var card = ce("article","oo-card");
     var a = ce("a","oo-titlelink");
@@ -175,19 +177,19 @@
     var dt = ce("span","oo-date"); dt.textContent = dateFrom(post);
     meta.appendChild(by); meta.appendChild(dt);
 
-    var tags = tagsFrom(post);
-    tags.forEach(function(t){ var tag = ce("span","oo-tag"); tag.textContent = t; meta.appendChild(tag); });
-
     var excerpt = ce("p","oo-excerpt");
     excerpt.innerHTML = (post.excerpt && post.excerpt.rendered) || "";
 
     a.appendChild(body);
-    body.appendChild(title); body.appendChild(meta); body.appendChild(excerpt);
+    body.appendChild(title);
+    body.appendChild(meta);
+    body.appendChild(excerpt);
 
     card.appendChild(a);
     return card;
   }
 
+  // Helpers
   function textFromHTML(html){ var d=new DOMParser().parseFromString(html||"","text/html"); return d.body.textContent||""; }
   function bylineFrom(post){
     return (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || "The Oklahoma Observer";
@@ -200,16 +202,14 @@
     if (post._embedded && post._embedded["wp:term"] && post._embedded["wp:term"][1]) {
       post._embedded["wp:term"][1].forEach(function(t){ if(t && t.name) out.push(t.name); });
     }
-    return out.slice(0,3);
+    return out.slice(0,8);
   }
 
-  // ---- Robust featured image picker ----
+  // Robust featured image picker
   function pickFeaturedImage(post){
     try{
-      // 1) Featured media top-level
       var fm = post._embedded && post._embedded["wp:featuredmedia"] && post._embedded["wp:featuredmedia"][0];
       if (fm) {
-        // prefer a reasonable size if available
         var md = fm.media_details && fm.media_details.sizes;
         var sizeOrder = ["large","medium_large","full","medium","thumbnail"];
         if (md) {
@@ -220,12 +220,11 @@
         }
         if (fm.source_url) return withCB(fm.source_url, post.id);
       }
-      // 2) First <img> in content
       var d = new DOMParser().parseFromString(post.content && post.content.rendered || "", "text/html");
       var im = d.querySelector("img");
       if (im && im.src) return withCB(im.src, post.id);
-    }catch(e){ /* fall through */ }
-    return ""; // no image available
+    }catch(e){}
+    return "";
   }
   function withCB(url, id){
     try{
@@ -237,6 +236,7 @@
     }
   }
 
+  // DETAIL VIEW
   async function renderDetail(id){
     var app = el("#app");
     app.innerHTML = "<div style='padding:1rem'>Loading…</div>";
@@ -254,10 +254,22 @@
 
     var body = ce("div"); body.innerHTML = (post.content && post.content.rendered) || ""; c.appendChild(body);
 
-    var back = ce("p");
-    var a = ce("a"); a.textContent = "← Back to Posts"; a.href = "#/";
-    a.style.color = "#1E90FF"; a.style.textDecoration = "none";
-    back.appendChild(a); c.appendChild(back);
+    // Optional detail tags (allowed here). Keep lightweight.
+    var tags = tagsFrom(post);
+    if (tags.length){
+      var meta = ce("p"); meta.style.marginTop = "0.5rem";
+      meta.textContent = "Tags: " + tags.join(", ");
+      c.appendChild(meta);
+    }
+
+    // Back to Posts — real button, bottom only
+    var backWrap = ce("p");
+    var btn = ce("button", "oo-backbtn");
+    btn.type = "button";
+    btn.textContent = "← Back to Posts";
+    btn.addEventListener("click", function(){ location.hash = "#/"; });
+    backWrap.appendChild(btn);
+    c.appendChild(backWrap);
 
     app.innerHTML = ""; app.appendChild(c);
   }

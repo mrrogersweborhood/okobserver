@@ -249,3 +249,11 @@ a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-
   background:#e9eef5 url('favicon.ico') no-repeat center/contain;
 }
 /* === end hotfix3b === */
+/* === hotfix: real back button style === */
+.oo-backbtn{
+  background:#1E90FF;color:#fff;border:0;border-radius:10px;
+  padding:.5rem .75rem;font-size:0.95rem;cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.12)
+}
+.oo-backbtn:hover{filter:brightness(1.05)}
+.oo-backbtn:focus-visible{outline:3px solid #1E90FF;outline-offset:2px;background:#1479d8}
