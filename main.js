@@ -1,330 +1,446 @@
-// 🟢 main.js — Build 2025-11-06SR1-fixB3d (plaintext Vimeo/YouTube + explicit aspect-ratio, IO fix, greedy loader)
+// 🟢 main.js — Build 2025-11-06SR1-fixB3e
 (function(){
   'use strict';
-  const BUILD='2025-11-06SR1-fixB3d';
-  const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
-  const PAGE_SIZE=12;
 
-  const SS={
-    FEED_IDS:'okob.feed.ids',FEED_BYID:'okob.feed.byid',FEED_PAGE:'okob.feed.page',
-    FEED_END:'okob.feed.end',SCROLL_Y:'okob.scrollY',ACTIVE_ID:'okob.activeId',
-    ACTIVE_PATH:'okob.activePath',RETURN_TOKEN:'okob.returnToken'
+  // ------------ BUILD + CONSTANTS ------------
+  const BUILD = '2025-11-06SR1-fixB3e';
+  const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  const PAGE_SIZE = 12;
+
+  // sessionStorage keys
+  const SS = {
+    FEED_IDS: 'okob.feed.ids',
+    FEED_BYID: 'okob.feed.byid',
+    FEED_PAGE: 'okob.feed.page',
+    FEED_END:  'okob.feed.end',
+    SCROLL_Y:  'okob.scrollY',
+    ACTIVE_ID: 'okob.activeId',
+    ACTIVE_PATH:'okob.activePath',
+    RETURN_TOKEN:'okob.returnToken'
   };
 
-  let route='home',page=1,loading=false,reachedEnd=false,RESTORING=false;
-  const app=document.getElementById('app');
-  const sentinel=document.getElementById('sentinel');
-  const feedIds=[],feedById=Object.create(null),seenIds=new Set();
-  const fmtDate=d=>new Date(d).toLocaleDateString();
+  // ------------ STATE ------------
+  let route = 'home';
+  let page = 1;
+  let loading = false;
+  let reachedEnd = false;
+  let RESTORING = false;
 
-  // ---------- helpers ----------
+  const app = document.getElementById('app');
+  const sentinel = document.getElementById('sentinel');
+
+  const feedIds = [];
+  const feedById = Object.create(null);
+  const seenIds = new Set();
+
+  const fmtDate = d => new Date(d).toLocaleDateString();
+
+  // ------------ HELPERS ------------
   function isCartoon(p){
-    const groups=p?._embedded?.['wp:term']||[];
-    const cats=groups.flat().map(t=>(t?.slug||t?.name||'').toLowerCase());
+    const groups = p?._embedded?.['wp:term'] || [];
+    const cats = groups.flat().map(t => (t?.slug || t?.name || '').toLowerCase());
     return cats.includes('cartoon');
   }
+
   function imgHTML(p){
-    const fm=p._embedded?.['wp:featuredmedia']?.[0];
-    const sizes=fm?.media_details?.sizes||{};
-    const best=sizes?.large||sizes?.medium_large||sizes?.medium||sizes?.full;
-    let src=(best?.source_url||fm?.source_url||'')||'';
-    if(src)src+=(src.includes('?')?'&':'?')+'cb='+p.id;
-    return src?`<img src="${src}" alt="" loading="lazy">`:'';
+    const fm = p._embedded?.['wp:featuredmedia']?.[0];
+    const sizes = fm?.media_details?.sizes || {};
+    const best  = sizes?.large || sizes?.medium_large || sizes?.medium || sizes?.full;
+    let src = (best?.source_url || fm?.source_url || '') || '';
+    if (src) src += (src.includes('?') ? '&' : '?') + 'cb=' + p.id;
+    return src ? `<img src="${src}" alt="" loading="lazy">` : '';
   }
-  const cardHTML=p=>`
+
+  const cardHTML = p => `
     <article class="post-card" data-id="${p.id}">
       <a class="title-link" href="#/post/${p.id}">
         <div class="thumb">${imgHTML(p)}</div>
-        <h2 class="post-title">${p.title?.rendered||''}</h2>
+        <h2 class="post-title">${p.title?.rendered || ''}</h2>
       </a>
-      <div class="byline">${p._embedded?.author?.[0]?.name||'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
-      <div class="post-summary">${p.excerpt?.rendered||''}</div>
+      <div class="byline">${p._embedded?.author?.[0]?.name || 'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
+      <div class="post-summary">${p.excerpt?.rendered || ''}</div>
     </article>`;
 
   function ensureFeed(){
-    let feed=document.querySelector('.posts-grid');
-    if(!feed){feed=document.createElement('div');feed.className='posts-grid';app.innerHTML='';app.appendChild(feed);}
+    let feed = document.querySelector('.posts-grid');
+    if (!feed){
+      feed = document.createElement('div');
+      feed.className = 'posts-grid';
+      app.innerHTML = '';
+      app.appendChild(feed);
+    }
     return feed;
   }
 
-  // ---------- observer ----------
+  // ------------ INFINITE SCROLL OBSERVER ------------
   let io;
+
   function placeSentinelAfterLastCard(){
-    if(RESTORING||route!=='home')return;
-    const feed=document.querySelector('.posts-grid'); if(!feed)return;
-    if(!document.body.contains(sentinel))document.body.appendChild(sentinel);
-    sentinel.style.minHeight='2px'; sentinel.style.display='block';
+    if (RESTORING || route !== 'home') return;
+    const feed = document.querySelector('.posts-grid'); if (!feed) return;
+    if (!document.body.contains(sentinel)) document.body.appendChild(sentinel);
+    sentinel.style.minHeight = '2px';
+    sentinel.style.display = 'block';
     feed.appendChild(sentinel);
   }
-  function buildObserver(){
-    const make=(margin)=>new IntersectionObserver(async entries=>{
-      const e=entries[0];
-      if(!e||!e.isIntersecting||RESTORING||loading||reachedEnd||route!=='home')return;
-      await loadNext();
-    },{root:null,rootMargin:margin,threshold:0});
-    try{ return make('2200px 0px 1800px 0px'); }
-    catch{ try{ return make('0px'); }catch{ return null; } }
-  }
-  function attachObserver(){
-    if(io)try{io.disconnect();}catch{}
-    io=buildObserver();
-    placeSentinelAfterLastCard();
-    if(io) io.observe(sentinel);
-  }
-  function detachObserver(){
-    if(io){try{io.disconnect();}catch{} io=null;}
-    try{ if(sentinel && sentinel.parentNode) sentinel.parentNode.removeChild(sentinel); }catch{}
-  }
-  function kick(){
-    if(RESTORING||route!=='home'||loading||reachedEnd)return;
-    const doc=document.documentElement;
-    if(doc.scrollHeight-(doc.scrollTop+window.innerHeight)<1200) loadNext();
-  }
-  setInterval(kick,1400);
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) setTimeout(kick,250); }, {passive:true});
-  addEventListener('scroll',kick,{passive:true});
 
-  // ---------- snapshot ----------
-  function saveFeedSnapshotData({ids,byId,nextPage,reachedEnd:e}){
+  function buildObserver(){
+    const make = (margin) => new IntersectionObserver(async entries => {
+      const e = entries[0];
+      if (!e || !e.isIntersecting || RESTORING || loading || reachedEnd || route !== 'home') return;
+      await loadNext();
+    }, { root: null, rootMargin: margin, threshold: 0 });
+
+    try { return make('2200px 0px 1800px 0px'); }
+    catch { try { return make('0px'); } catch { return null; } }
+  }
+
+  function attachObserver(){
+    if (io) try{ io.disconnect(); }catch{}
+    io = buildObserver();
+    placeSentinelAfterLastCard();
+    if (io) io.observe(sentinel);
+  }
+
+  function detachObserver(){
+    if (io){ try{ io.disconnect(); }catch{} io = null; }
+    try{ if (sentinel && sentinel.parentNode) sentinel.parentNode.removeChild(sentinel); }catch{}
+  }
+
+  function kick(){
+    if (RESTORING || route !== 'home' || loading || reachedEnd) return;
+    const doc = document.documentElement;
+    if (doc.scrollHeight - (doc.scrollTop + window.innerHeight) < 1200) loadNext();
+  }
+  setInterval(kick, 1400);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) setTimeout(kick, 250);
+  }, { passive: true });
+  addEventListener('scroll', kick, { passive: true });
+
+  // ------------ SNAPSHOT (RETURN-TO-PLACE) ------------
+  function saveFeedSnapshotData({ ids, byId, nextPage, reachedEnd: end }){
     try{
-      sessionStorage.setItem(SS.FEED_IDS,JSON.stringify(ids||[]));
-      const slim={}; (ids||[]).forEach(id=>{
-        const p=byId[id]; if(!p)return;
-        slim[id]={id:p.id,date:p.date,title:p.title,excerpt:p.excerpt,_embedded:p._embedded};
+      sessionStorage.setItem(SS.FEED_IDS, JSON.stringify(ids || []));
+      const slim = {};
+      (ids || []).forEach(id => {
+        const p = byId[id]; if (!p) return;
+        slim[id] = { id: p.id, date: p.date, title: p.title, excerpt: p.excerpt, _embedded: p._embedded };
       });
-      sessionStorage.setItem(SS.FEED_BYID,JSON.stringify(slim));
-      sessionStorage.setItem(SS.FEED_PAGE,String(nextPage||1));
-      sessionStorage.setItem(SS.FEED_END,String(!!e));
-      sessionStorage.setItem(SS.SCROLL_Y,String(window.scrollY||0));
+      sessionStorage.setItem(SS.FEED_BYID, JSON.stringify(slim));
+      sessionStorage.setItem(SS.FEED_PAGE, String(nextPage || 1));
+      sessionStorage.setItem(SS.FEED_END,  String(!!end));
+      sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0));
     }catch{}
   }
+
   function readFeedSnapshotData(){
     try{
-      const ids=JSON.parse(sessionStorage.getItem(SS.FEED_IDS)||'[]');
-      const byId=JSON.parse(sessionStorage.getItem(SS.FEED_BYID)||'{}');
-      if(!ids.length)return null;
-      return {ids,byId};
-    }catch{return null;}
+      const ids  = JSON.parse(sessionStorage.getItem(SS.FEED_IDS) || '[]');
+      const byId = JSON.parse(sessionStorage.getItem(SS.FEED_BYID) || '{}');
+      if (!ids.length) return null;
+      return { ids, byId };
+    }catch{ return null; }
   }
 
-  // ---------- fetch / append ----------
+  // ------------ FETCH + APPEND POSTS ------------
   async function fetchPosts(n){
-    const r=await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
-    if(!r.ok){
-      if([400,404].includes(r.status))return{posts:[],rawCount:0,end:true};
+    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
+    if (!r.ok){
+      if ([400,404].includes(r.status)) return { posts: [], rawCount: 0, end: true };
       throw new Error(r.status);
     }
-    const raw=await r.json();
-    const posts=raw.filter(p=>!isCartoon(p)&&!seenIds.has(p.id));
-    return {posts,rawCount:raw.length,end:!raw.length};
-  }
-  function appendPosts(posts){
-    const feed=ensureFeed();
-    const frag=document.createDocumentFragment();
-    posts.forEach(p=>{
-      if(seenIds.has(p.id))return;
-      seenIds.add(p.id); feedIds.push(p.id); feedById[p.id]=p;
-      const wrap=document.createElement('div'); wrap.innerHTML=cardHTML(p);
-      const card=wrap.firstElementChild;
-      card.style.opacity='0'; card.style.transition='opacity .25s';
-      frag.appendChild(card);
-      requestAnimationFrame(()=>card.style.opacity='1');
-    });
-    if(frag.childNodes.length) feed.appendChild(frag);
-    placeSentinelAfterLastCard();
-    if(io){ try{ io.unobserve(sentinel); }catch{} try{ io.observe(sentinel); }catch{} }
-    wireCardClicks(feed);
-  }
-  async function loadNext(){
-    if(RESTORING||route!=='home'||loading||reachedEnd)return;
-    loading=true;
-    try{
-      let appended=0, hops=0;
-      while(!reachedEnd && hops<6 && appended<9){
-        const {posts,rawCount,end}=await fetchPosts(page);
-        if(end || !rawCount){ reachedEnd=true; break; }
-        if(posts.length){ appendPosts(posts); appended += posts.length; }
-        page++; hops++;
-      }
-      saveFeedSnapshotData({ids:feedIds,byId:feedById,nextPage:page,reachedEnd});
-      setTimeout(kick,200);
-    }finally{ loading=false; }
+    const raw = await r.json();
+    const posts = raw.filter(p => !isCartoon(p) && !seenIds.has(p.id));
+    return { posts, rawCount: raw.length, end: !raw.length };
   }
 
-  // ---------- clicks ----------
+  function appendPosts(posts){
+    const feed = ensureFeed();
+    const frag = document.createDocumentFragment();
+
+    posts.forEach(p => {
+      if (seenIds.has(p.id)) return;
+      seenIds.add(p.id);
+      feedIds.push(p.id);
+      feedById[p.id] = p;
+
+      const wrap = document.createElement('div');
+      wrap.innerHTML = cardHTML(p);
+      const card = wrap.firstElementChild;
+      card.style.opacity = '0';
+      card.style.transition = 'opacity .25s';
+      frag.appendChild(card);
+      requestAnimationFrame(() => card.style.opacity = '1');
+    });
+
+    if (frag.childNodes.length) feed.appendChild(frag);
+
+    placeSentinelAfterLastCard();
+    if (io){ try{ io.unobserve(sentinel); }catch{} try{ io.observe(sentinel); }catch{} }
+    wireCardClicks(feed);
+  }
+
+  async function loadNext(){
+    if (RESTORING || route !== 'home' || loading || reachedEnd) return;
+    loading = true;
+    try{
+      let appended = 0, hops = 0;
+      while (!reachedEnd && hops < 6 && appended < 9){
+        const { posts, rawCount, end } = await fetchPosts(page);
+        if (end || !rawCount){ reachedEnd = true; break; }
+        if (posts.length){ appendPosts(posts); appended += posts.length; }
+        page++; hops++;
+      }
+      saveFeedSnapshotData({ ids: feedIds, byId: feedById, nextPage: page, reachedEnd });
+      setTimeout(kick, 200);
+    }finally{
+      loading = false;
+    }
+  }
+
+  // ------------ CARD CLICKS ------------
   function wireCardClicks(scope){
-    (scope||document).querySelectorAll('.post-card a.title-link').forEach(a=>{
-      a.addEventListener('click',e=>{
+    (scope || document).querySelectorAll('.post-card a.title-link').forEach(a => {
+      a.addEventListener('click', e => {
         e.preventDefault();
-        const href=a.getAttribute('href'); const id=href.split('/').pop();
-        saveFeedSnapshotData({ids:feedIds,byId:feedById,nextPage:page,reachedEnd});
+        const href = a.getAttribute('href'); const id = href.split('/').pop();
+        saveFeedSnapshotData({ ids: feedIds, byId: feedById, nextPage: page, reachedEnd });
         try{
-          sessionStorage.setItem(SS.SCROLL_Y,String(window.scrollY||0));
-          sessionStorage.setItem(SS.RETURN_TOKEN,String(Date.now()));
+          sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0));
+          sessionStorage.setItem(SS.RETURN_TOKEN, String(Date.now()));
         }catch{}
-        sessionStorage.setItem(SS.ACTIVE_ID,String(id));
-        sessionStorage.setItem(SS.ACTIVE_PATH,href);
+        sessionStorage.setItem(SS.ACTIVE_ID, String(id));
+        sessionStorage.setItem(SS.ACTIVE_PATH, href);
         navigateTo(href);
       });
     });
   }
 
-  // ---------- sanitize ----------
+  // ------------ SANITIZE ------------
   function sanitizePostHTML(html){
-    const wrap=document.createElement('div'); wrap.innerHTML=html;
-    wrap.querySelectorAll('a').forEach(a=>{
-      const onlyImg=a.children.length===1&&a.firstElementChild?.tagName==='IMG'&&!a.textContent.trim();
-      if(onlyImg)a.replaceWith(a.firstElementChild);
+    const wrap = document.createElement('div'); wrap.innerHTML = html;
+
+    // keep text links; unwrap <a><img></a>
+    wrap.querySelectorAll('a').forEach(a => {
+      const onlyImg = a.children.length === 1 && a.firstElementChild?.tagName === 'IMG' && !a.textContent.trim();
+      if (onlyImg) a.replaceWith(a.firstElementChild);
     });
-    wrap.querySelectorAll('img').forEach(img=>{
+
+    wrap.querySelectorAll('img').forEach(img => {
       img.removeAttribute('width'); img.removeAttribute('height');
-      img.style.maxWidth='100%'; img.style.height='auto'; img.style.display='block';
+      img.style.maxWidth = '100%'; img.style.height = 'auto'; img.style.display = 'block';
     });
-    wrap.querySelectorAll('video').forEach(v=>{
-      if(!v.getAttribute('controls')) v.setAttribute('controls','');
+
+    wrap.querySelectorAll('video').forEach(v => {
+      if (!v.getAttribute('controls')) v.setAttribute('controls','');
       v.setAttribute('playsinline','');
-      v.style.maxWidth=v.style.maxWidth||'100%';
-      v.style.height=v.style.height||'auto';
-      v.style.display=v.style.display||'block';
-      if(!v.style.margin)v.style.margin='12px auto';
-      if(!v.style.borderRadius)v.style.borderRadius='8px';
+      v.style.maxWidth = v.style.maxWidth || '100%';
+      v.style.height = v.style.height || 'auto';
+      v.style.display = v.style.display || 'block';
+      if (!v.style.margin) v.style.margin = '12px auto';
+      if (!v.style.borderRadius) v.style.borderRadius = '8px';
     });
+
     return wrap.innerHTML;
   }
 
-  // ---------- detail ----------
+  // ------------ DETAIL VIEW ------------
   async function renderDetail(id){
-    document.body.dataset.route='post';
-    try{sessionStorage.setItem(SS.SCROLL_Y,String(window.scrollY||0));}catch{}
-    route='post'; detachObserver();
-    const feed=document.querySelector('.posts-grid'); if(feed)feed.remove();
-    app.innerHTML='<div>Loading…</div>';
+    document.body.dataset.route = 'post';
+    try{ sessionStorage.setItem(SS.SCROLL_Y, String(window.scrollY || 0)); }catch{}
+    route = 'post'; detachObserver();
+
+    const feed = document.querySelector('.posts-grid'); if (feed) feed.remove();
+    app.innerHTML = '<div>Loading…</div>';
 
     try{
-      const r=await fetch(`${API_BASE}/posts/${id}?_embed=1`);
-      if(!r.ok){ app.innerHTML='<p>Not found.</p>'; return; }
-      const p=await r.json();
-      const rawHTML=p.content?.rendered||'';
-      const cleaned=sanitizePostHTML(rawHTML);
+      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
+      if (!r.ok){ app.innerHTML = '<p>Not found.</p>'; return; }
+      const p = await r.json();
 
-      // media detection
-      let videoEmbed=''; let diag={};
-      const parser=new DOMParser(); const doc=parser.parseFromString(rawHTML,'text/html');
+      const rawHTML = p.content?.rendered || '';
+      const cleaned = sanitizePostHTML(rawHTML);
 
-      const iframe=doc.querySelector('iframe[src]');
-      const hrefs=Array.from(doc.querySelectorAll('a[href]')).map(a=>a.href);
-      const textMp4=(rawHTML.match(/https?:\/\/\S+?\.mp4\b/i)||[])[0]||'';
-      const ytLink=hrefs.find(h=>/youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
-      const viLink=hrefs.find(h=>/vimeo\.com\/\d+/i.test(h));
-      const fb=hrefs.find(h=>/facebook\.com\//i.test(h));
-      const videoTag=doc.querySelector('video');
-      const mp4Source=doc.querySelector('source[src$=".mp4"], source[src*=".mp4?"]');
-      const firstImg=doc.querySelector('img');
+      // --- media detection (broad & resilient) ---
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHTML, 'text/html');
 
-      // plaintext URL detection
-      const ytPlain=(rawHTML.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[A-Za-z0-9_-]{6,}|youtu\.be\/[A-Za-z0-9_-]{6,})/i)||[])[0]||'';
-      const viPlain=(rawHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/i)||[])[0]||'';
+      const iframe = doc.querySelector('iframe[src]');
+      const hrefs = Array.from(doc.querySelectorAll('a[href]')).map(a => a.href);
+      const textMp4 = (rawHTML.match(/https?:\/\/\S+?\.mp4\b/i)||[])[0] || '';
+      const videoTag = doc.querySelector('video');
+      const mp4Source = doc.querySelector('source[src$=".mp4"], source[src*=".mp4?"]');
+      const firstImg = doc.querySelector('img');
+      const fbLink = hrefs.find(h => /facebook\.com\//i.test(h));
 
-      // iframe snippet with explicit aspect ratio to avoid zero-height boxes
+      // Plaintext URL matches (handle params/encoding)
+      const ytPlain = (rawHTML.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/i)||[])[0] || '';
+      const viPlain = (rawHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i)||[])[0] || '';
+
+      const ytLink  = hrefs.find(h => /youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
+      const viLink  = hrefs.find(h => /vimeo\.com\/\d+/i.test(h));
+
       const makeIframe = (src) =>
         `<div class="video-container" style="margin:12px 0;">
            <iframe src="${src}" style="width:100%;aspect-ratio:16/9;border:0;display:block"
                    allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>
          </div>`;
 
-      if(iframe){
-        const src=iframe.getAttribute('src')||'';
-        if(src)videoEmbed=makeIframe(src);
-      }else if(ytLink||ytPlain){
-        const url=ytLink||ytPlain;
-        const id=(url.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1]||(url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
-        if(id)videoEmbed=makeIframe(`https://www.youtube.com/embed/${id}`);
-      }else if(viLink||viPlain){
-        const url=viLink||viPlain;
-        const vid=(url.match(/vimeo\.com\/(\d+)/)||[])[1];
-        if(vid)videoEmbed=makeIframe(`https://player.vimeo.com/video/${vid}`);
-      }else if(videoTag){
-        const tmp=document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
-        const html=tmp.innerHTML.replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
-        videoEmbed=`<div class="video-html5" style="margin:12px 0;">${html}</div>`;
-      }else if(mp4Source||textMp4){
-        const mp4Url=mp4Source?.getAttribute('src')||textMp4;
-        const poster=p._embedded?.['wp:featuredmedia']?.[0]?.source_url||'';
-        const posterAttr=poster?` poster="${poster}"`:'';
-        videoEmbed=`<div class="video-html5" style="margin:12px 0;"><video playsinline controls${posterAttr} style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"><source src="${mp4Url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
-      }else if(fb){
-        const fm=p._embedded?.['wp:featuredmedia']?.[0];
-        const img=fm?.source_url?`<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">`:'';
-        const btn=`<p style="margin-top:10px;"><a href="${fb}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
-        videoEmbed=`<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
+      let videoEmbed = '';
+      let hero = '';
+
+      if (iframe){
+        const src = iframe.getAttribute('src') || '';
+        if (src) videoEmbed = makeIframe(src);
+
+      } else if (ytLink || ytPlain){
+        const url = ytLink || ytPlain;
+        const yid = (url.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1] ||
+                    (url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
+        if (yid) videoEmbed = makeIframe(`https://www.youtube.com/embed/${yid}`);
+
+      } else if (viLink || viPlain){
+        const url = viLink || viPlain;
+        const vid = (url.match(/vimeo\.com\/(\d+)/)||[])[1];
+        if (vid) videoEmbed = makeIframe(`https://player.vimeo.com/video/${vid}`);
+
+      } else if (videoTag){
+        const tmp = document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
+        const html = tmp.innerHTML.replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
+        videoEmbed = `<div class="video-html5" style="margin:12px 0;">${html}</div>`;
+
+      } else if (mp4Source || textMp4){
+        const mp4Url = mp4Source?.getAttribute('src') || textMp4;
+        const poster = p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
+        const posterAttr = poster ? ` poster="${poster}"` : '';
+        videoEmbed = `<div class="video-html5" style="margin:12px 0;"><video playsinline controls${posterAttr} style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"><source src="${mp4Url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
+
+      } else if (fbLink){
+        const fm = p._embedded?.['wp:featuredmedia']?.[0];
+        const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
+        const btn = `<p style="margin-top:10px;"><a href="${fbLink}" target="_self" class="fb-btn" style="display:inline-block;background:#1E90FF;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">View on Facebook</a></p>`;
+        videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
       }
 
-      // HERO fallback ladder
-      let hero='';
-      if(videoEmbed){
-        hero=videoEmbed;
+      // If Vimeo was detected but ID parsing failed, show watch-on-Vimeo button
+      if (!videoEmbed && (viLink || viPlain)){
+        const url = viLink || viPlain;
+        const fm = p._embedded?.['wp:featuredmedia']?.[0];
+        const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Vimeo video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
+        const btn = `<p style="margin-top:10px;"><a href="${url}" target="_blank" style="display:inline-block;background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Watch on Vimeo</a></p>`;
+        videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
+      }
+
+      // HERO ladder
+      if (videoEmbed){
+        hero = videoEmbed;
       }else{
-        const fmHTML=imgHTML(p);
-        if(fmHTML){
-          hero=`<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${fmHTML}</div></div>`;
-        }else if(firstImg){
-          const tmp=document.createElement('div'); tmp.appendChild(firstImg.cloneNode(true));
-          const html=tmp.innerHTML.replace(/<img/i,'<img style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto;"');
-          hero=`<div class="post-hero" style="margin:0 0 16px 0;">${html}</div>`;
+        const fmHTML = imgHTML(p);
+        if (fmHTML){
+          hero = `<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${fmHTML}</div></div>`;
+        }else if (firstImg){
+          const tmp = document.createElement('div'); tmp.appendChild(firstImg.cloneNode(true));
+          const html = tmp.innerHTML.replace(/<img/i,'<img style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto;"');
+          hero = `<div class="post-hero" style="margin:0 0 16px 0;">${html}</div>`;
         }
       }
 
-      console.log('[OkObserver] media detect', {id, hasIframe:!!iframe, ytLink:!!ytLink, ytPlain:!!ytPlain, viLink:!!viLink, viPlain:!!viPlain, mp4:!!(mp4Source||textMp4), fb:!!fb, heroFrom:'videoEmbed? '+!!videoEmbed});
+      console.log('[OkObserver] media detect', {
+        id,
+        hero: !!hero,
+        iframe: !!iframe,
+        ytLink: !!ytLink, ytPlain: !!ytPlain,
+        viLink: !!viLink, viPlain: !!viPlain,
+        mp4: !!(mp4Source || textMp4),
+        fb: !!fbLink
+      });
 
-      app.innerHTML=`<article class="post-detail">
-        ${hero||''}
-        <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered||''}</h1>
-        <div class="byline" style="font-weight:600;margin:0 0 16px;">${p._embedded?.author?.[0]?.name||'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
+      app.innerHTML = `<article class="post-detail">
+        ${hero || ''}
+        <h1 class="post-detail__title" style="color:#1E90FF;margin:0 0 8px;">${p.title?.rendered || ''}</h1>
+        <div class="byline" style="font-weight:600;margin:0 0 16px;">${p._embedded?.author?.[0]?.name || 'Oklahoma Observer'} · ${fmtDate(p.date)}</div>
         <div class="post-detail__content">${cleaned}</div>
         <p style="margin-top:24px;"><a class="button" href="#/">Back to Posts</a></p>
       </article>`;
 
-      const back=app.querySelector('.button[href="#/"]');
-      if(back)back.addEventListener('click',e=>{e.preventDefault();navigateTo('#/');});
-    }catch(err){console.warn(err);app.innerHTML='<p>Error loading post.</p>';}
+      const back = app.querySelector('.button[href="#/"]');
+      if (back) back.addEventListener('click', e => { e.preventDefault(); navigateTo('#/'); });
+    }catch(err){
+      console.warn(err);
+      app.innerHTML = '<p>Error loading post.</p>';
+    }
   }
 
-  // ---------- home ----------
+  // ------------ HOME (with restore) ------------
   async function renderHome(){
     detachObserver(); document.body.dataset.route='home';
-    const snap=readFeedSnapshotData();
-    if(snap){
-      RESTORING=true; route='home';
-      feedIds.length=0; seenIds.clear(); for(const k in feedById) delete feedById[k];
-      const list=snap.ids.map(id=>snap.byId[id]).filter(Boolean);
-      list.forEach(p=>{feedIds.push(p.id);feedById[p.id]=p;seenIds.add(p.id);});
-      app.innerHTML=''; const feed=ensureFeed(); feed.innerHTML=list.map(cardHTML).join('');
-      wireCardClicks(feed); placeSentinelAfterLastCard(); attachObserver();
-      page=Math.max(1,Number(sessionStorage.getItem(SS.FEED_PAGE)||'1'));
-      reachedEnd=sessionStorage.getItem(SS.FEED_END)==='true'; loading=false;
-      const y=Number(sessionStorage.getItem(SS.SCROLL_Y)||'0');
-      requestAnimationFrame(()=>{requestAnimationFrame(()=>{window.scrollTo(0,y); RESTORING=false; kick();});});
+
+    const snap = readFeedSnapshotData();
+    if (snap){
+      RESTORING = true; route = 'home';
+      feedIds.length = 0; seenIds.clear(); for (const k in feedById) delete feedById[k];
+
+      const list = snap.ids.map(id => snap.byId[id]).filter(Boolean);
+      list.forEach(p => { feedIds.push(p.id); feedById[p.id] = p; seenIds.add(p.id); });
+
+      app.innerHTML = '';
+      const feed = ensureFeed();
+      feed.innerHTML = list.map(cardHTML).join('');
+      wireCardClicks(feed);
+      placeSentinelAfterLastCard();
+      attachObserver();
+
+      page = Math.max(1, Number(sessionStorage.getItem(SS.FEED_PAGE) || '1'));
+      reachedEnd = sessionStorage.getItem(SS.FEED_END) === 'true';
+      loading = false;
+
+      const y = Number(sessionStorage.getItem(SS.SCROLL_Y) || '0');
+      requestAnimationFrame(() => { requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+        RESTORING = false;
+        kick();
+      });});
       return;
     }
-    route='home'; RESTORING=false; app.innerHTML=''; ensureFeed();
-    feedIds.length=0; for(const k in feedById) delete feedById[k];
+
+    // cold load
+    route='home'; RESTORING=false; app.innerHTML='';
+    ensureFeed();
+    feedIds.length=0; for (const k in feedById) delete feedById[k];
     seenIds.clear(); page=1; reachedEnd=false; loading=false;
-    await loadNext(); attachObserver();
+
+    await loadNext();
+    attachObserver();
   }
 
-  // ---------- router ----------
+  // ------------ ROUTER ------------
   function currentRoute(){
-    const h=location.hash||'#/'; if(h.startsWith('#/post/')) return {name:'post',id:h.split('/').pop()};
-    return {name:'home'};
+    const h = location.hash || '#/';
+    if (h.startsWith('#/post/')) return { name: 'post', id: h.split('/').pop() };
+    return { name: 'home' };
   }
-  async function router(){
-    const r=currentRoute(); route=r.name; document.body.dataset.route=route;
-    if(r.name==='post') await renderDetail(r.id); else await renderHome();
-  }
-  function navigateTo(hash){ if(location.hash===hash) router(); else location.hash=hash; }
 
-  window.addEventListener('hashchange',router);
-  window.addEventListener('DOMContentLoaded',()=>{ const v=document.getElementById('build-version'); if(v) v.textContent='Build '+BUILD; router(); });
-  console.log('[OkObserver] main.js loaded:',BUILD);
+  async function router(){
+    const r = currentRoute();
+    route = r.name;
+    document.body.dataset.route = route;
+    if (r.name === 'post') await renderDetail(r.id);
+    else await renderHome();
+  }
+
+  function navigateTo(hash){
+    if (location.hash === hash) router();
+    else location.hash = hash;
+  }
+
+  // ------------ BOOT ------------
+  window.addEventListener('hashchange', router);
+  window.addEventListener('DOMContentLoaded', () => {
+    const v = document.getElementById('build-version');
+    if (v) v.textContent = 'Build ' + BUILD;
+    router();
+  });
+
+  console.log('[OkObserver] main.js loaded:', BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06SR1-fixB3d
