@@ -613,3 +613,46 @@ body[data-route="post"] .posts-grid { display: none !important; }
 
 /* Preserve grid on post pages (prevents feed flash) */
 body[data-route="post"] .posts-grid { display:none !important; }
+/* ==== OkObserver grid columns lock (safe append) ==== */
+
+/* Base = mobile-first: 1 column */
+.posts-grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items:start;
+}
+
+/* Tablet: 3 columns */
+@media (min-width: 768px){
+  .posts-grid{
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+}
+
+/* Desktop: 4 columns */
+@media (min-width: 1024px){
+  .posts-grid{
+    grid-template-columns: repeat(4, minmax(0,1fr));
+  }
+}
+
+/* Make sure cards size nicely in the grid */
+.post-card{
+  display:block;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  overflow:hidden;
+}
+
+/* Thumbs behave */
+.post-card .thumb img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+/* (Optional perf helpers—kept additive) */
+.posts-grid{ content-visibility:auto; contain-intrinsic-size: 400px 600px; }
+.post-card{ contain: layout paint; }
