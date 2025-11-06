@@ -1,9 +1,9 @@
-// 🟢 main.js — Build 2025-11-06SR1-perfSWR1-hotfix
+// 🟢 main.js — Build 2025-11-06SR1-perfSWR1-hotfix2
 (function(){
   'use strict';
 
   // ------------ BUILD + CONSTANTS ------------
-  const BUILD = '2025-11-06SR1-perfSWR1-hotfix';
+  const BUILD = '2025-11-06SR1-perfSWR1-hotfix2';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
   const DEV = false;
@@ -49,7 +49,6 @@
   function imgHTML(p){
     const fm = p._embedded?.['wp:featuredmedia']?.[0];
     const sizes = fm?.media_details?.sizes || {};
-    // prefer medium_large to cut bytes; fallback to large/medium/full
     const best  = sizes?.medium_large || sizes?.large || sizes?.medium || sizes?.full;
     let src = (best?.source_url || fm?.source_url || '') || '';
     if (src) src += (src.includes('?') ? '&' : '?') + 'cb=' + p.id;
@@ -129,7 +128,6 @@
       const slim = {};
       (ids || []).forEach(id => {
         const p = byId[id]; if (!p) return;
-        // keep only the fields we need for fast restore
         slim[id] = { id: p.id, date: p.date, title: p.title, excerpt: p.excerpt, _embedded: p._embedded };
       });
       sessionStorage.setItem(SS.FEED_BYID, JSON.stringify(slim));
@@ -188,7 +186,6 @@
     placeSentinelAfterLastCard();
     if (io){ try{ io.unobserve(sentinel); }catch{} try{ io.observe(sentinel); }catch{} }
 
-    // wire clicks during idle to avoid blocking scroll
     if ('requestIdleCallback' in window) {
       requestIdleCallback(() => wireCardClicks(feed));
     } else {
@@ -201,7 +198,7 @@
     loading = true;
     try{
       let appended = 0, hops = 0;
-      const deadline = performance.now() + 120; // budget per burst
+      const deadline = performance.now() + 120;
       while (!reachedEnd && hops < 6 && appended < 9 && performance.now() < deadline){
         const { posts, rawCount, end } = await fetchPosts(page);
         if (end || !rawCount){ reachedEnd = true; break; }
@@ -463,7 +460,6 @@
     if (v) v.textContent = 'Build ' + BUILD;
     router();
 
-    // ask the active SW to take control immediately after updates
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       try { navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' }); } catch {}
     }
@@ -471,4 +467,3 @@
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06SR1-perfSWR1-hotfix
