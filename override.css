@@ -587,3 +587,29 @@ body[data-route="post"] .posts-grid { display: none !important; }
 /* Avoid layout jumps on restore */
 .posts-grid img { max-width:100%; height:auto; display:block; }
 .posts-grid .post-card { contain: layout paint; }
+/* ==== OkObserver perf patch (non-destructive) ==== */
+
+/* Make large feeds cheaper to render without changing layout */
+.posts-grid{
+  content-visibility:auto;
+  contain-intrinsic-size: 400px 600px; /* prevents jump while offscreen */
+}
+
+/* Isolate card work to avoid grid-wide reflows */
+.post-card{
+  contain: layout paint;
+}
+
+/* Ensure hero media never squashes and reserves space immediately */
+.post-hero img,
+.post-hero iframe,
+.post-hero video{
+  width:100% !important;
+  height:auto !important;
+  aspect-ratio:16/9 !important;
+  display:block !important;
+  border:0;
+}
+
+/* Preserve grid on post pages (prevents feed flash) */
+body[data-route="post"] .posts-grid { display:none !important; }

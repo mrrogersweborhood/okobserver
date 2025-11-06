@@ -1,11 +1,12 @@
-// 🟢 main.js — Build 2025-11-06SR1-fixB3e3
+// 🟢 main.js — Build 2025-11-06SR1-perfSWR1
 (function(){
   'use strict';
 
   // ------------ BUILD + CONSTANTS ------------
-  const BUILD = '2025-11-06SR1-fixB3e3';
+  const BUILD = '2025-11-06SR1-perfSWR1';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
+  const DEV = false;
 
   // sessionStorage keys
   const SS = {
@@ -35,6 +36,9 @@
 
   const fmtDate = d => new Date(d).toLocaleDateString();
 
+  // shared DOMParser to reduce allocations
+  const SHARED_PARSER = new DOMParser();
+
   // ------------ HELPERS ------------
   function isCartoon(p){
     const groups = p?._embedded?.['wp:term'] || [];
@@ -45,10 +49,11 @@
   function imgHTML(p){
     const fm = p._embedded?.['wp:featuredmedia']?.[0];
     const sizes = fm?.media_details?.sizes || {};
-    const best  = sizes?.large || sizes?.medium_large || sizes?.medium || sizes?.full;
+    // prefer medium_large to cut bytes; fallback to large/medium/full
+    const best  = sizes?.medium_large || sizes?.large || sizes?.medium || sizes?.full;
     let src = (best?.source_url || fm?.source_url || '') || '';
     if (src) src += (src.includes('?') ? '&' : '?') + 'cb=' + p.id;
-    return src ? `<img src="${src}" alt="" loading="lazy">` : '';
+    return src ? `<img src="${src}" alt="" loading="lazy" decoding="async">` : '';
   }
 
   const cardHTML = p => `
@@ -85,14 +90,13 @@
   }
 
   function buildObserver(){
-    const make = (margin) => new IntersectionObserver(async entries => {
+    const cb = async entries => {
       const e = entries[0];
       if (!e || !e.isIntersecting || RESTORING || loading || reachedEnd || route !== 'home') return;
       await loadNext();
-    }, { root: null, rootMargin: margin, threshold: 0 });
-
-    try { return make('2200px 0px 1800px 0px'); }
-    catch { try { return make('0px'); } catch { return null; } }
+    };
+    try { return new IntersectionObserver(cb, { root: null, rootMargin: '1800px 0px 1200px 0px', threshold: 0 }); }
+    catch { try { return new IntersectionObserver(cb); } catch { return null; } }
   }
 
   function attachObserver(){
@@ -125,6 +129,7 @@
       const slim = {};
       (ids || []).forEach(id => {
         const p = byId[id]; if (!p) return;
+        // keep only the fields we need for fast restore
         slim[id] = { id: p.id, date: p.date, title: p.title, excerpt: p.excerpt, _embedded: p._embedded };
       });
       sessionStorage.setItem(SS.FEED_BYID, JSON.stringify(slim));
@@ -144,8 +149,13 @@
   }
 
   // ------------ FETCH + APPEND POSTS ------------
+  // shrink payload using _fields (works alongside _embed)
+  const WP_FIELDS = '_fields=id,date,title,excerpt,content,_embedded&' +
+                    '_embed=author,wp:term,wp:featuredmedia';
+
   async function fetchPosts(n){
-    const r = await fetch(`${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&_embed=1&orderby=date&order=desc&status=publish`);
+    const url = `${API_BASE}/posts?per_page=${PAGE_SIZE}&page=${n}&${WP_FIELDS}&orderby=date&order=desc&status=publish`;
+    const r = await fetch(url);
     if (!r.ok){
       if ([400,404].includes(r.status)) return { posts: [], rawCount: 0, end: true };
       throw new Error(r.status);
@@ -178,7 +188,13 @@
 
     placeSentinelAfterLastCard();
     if (io){ try{ io.unobserve(sentinel); }catch{} try{ io.observe(sentinel); }catch{} }
-    wireCardClicks(feed);
+
+    // wire clicks during idle to avoid blocking scroll
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => wireCardClicks(feed));
+    } else {
+      setTimeout(() => wireCardClicks(feed), 0);
+    }
   }
 
   async function loadNext(){
@@ -186,7 +202,8 @@
     loading = true;
     try{
       let appended = 0, hops = 0;
-      while (!reachedEnd && hops < 6 && appended < 9){
+      const deadline = performance.now() + 120; // budget per burst
+      while (!reachedEnd && hops < 6 && appended < 9 && performance.now() < deadline){
         const { posts, rawCount, end } = await fetchPosts(page);
         if (end || !rawCount){ reachedEnd = true; break; }
         if (posts.length){ appendPosts(posts); appended += posts.length; }
@@ -291,7 +308,7 @@
     app.innerHTML = '<div>Loading…</div>';
 
     try{
-      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1`);
+      const r = await fetch(`${API_BASE}/posts/${id}?_embed=1&${WP_FIELDS}`);
       if (!r.ok){ app.innerHTML = '<p>Not found.</p>'; return; }
       const p = await r.json();
 
@@ -299,8 +316,7 @@
       const cleaned = sanitizePostHTML(rawHTML);
 
       // --- media detection (broad & resilient) ---
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(rawHTML, 'text/html');
+      const doc = SHARED_PARSER.parseFromString(rawHTML, 'text/html');
 
       const iframeEl = doc.querySelector('iframe[src]');
       const iframeSrc = iframeEl?.getAttribute('src') || '';
@@ -319,30 +335,21 @@
       let videoEmbed = '';
       let hero = '';
 
-      // 1) TRUST ONLY real player iframes; otherwise ignore placeholder iframes
       if (iframeEl && isTrustedPlayerSrc(iframeSrc)){
         videoEmbed = makeIframe(iframeSrc);
-
-      // 2) Build our own embeds from detected URLs
       } else if (ytID){
         videoEmbed = makeIframe(`https://www.youtube.com/embed/${ytID}`);
-
       } else if (vimeoID){
         videoEmbed = makeIframe(`https://player.vimeo.com/video/${vimeoID}`);
-
-      // 3) Native video or mp4 source in content
       } else if (videoTag){
         const tmp = document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
         const html = tmp.innerHTML.replace(/<video/i,'<video playsinline controls style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"');
         videoEmbed = `<div class="video-html5" style="margin:12px 0;">${html}</div>`;
-
       } else if (mp4Source || textMp4){
         const mp4Url = mp4Source?.getAttribute('src') || textMp4;
         const poster = p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '';
         const posterAttr = poster ? ` poster="${poster}"` : '';
         videoEmbed = `<div class="video-html5" style="margin:12px 0;"><video playsinline controls${posterAttr} style="max-width:100%;height:auto;border-radius:8px;display:block;margin:12px auto;"><source src="${mp4Url}" type="video/mp4">Your browser does not support the video tag.</video></div>`;
-
-      // 4) Facebook fallback to image + button (same-tab)
       } else if (fbLink){
         const fm = p._embedded?.['wp:featuredmedia']?.[0];
         const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Facebook video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
@@ -350,7 +357,6 @@
         videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
       }
 
-      // 5) If we saw a Vimeo/YouTube URL but still didn’t embed, show image + watch button(s)
       if (!videoEmbed && (vimeoURL || ytURL)){
         const fm = p._embedded?.['wp:featuredmedia']?.[0];
         const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
@@ -361,27 +367,24 @@
         videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}<p style="margin-top:10px;">${btns}</p></div>`;
       }
 
-      // HERO ladder
+      const fmHTML = imgHTML(p);
       if (videoEmbed){
         hero = videoEmbed;
+      }else if (fmHTML){
+        hero = `<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${fmHTML}</div></div>`;
       }else{
-        const fmHTML = imgHTML(p);
-        if (fmHTML){
-          hero = `<div class="post-hero" style="margin:0 0 16px 0;"><div class="thumb">${fmHTML}</div></div>`;
-        }else if (firstImg){
-          const tmp = document.createElement('div'); tmp.appendChild(firstImg.cloneNode(true));
+        const first = firstImg;
+        if (first){
+          const tmp = document.createElement('div'); tmp.appendChild(first.cloneNode(true));
           const html = tmp.innerHTML.replace(/<img/i,'<img style="max-width:100%;height:auto;border-radius:8px;display:block;margin:0 auto;"');
           hero = `<div class="post-hero" style="margin:0 0 16px 0;">${html}</div>`;
         }
       }
 
-      console.log('[OkObserver] media detect', {
-        id,
-        hero: !!hero,
+      DEV && console.log('[OkObserver] media detect', {
+        id, hero: !!hero,
         iframeTrusted: isTrustedPlayerSrc(iframeSrc),
-        iframeSrc,
-        vimeoURL, vimeoID,
-        ytURL, ytID,
+        iframeSrc, vimeoURL, vimeoID, ytURL, ytID,
         mp4: !!(mp4Source || textMp4),
         fb: !!fbLink
       });
@@ -417,7 +420,7 @@
       app.innerHTML = '';
       const feed = ensureFeed();
       feed.innerHTML = list.map(cardHTML).join('');
-      wireCardClicks(feed);
+      if ('requestIdleCallback' in window) requestIdleCallback(() => wireCardClicks(feed)); else setTimeout(() => wireCardClicks(feed), 0);
       placeSentinelAfterLastCard();
       attachObserver();
 
@@ -470,8 +473,13 @@
     const v = document.getElementById('build-version');
     if (v) v.textContent = 'Build ' + BUILD;
     router();
+
+    // ask the active SW to take control immediately after updates
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try { navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' }); } catch {}
+    }
   });
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
- // 🔴 main.js — Build 2025-11-06SR1-fixB3e3
+ // 🔴 main.js — Build 2025-11-06SR1-perfSWR1
