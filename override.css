@@ -193,3 +193,59 @@ body{
 
 /* Accessibility baseline */
 a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-offset:3px;border-radius:8px}
+/* === hotfix3b: header + featured image alignment === */
+.oo-header{
+  background:#1E90FF;
+  color:#fff;
+  box-shadow:0 1px 10px rgba(0,0,0,.12);
+}
+.oo-brand{
+  display:flex;
+  align-items:center;
+  justify-content:center;   /* centers logo + motto */
+  position:relative;
+}
+.oo-logo{
+  width:36px;
+  height:36px;
+  border-radius:6px;
+  object-fit:contain;
+  display:block;
+}
+.oo-title{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin-left:.5rem;
+}
+.oo-name,.oo-motto{
+  text-align:center;
+  color:#fff;
+}
+.oo-menu{
+  position:absolute;
+  right:1rem;
+  top:50%;
+  transform:translateY(-50%);
+  border:0;
+  background:transparent;
+  color:#fff;
+  font-size:1.5rem;
+  line-height:1;
+  padding:.25rem .5rem;
+  border-radius:10px;
+  cursor:pointer;
+}
+.oo-menu:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* featured image visibility fix */
+.oo-media{
+  display:block;
+  width:100%;
+  aspect-ratio:16/9;
+  object-fit:cover;
+  object-position:center;
+  border-bottom:1px solid #eee;
+  background:#e9eef5 url('favicon.ico') no-repeat center/contain;
+}
+/* === end hotfix3b === */

@@ -3,10 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>OkObserver</title>
   <meta name="theme-color" content="#1E90FF" />
 
@@ -17,11 +14,11 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- Styles (cache-busted to hotfix3a) -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3a" />
+  <!-- Styles (cache-busted to hotfix3b) -->
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3b" />
 
   <style>
-    /* Minimal critical CSS guard: ensure grid retains columns before CSS loads fully */
+    /* Minimal critical CSS guard so grid doesn’t flash to 1-col before CSS loads */
     .oo-grid{display:grid;gap:16px}
   </style>
 </head>
@@ -46,19 +43,19 @@
   </main>
 
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3a</span>
+    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3b</span>
   </footer>
 
   <!-- App core (no ES modules) -->
   <script>
-    // Version banner surfaced early for SW + cache bust
+    // Version banner for SW + cache bust
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER = "2025-11-06SR1-perfSWR1-hotfix3a";
+    window.__OKO__.VER = "2025-11-06SR1-perfSWR1-hotfix3b";
     window.__OKO__.DEBUG = false; // set true to enable observability logs/counters
   </script>
 
   <!-- Cache-busted main bundle -->
-  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3a"></script>
+  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3b"></script>
 
   <!-- Defer non-critical enabling using requestIdleCallback (safe) -->
   <script>
@@ -67,11 +64,11 @@
     });
   </script>
 
-  <!-- SW registration (cache-busted to hotfix3a) -->
+  <!-- SW registration (cache-busted to hotfix3b) -->
   <script>
     (function(){
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-perfSWR1-hotfix3a')
+        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-perfSWR1-hotfix3b')
           .catch(console.warn);
       }
     })();
