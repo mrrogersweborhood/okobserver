@@ -1,9 +1,9 @@
-// 🟢 main.js — Build 2025-11-06SR1-fixB3e
+// 🟢 main.js — Build 2025-11-06SR1-fixB3e2 (bulletproof Vimeo/YT detect + guaranteed fallback + detailed logs)
 (function(){
   'use strict';
 
   // ------------ BUILD + CONSTANTS ------------
-  const BUILD = '2025-11-06SR1-fixB3e';
+  const BUILD = '2025-11-06SR1-fixB3e2';
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   const PAGE_SIZE = 12;
 
@@ -245,6 +245,30 @@
     return wrap.innerHTML;
   }
 
+  // ------------ UTILS: MEDIA DETECT ------------
+  function decodeHTML(str){ return str.replace(/&amp;/g,'&'); }
+
+  function findVimeoURL(rawHTML, hrefs){
+    const hay = decodeHTML(rawHTML);
+    const inText = hay.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+[^\s"'<>)]*/i);
+    const inHrefs = hrefs.find(h => /vimeo\.com\/\d+/i.test(h));
+    return (inText && inText[0]) || inHrefs || '';
+  }
+  function vimeoIdFrom(url){
+    const m = String(url).match(/vimeo\.com\/(\d+)/i);
+    return m ? m[1] : '';
+  }
+  function findYouTubeURL(rawHTML, hrefs){
+    const hay = decodeHTML(rawHTML);
+    const inText = hay.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[A-Za-z0-9_-]+|youtu\.be\/[A-Za-z0-9_-]+)/i);
+    const inHrefs = hrefs.find(h => /youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
+    return (inText && inText[0]) || inHrefs || '';
+  }
+  function youTubeIdFrom(url){
+    return (String(url).match(/v=([A-Za-z0-9_-]{6,})/)||[])[1] ||
+           (String(url).match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1] || '';
+  }
+
   // ------------ DETAIL VIEW ------------
   async function renderDetail(id){
     document.body.dataset.route = 'post';
@@ -274,12 +298,10 @@
       const firstImg = doc.querySelector('img');
       const fbLink = hrefs.find(h => /facebook\.com\//i.test(h));
 
-      // Plaintext URL matches (handle params/encoding)
-      const ytPlain = (rawHTML.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/i)||[])[0] || '';
-      const viPlain = (rawHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i)||[])[0] || '';
-
-      const ytLink  = hrefs.find(h => /youtube\.com\/watch\?v=|youtu\.be\//i.test(h));
-      const viLink  = hrefs.find(h => /vimeo\.com\/\d+/i.test(h));
+      const vimeoURL = findVimeoURL(rawHTML, hrefs);
+      const ytURL    = findYouTubeURL(rawHTML, hrefs);
+      const vimeoID  = vimeoIdFrom(vimeoURL);
+      const ytID     = youTubeIdFrom(ytURL);
 
       const makeIframe = (src) =>
         `<div class="video-container" style="margin:12px 0;">
@@ -294,16 +316,11 @@
         const src = iframe.getAttribute('src') || '';
         if (src) videoEmbed = makeIframe(src);
 
-      } else if (ytLink || ytPlain){
-        const url = ytLink || ytPlain;
-        const yid = (url.match(/v=([A-Za-z0-9_-]{6,})/)||[])[1] ||
-                    (url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/)||[])[1];
-        if (yid) videoEmbed = makeIframe(`https://www.youtube.com/embed/${yid}`);
+      } else if (ytID){
+        videoEmbed = makeIframe(`https://www.youtube.com/embed/${ytID}`);
 
-      } else if (viLink || viPlain){
-        const url = viLink || viPlain;
-        const vid = (url.match(/vimeo\.com\/(\d+)/)||[])[1];
-        if (vid) videoEmbed = makeIframe(`https://player.vimeo.com/video/${vid}`);
+      } else if (vimeoID){
+        videoEmbed = makeIframe(`https://player.vimeo.com/video/${vimeoID}`);
 
       } else if (videoTag){
         const tmp = document.createElement('div'); tmp.appendChild(videoTag.cloneNode(true));
@@ -323,13 +340,15 @@
         videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
       }
 
-      // If Vimeo was detected but ID parsing failed, show watch-on-Vimeo button
-      if (!videoEmbed && (viLink || viPlain)){
-        const url = viLink || viPlain;
+      // If we still didn't embed but we saw a Vimeo/YouTube URL, show watch buttons
+      if (!videoEmbed && (vimeoURL || ytURL)){
         const fm = p._embedded?.['wp:featuredmedia']?.[0];
-        const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Vimeo video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
-        const btn = `<p style="margin-top:10px;"><a href="${url}" target="_blank" style="display:inline-block;background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Watch on Vimeo</a></p>`;
-        videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}${btn}</div>`;
+        const img = fm?.source_url ? `<img src="${fm.source_url}" alt="Video" style="max-width:100%;height:auto;border-radius:8px;">` : '';
+        const btns = [
+          vimeoURL ? `<a href="${vimeoURL}" target="_blank" style="background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;margin-right:8px;display:inline-block">Watch on Vimeo</a>` : '',
+          ytURL    ? `<a href="${ytURL}" target="_blank" style="background:#1E90FF;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">Watch on YouTube</a>` : ''
+        ].join('');
+        videoEmbed = `<div class="video-fallback" style="text-align:center;margin:20px 0;">${img}<p style="margin-top:10px;">${btns}</p></div>`;
       }
 
       // HERO ladder
@@ -350,8 +369,8 @@
         id,
         hero: !!hero,
         iframe: !!iframe,
-        ytLink: !!ytLink, ytPlain: !!ytPlain,
-        viLink: !!viLink, viPlain: !!viPlain,
+        vimeoURL, vimeoID,
+        ytURL, ytID,
         mp4: !!(mp4Source || textMp4),
         fb: !!fbLink
       });
@@ -444,3 +463,4 @@
 
   console.log('[OkObserver] main.js loaded:', BUILD);
 })();
+ // 🔴 main.js — Build 2025-11-06SR1-fixB3e2
