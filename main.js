@@ -1,19 +1,20 @@
 /* 🟢 main.js */
-/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3c
-   Change: add `_embed=1` to summary fetch so featured images are present.
-   Everything else stays the same (grid, caching, return-to-scroll, 1 fetch/page).
+/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3d
+   - Keep _embed=1 for summaries and detail
+   - Stronger featured-image resolver (checks sizes & content fallback)
+   - Stronger cartoon filter using embedded category names
+   - Preserves: 4/3/1 grid, 1 fetch/page, return-to-scroll, no ESM
 */
 (function(){
   "use strict";
 
-  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3c";
+  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3d";
   var DEBUG = !!(window.__OKO__ && window.__OKO__.DEBUG);
 
   var API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/";
   var PAGE_SIZE = 12;
 
   var metrics = { fetchPages: 0, postsReceived: 0, t0: performance.now() };
-  function log(){ if (DEBUG) console.log.apply(console, arguments); }
   function time(l){ if (DEBUG) console.time(l); }
   function timeEnd(l){ if (DEBUG) console.timeEnd(l); }
 
@@ -39,15 +40,24 @@
     return img;
   }
 
+  // ---- Cartoon filter: check embedded category names + fallback to ids/strings ----
   function isCartoon(post){
-    if (!post || !post.categories) return false;
-    var cats = post.categories;
-    if (Array.isArray(cats)) {
+    try{
+      // Embedded categories are in wp:term[0]
+      var terms = post._embedded && post._embedded["wp:term"] && post._embedded["wp:term"][0] || [];
+      var byName = terms.some(function(t){
+        var n = (t && t.name || "").toLowerCase();
+        return n.includes("cartoon") || n === "cartoons";
+      });
+      if (byName) return true;
+
+      // Fallback: category IDs/strings if present
+      var cats = post.categories || [];
       return cats.some(function(c){
         var s = String(c).toLowerCase();
         return s.includes("cartoon") || s === "1109" || s === "cartoons";
       });
-    }
+    }catch(_){ }
     return false;
   }
 
@@ -67,19 +77,15 @@
     if (state.loading || state.done) return [];
     state.loading = true;
     var label = "fetchPage#" + page;
-    time(label);
-    metrics.fetchPages++;
+    time(label); metrics.fetchPages++;
 
-    // IMPORTANT: request embedded objects so featured media arrives
     var url = API_BASE + "posts?per_page=" + PAGE_SIZE + "&page=" + page + "&_embed=1&orderby=date&order=desc";
     var res = await fetch(url, { credentials: "omit" });
     timeEnd(label);
 
     if (!res.ok) {
       state.loading = false;
-      if (res.status === 400 || res.status === 404) {
-        state.done = true; return [];
-      }
+      if (res.status === 400 || res.status === 404) { state.done = true; return []; }
       throw new Error("Network error " + res.status);
     }
 
@@ -103,7 +109,7 @@
         var list = JSON.parse(cachedList);
         state.list = list;
         state.page = parseInt(cachedPage, 10) || 1;
-        list.forEach(function(p){ grid.appendChild(cardFromPost(p)); });
+        list.forEach(function(p){ if(!isCartoon(p)) grid.appendChild(cardFromPost(p)); });
         deferIdle(function(){
           var y = parseFloat(sessionStorage.getItem(SS_SCROLL) || "0");
           if (!isNaN(y)) window.scrollTo(0, y);
@@ -135,6 +141,7 @@
     if (state.list.length===0) next = 1;
 
     var posts = await fetchPage(next);
+
     posts = posts.filter(function(p){ return !isCartoon(p); });
 
     posts.forEach(function(p){
@@ -157,7 +164,7 @@
     a.href = "#/post/" + post.id;
 
     var mediaSrc = pickFeaturedImage(post);
-    if (mediaSrc) a.appendChild(imgEl(mediaSrc, post.title && post.title.rendered || ""));
+    if (mediaSrc) a.appendChild(imgEl(mediaSrc, (post.title && post.title.rendered) || ""));
 
     var body = ce("div","oo-card-body");
     var title = ce("h2","oo-titletext");
@@ -177,19 +184,14 @@
     a.appendChild(body);
     body.appendChild(title); body.appendChild(meta); body.appendChild(excerpt);
 
-    card.addEventListener("keydown", function(e){
-      if (e.key === "Tab") card.classList.add("oo-focus");
-    }, { once:true });
-
     card.appendChild(a);
     return card;
   }
 
   function textFromHTML(html){ var d=new DOMParser().parseFromString(html||"","text/html"); return d.body.textContent||""; }
   function bylineFrom(post){
-    var a = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || "The Oklahoma Observer";
-    return a;
-    }
+    return (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || "The Oklahoma Observer";
+  }
   function dateFrom(post){
     try{ var d = new Date(post.date); return d.toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'});}catch(e){return "";}
   }
@@ -200,16 +202,39 @@
     }
     return out.slice(0,3);
   }
+
+  // ---- Robust featured image picker ----
   function pickFeaturedImage(post){
     try{
-      if (post._embedded && post._embedded["wp:featuredmedia"] && post._embedded["wp:featuredmedia"][0] && post._embedded["wp:featuredmedia"][0].source_url) {
-        return post._embedded["wp:featuredmedia"][0].source_url + "?cb=" + post.id;
+      // 1) Featured media top-level
+      var fm = post._embedded && post._embedded["wp:featuredmedia"] && post._embedded["wp:featuredmedia"][0];
+      if (fm) {
+        // prefer a reasonable size if available
+        var md = fm.media_details && fm.media_details.sizes;
+        var sizeOrder = ["large","medium_large","full","medium","thumbnail"];
+        if (md) {
+          for (var i=0;i<sizeOrder.length;i++){
+            var key = sizeOrder[i];
+            if (md[key] && md[key].source_url) return withCB(md[key].source_url, post.id);
+          }
+        }
+        if (fm.source_url) return withCB(fm.source_url, post.id);
       }
+      // 2) First <img> in content
       var d = new DOMParser().parseFromString(post.content && post.content.rendered || "", "text/html");
       var im = d.querySelector("img");
-      if (im && im.src) return im.src + "?cb=" + post.id;
-    }catch(e){}
-    return "";
+      if (im && im.src) return withCB(im.src, post.id);
+    }catch(e){ /* fall through */ }
+    return ""; // no image available
+  }
+  function withCB(url, id){
+    try{
+      var u = new URL(url, location.origin);
+      u.searchParams.set("cb", String(id));
+      return u.toString();
+    }catch(_){
+      return url + (url.includes("?") ? "&" : "?") + "cb=" + id;
+    }
   }
 
   async function renderDetail(id){
