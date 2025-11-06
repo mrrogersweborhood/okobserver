@@ -1,3 +1,4 @@
+<!-- 🟢 index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,11 +14,11 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
   <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
 
-  <!-- Favicon (keep your preferred filename) -->
+  <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1" />
+  <!-- Styles (cache-busted to hotfix3a) -->
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3a" />
 
   <style>
     /* Minimal critical CSS guard: ensure grid retains columns before CSS loads fully */
@@ -45,32 +46,36 @@
   </main>
 
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3</span>
+    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3a</span>
   </footer>
 
   <!-- App core (no ES modules) -->
   <script>
     // Version banner surfaced early for SW + cache bust
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER = "2025-11-06SR1-perfSWR1-hotfix3";
-    window.__OKO__.DEBUG = false; // flip to true to enable observability logs/counters
+    window.__OKO__.VER = "2025-11-06SR1-perfSWR1-hotfix3a";
+    window.__OKO__.DEBUG = false; // set true to enable observability logs/counters
   </script>
-  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3"></script>
+
+  <!-- Cache-busted main bundle -->
+  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3a"></script>
+
+  <!-- Defer non-critical enabling using requestIdleCallback (safe) -->
   <script>
-    // Defer non-critical enabling using requestIdleCallback (safe)
     (window.requestIdleCallback || function(cb){return setTimeout(cb,50)})(function(){
       document.getElementById('app')?.removeAttribute('inert');
     });
   </script>
 
-  <!-- SW registration stays identical; file hardened in sw.js -->
+  <!-- SW registration (cache-busted to hotfix3a) -->
   <script>
     (function(){
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-perfSWR1-hotfix3')
+        navigator.serviceWorker.register('sw.js?v=2025-11-06SR1-perfSWR1-hotfix3a')
           .catch(console.warn);
       }
     })();
   </script>
 </body>
 </html>
+<!-- 🔴 index.html -->

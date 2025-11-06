@@ -95,3 +95,101 @@ body{
 
 /* Accessibility focus baseline for interactive pieces inside cards */
 a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-offset:3px;border-radius:8px}
+/* OkObserver override.css — v=2025-11-06SR1-gridLock1 (hotfix3a)
+   Small, safe patch: make .oo-titlelink block to prevent collapsed content inside cards.
+   Everything else unchanged from gridLock1. */
+
+:root{
+  --oko-blue:#1E90FF;
+  --oko-gap:18px;
+  --oko-card-radius:14px;
+  --oko-shadow:0 2px 10px rgba(0,0,0,.08);
+  --oko-shadow-hover:0 6px 20px rgba(0,0,0,.14);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;
+  color:#111;
+  background:#f7f8fa;
+}
+
+/* Header */
+.oo-header{
+  position:sticky;top:0;z-index:1000;
+  background:linear-gradient(0deg,#1E90FF,#1E90FF);
+  color:#fff;
+  padding:.5rem 1rem;
+  box-shadow:0 1px 10px rgba(0,0,0,.12);
+}
+.oo-brand{display:flex;align-items:center;gap:.75rem}
+.oo-logo{width:28px;height:28px;border-radius:6px}
+.oo-title{display:flex;flex-direction:column}
+.oo-name{margin:0;font-size:1.125rem;line-height:1.2}
+.oo-motto{margin:2px 0 0;font-size:.8rem;opacity:.95}
+.oo-menu{
+  margin-left:auto;border:0;background:transparent;color:#fff;
+  font-size:1.35rem;line-height:1;padding:.25rem .5rem;border-radius:10px;cursor:pointer
+}
+.oo-menu:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* Nav */
+.oo-nav{display:flex;gap:1rem;padding:.5rem 0}
+.oo-nav a{color:#fff;text-decoration:none;opacity:.95}
+.oo-nav a:focus-visible{outline:2px dashed #fff;outline-offset:3px;border-radius:6px}
+
+/* App shell */
+.oo-app{max-width:1200px;margin:1rem auto;padding:0 1rem}
+
+/* GRID */
+.oo-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:var(--oko-gap);
+}
+@media (min-width:768px){
+  .oo-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media (min-width:1024px){
+  .oo-grid{grid-template-columns:repeat(4,1fr)}
+}
+
+/* Cards */
+.oo-card{
+  background:#fff;border-radius:var(--oko-card-radius);
+  box-shadow:var(--oko-shadow);overflow:hidden;transition:transform .18s ease, box-shadow .18s ease;
+}
+/* make the anchor inside occupy the card to avoid collapsed content */
+.oo-titlelink{display:block;color:#0a1f44;text-decoration:none}
+.oo-card:hover{transform:translateY(-2px);box-shadow:var(--oko-shadow-hover)}
+.oo-card:focus-within{outline:2px solid var(--oko-blue);outline-offset:2px}
+
+/* Media */
+.oo-media{
+  width:100%;aspect-ratio:16/9;background:#e9eef5;
+  display:block;object-fit:cover;object-position:center center;
+}
+
+/* Content */
+.oo-card-body{padding:12px 14px 14px}
+.oo-titletext{margin:0 0 .35rem;font-size:1.02rem;line-height:1.25}
+.oo-titlelink:focus-visible{outline:2px dashed var(--oko-blue);outline-offset:3px;border-radius:6px}
+
+/* Meta (byline/tags/date) */
+.oo-meta{display:flex;flex-wrap:wrap;gap:.35rem .6rem;margin:.25rem 0;color:#445}
+.oo-meta .oo-byline{font-weight:600}
+.oo-meta .oo-date{opacity:.8}
+.oo-tag{font-size:.78rem;line-height:1;border:1px solid #d8deea;border-radius:999px;padding:.2rem .45rem;background:#f4f7fb}
+
+/* Excerpt */
+.oo-excerpt{margin:.5rem 0 0;color:#1a2233}
+
+/* Footer */
+.oo-footer{
+  text-align:center;font-size:.9rem;color:#556;
+  padding:2rem 1rem 3rem
+}
+
+/* Accessibility baseline */
+a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-offset:3px;border-radius:8px}
