@@ -1,15 +1,16 @@
 /*
  OkObserver SPA Main Script
- Build: 2025-11-07SR1-perfSWR1-videoR1-infiniteFix1
+ Build: 2025-11-07SR1-perfSWR1-videoR1-fbFix2
  Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
- Features:
+ Features kept:
  - Infinite scroll (paginated) with duplicate guard
  - Single fetch at a time
  - Session list & scroll cache
- - Cartoon filter (ID 5923, term/title contains 'cartoon')
+ - Cartoon filter (ID 5923 + term/title 'cartoon')
  - Excerpts immediate
- - Featured images contained; edge-to-edge hero on detail
- - Click-to-play: YouTube, Vimeo, Facebook (embeds), MP4
+ - Clickable card image (image wrapped by <a>)
+ - Edge-to-edge hero on detail
+ - Click-to-play: YouTube, Vimeo, Facebook, MP4 (Facebook fixed)
  - Grid MutationObserver enforcement
  - No ES modules
 */
@@ -19,8 +20,8 @@
   var app = document.getElementById('app');
   var scrollCacheKey = 'okobs-scroll';
   var listCacheKey = 'okobs-list';
-  var metaCacheKey = 'okobs-list-meta'; // page, loaded ids
-  var VER = '2025-11-07SR1-perfSWR1-videoR1-infiniteFix1';
+  var metaCacheKey = 'okobs-list-meta';
+  var VER = '2025-11-07SR1-perfSWR1-videoR1-fbFix2';
 
   console.log('[OkObserver] Init', VER);
 
@@ -65,16 +66,11 @@
   }
 
   // ---------- home (infinite scroll) ----------
-  var loading = false;
-  var done = false;
-  var page = 1;
-  var perPage = 12;
+  var loading = false, done = false, page = 1, perPage = 12;
   var seenIds = new Set();
 
   function buildCard(p) {
     var card = el('article', 'post-card');
-
-    // Wrap image + title in one link so image is clickable
     var link = el('a');
     link.href = '#/post/' + p.id;
 
@@ -108,9 +104,7 @@
     try {
       sessionStorage.setItem(listCacheKey, grid.innerHTML);
       sessionStorage.setItem(metaCacheKey, JSON.stringify({
-        page: page,
-        done: done,
-        seen: Array.from(seenIds)
+        page: page, done: done, seen: Array.from(seenIds)
       }));
     } catch (_) {}
   }
@@ -132,10 +126,9 @@
   function attachScroll(grid) {
     function onScroll() {
       if (done || loading) return;
-      if (sliderBottomDistance() > 800) return; // load near bottom
+      if (sliderBottomDistance() > 800) return;
       loadMore(grid);
     }
-    window.removeEventListener('scroll', onScroll); // ensure single
     window.addEventListener('scroll', onScroll, { passive: true });
   }
 
@@ -144,37 +137,22 @@
     loading = true;
     var url = API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed';
     fetchJSON(url).then(function(posts) {
-      // If nothing returned, stop
       if (!posts || !posts.length) { done = true; return; }
-
-      var added = 0;
       posts.forEach(function(p) {
         if (isCartoon(p)) return;
         if (seenIds.has(p.id)) return;
         seenIds.add(p.id);
         grid.appendChild(buildCard(p));
-        added++;
       });
-
-      // If we added nothing (all filtered/seen), still advance page to avoid loops
       page++;
-
-      // Heuristic: if fewer than perPage came back, we may be near the end
-      if (posts.length < perPage) done = false; // keep trying until empty
       saveListCache(grid);
     }).catch(function(e){
       console.warn('[OkObserver] loadMore failed', e);
-    }).finally(function(){
-      loading = false;
-    });
+    }).finally(function(){ loading = false; });
   }
 
   function resetHomeState() {
-    loading = false;
-    done = false;
-    page = 1;
-    perPage = 12;
-    seenIds = new Set();
+    loading = false; done = false; page = 1; perPage = 12; seenIds = new Set();
   }
 
   function renderHome() {
@@ -184,16 +162,13 @@
     app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
     var grid = qs('#grid');
 
-    // Try to restore cached list + meta
     if (restoreListCache(grid)) {
       restoreScroll();
       attachScroll(grid);
-      // Kick a prefetch if user is already near bottom
       if (sliderBottomDistance() <= 800) loadMore(grid);
       return Promise.resolve();
     }
 
-    // First page
     return fetchJSON(API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed').then(function(posts) {
       posts.forEach(function(p) {
         if (isCartoon(p)) return;
@@ -204,7 +179,6 @@
       page++;
       saveListCache(grid);
       attachScroll(grid);
-      // If short page and we’re near bottom, load next immediately
       if (sliderBottomDistance() <= 800) loadMore(grid);
     });
   }
@@ -247,7 +221,7 @@
     });
   }
 
-  // ---------- video enhancement ----------
+  // ---------- video enhancement (Facebook fixed) ----------
   function enhanceVideos(scope) {
     var nodes = Array.prototype.slice.call(scope.querySelectorAll('iframe, video, a[href]'));
     nodes.forEach(function (elm) {
@@ -261,6 +235,7 @@
       else if (/\.(mp4|webm|ogg)$/i.test(src)) type = 'mp4';
       if (!type) return;
 
+      // For anchors, keep click-to-play behavior
       if (elm.tagName === 'A') elm.removeAttribute('href');
 
       var wrap = document.createElement('div');
@@ -269,6 +244,9 @@
       wrap.style.cursor = 'pointer';
       wrap.style.aspectRatio = '16/9';
       wrap.style.background = '#000';
+      wrap.style.maxWidth = '100%';
+      wrap.style.borderRadius = '12px';
+      wrap.style.overflow = 'hidden';
 
       var btn = el('div', 'play-overlay');
       btn.innerHTML = '<div class="triangle"></div>';
@@ -294,15 +272,26 @@
           wrap.classList.remove('pending');
           return;
         }
+
         var iframe = document.createElement('iframe');
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.allowFullscreen = true;
-        iframe.frameBorder = '0';
-        iframe.width = '100%';
-        iframe.height = '100%';
-        if (type === 'youtube') iframe.src = src.replace('watch?v=', 'embed/') + '?autoplay=1';
-        else if (type === 'vimeo') iframe.src = src.replace('vimeo.com', 'player.vimeo.com/video') + '?autoplay=1';
-        else if (type === 'facebook') iframe.src = 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(src) + '&autoplay=1&show_text=false';
+        iframe.setAttribute('frameborder', '0');
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+
+        if (type === 'youtube') {
+          iframe.src = src.replace('watch?v=', 'embed/') + '?autoplay=1';
+        } else if (type === 'vimeo') {
+          iframe.src = src.replace('vimeo.com', 'player.vimeo.com/video') + '?autoplay=1';
+        } else if (type === 'facebook') {
+          // Always convert to the official FB embed endpoint.
+          // Works for plain post URLs and fb.watch short links.
+          var plugin = 'https://www.facebook.com/plugins/video.php?href=' +
+            encodeURIComponent(src) + '&autoplay=1&show_text=false&width=1280';
+          iframe.src = plugin;
+        }
+
         wrap.replaceChildren(iframe);
         wrap.classList.remove('pending');
       });
