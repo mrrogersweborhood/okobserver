@@ -1,4 +1,4 @@
-<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR17-forcedPlayerInject) -->
+<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR18-entityDecodeForceEmbed) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
-  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR17-forcedPlayerInject" />
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR18-entityDecodeForceEmbed" />
   <style>
     :root{--okblue:#1E90FF;--app-max:1200px;}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f3f6f9;color:#0b1320;}
@@ -19,6 +19,17 @@
     .menu-toggle{grid-column:2;justify-self:end;font-size:22px;padding:6px 10px;color:#fff;background:transparent;border:0;cursor:pointer}
     #app{max-width:var(--app-max);margin:18px auto;padding:0 16px 32px;}
     .site-footer{max-width:var(--app-max);margin:32px auto;padding:12px 16px;color:#5a6a7a;font-size:13px;}
+    .okobs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+    @media (max-width:1100px){.okobs-grid{grid-template-columns:repeat(3,1fr);}}
+    @media (max-width:720px){.okobs-grid{grid-template-columns:1fr;}}
+    .post-card{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.08);overflow:hidden}
+    .post-card img{width:100%;display:block}
+    .post-card .post-title{font-size:20px;margin:12px 12px 6px;color:#1E90FF}
+    .post-card .post-meta{opacity:.9;margin:0 12px 10px}
+    .post-card .post-excerpt{margin:0 12px 14px}
+    .post-detail .post-hero img{width:100%;display:block}
+    .post-detail .post-title{font-size:32px;color:#1E90FF;margin:16px 0 6px}
+    .post-detail .post-meta{margin:0 0 12px}
     .back-btn{margin:24px 0 0;background:var(--okblue);color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer}
   </style>
 </head>
@@ -40,11 +51,13 @@
   <main id="app" class="app"></main>
 
   <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR17-forcedPlayerInject
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR18-entityDecodeForceEmbed
   </footer>
 
-  <script defer src="main.js?v=2025-11-07SR1-videoFixR17-forcedPlayerInject"></script>
+  <!-- Load the FULL script block (embedded) -->
+  <script defer src="main.js?v=2025-11-07SR1-videoFixR18-entityDecodeForceEmbed"></script>
   <script>
+    // SW (unchanged build id)
     if('serviceWorker' in navigator){
       window.addEventListener('load',()=>{
         navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
@@ -55,4 +68,4 @@
   </script>
 </body>
 </html>
-<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR17-forcedPlayerInject) -->
+<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR18-entityDecodeForceEmbed) -->
