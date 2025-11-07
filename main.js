@@ -1,14 +1,15 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR6-infiniteR1)
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1)
 // Full file replacement. Includes:
 // - Infinite scroll hardening (single listener; guaranteed first/top-up loads)
 // - Robust video enhancer (YouTube/Vimeo/Facebook/MP4 + WP wrappers, data-href, text URLs)
 // - Black-box cleanup for stray FB placeholders
+// - NEW: Gap cleanup between hero image and first video (removes empty <p>/&nbsp; spacers, trims margins)
 // - Cartoon filter, byline, session list+scroll cache, grid enforcer
 // - No ES modules
 // MARKER START: 🟢 main.js
 
 (function(){
-  const VER = '2025-11-07SR1-videoFixR6-infiniteR1';
+  const VER = '2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1';
   console.log('[OkObserver] Main JS Build', VER);
 
   // ---- constants / refs ----
@@ -269,6 +270,28 @@
       const hasPlayer = ifr && (ifr.src||'').includes('facebook.com');
       if (!hasPlayer && el.offsetHeight < 80) el.remove();
     });
+
+    // 🧹 Collapse white-space blocks between hero and first video
+    (function cleanGaps(){
+      const body = scope; // scope is .post-body
+      if (!body) return;
+
+      // Remove empty paragraphs and non-breaking-space spacers
+      body.querySelectorAll('p').forEach(p=>{
+        const txt = (p.textContent||'').replace(/\u00a0/g,' ').trim();
+        const onlyBr = p.children.length===1 && p.firstElementChild.tagName==='BR';
+        if (!txt && (p.children.length===0 || onlyBr)) p.remove();
+      });
+
+      // If first real node is a video/embed, cut top margin
+      const first = Array.from(body.children).find(n=> n.nodeType===1);
+      if (first && (
+          first.classList.contains('okobs-video') ||
+          first.matches('figure.wp-block-embed, .wp-block-embed__wrapper, iframe, video')
+        )){
+        first.style.marginTop = '0';
+      }
+    })();
   }
 
   // ---- router ----
@@ -287,4 +310,4 @@
 })();
 
 // MARKER END: 🔴 main.js
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR6-infiniteR1)
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1)

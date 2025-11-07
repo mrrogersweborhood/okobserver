@@ -1122,3 +1122,43 @@ div.fb-video:empty {
   margin: 0 10px;
 }
 /* ==== end headerLock-2025-11-07SR1 ==== */
+/* ==== post-gap-fix 2025-11-07 ====
+   Tighten space between hero image and first video/embed */
+.post-detail .post-hero { margin: 0 auto 16px auto; }
+.post-detail .post-body > * { margin-top: 16px; margin-bottom: 16px; }
+.post-detail .post-body > :first-child { margin-top: 0; }
+
+/* If the first meaningful block is a video/embed, reduce its top margin */
+.post-detail .post-body > .okobs-video:first-child,
+.post-detail .post-body > figure.wp-block-embed:first-child,
+.post-detail .post-body > .wp-block-embed__wrapper:first-child,
+.post-detail .post-body > iframe:first-child,
+.post-detail .post-body > video:first-child { margin-top: 0 !important; }
+
+/* Hide empty paragraphs / spacers that create white gaps */
+.post-detail .post-body p:empty,
+.post-detail .post-body p:has(br:only-child),
+.post-detail .post-body p:has(img:empty) {
+  display: none !important;
+}
+
+/* Ensure our video wrapper doesn’t add extra gap */
+.okobs-video { margin: 0 auto 16px auto; }
+/* 🟢 override.css insert (post-gap-fix 2025-11-07SR1) — START
+   Tighten space between hero image and first video/embed; hide spacer paragraphs */
+.post-detail .post-hero { margin: 0 auto 16px auto; }
+.post-detail .post-body > * { margin-top: 16px; margin-bottom: 16px; }
+.post-detail .post-body > :first-child { margin-top: 0; }
+
+.post-detail .post-body > .okobs-video:first-child,
+.post-detail .post-body > figure.wp-block-embed:first-child,
+.post-detail .post-body > .wp-block-embed__wrapper:first-child,
+.post-detail .post-body > iframe:first-child,
+.post-detail .post-body > video:first-child { margin-top: 0 !important; }
+
+.post-detail .post-body p:empty,
+.post-detail .post-body p:has(br:only-child),
+.post-detail .post-body p:has(img:empty) { display: none !important; }
+
+.okobs-video { margin: 0 auto 16px auto; }
+/* 🔴 override.css insert (post-gap-fix 2025-11-07SR1) — END */
