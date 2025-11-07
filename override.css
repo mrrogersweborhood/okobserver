@@ -769,3 +769,209 @@ header.okobs-header .hamburger span{
   header.okobs-header nav.menu a{ color:#fff !important; text-decoration:none; font-weight:600; }
 }
 /* ========================================================== */
+/* ==== headerCenterLockR4 (large logo + single-line centered motto) ==== */
+header.okobs-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #1E90FF;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+header.okobs-header .okobs-header-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+/* make sure the brand centers logo + motto */
+header.okobs-header a.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: #fff !important;
+  gap: 10px;
+}
+
+/* logo: large and dominant */
+header.okobs-header img.logo {
+  width: 200px;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  max-width: none !important;
+  margin-bottom: 6px;
+}
+
+/* motto: centered single line, no wrap */
+header.okobs-header .motto {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* hamburger still right aligned */
+header.okobs-header .hamburger {
+  position: absolute;
+  right: 16px;
+  top: 20px;
+  background: transparent;
+  border: 0;
+  width: 40px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+header.okobs-header .hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  margin: 3px 0;
+}
+
+/* keep menu behavior */
+header.okobs-header nav.menu[hidden] {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  header.okobs-header img.logo {
+    width: 160px;
+  }
+  header.okobs-header .motto {
+    font-size: 16px;
+    white-space: normal;
+  }
+  header.okobs-header nav.menu:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 16px 16px;
+  }
+  header.okobs-header nav.menu a {
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 600;
+  }
+}
+/* ========================================================== */
+/* ==== headerCenterLockR5 (large logo + centered one-line motto) ==== */
+header.okobs-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #1E90FF;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  text-align: center;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+header.okobs-header .okobs-header-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+header.okobs-header a.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #fff !important;
+  gap: 10px;
+}
+
+header.okobs-header img.logo {
+  width: 200px;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  max-width: none !important;
+  margin-bottom: 6px;
+}
+
+header.okobs-header .motto {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  max-width: 95%;
+}
+
+header.okobs-header .hamburger {
+  position: absolute;
+  right: 16px;
+  top: 20px;
+  background: transparent;
+  border: 0;
+  width: 40px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+header.okobs-header .hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  margin: 3px 0;
+}
+
+header.okobs-header nav.menu[hidden] {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  header.okobs-header img.logo {
+    width: 160px;
+  }
+  header.okobs-header .motto {
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  header.okobs-header nav.menu:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 16px 16px;
+  }
+  header.okobs-header nav.menu a {
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 600;
+  }
+}
+/* ========================================================== */
