@@ -484,3 +484,33 @@ article h1 a:hover {
 #oo-nav[hidden]{ display:none !important; }
 #oo-nav{ z-index:1001 !important; }
 .oo-menu{ z-index:1002 !important; -webkit-tap-highlight-color:transparent; }
+/* === hotfix3m: prevent featured image cropping on post detail === */
+
+/* Detail page: featured image should scale, never crop */
+#app article > img.oo-media {
+  display: block;
+  width: 100%;
+  height: auto;           /* natural aspect ratio */
+  object-fit: contain;    /* don't crop */
+  object-position: center;
+  max-height: none;       /* override any caps */
+  border-radius: 10px;    /* keep your soft edges */
+}
+
+/* Safety: if any container forces overflow/clipping, allow it to grow */
+#app article,
+#app article > div,
+#app .post-detail,
+#app .post-content {
+  overflow: visible !important;
+}
+
+/* Optional: margin below image for breathing room */
+#app article > img.oo-media { margin: 0 0 0.75rem 0; }
+/* === hotfix3n: hide favicon placeholder until featured image loads === */
+#app article > img.oo-media:not([src*="wp-content"]) {
+  visibility: hidden;
+}
+#app article > img.oo-media[src*="wp-content"] {
+  visibility: visible;
+}
