@@ -1,46 +1,36 @@
-<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1) -->
+<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR6-infiniteR1) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1E90FF">
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <meta name="theme-color" content="#1E90FF">
-  <link rel="stylesheet" href="override.css?v=2025-11-07">
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR6-infiniteR1">
 </head>
 <body>
-  <header id="main-header" class="site-header">
+  <header class="site-header">
     <div class="header-inner">
       <div class="logo-block">
-        <img src="logo.png" alt="The Oklahoma Observer Logo" class="header-logo">
+        <img src="logo.png" alt="The Oklahoma Observer" class="header-logo">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </div>
-      <button id="menu-toggle" class="menu-toggle" aria-label="Menu">☰</button>
-      <nav id="main-nav" class="main-nav">
+      <button class="menu-toggle">☰</button>
+      <nav class="main-nav">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
       </nav>
     </div>
   </header>
 
-  <main id="app" class="app"></main>
+  <main id="app"></main>
 
   <footer class="site-footer">
-    <p>© 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR5-cleanR1</p>
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR6-infiniteR1
   </footer>
 
-  <script defer src="main.js?v=2025-11-07SR1-videoFixR5-cleanR1"></script>
-  <script>
-    // 🟢 register service worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
-          .then(r => console.log('[OkObserver] SW registered:', r.scope))
-          .catch(err => console.warn('[OkObserver] SW failed:', err));
-      });
-    }
-  </script>
+  <script defer src="main.js?v=2025-11-07SR1-videoFixR6-infiniteR1"></script>
 </body>
 </html>
-<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1) -->
+<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR6-infiniteR1) -->
