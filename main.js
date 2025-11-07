@@ -1,16 +1,19 @@
 /* 🟢 main.js */
-/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3e (logo + hamburger-only + Back button)
-   - _embed=1 retained
+/* OkObserver main.js — v=2025-11-06SR1-perfSWR1-hotfix3f
+   Includes:
+   - _embed=1 for all requests
    - Robust featured-image resolver (sizes + content fallback)
-   - Cartoon filter via embedded category names (plus ID fallback)
-   - Hamburger-only nav kept hidden by default; simple toggle wiring
-   - "Back to Posts" is a real button at the bottom only, OkObserver blue
+   - Cartoon filter
+   - Hamburger-only nav toggle
+   - “Back to Posts” real button
+   - Post titles OkObserver blue
+   - Byline restored on post detail
    - 4/3/1 grid, return-to-scroll, 1 fetch/page, no ESM
 */
 (function(){
   "use strict";
 
-  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3e";
+  var VER   = (window.__OKO__ && window.__OKO__.VER) || "2025-11-06SR1-perfSWR1-hotfix3f";
   var DEBUG = !!(window.__OKO__ && window.__OKO__.DEBUG);
 
   var API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/";
@@ -27,10 +30,9 @@
   var SS_SCROLL = "oko:scrollTop:v1";
   var SS_PAGE = "oko:page:v1";
 
-  // Router
+  // Router setup + hamburger toggle
   window.addEventListener("hashchange", router);
   document.addEventListener("DOMContentLoaded", function(){
-    // hamburger-only: toggle nav visibility
     var btn = el("#oo-menu");
     var nav = el("#oo-nav");
     if (btn && nav) {
@@ -75,7 +77,7 @@
     gridObserver.observe(grid, {childList:true, subtree:false});
   }
 
-  // Fetch posts (1 fetch per page)
+  // ===== Fetch posts (1 fetch per page) =====
   async function fetchPage(page){
     if (state.loading || state.done) return [];
     state.loading = true;
@@ -159,7 +161,7 @@
     }
   }
 
-  // SUMMARY CARD (no tags on summary)
+  // SUMMARY CARD
   function cardFromPost(post){
     var card = ce("article","oo-card");
     var a = ce("a","oo-titlelink");
@@ -171,6 +173,7 @@
     var body = ce("div","oo-card-body");
     var title = ce("h2","oo-titletext");
     title.innerHTML = (post.title && post.title.rendered) || "Untitled";
+    title.style.color = "#1E90FF"; // OkObserver blue for summary titles
 
     var meta = ce("div","oo-meta");
     var by = ce("span","oo-byline"); by.textContent = bylineFrom(post);
@@ -189,7 +192,7 @@
     return card;
   }
 
-  // Helpers
+  // Utilities
   function textFromHTML(html){ var d=new DOMParser().parseFromString(html||"","text/html"); return d.body.textContent||""; }
   function bylineFrom(post){
     return (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || "The Oklahoma Observer";
@@ -247,31 +250,46 @@
     var post = await res.json();
 
     var c = ce("article");
-    var h = ce("h1"); h.textContent = textFromHTML(post.title && post.title.rendered || ""); c.appendChild(h);
+    var h = ce("h1");
+    h.textContent = textFromHTML(post.title && post.title.rendered || "");
+    h.style.color = "#1E90FF"; // OkObserver blue for detail titles
+    c.appendChild(h);
+
+    // Byline and date restored
+    var meta = ce("p");
+    meta.style.margin = "0 0 1rem";
+    meta.style.color = "#445";
+    meta.style.fontWeight = "500";
+    meta.textContent = bylineFrom(post) + " — " + dateFrom(post);
+    c.appendChild(meta);
 
     var mediaURL = pickFeaturedImage(post);
     if (mediaURL) c.appendChild(imgEl(mediaURL, h.textContent));
 
-    var body = ce("div"); body.innerHTML = (post.content && post.content.rendered) || ""; c.appendChild(body);
+    var body = ce("div");
+    body.innerHTML = (post.content && post.content.rendered) || "";
+    c.appendChild(body);
 
-    // Optional detail tags (allowed here). Keep lightweight.
+    // Optional detail tags (allowed)
     var tags = tagsFrom(post);
     if (tags.length){
-      var meta = ce("p"); meta.style.marginTop = "0.5rem";
-      meta.textContent = "Tags: " + tags.join(", ");
-      c.appendChild(meta);
+      var tagP = ce("p");
+      tagP.style.marginTop = "0.5rem";
+      tagP.textContent = "Tags: " + tags.join(", ");
+      c.appendChild(tagP);
     }
 
-    // Back to Posts — real button, bottom only
+    // Back button
     var backWrap = ce("p");
-    var btn = ce("button", "oo-backbtn");
+    var btn = ce("button","oo-backbtn");
     btn.type = "button";
     btn.textContent = "← Back to Posts";
     btn.addEventListener("click", function(){ location.hash = "#/"; });
     backWrap.appendChild(btn);
     c.appendChild(backWrap);
 
-    app.innerHTML = ""; app.appendChild(c);
+    app.innerHTML = "";
+    app.appendChild(c);
   }
 
   async function router(){

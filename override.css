@@ -310,3 +310,18 @@ a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-
 /* Keep */
 .oo-header{background:#1E90FF;}
 /* === end hotfix-header-cleanup === */
+/* === hotfix3f: title + byline color === */
+
+/* Make all post titles OkObserver blue */
+.oo-titletext,
+.oo-titletext a,
+article h1,
+article h1 a {
+  color:#1E90FF !important;
+}
+
+/* Optional hover tweak */
+.oo-titletext a:hover,
+article h1 a:hover {
+  color:#0f6ddf !important;
+}
