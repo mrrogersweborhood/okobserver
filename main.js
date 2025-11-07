@@ -1,330 +1,188 @@
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-perfSWR1-videoFixR3)
 /*
- OkObserver SPA Main Script
- Build: 2025-11-07SR1-perfSWR1-videoR1-fbFix2
- Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
- Features kept:
- - Infinite scroll (paginated) with duplicate guard
- - Single fetch at a time
- - Session list & scroll cache
- - Cartoon filter (ID 5923 + term/title 'cartoon')
- - Excerpts immediate
- - Clickable card image (image wrapped by <a>)
- - Edge-to-edge hero on detail
- - Click-to-play: YouTube, Vimeo, Facebook, MP4 (Facebook fixed)
- - Grid MutationObserver enforcement
- - No ES modules
+  Maintains:
+  - Sticky header, centered logo+motto
+  - Grid 4/3/1 responsive
+  - Infinite scroll
+  - Cartoon filter
+  - Cached post list + scroll restore
+  - Enhanced click-to-play videos (YouTube, Vimeo, Facebook, MP4)
+  - MutationObserver grid enforcer
+  - No ES modules
 */
+(function(){
+  const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
+  const app=document.getElementById('app');
+  let page=1, perPage=12, loading=false, done=false;
+  const seenIds=new Set();
+  const scrollKey='okobs-scroll', listKey='okobs-list', metaKey='okobs-list-meta';
+  const VER='2025-11-07SR1-perfSWR1-videoFixR3';
+  console.log('[OkObserver] Build',VER);
 
-(function () {
-  var API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
-  var app = document.getElementById('app');
-  var scrollCacheKey = 'okobs-scroll';
-  var listCacheKey = 'okobs-list';
-  var metaCacheKey = 'okobs-list-meta';
-  var VER = '2025-11-07SR1-perfSWR1-videoR1-fbFix2';
+  const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+  const qs=(s,c)=> (c||document).querySelector(s);
+  const qsa=(s,c)=>Array.from((c||document).querySelectorAll(s));
+  const fetchJSON=u=>fetch(u).then(r=>r.ok?r.json():Promise.reject(r.status));
 
-  console.log('[OkObserver] Init', VER);
-
-  // ---------- utils ----------
-  function el(tag, cls, html) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (html != null) e.innerHTML = html;
-    return e;
-  }
-  function qs(sel, ctx) { return (ctx || document).querySelector(sel); }
-  function fetchJSON(url) {
-    return fetch(url).then(function (r) {
-      if (!r.ok) throw new Error(r.status);
-      return r.json();
-    });
-  }
-  function decodeEntities(s) {
-    if (!s) return s;
-    var d = document.createElement('textarea');
-    d.innerHTML = s;
+  const decodeEntities=s=>{
+    if(!s)return s;
+    const d=document.createElement('textarea');
+    d.innerHTML=s;
     return d.value;
-  }
+  };
 
-  // Robust cartoon filter
-  function isCartoon(p) {
-    try {
-      if ((p.categories || []).includes(5923)) return true;
-      var terms = [];
-      if (p._embedded && p._embedded['wp:term']) {
-        p._embedded['wp:term'].forEach(function(arr){ if (Array.isArray(arr)) terms = terms.concat(arr); });
-      }
-      var hasCartoonTerm = terms.some(function(t){
-        var slug = (t && t.slug || '').toLowerCase();
-        var name = (t && t.name || '').toLowerCase();
-        return slug.includes('cartoon') || name.includes('cartoon');
+  const isCartoon=p=>{
+    try{
+      if((p.categories||[]).includes(5923))return true;
+      let terms=[];
+      if(p._embedded&&p._embedded['wp:term'])
+        p._embedded['wp:term'].forEach(a=>Array.isArray(a)&&(terms=terms.concat(a)));
+      const has=terms.some(t=>{
+        const slug=(t.slug||'').toLowerCase(), name=(t.name||'').toLowerCase();
+        return slug.includes('cartoon')||name.includes('cartoon');
       });
-      if (hasCartoonTerm) return true;
-      var title = (p.title && p.title.rendered || '').toLowerCase();
-      return title.includes('cartoon');
-    } catch(e){ return false; }
-  }
+      if(has)return true;
+      return (p.title?.rendered||'').toLowerCase().includes('cartoon');
+    }catch{return false;}
+  };
 
-  // ---------- home (infinite scroll) ----------
-  var loading = false, done = false, page = 1, perPage = 12;
-  var seenIds = new Set();
-
-  function buildCard(p) {
-    var card = el('article', 'post-card');
-    var link = el('a');
-    link.href = '#/post/' + p.id;
-
-    var imgUrl = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0] && p._embedded['wp:featuredmedia'][0].source_url;
-    if (imgUrl) {
-      var pic = el('img');
-      pic.src = imgUrl + '?cb=' + p.id;
-      pic.alt = p.title.rendered;
-      pic.loading = 'lazy';
-      link.appendChild(pic);
+  function buildCard(p){
+    const card=el('article','post-card');
+    const link=el('a');link.href='#/post/'+p.id;
+    const media=p._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+    if(media){
+      const img=el('img');
+      img.src=media+'?cb='+p.id;img.alt=p.title.rendered;img.loading='lazy';
+      link.appendChild(img);
     }
-
-    var title = el('h2', 'post-title', p.title.rendered);
-    link.appendChild(title);
+    link.appendChild(el('h2','post-title',p.title.rendered));
     card.appendChild(link);
-
-    var by = el('div', 'post-meta',
-      'Oklahoma Observer — ' + new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-    );
-    var excerpt = el('div', 'post-excerpt', p.excerpt.rendered);
+    const by=el('div','post-meta',`<strong>Oklahoma Observer</strong> — ${new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`);
     card.appendChild(by);
-    card.appendChild(excerpt);
+    card.appendChild(el('div','post-excerpt',p.excerpt.rendered));
     return card;
   }
 
-  function sliderBottomDistance() {
-    return document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+  const restoreScroll=()=>{const y=sessionStorage.getItem(scrollKey);if(y)window.scrollTo(0,parseFloat(y));};
+  const saveScroll=()=>sessionStorage.setItem(scrollKey,window.scrollY||0);
+
+  function loadPage(grid){
+    if(loading||done)return;
+    loading=true;
+    const url=`${API_BASE}posts?per_page=${perPage}&page=${page}&_embed`;
+    fetchJSON(url).then(posts=>{
+      if(!posts.length){done=true;return;}
+      posts.forEach(p=>{
+        if(isCartoon(p))return;
+        if(seenIds.has(p.id))return;
+        seenIds.add(p.id);
+        grid.appendChild(buildCard(p));
+      });
+      page++;
+      sessionStorage.setItem(listKey,grid.innerHTML);
+      sessionStorage.setItem(metaKey,JSON.stringify({page,done,seen:[...seenIds]}));
+    }).catch(e=>console.warn('[OkObserver] loadPage error',e)).finally(()=>loading=false);
   }
 
-  function saveListCache(grid) {
-    try {
-      sessionStorage.setItem(listCacheKey, grid.innerHTML);
-      sessionStorage.setItem(metaCacheKey, JSON.stringify({
-        page: page, done: done, seen: Array.from(seenIds)
-      }));
-    } catch (_) {}
-  }
-
-  function restoreListCache(grid) {
-    var html = sessionStorage.getItem(listCacheKey);
-    var meta = sessionStorage.getItem(metaCacheKey);
-    if (!html || !meta) return false;
-    grid.innerHTML = html;
-    try {
-      var m = JSON.parse(meta);
-      page = m.page || 1;
-      done = !!m.done;
-      (m.seen || []).forEach(function(id){ seenIds.add(id); });
-    } catch(_) {}
+  function restoreList(grid){
+    const html=sessionStorage.getItem(listKey);
+    const meta=sessionStorage.getItem(metaKey);
+    if(!html||!meta)return false;
+    grid.innerHTML=html;
+    try{
+      const m=JSON.parse(meta);
+      page=m.page;done=m.done;for(const id of m.seen)seenIds.add(id);
+    }catch{}
     return true;
   }
 
-  function attachScroll(grid) {
-    function onScroll() {
-      if (done || loading) return;
-      if (sliderBottomDistance() > 800) return;
-      loadMore(grid);
-    }
-    window.addEventListener('scroll', onScroll, { passive: true });
+  function renderHome(){
+    app.innerHTML='<div id="grid" class="okobs-grid"></div>';
+    const grid=qs('#grid');
+    if(restoreList(grid))return;
+    page=1;done=false;seenIds.clear();
+    loadPage(grid);
+    window.addEventListener('scroll',()=>{
+      if(done||loading)return;
+      if(document.documentElement.scrollHeight-window.scrollY-window.innerHeight<800)
+        loadPage(grid);
+    },{passive:true});
   }
 
-  function loadMore(grid) {
-    if (loading || done) return;
-    loading = true;
-    var url = API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed';
-    fetchJSON(url).then(function(posts) {
-      if (!posts || !posts.length) { done = true; return; }
-      posts.forEach(function(p) {
-        if (isCartoon(p)) return;
-        if (seenIds.has(p.id)) return;
-        seenIds.add(p.id);
-        grid.appendChild(buildCard(p));
-      });
-      page++;
-      saveListCache(grid);
-    }).catch(function(e){
-      console.warn('[OkObserver] loadMore failed', e);
-    }).finally(function(){ loading = false; });
-  }
-
-  function resetHomeState() {
-    loading = false; done = false; page = 1; perPage = 12; seenIds = new Set();
-  }
-
-  function renderHome() {
-    console.log('[OkObserver] Render home');
-    resetHomeState();
-    document.title = 'The Oklahoma Observer';
-    app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
-    var grid = qs('#grid');
-
-    if (restoreListCache(grid)) {
-      restoreScroll();
-      attachScroll(grid);
-      if (sliderBottomDistance() <= 800) loadMore(grid);
-      return Promise.resolve();
-    }
-
-    return fetchJSON(API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed').then(function(posts) {
-      posts.forEach(function(p) {
-        if (isCartoon(p)) return;
-        if (seenIds.has(p.id)) return;
-        seenIds.add(p.id);
-        grid.appendChild(buildCard(p));
-      });
-      page++;
-      saveListCache(grid);
-      attachScroll(grid);
-      if (sliderBottomDistance() <= 800) loadMore(grid);
-    });
-  }
-
-  // ---------- detail ----------
-  function renderPost(id) {
-    console.log('[OkObserver] Render post', id);
-    return fetchJSON(API_BASE + 'posts/' + id + '?_embed').then(function (p) {
-      var hero = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0] && p._embedded['wp:featuredmedia'][0].source_url;
-
-      document.title = decodeEntities(p.title.rendered) + ' - The Oklahoma Observer';
-
-      var container = el('article', 'post-detail');
-
-      if (hero) {
-        var fig = el('figure', 'post-hero');
-        var img = el('img');
-        img.src = hero + '?cb=' + p.id;
-        img.alt = decodeEntities(p.title.rendered);
-        fig.appendChild(img);
-        container.appendChild(fig);
+  function renderPost(id){
+    fetchJSON(`${API_BASE}posts/${id}?_embed`).then(p=>{
+      const hero=p._embedded?.['wp:featuredmedia']?.[0]?.source_url;
+      const article=el('article','post-detail');
+      if(hero){
+        const fig=el('figure','post-hero');
+        const img=el('img');img.src=hero+'?cb='+p.id;img.alt=p.title.rendered;
+        fig.appendChild(img);article.appendChild(fig);
       }
-
-      container.appendChild(el('h1', 'post-title', p.title.rendered));
-      container.appendChild(el('div', 'post-meta',
-        'Oklahoma Observer — ' + new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      ));
-
-      var body = el('div', 'post-body', p.content.rendered);
-      container.appendChild(body);
-
+      article.appendChild(el('h1','post-title',p.title.rendered));
+      article.appendChild(el('div','post-meta',`<strong>Oklahoma Observer</strong> — ${new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`));
+      const body=el('div','post-body',p.content.rendered);
+      article.appendChild(body);
       enhanceVideos(body);
-
-      var back = el('button', 'back-btn', '← Back to Posts');
-      back.addEventListener('click', function () { location.hash = '#/'; });
-      container.appendChild(back);
-
-      app.innerHTML = '';
-      app.appendChild(container);
+      const back=el('button','back-btn','← Back to Posts');
+      back.onclick=()=>{location.hash='#/';};
+      article.appendChild(back);
+      app.innerHTML='';app.appendChild(article);
     });
   }
 
-  // ---------- video enhancement (Facebook fixed) ----------
-  function enhanceVideos(scope) {
-    var nodes = Array.prototype.slice.call(scope.querySelectorAll('iframe, video, a[href]'));
-    nodes.forEach(function (elm) {
-      var src = elm.src || elm.href || '';
-      if (!src) return;
-
-      var type = '';
-      if (/youtube\.com|youtu\.be/.test(src)) type = 'youtube';
-      else if (/vimeo\.com/.test(src)) type = 'vimeo';
-      else if (/facebook\.com|fb\.watch/.test(src)) type = 'facebook';
-      else if (/\.(mp4|webm|ogg)$/i.test(src)) type = 'mp4';
-      if (!type) return;
-
-      // For anchors, keep click-to-play behavior
-      if (elm.tagName === 'A') elm.removeAttribute('href');
-
-      var wrap = document.createElement('div');
-      wrap.className = 'okobs-video pending ' + type;
-      wrap.style.position = 'relative';
-      wrap.style.cursor = 'pointer';
-      wrap.style.aspectRatio = '16/9';
-      wrap.style.background = '#000';
-      wrap.style.maxWidth = '100%';
-      wrap.style.borderRadius = '12px';
-      wrap.style.overflow = 'hidden';
-
-      var btn = el('div', 'play-overlay');
-      btn.innerHTML = '<div class="triangle"></div>';
-
-      var poster = el('img');
-      var hero = qs('.post-hero img');
-      if (hero) poster.src = hero.currentSrc || hero.src;
-      poster.alt = 'Play video';
-      poster.style.width = '100%';
-      poster.style.height = '100%';
-      poster.style.objectFit = 'cover';
-
-      wrap.appendChild(poster);
-      wrap.appendChild(btn);
-
-      wrap.addEventListener('click', function () {
-        if (type === 'mp4') {
-          var v = document.createElement('video');
-          v.src = src;
-          v.controls = true;
-          v.autoplay = true;
-          wrap.replaceChildren(v);
-          wrap.classList.remove('pending');
-          return;
+  function enhanceVideos(scope){
+    const nodes=qsa('iframe,video,figure.wp-block-embed,.wp-block-embed__wrapper,p>a[href]',scope);
+    nodes.forEach(n=>{
+      let src='',type='';
+      if(n.tagName==='IFRAME'||n.tagName==='VIDEO'){src=n.src;type=typeFromUrl(src);}
+      else if(n.tagName==='A'){src=n.href;type=typeFromUrl(src);}
+      else{
+        const a=n.querySelector('a[href]'),i=n.querySelector('iframe');
+        src=a?a.href:(i?i.src:'');type=typeFromUrl(src);
+      }
+      if(!src||!type)return;
+      const wrap=el('div','okobs-video pending '+type);
+      Object.assign(wrap.style,{position:'relative',cursor:'pointer',aspectRatio:'16/9',background:'#000',maxWidth:'100%',borderRadius:'12px',overflow:'hidden'});
+      const poster=el('img');const hero=qs('.post-hero img');
+      poster.src=hero?(hero.currentSrc||hero.src):'';poster.alt='Play video';
+      Object.assign(poster.style,{width:'100%',height:'100%',objectFit:'cover'});
+      const overlay=el('div','play-overlay','<div class="triangle"></div>');
+      wrap.append(poster,overlay);
+      n.replaceWith(wrap);
+      wrap.onclick=()=>{
+        if(type==='mp4'){
+          const v=document.createElement('video');
+          v.src=src;v.controls=true;v.autoplay=true;
+          wrap.replaceChildren(v);wrap.classList.remove('pending');return;
         }
-
-        var iframe = document.createElement('iframe');
-        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
-        iframe.allowFullscreen = true;
-        iframe.setAttribute('frameborder', '0');
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-
-        if (type === 'youtube') {
-          iframe.src = src.replace('watch?v=', 'embed/') + '?autoplay=1';
-        } else if (type === 'vimeo') {
-          iframe.src = src.replace('vimeo.com', 'player.vimeo.com/video') + '?autoplay=1';
-        } else if (type === 'facebook') {
-          // Always convert to the official FB embed endpoint.
-          // Works for plain post URLs and fb.watch short links.
-          var plugin = 'https://www.facebook.com/plugins/video.php?href=' +
-            encodeURIComponent(src) + '&autoplay=1&show_text=false&width=1280';
-          iframe.src = plugin;
-        }
-
-        wrap.replaceChildren(iframe);
-        wrap.classList.remove('pending');
-      });
-
-      elm.replaceWith(wrap);
+        const i=document.createElement('iframe');
+        i.allow='autoplay; encrypted-media; picture-in-picture';i.allowFullscreen=true;
+        i.frameBorder='0';i.style.width='100%';i.style.height='100%';
+        if(type==='youtube')i.src=src.replace('watch?v=','embed/')+(src.includes('?')?'&':'?')+'autoplay=1';
+        else if(type==='vimeo')i.src=src.replace('vimeo.com','player.vimeo.com/video')+(src.includes('?')?'&':'?')+'autoplay=1';
+        else if(type==='facebook')i.src='https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(src)+'&autoplay=1&show_text=false&width=1280';
+        wrap.replaceChildren(i);wrap.classList.remove('pending');
+      };
     });
   }
 
-  // ---------- router ----------
-  function saveScroll() { sessionStorage.setItem(scrollCacheKey, String(window.scrollY || 0)); }
-  function restoreScroll() {
-    var y = sessionStorage.getItem(scrollCacheKey);
-    if (y != null) window.scrollTo(0, parseFloat(y));
+  const typeFromUrl=u=>{
+    if(/youtube\.com|youtu\.be/i.test(u))return'youtube';
+    if(/vimeo\.com/i.test(u))return'vimeo';
+    if(/facebook\.com|fb\.watch/i.test(u))return'facebook';
+    if(/\.(mp4|webm|ogg)(\?|#|$)/i.test(u))return'mp4';
+    return'';
+  };
+
+  function router(){
+    const h=location.hash||'#/';
+    if(h.startsWith('#/post/')){saveScroll();renderPost(h.split('/')[2]);}
+    else{renderHome();}
   }
 
-  function router() {
-    var hash = location.hash || '#/';
-    if (hash.indexOf('#/post/') === 0) {
-      var id = hash.split('/')[2];
-      saveScroll();
-      renderPost(id).catch(function (e) { console.error('[OkObserver] detail error', e); });
-    } else {
-      renderHome().catch(function (e) { console.error('[OkObserver] home error', e); });
-    }
-  }
-
-  // ---------- grid enforcement ----------
-  var observer = new MutationObserver(function () {
-    var grid = qs('#grid');
-    if (grid) grid.classList.add('okobs-grid');
-  });
-  observer.observe(app, { childList: true, subtree: true });
-
-  window.addEventListener('hashchange', router);
+  new MutationObserver(()=>{const g=qs('#grid');if(g)g.classList.add('okobs-grid');})
+    .observe(app,{childList:true,subtree:true});
+  window.addEventListener('hashchange',router);
   router();
 })();
+// 🔴 main.js
