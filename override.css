@@ -652,3 +652,37 @@ main#app { max-width:1200px; margin:18px auto; padding:0 16px; }
 .okobs-video .play-overlay .triangle {
   width:0; height:0; border-left:22px solid #fff; border-top:14px solid transparent; border-bottom:14px solid transparent; margin-left:6px;
 }
+/* ==== headerLockR1 (append-only) ======================================= */
+header.okobs-header{
+  position:sticky; top:0; z-index:1000;
+  background:#1E90FF; color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+header.okobs-header .okobs-header-inner{
+  max-width:1200px; margin:0 auto; padding:12px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+header.okobs-header a.brand{
+  display:flex; align-items:center; gap:12px;
+  text-decoration:none; color:#fff !important;
+}
+header.okobs-header img.logo{
+  width:42px; height:42px; border-radius:6px; display:block;
+  max-width:none !important; /* guard against global img resets */
+}
+header.okobs-header .motto{ color:#fff; font-weight:600; opacity:.95; }
+header.okobs-header .hamburger{
+  background:transparent; border:0; width:40px; height:32px;
+  display:grid; place-items:center; cursor:pointer;
+}
+header.okobs-header .hamburger span{
+  display:block; width:22px; height:2px; background:#fff; margin:3px 0;
+}
+header.okobs-header nav.menu[hidden]{ display:none; }
+@media (max-width:820px){
+  header.okobs-header nav.menu:not([hidden]){
+    display:flex; flex-direction:column; gap:8px; padding:8px 16px 16px;
+  }
+  header.okobs-header nav.menu a{ color:#fff !important; text-decoration:none; font-weight:600; }
+}
+/* ====================================================================== */
