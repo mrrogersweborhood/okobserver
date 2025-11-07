@@ -1,16 +1,14 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1)
-// Full file replacement. Includes:
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR9-enhancerKill-infiniteR1-gapFixR1)
+// Full file replacement.
+// - Honors global kill-switch: window.OKOBS_DISABLE_VIDEO_ENHANCER === true ➜ skip enhanceVideos()
+// - Does NOT wrap/replace existing live provider iframes (YouTube/Vimeo/Facebook)
 // - Infinite scroll hardening (single listener; guaranteed first/top-up loads)
-// - Video enhancer: DOES NOT wrap existing live provider iframes (YouTube/Vimeo/Facebook)
-// - Converts only links/WordPress wrappers/placeholders into click-to-play
-// - Black-box cleanup for stray FB placeholders
-// - Gap cleanup between hero image and first video
-// - Cartoon filter, bold byline, session list+scroll cache, grid enforcer
-// - No ES modules
+// - Non-destructive gap cleanup (removes only empty <p> / lone <br> spacers; preserves real embeds)
+// - Cartoon filter, bold byline, session list + scroll cache, grid enforcer
 // START MARKER: 🟢 main.js
 
 (function(){
-  const VER = '2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1';
+  const VER = '2025-11-07SR1-videoFixR9-enhancerKill-infiniteR1-gapFixR1';
   console.log('[OkObserver] Main JS Build', VER);
 
   // ---- constants / refs ----
@@ -159,7 +157,14 @@
 
       const body = el('div','post-body', p.content.rendered);
       article.appendChild(body);
-      enhanceVideos(body);
+
+      // Respect global kill switch: skip video enhancement entirely if set
+      if (window.OKOBS_DISABLE_VIDEO_ENHANCER === true) {
+        console.log('[OkObserver] Video enhancer disabled by flag — rendering embeds untouched');
+        nonDestructiveGapCleanup(body); // still collapse blank spacers only
+      } else {
+        enhanceVideos(body);            // normal behavior
+      }
 
       const back = el('button','back-btn','← Back to Posts');
       back.onclick = ()=>{ location.hash = '#/'; };
@@ -268,33 +273,33 @@
       });
     });
 
-    // remove blank placeholders (black boxes / white gaps)
+    // non-destructive cleanup: remove only tiny empty placeholders
     document.querySelectorAll('.fb-video, figure.wp-block-embed, .wp-block-embed__wrapper').forEach(el=>{
       const ifr = el.querySelector('iframe');
-      const hasPlayer = ifr && (ifr.src||'').includes('facebook.com');
-      if (!hasPlayer && el.offsetHeight < 80) el.remove();
+      const hasProvider = !!(ifr && (ifr.src||'').match(/youtube|vimeo|facebook|fb\.watch/i));
+      if (!hasProvider && el.offsetHeight < 48) el.remove();
     });
 
-    // 🧹 Collapse white-space blocks between hero and first video
-    (function cleanGaps(){
-      const body = scope; if (!body) return;
+    nonDestructiveGapCleanup(scope);
+  }
 
-      // Remove empty paragraphs and non-breaking-space spacers
-      body.querySelectorAll('p').forEach(p=>{
-        const txt = (p.textContent||'').replace(/\u00a0/g,' ').trim();
-        const onlyBr = p.children.length===1 && p.firstElementChild.tagName==='BR';
-        if (!txt && (p.children.length===0 || onlyBr)) p.remove();
-      });
-
-      // If first real node is a video/embed, cut top margin
-      const first = Array.from(body.children).find(n=> n.nodeType===1);
-      if (first && (
-          first.classList.contains('okobs-video') ||
-          first.matches('figure.wp-block-embed, .wp-block-embed__wrapper, iframe, video')
-        )){
-        first.style.marginTop = '0';
-      }
-    })();
+  // ---- spacing cleanup (safe) ----
+  function nonDestructiveGapCleanup(body){
+    if (!body) return;
+    // Remove empty paragraphs and non-breaking-space spacers only
+    body.querySelectorAll('p').forEach(p=>{
+      const txt = (p.textContent||'').replace(/\u00a0/g,' ').trim();
+      const onlyBr = p.children.length===1 && p.firstElementChild.tagName==='BR';
+      if (!txt && (p.children.length===0 || onlyBr)) p.remove();
+    });
+    // If first real node is a video/embed, cut top margin
+    const first = Array.from(body.children).find(n=> n.nodeType===1);
+    if (first && (
+        first.classList.contains('okobs-video') ||
+        first.matches?.('figure.wp-block-embed, .wp-block-embed__wrapper, iframe, video')
+      )){
+      first.style.marginTop = '0';
+    }
   }
 
   // ---- router ----
@@ -313,4 +318,4 @@
 })();
 
 // END MARKER: 🔴 main.js
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1)
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR9-enhancerKill-infiniteR1-gapFixR1)
