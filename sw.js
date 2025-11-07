@@ -1,70 +1,56 @@
-/* 🟢 sw.js — OkObserver Service Worker (Build 2025-11-07SR1-perfSWR1-hotfix3s) */
-/* UTF-8, no BOM — verified clean for GitHub Pages */
-
-const VER = '2025-11-07SR1-perfSWR1-hotfix3s';
-const CACHE = `okobserver-${VER}`;
-const PRECACHE = [
+/* OkObserver Service Worker — 2025-11-07SR1-perfSWR1-hotfix3s */
+const SW_VER = '2025-11-07SR1-perfSWR1-hotfix3s';
+const CACHE_NAME = 'okobs-' + SW_VER;
+const APP_SHELL = [
   './',
   './index.html',
-  './main.js',
-  './override.css',
-  './logo.png',
-  './favicon.ico',
+  './main.js?v=2025-11-07SR1-perfSWR1-videoR1',
+  './override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1',
   './offline.html'
 ];
 
-/* === INSTALL: Cache Core Assets === */
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(APP_SHELL)).catch(()=>{}));
 });
 
-/* === ACTIVATE: Clear Old Caches === */
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE)
-          .map((key) => caches.delete(key))
-      )
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
-/* === FETCH: Network-First with Offline Fallback === */
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        // Optionally cache GET responses for reuse
-        if (req.method === 'GET' && res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, clone));
-        }
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+
+  // Only GET
+  if (req.method !== 'GET') return;
+
+  // Network-first for API, cache-first for same-origin shell
+  const url = new URL(req.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAPI = /\/wp-json\/wp\/v2\//.test(url.href) || /okobserver-proxy\.bob-b5c\.workers\.dev/.test(url.href);
+
+  if (isAPI) {
+    e.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
         return res;
-      })
-      .catch(() =>
-        caches.match(req).then(
-          (cached) => cached || caches.match('./offline.html')
-        )
-      )
-  );
-});
+      }).catch(() => caches.match(req).then((m) => m || caches.match('./offline.html')))
+    );
+    return;
+  }
 
-/* === MESSAGE: Manual Version Flush === */
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((key) => caches.delete(key)))
+  if (isSameOrigin) {
+    e.respondWith(
+      caches.match(req).then((m) => m || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match('./offline.html')))
     );
   }
 });
-
-/* === LOG VERSION === */
-console.log('[SW] OkObserver active', VER);
-/* 🔴 sw.js — end of file */

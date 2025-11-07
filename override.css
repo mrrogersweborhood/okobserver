@@ -602,3 +602,53 @@ article h1 a:hover {
   display:block;width:100%;max-width:none;height:auto;object-fit:contain;object-position:center;
   margin:0;background:transparent!important;box-shadow:none!important;border:none!important;border-radius:0!important;
 }
+/* OkObserver Styles — 2025-11-06SR1-gridLock1-hotfix3n + videoR1 inserts */
+
+/* Base */
+:root { --okobs-blue:#1E90FF; --okobs-text:#0b0b0b; --okobs-bg:#f4f6f8; }
+html, body { margin:0; padding:0; background:var(--okobs-bg); color:var(--okobs-text);
+  font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif; }
+
+/* Header */
+.okobs-header { position:sticky; top:0; z-index:1000; background:var(--okobs-blue); color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.okobs-header-inner { max-width:1200px; margin:0 auto; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; }
+.okobs-header .brand { display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff; }
+.okobs-header .logo { width:42px; height:42px; border-radius:6px; }
+.okobs-header .motto { color:#fff; font-weight:600; opacity:.95; }
+.hamburger { background:transparent; border:0; width:40px; height:32px; display:grid; place-items:center; cursor:pointer; }
+.hamburger span { display:block; width:22px; height:2px; background:#fff; margin:3px 0; }
+.menu[hidden] { display:none; }
+@media (max-width:820px){
+  .menu:not([hidden]){ display:flex; flex-direction:column; gap:8px; padding:8px 16px 16px; }
+  .menu a{ color:#fff; text-decoration:none; font-weight:600; }
+}
+
+/* Layout */
+main#app { max-width:1200px; margin:18px auto; padding:0 16px; }
+.site-footer { max-width:1200px; margin:32px auto; padding:24px 16px; color:#555; font-size:14px; }
+
+/* Grid */
+.okobs-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px; align-items:start; }
+@media (max-width:1150px){ .okobs-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+@media (max-width:720px){ .okobs-grid{ grid-template-columns:1fr; } }
+
+/* Cards */
+.post-card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.06); overflow:hidden; }
+.post-card img { display:block; width:100%; height:220px; object-fit:cover; }
+.post-title { color:var(--okobs-blue); margin:12px 16px 0; line-height:1.25; }
+.post-meta { color:#666; margin:4px 16px 0; font-size:14px; }
+.post-excerpt { margin:12px 16px 16px; color:#222; }
+
+/* Detail */
+.post-detail .post-hero img { width:100%; height:auto; display:block; }
+.post-detail .post-title { margin:16px 0 4px; color:var(--okobs-blue); }
+.post-detail .post-meta { color:#666; margin:0 0 16px; }
+.back-btn { margin:24px 0; background:var(--okobs-blue); color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; }
+
+/* Videos (click-to-play overlay) */
+.okobs-video { position:relative; width:100%; background:#000; border-radius:12px; overflow:hidden; }
+.okobs-video img { display:block; width:100%; height:100%; object-fit:cover; }
+.okobs-video .play-overlay { position:absolute; inset:0; display:grid; place-items:center; }
+.okobs-video .play-overlay .triangle {
+  width:0; height:0; border-left:22px solid #fff; border-top:14px solid transparent; border-bottom:14px solid transparent; margin-left:6px;
+}
