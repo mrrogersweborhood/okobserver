@@ -514,3 +514,44 @@ article h1 a:hover {
 #app article > img.oo-media[src*="wp-content"] {
   visibility: visible;
 }
+/* === hotfix: detail image edge-to-edge, no frame === */
+#app article .oo-media {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;              /* keep natural aspect ratio */
+  object-fit: contain;       /* no cropping */
+  object-position: center;
+  margin: 0;                 /* remove gaps that look like borders */
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 0 !important; /* remove ‘card’ rounding on detail image */
+}
+
+/* ensure the immediate wrapper doesn't add a 'frame' via padding/bg */
+#app article {
+  background: transparent !important;
+  padding-left: 0;
+  padding-right: 0;
+}
+#app article > *:first-child.oo-media {
+  margin-top: 0;
+}
+#app article > *:last-child {
+  margin-bottom: 0.75rem; /* breathing room below content */
+}
+
+/* If your global card rules target .oo-card img, make sure they don't hit detail */
+.oo-card .oo-media {
+  border-radius: 10px;       /* keep summary cards pretty */
+  box-shadow: var(--card-shadow, 0 2px 10px rgba(0,0,0,.08));
+}
+
+/* Optional: if the article body has inner padding, allow image to span edge-to-edge */
+#app article .post-content,
+#app article .entry-content {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
