@@ -1232,3 +1232,42 @@ div.fb-video:empty {
   min-height: 360px !important;
   margin: 0 auto 16px !important;
 }
+/* --- OkObserver video hard-visibility floor (2025-11-07R1) --- */
+.post-body iframe,
+.post-body video,
+.post-body .fb-video,
+.post-body .fb-post {
+  display: block !important;
+  visibility: visible !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border: 0 !important;
+}
+
+/* Guarantee usable height for Vimeo/YT/Facebook players */
+.post-body iframe[src*="player.vimeo.com"],
+.post-body iframe[src*="youtube.com"],
+.post-body iframe[src*="youtu.be"],
+.post-body iframe[src*="facebook.com/plugins/video"] {
+  min-height: 56.25vw !important;   /* 16:9 by viewport width */
+  background: #000 !important;
+}
+@media (min-width: 900px) {
+  .post-body iframe[src*="player.vimeo.com"],
+  .post-body iframe[src*="youtube.com"],
+  .post-body iframe[src*="youtu.be"],
+  .post-body iframe[src*="facebook.com/plugins/video"] {
+    min-height: 480px !important;   /* desktop floor */
+  }
+}
+
+/* Kill phantom whitespace made by empty <p> or <br>-only paragraphs */
+.post-body p:empty,
+.post-body p:has(> br:only-child) { display: none !important; }
+
+/* If an iframe lives inside a paragraph, keep sane spacing */
+.post-body p:has(> iframe) { margin: 0 0 16px !important; }
+
+/* Safety: any oEmbed wrappers with no content shouldn’t take space */
+.post-body .wp-block-embed__wrapper:empty,
+.post-body figure.wp-block-embed:empty { display: none !important; }
