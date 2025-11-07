@@ -1,13 +1,14 @@
 /*
  OkObserver SPA Main Script
- Build: 2025-11-07SR1-perfSWR1-videoR1-restoreFix2
+ Build: 2025-11-07SR1-perfSWR1-videoR1-infiniteFix1
  Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
- Notes:
- - Single fetch per page
- - Session scroll + return-to-position
- - Cartoon posts filtered out (robust)
- - Excerpts immediate (no lazy-mount)
- - Featured images contained, edge-to-edge hero on detail
+ Features:
+ - Infinite scroll (paginated) with duplicate guard
+ - Single fetch at a time
+ - Session list & scroll cache
+ - Cartoon filter (ID 5923, term/title contains 'cartoon')
+ - Excerpts immediate
+ - Featured images contained; edge-to-edge hero on detail
  - Click-to-play: YouTube, Vimeo, Facebook (embeds), MP4
  - Grid MutationObserver enforcement
  - No ES modules
@@ -18,7 +19,8 @@
   var app = document.getElementById('app');
   var scrollCacheKey = 'okobs-scroll';
   var listCacheKey = 'okobs-list';
-  var VER = '2025-11-07SR1-perfSWR1-videoR1-restoreFix2';
+  var metaCacheKey = 'okobs-list-meta'; // page, loaded ids
+  var VER = '2025-11-07SR1-perfSWR1-videoR1-infiniteFix1';
 
   console.log('[OkObserver] Init', VER);
 
@@ -43,7 +45,7 @@
     return d.value;
   }
 
-  // Robust cartoon filter: ID 5923 OR any embedded term with 'cartoon' OR title mentions 'cartoon'
+  // Robust cartoon filter
   function isCartoon(p) {
     try {
       if ((p.categories || []).includes(5923)) return true;
@@ -62,7 +64,13 @@
     } catch(e){ return false; }
   }
 
-  // ---------- home ----------
+  // ---------- home (infinite scroll) ----------
+  var loading = false;
+  var done = false;
+  var page = 1;
+  var perPage = 12;
+  var seenIds = new Set();
+
   function buildCard(p) {
     var card = el('article', 'post-card');
 
@@ -92,25 +100,112 @@
     return card;
   }
 
+  function sliderBottomDistance() {
+    return document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+  }
+
+  function saveListCache(grid) {
+    try {
+      sessionStorage.setItem(listCacheKey, grid.innerHTML);
+      sessionStorage.setItem(metaCacheKey, JSON.stringify({
+        page: page,
+        done: done,
+        seen: Array.from(seenIds)
+      }));
+    } catch (_) {}
+  }
+
+  function restoreListCache(grid) {
+    var html = sessionStorage.getItem(listCacheKey);
+    var meta = sessionStorage.getItem(metaCacheKey);
+    if (!html || !meta) return false;
+    grid.innerHTML = html;
+    try {
+      var m = JSON.parse(meta);
+      page = m.page || 1;
+      done = !!m.done;
+      (m.seen || []).forEach(function(id){ seenIds.add(id); });
+    } catch(_) {}
+    return true;
+  }
+
+  function attachScroll(grid) {
+    function onScroll() {
+      if (done || loading) return;
+      if (sliderBottomDistance() > 800) return; // load near bottom
+      loadMore(grid);
+    }
+    window.removeEventListener('scroll', onScroll); // ensure single
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  function loadMore(grid) {
+    if (loading || done) return;
+    loading = true;
+    var url = API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed';
+    fetchJSON(url).then(function(posts) {
+      // If nothing returned, stop
+      if (!posts || !posts.length) { done = true; return; }
+
+      var added = 0;
+      posts.forEach(function(p) {
+        if (isCartoon(p)) return;
+        if (seenIds.has(p.id)) return;
+        seenIds.add(p.id);
+        grid.appendChild(buildCard(p));
+        added++;
+      });
+
+      // If we added nothing (all filtered/seen), still advance page to avoid loops
+      page++;
+
+      // Heuristic: if fewer than perPage came back, we may be near the end
+      if (posts.length < perPage) done = false; // keep trying until empty
+      saveListCache(grid);
+    }).catch(function(e){
+      console.warn('[OkObserver] loadMore failed', e);
+    }).finally(function(){
+      loading = false;
+    });
+  }
+
+  function resetHomeState() {
+    loading = false;
+    done = false;
+    page = 1;
+    perPage = 12;
+    seenIds = new Set();
+  }
+
   function renderHome() {
     console.log('[OkObserver] Render home');
+    resetHomeState();
     document.title = 'The Oklahoma Observer';
     app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
     var grid = qs('#grid');
 
-    // session list cache
-    var cached = sessionStorage.getItem(listCacheKey);
-    if (cached) {
-      grid.innerHTML = cached;
+    // Try to restore cached list + meta
+    if (restoreListCache(grid)) {
       restoreScroll();
+      attachScroll(grid);
+      // Kick a prefetch if user is already near bottom
+      if (sliderBottomDistance() <= 800) loadMore(grid);
       return Promise.resolve();
     }
 
-    return fetchJSON(API_BASE + 'posts?per_page=20&_embed').then(function(posts) {
-      posts
-        .filter(function (p) { return !isCartoon(p); })
-        .forEach(function (p) { grid.appendChild(buildCard(p)); });
-      sessionStorage.setItem(listCacheKey, grid.innerHTML);
+    // First page
+    return fetchJSON(API_BASE + 'posts?per_page=' + perPage + '&page=' + page + '&_embed').then(function(posts) {
+      posts.forEach(function(p) {
+        if (isCartoon(p)) return;
+        if (seenIds.has(p.id)) return;
+        seenIds.add(p.id);
+        grid.appendChild(buildCard(p));
+      });
+      page++;
+      saveListCache(grid);
+      attachScroll(grid);
+      // If short page and we’re near bottom, load next immediately
+      if (sliderBottomDistance() <= 800) loadMore(grid);
     });
   }
 
