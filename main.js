@@ -1,13 +1,13 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR10-hardNoEnhance-infiniteR1-gapFixR2)
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3)
 // FULL FILE REPLACEMENT
-// Policy: DO NOT TOUCH ANY VIDEO/IFRAME EMBEDS (hard no-enhance build).
-//   - No wrapping, no replacing, no overlay. We only do safe whitespace cleanup.
-//   - Infinite scroll is preserved/hardened.
-//   - Cartoon filter, bold byline, list+scroll restore, grid enforcer are intact.
-//   - Adds lightweight diagnostics so we can see what the DOM contains.
+// Policy: DO NOT TOUCH/REPLACE EMBEDS. We only ensure they are visible and correctly sized.
+// - Infinite scroll hardened
+// - Cartoon filter, bold byline, list+scroll restore, grid enforcer
+// - Non-destructive gap cleanup
+// - NEW ensureEmbedsVisible(): forces provider iframes/videos to show even if height=0/hidden
 // START MARKER: 🟢 main.js
 (function(){
-  const VER = '2025-11-07SR1-videoFixR10-hardNoEnhance-infiniteR1-gapFixR2';
+  const VER = '2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3';
   console.log('[OkObserver] Main JS Build', VER);
 
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
@@ -27,6 +27,7 @@
   const fetchJSON = (u)=> fetch(u,{cache:'no-store'}).then(r=> r.ok ? r.json() : Promise.reject(r.status));
   const decodeEntities = (s)=>{ if(!s) return s; const d=document.createElement('textarea'); d.innerHTML=s; return d.value; };
 
+  // cartoons
   const isCartoon = (p)=>{
     try{
       if ((p.categories||[]).includes(5923)) return true;
@@ -38,6 +39,7 @@
     }catch(_){ return false; }
   };
 
+  // card
   function buildCard(p){
     const card = el('article','post-card');
     const link = el('a'); link.href = '#/post/'+p.id;
@@ -59,6 +61,7 @@
     return card;
   }
 
+  // list cache
   function saveScroll(){ sessionStorage.setItem(SCROLL, String(window.scrollY||0)); }
   function restoreScroll(){ const y=sessionStorage.getItem(SCROLL); if(y!=null) window.scrollTo(0, parseFloat(y)); }
   function saveList(grid){
@@ -79,8 +82,8 @@
     return true;
   }
 
+  // fetching
   const nearBottom = ()=> (document.documentElement.scrollHeight - (window.scrollY + window.innerHeight)) < 800;
-
   function loadMore(grid){
     if (loading || done) return;
     loading = true;
@@ -117,18 +120,54 @@
     else if (nearBottom()) loadMore(grid);
   }
 
+  // safe gap cleanup
   function nonDestructiveGapCleanup(body){
     if (!body) return;
-    // Remove only empty paragraphs or single <br/> spacer paragraphs
     body.querySelectorAll('p').forEach(p=>{
       const txt = (p.textContent||'').replace(/\u00a0/g,' ').trim();
       const onlyBr = p.children.length===1 && p.firstElementChild.tagName==='BR';
       if (!txt && (p.children.length===0 || onlyBr)) p.remove();
     });
-    // If first real node is a video/embed, cut top margin
     const first = Array.from(body.children).find(n=> n.nodeType===1);
     if (first && first.matches?.('figure.wp-block-embed, .wp-block-embed__wrapper, iframe, video'))
       first.style.marginTop = '0';
+  }
+
+  // NEW: make any embed visible & correctly sized (16:9 if height is 0/auto)
+  function ensureEmbedsVisible(body){
+    if (!body) return;
+    const embeds = body.querySelectorAll('iframe, video, .fb-video, .fb-post, figure.wp-block-embed, .wp-block-embed__wrapper');
+    embeds.forEach(node=>{
+      if (node instanceof HTMLIFrameElement || node instanceof HTMLVideoElement){
+        node.style.display = 'block';
+        node.style.visibility = 'visible';
+        node.style.maxWidth = '100%';
+        node.style.width = '100%';
+        // If provider set height=0/auto or CSS collapsed it, force a sane aspect box
+        const h = parseInt(getComputedStyle(node).height, 10);
+        if (!h || h < 80){
+          // compute from width
+          const w = node.getBoundingClientRect().width || node.parentElement?.clientWidth || 640;
+          const calcH = Math.round(w * 9 / 16);
+          node.style.minHeight = Math.max(calcH, 320) + 'px';
+          node.style.height = Math.max(calcH, 320) + 'px';
+        }
+      }else{
+        // wrappers
+        node.style.display = 'block';
+        node.style.visibility = 'visible';
+        node.style.maxWidth = '100%';
+        node.style.margin = '0 auto 16px auto';
+      }
+    });
+
+    // Diagnostics
+    const counts = {
+      iframes: body.querySelectorAll('iframe').length,
+      videos:  body.querySelectorAll('video').length,
+      fbDivs:  body.querySelectorAll('.fb-video, .fb-post').length
+    };
+    console.log('[OkObserver] ensureEmbedsVisible counts:', counts);
   }
 
   function renderPost(id){
@@ -150,16 +189,9 @@
       const body = el('div','post-body', p.content.rendered);
       article.appendChild(body);
 
-      // HARD NO-ENHANCE: Never modify/replace embeds
+      // Never rewrite embeds; just clean blank spacers and force embeds visible
       nonDestructiveGapCleanup(body);
-
-      // Diagnostics: show what we actually have directly under .post-body
-      const found = {
-        iframes: body.querySelectorAll('iframe').length,
-        videos:  body.querySelectorAll('video').length,
-        fbDivs:  body.querySelectorAll('.fb-video, .fb-post').length
-      };
-      console.log('[OkObserver] Post embed scan:', found);
+      ensureEmbedsVisible(body);
 
       const back = el('button','back-btn','← Back to Posts');
       back.onclick = ()=>{ location.hash = '#/'; };
@@ -176,7 +208,6 @@
     else { renderHome(); }
   }
 
-  // Keep grid class enforced
   new MutationObserver(()=>{ const g = qs('#grid'); if (g) g.classList.add('okobs-grid'); })
     .observe(app,{childList:true,subtree:true});
 
@@ -184,4 +215,4 @@
   router();
 })();
 // END MARKER: 🔴 main.js
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR10-hardNoEnhance-infiniteR1-gapFixR2)
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3)
