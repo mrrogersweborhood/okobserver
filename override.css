@@ -1162,3 +1162,22 @@ div.fb-video:empty {
 
 .okobs-video { margin: 0 auto 16px auto; }
 /* 🔴 override.css insert (post-gap-fix 2025-11-07SR1) — END */
+/* 🟢 force-embeds-visible 2025-11-07SR1 */
+.post-body iframe,
+.post-body video,
+.post-body .fb-video,
+.post-body .fb-post {
+  display: block !important;
+  visibility: visible !important;
+  max-width: 100%;
+  width: 100%;
+  min-height: 320px; /* ensures you see it even before FB/Vimeo resizes */
+  margin: 0 auto 16px auto;
+}
+
+/* guard against themes that hide WP embed wrappers */
+.post-body figure.wp-block-embed,
+.post-body .wp-block-embed__wrapper {
+  display: block !important;
+  margin: 0 auto 16px auto;
+}
