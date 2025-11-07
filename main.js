@@ -1,6 +1,6 @@
 /*
  OkObserver SPA Main Script
- Build: 2025-11-07SR1-perfSWR1-videoR1-restoreFix1
+ Build: 2025-11-07SR1-perfSWR1-videoR1-restoreFix2
  Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
  Notes:
  - Single fetch per page
@@ -18,7 +18,7 @@
   var app = document.getElementById('app');
   var scrollCacheKey = 'okobs-scroll';
   var listCacheKey = 'okobs-list';
-  var VER = '2025-11-07SR1-perfSWR1-videoR1-restoreFix1';
+  var VER = '2025-11-07SR1-perfSWR1-videoR1-restoreFix2';
 
   console.log('[OkObserver] Init', VER);
 
@@ -43,7 +43,7 @@
     return d.value;
   }
 
-  // Robust cartoon filter: id 5923 OR any category/tag term with slug/name containing 'cartoon' OR title mentions cartoon
+  // Robust cartoon filter: ID 5923 OR any embedded term with 'cartoon' OR title mentions 'cartoon'
   function isCartoon(p) {
     try {
       if ((p.categories || []).includes(5923)) return true;
@@ -66,7 +66,7 @@
   function buildCard(p) {
     var card = el('article', 'post-card');
 
-    // One link that wraps both image + title so clicking the image works
+    // Wrap image + title in one link so image is clickable
     var link = el('a');
     link.href = '#/post/' + p.id;
 
@@ -76,7 +76,6 @@
       pic.src = imgUrl + '?cb=' + p.id;
       pic.alt = p.title.rendered;
       pic.loading = 'lazy';
-      // Put the image INSIDE the anchor
       link.appendChild(pic);
     }
 
@@ -109,7 +108,7 @@
 
     return fetchJSON(API_BASE + 'posts?per_page=20&_embed').then(function(posts) {
       posts
-        .filter(function (p) { return !isCartoon(p); })          // <- robust cartoon filter
+        .filter(function (p) { return !isCartoon(p); })
         .forEach(function (p) { grid.appendChild(buildCard(p)); });
       sessionStorage.setItem(listCacheKey, grid.innerHTML);
     });
@@ -142,7 +141,6 @@
       var body = el('div', 'post-body', p.content.rendered);
       container.appendChild(body);
 
-      // Enhance embedded videos (click-to-play)
       enhanceVideos(body);
 
       var back = el('button', 'back-btn', '← Back to Posts');
@@ -168,7 +166,6 @@
       else if (/\.(mp4|webm|ogg)$/i.test(src)) type = 'mp4';
       if (!type) return;
 
-      // For anchors, disable navigation to keep in-page click-to-play
       if (elm.tagName === 'A') elm.removeAttribute('href');
 
       var wrap = document.createElement('div');
