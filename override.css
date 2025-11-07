@@ -1060,3 +1060,65 @@ div.fb-video:empty {
   display: none !important;
 }
 /* ===================================================== */
+/* ==== headerLock-2025-11-07SR1 ==== */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  background: #1E90FF;
+  padding: 10px 0 6px 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  text-align: center;
+}
+
+.header-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.header-logo {
+  height: 80px;
+  width: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.motto {
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.menu-toggle {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+.main-nav {
+  display: none;
+}
+
+.main-nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  margin: 0 10px;
+}
+/* ==== end headerLock-2025-11-07SR1 ==== */
