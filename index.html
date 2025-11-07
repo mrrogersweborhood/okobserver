@@ -6,20 +6,94 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>OkObserver</title>
 
-  <!-- Favicon -->
   <link rel="icon" href="favicon.ico">
 
-  <!-- Styles: keep EXACT baseline URL so CSS definitely matches cached copy -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
+  <!-- Keep EXACT baseline stylesheet URL -->
+  <link id="okobs-css" rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 
   <meta name="theme-color" content="#1E90FF">
   <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
 
   <!-- SPA deep-link safety on GitHub Pages -->
   <base href="/okobserver/">
+
+  <!-- === Critical Header CSS Fallback (safe + minimal) === -->
+  <style>
+    :root { --okobs-blue:#1E90FF; --okobs-text:#0a0a0a; --okobs-bg:#f4f6f8; }
+    html,body { margin:0; padding:0; background:#f4f6f8; color:#111; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif; }
+    /* Sticky header */
+    .okobs-header {
+      position: sticky; top: 0; z-index: 1000;
+      background: var(--okobs-blue); color:#fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    .okobs-header-inner {
+      display:flex; align-items:center; justify-content:space-between;
+      max-width:1200px; margin:0 auto; padding:12px 16px;
+    }
+    .okobs-header .brand { display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff; }
+    .okobs-header .logo { width:42px; height:42px; border-radius:6px; }
+    .okobs-header .motto { font-size:14px; line-height:1.2; opacity:.95; color:#fff; text-decoration:none; }
+    .okobs-header .hamburger { background:transparent; border:0; width:36px; height:30px; display:grid; place-items:center; cursor:pointer; }
+    .okobs-header .hamburger span { display:block; width:22px; height:2px; background:#fff; margin:3px 0; }
+    .okobs-header .menu { display:none; }
+    @media (max-width: 820px) {
+      .okobs-header .menu[hidden] { display:none; }
+      .okobs-header .menu:not([hidden]) { display:flex; flex-direction:column; gap:8px; padding:8px 16px 16px; }
+      .okobs-header .menu a { color:#fff; text-decoration:none; font-weight:600; }
+    }
+    main#app { max-width:1200px; margin:18px auto; padding:0 16px; }
+    .site-footer { max-width:1200px; margin:32px auto; padding:24px 16px; color:#555; font-size:14px; }
+    /* Minimal grid so layout never collapses */
+    .okobs-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:16px; }
+    @media (max-width:1150px){ .okobs-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (max-width:720px){ .okobs-grid{ grid-template-columns: 1fr; } }
+    .post-card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.06); overflow:hidden; }
+    .post-card img { width:100%; height:220px; object-fit:cover; display:block; }
+    .post-title { color:var(--okobs-blue); margin:12px 16px 0; }
+    .post-meta { color:#666; margin:4px 16px 0; font-size:14px; }
+    .post-excerpt { margin:12px 16px 16px; color:#222; }
+    .post-detail .post-hero img { width:100%; height:auto; display:block; }
+    .back-btn { margin:24px 0; background:var(--okobs-blue); color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; }
+  </style>
+  <!-- === End Critical Header CSS === -->
+
+  <!-- CSS load failure detector (onerror + runtime verification) -->
+  <script>
+    (function() {
+      const cssLink = document.getElementById('okobs-css');
+
+      // 1) Direct load error (network)
+      cssLink.addEventListener('error', function() {
+        console.error('[OkObserver] ❌ Stylesheet failed to load:', cssLink.href);
+      });
+
+      // 2) Runtime verification: after paint, confirm a known rule is active.
+      // We check computed color of .post-title (should be OkObserver blue).
+      window.addEventListener('load', function() {
+        requestAnimationFrame(function() {
+          const probe = document.createElement('h2');
+          probe.className = 'post-title';
+          probe.textContent = 'probe';
+          document.body.appendChild(probe);
+          const color = getComputedStyle(probe).color;
+          document.body.removeChild(probe);
+
+          // Expect rgb(30, 144, 255) for #1E90FF in most browsers.
+          // If not, we warn that external CSS might be missing or stale.
+          if (!/rgb\\(\\s*30\\s*,\\s*144\\s*,\\s*255\\s*\\)/.test(color)) {
+            console.warn('[OkObserver] ⚠ External CSS rules not detected yet. color=', color,
+              '\\nThis can indicate stale Service Worker cache or a missing CSS file. URL:', cssLink.href);
+          } else {
+            console.log('[OkObserver] ✅ External CSS active:', cssLink.href);
+          }
+        });
+      });
+    })();
+  </script>
 </head>
 <body>
-  <!-- Header (baseline) -->
+  <!-- Header -->
   <header id="site-header" class="okobs-header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/">
@@ -59,7 +133,7 @@
     })();
   </script>
 
-  <!-- App script: only the cache-buster is bumped -->
+  <!-- App script (fb hotfix JS deployed previously) -->
   <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1-fbHotfix1b"></script>
 </body>
 </html>
