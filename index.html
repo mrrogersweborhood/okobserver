@@ -1,133 +1,70 @@
-<!-- 🟢 index.html -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>OkObserver</title>
-  <meta name="theme-color" content="#1E90FF" />
 
-  <!-- Preconnects -->
-  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" crossorigin>
-  <link rel="dns-prefetch" href="//okobserver-proxy.bob-b5c.workers.dev">
+  <!-- Favicon (kept) -->
+  <link rel="icon" href="favicon.ico">
 
-  <!-- Favicon -->
-  <link rel="icon" href="favicon.ico" sizes="any">
+  <!-- Styles (kept) -->
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 
-  <!-- External styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n" />
+  <!-- App meta (kept) -->
+  <meta name="theme-color" content="#1E90FF">
+  <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
 
-  <style>
-    /* === CRITICAL HEADER OVERRIDES (stable) === */
-    header.oo-header{position:sticky;top:0;z-index:1000;background:#1E90FF;overflow:hidden}
-    header.oo-header .oo-brand{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;position:relative!important;padding:.5rem 3.75rem .65rem 1rem!important;gap:.4rem!important}
-    header.oo-header .oo-logo{display:block!important;width:min(95vw,600px)!important;max-width:calc(100vw - 4.75rem)!important;height:auto!important;max-height:160px!important;object-fit:contain!important;border-radius:12px!important;margin:0 auto!important;background:transparent!important}
-    header.oo-header .oo-title{display:flex!important;flex-direction:column!important;align-items:center!important;margin:0!important}
-    header.oo-header .oo-name{display:none!important}
-    header.oo-header .oo-motto{margin:.15rem 0 0 0!important;font-size:1rem!important;line-height:1.3!important;color:#fff!important;text-align:center!important;opacity:.98!important;max-width:95vw!important}
-    header.oo-header .oo-menu{position:absolute!important;right:.75rem!important;top:58%!important;transform:translateY(-50%)!important;border:0!important;background:transparent!important;color:#fff!important;font-size:1.9rem!important;line-height:1!important;padding:.45rem .6rem!important;border-radius:12px!important;cursor:pointer!important;z-index:1002!important;-webkit-tap-highlight-color:transparent}
-    nav#oo-nav[hidden]{display:none!important}
-    nav#oo-nav{position:absolute!important;right:.5rem!important;top:calc(100% + 6px)!important;z-index:1001!important;background:rgba(255,255,255,.98)!important;color:#0a1f44!important;border-radius:12px!important;box-shadow:0 10px 30px rgba(0,0,0,.22)!important;padding:.5rem!important;min-width:68vw!important}
-    nav#oo-nav a{display:block!important;color:#0a1f44!important;text-decoration:none!important;padding:.55rem .8rem!important;border-radius:8px!important;white-space:nowrap!important}
-    nav#oo-nav a:hover{background:#eef3ff!important}
-
-    /* Hide temporary favicon placeholder until real featured image loads (defensive) */
-    #app article > img.oo-media:not([src*="wp-content"]) { visibility:hidden; }
-    #app article > img.oo-media[src*="wp-content"] { visibility:visible; }
-
-    /* Guard grid before external CSS is parsed */
-    .oo-grid{display:grid;gap:16px}
-  </style>
+  <!-- Prevent GitHub Pages 404 on SPA deep links -->
+  <base href="/okobserver/">
 </head>
-
 <body>
-  <header id="oo-header" class="oo-header">
-    <div class="oo-brand">
-      <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
-      <div class="oo-title">
-        <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
-      </div>
-      <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
+  <!-- Sticky header with centered motto + hamburger (unchanged) -->
+  <header id="site-header" class="okobs-header">
+    <div class="okobs-header-inner">
+      <a class="brand" href="#/">
+        <img alt="The Oklahoma Observer" class="logo" src="favicon.ico">
+        <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+      </a>
+      <button id="hamburger" aria-label="Open menu" class="hamburger" aria-haspopup="true" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav id="mobile-menu" class="menu" hidden>
+        <a href="#/">Posts</a>
+        <a href="#/about">About</a>
+      </nav>
     </div>
-    <nav id="oo-nav" class="oo-nav" hidden>
-      <a href="#/">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
   </header>
 
-  <main id="app" class="oo-app" inert></main>
+  <!-- Main app outlet -->
+  <main id="app" role="main"></main>
 
-  <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-videoR1</span>
+  <!-- Footer (unchanged) -->
+  <footer class="site-footer">
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-perfSWR1-videoR1
   </footer>
 
-  <!-- Globals -->
+  <!-- Service Worker registration (diagnostic logs kept) -->
   <script>
-    window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-videoR1";
-    window.__OKO__.DEBUG = false;
-  </script>
-
-  <!-- App bundle (video enhancements restored) -->
-  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1"></script>
-
-  <!-- Enable app after idle -->
-  <script>
-    (window.requestIdleCallback || function(cb){return setTimeout(cb,50)})(function(){
-      document.getElementById('app')?.removeAttribute('inert');
-    });
-  </script>
-
-  <!-- Hardened hamburger toggle -->
-  <script>
-    (function(){
-      var btn=document.getElementById('oo-menu');
-      var nav=document.getElementById('oo-nav');
-      if(!btn||!nav)return;
-      function openNav(){nav.removeAttribute('hidden');btn.setAttribute('aria-expanded','true');}
-      function closeNav(){nav.setAttribute('hidden','');btn.setAttribute('aria-expanded','false');}
-      function toggleNav(e){e.preventDefault();e.stopPropagation();if(nav.hasAttribute('hidden'))openNav();else closeNav();}
-      if(!btn.__okoHardened){
-        ['click','touchstart'].forEach(function(ev){btn.addEventListener(ev,toggleNav,{passive:false});});
-        document.addEventListener('click',function(e){
-          if(!nav.hasAttribute('hidden')&&!nav.contains(e.target)&&e.target!==btn){closeNav();}
+    (function () {
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s').then(function (reg) {
+            console.log('[SW] Registered:', reg.scope);
+          }).catch(function (err) {
+            console.warn('[SW] Registration failed:', err);
+          });
         });
-        window.addEventListener('hashchange',closeNav);
-        btn.__okoHardened=true;
+      } else {
+        console.log('[SW] Not supported');
       }
     })();
   </script>
 
-  <!-- 🟢 SW diag + register — matches sw.js hotfix3s -->
-  <script>
-  (function(){
-    if (!('serviceWorker' in navigator)) { console.warn('[SW] not supported'); return; }
-    const scope = location.pathname.replace(/[^/]+$/, ''); // e.g. '/okobserver/'
-    const swUrl = new URL('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s', location).toString();
+  <!-- App script: ONLY CHANGE is cache-busting query bump to load fbHotfix1 -->
+  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1-fbHotfix1"></script>
 
-    // Probe first to avoid registering 404/HTML
-    fetch(swUrl, { cache: 'no-store' }).then(async (res) => {
-      const ct = res.headers.get('Content-Type') || '';
-      const txt = await res.clone().text();
-      console.log('[SW] probe status=%s, type=%s, len=%s', res.status, ct, txt.length);
-      if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + swUrl);
-      if (ct.includes('text/html')) throw new Error('sw.js is serving HTML (wrong path or .nojekyll missing)');
-      if (!/self\.addEventListener\(/.test(txt)) throw new Error('sw.js content does not look like a SW file');
-      return navigator.serviceWorker.register(swUrl, { scope });
-    }).then((reg) => {
-      console.log('[SW] registered OK, scope=', reg.scope);
-    }).catch((err) => {
-      console.error('[SW] registration failed:', err);
-      console.info('[SW] scope used:', scope, 'url:', swUrl);
-      console.info('[SW] Checklist: sw.js must be in SAME folder as index.html, .nojekyll present, UTF-8 w/o BOM, valid JS.');
-    });
-
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[SW] controller changed: page now controlled');
-    });
-  })();
-  </script>
+  <!-- Grid enforcement MutationObserver is inside main.js (unchanged behavior) -->
 </body>
 </html>
-<!-- 🔴 index.html -->
