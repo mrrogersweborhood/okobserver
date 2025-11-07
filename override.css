@@ -686,3 +686,47 @@ header.okobs-header nav.menu[hidden]{ display:none; }
   header.okobs-header nav.menu a{ color:#fff !important; text-decoration:none; font-weight:600; }
 }
 /* ====================================================================== */
+/* ==== headerCenterLockR2 (append-only; forces centered, stacked brand) ==== */
+header.okobs-header{
+  position:sticky; top:0; z-index:1000;
+  background:#1E90FF; color:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+header.okobs-header .okobs-header-inner{
+  /* Turn the header into a 3-zone bar:
+     [left empty] [center brand] [right hamburger] */
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  max-width:1200px; margin:0 auto; padding:12px 16px;
+}
+header.okobs-header a.brand{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; text-decoration:none; color:#fff !important;
+  text-align:center;
+}
+header.okobs-header img.logo{
+  /* Make the “logo” large even if it’s favicon.ico for now */
+  width:88px; height:88px; border-radius:12px; display:block;
+  max-width:none !important;
+}
+header.okobs-header .motto{
+  color:#fff; font-weight:600; opacity:.98; line-height:1.2;
+  font-size:16px;
+}
+header.okobs-header .hamburger{
+  position:absolute; right:16px; top:50%; transform:translateY(-50%);
+  background:transparent; border:0; width:40px; height:32px;
+  display:grid; place-items:center; cursor:pointer;
+}
+header.okobs-header .hamburger span{
+  display:block; width:22px; height:2px; background:#fff; margin:3px 0;
+}
+/* Keep mobile menu white links */
+header.okobs-header nav.menu[hidden]{ display:none; }
+@media (max-width:820px){
+  header.okobs-header nav.menu:not([hidden]){
+    display:flex; flex-direction:column; gap:8px; padding:8px 16px 16px;
+  }
+  header.okobs-header nav.menu a{ color:#fff !important; text-decoration:none; font-weight:600; }
+}
+/* ======================================================================== */

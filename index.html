@@ -6,24 +6,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>OkObserver</title>
 
-  <!-- Favicon -->
   <link rel="icon" href="favicon.ico">
-
-  <!-- Stylesheet (keep your existing file/version string if you prefer) -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 
-  <!-- Meta -->
   <meta name="theme-color" content="#1E90FF">
   <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
-
-  <!-- Prevent GitHub Pages SPA 404 -->
   <base href="/okobserver/">
 </head>
 <body>
-  <!-- Sticky header (baseline markup) -->
   <header id="site-header" class="okobs-header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/">
+        <!-- Using your current image asset; CSS below will size it large and center it -->
         <img alt="The Oklahoma Observer" class="logo" src="favicon.ico">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </a>
@@ -37,15 +31,12 @@
     </div>
   </header>
 
-  <!-- Main outlet -->
   <main id="app" role="main"></main>
 
-  <!-- Footer -->
   <footer class="site-footer">
     © 2025 The Oklahoma Observer • Build 2025-11-07SR1-perfSWR1-videoR1
   </footer>
 
-  <!-- Service Worker registration -->
   <script>
     (function () {
       if ('serviceWorker' in navigator) {
@@ -61,7 +52,6 @@
     })();
   </script>
 
-  <!-- App script (current working build you asked for) -->
   <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1-fbFix2"></script>
 </body>
 </html>
