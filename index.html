@@ -63,17 +63,19 @@
 
   <footer class="oo-footer">
     © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-hotfix3q</span>
+    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-hotfix3r</span>
   </footer>
 
   <script>
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-hotfix3q";
+    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-hotfix3r";
     window.__OKO__.DEBUG = false;
   </script>
 
+  <!-- App bundle -->
   <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3p"></script>
 
+  <!-- Enable app after idle -->
   <script>
     (window.requestIdleCallback || function(cb){return setTimeout(cb,50)})(function(){
       document.getElementById('app')?.removeAttribute('inert');
@@ -100,19 +102,36 @@
     })();
   </script>
 
-  <!-- 🟢 SW register (scoped to /okobserver/) -->
+  <!-- 🟢 SW diag + register — hotfix3r-diag -->
   <script>
   (function(){
-    if (!('serviceWorker' in navigator)) return;
-    var SCOPE = '/okobserver/';
-    var SW_URL = 'sw.js?v=2025-11-07SR1-perfSWR1-hotfix3q';
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register(SW_URL, { scope: SCOPE })
-        .then(reg => console.log('[SW] registered:', reg.scope))
-        .catch(err => console.warn('[SW] register failed:', err));
+    if (!('serviceWorker' in navigator)) { console.warn('[SW] not supported'); return; }
+
+    // Derive scope from current path (works on GitHub Pages subfolder)
+    const scope = location.pathname.replace(/[^/]+$/, ''); // e.g. '/okobserver/'
+    const swUrl = new URL('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3r', location).toString();
+
+    // Probe the file to ensure it's JS (not HTML/404) before registering
+    fetch(swUrl, { cache: 'no-store' }).then(async (res) => {
+      const ct = res.headers.get('Content-Type') || '';
+      const txt = await res.clone().text();
+      console.log('[SW] probe status=%s, type=%s, len=%s', res.status, ct, txt.length);
+
+      if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + swUrl);
+      if (ct.includes('text/html')) throw new Error('sw.js is serving HTML (wrong path or .nojekyll missing)');
+      if (!/self\.addEventListener\(/.test(txt)) throw new Error('sw.js content does not look like a SW file');
+
+      return navigator.serviceWorker.register(swUrl, { scope });
+    }).then((reg) => {
+      console.log('[SW] registered OK, scope=', reg.scope);
+    }).catch((err) => {
+      console.error('[SW] registration failed:', err);
+      console.info('[SW] scope used:', scope, 'url:', swUrl);
+      console.info('[SW] Checklist: sw.js must be in SAME folder as index.html, .nojekyll present, UTF-8 w/o BOM, valid JS.');
     });
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('[SW] controller changed');
+      console.log('[SW] controller changed: page now controlled');
     });
   })();
   </script>
