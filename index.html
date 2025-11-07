@@ -63,12 +63,12 @@
 
   <footer class="oo-footer">
     © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3p-SW1</span>
+    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-hotfix3q</span>
   </footer>
 
   <script>
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-06SR1-perfSWR1-hotfix3p-SW1";
+    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-hotfix3q";
     window.__OKO__.DEBUG = false;
   </script>
 
@@ -105,7 +105,7 @@
   (function(){
     if (!('serviceWorker' in navigator)) return;
     var SCOPE = '/okobserver/';
-    var SW_URL = 'sw.js?v=2025-11-06SR1-perfSWR1-hotfix3p';
+    var SW_URL = 'sw.js?v=2025-11-07SR1-perfSWR1-hotfix3q';
     window.addEventListener('load', function(){
       navigator.serviceWorker.register(SW_URL, { scope: SCOPE })
         .then(reg => console.log('[SW] registered:', reg.scope))

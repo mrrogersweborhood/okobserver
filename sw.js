@@ -1,15 +1,17 @@
 /* 🟢 sw.js — OkObserver Service Worker
-   Build: 2025-11-06SR1-perfSWR1-hotfix3p
-   Strategy:
-     - App shell: cache-first with versioned cache.
-     - API (okobserver-proxy … /wp-json/wp/v2/): network-first, fallback to cache if available.
-     - Stale cache short-circuit on version change: old caches purged in activate().
-     - Optional offline fallback for navigations -> offline.html (if present).
+   Build: 2025-11-07SR1-perfSWR1-hotfix3q
+   Purpose:
+     - Cache-first app shell (HTML, CSS, JS, logo)
+     - Network-first WordPress API fetch
+     - Version-based cache invalidation
+     - Optional offline fallback (offline.html)
 */
 
-const VER = '2025-11-06SR1-perfSWR1-hotfix3p';
+const VER = '2025-11-07SR1-perfSWR1-hotfix3q';
 const CACHE_SHELL = `oko-shell-${VER}`;
 const CACHE_DATA  = `oko-data-${VER}`;
+const API_HOST = 'okobserver-proxy.bob-b5c.workers.dev';
+const API_PATH = '/wp-json/wp/v2/';
 
 const SHELL_ASSETS = [
   './',
@@ -18,68 +20,82 @@ const SHELL_ASSETS = [
   './main.js?v=2025-11-06SR1-perfSWR1-hotfix3p',
   './logo.png',
   './favicon.ico',
-  './offline.html', // optional, if missing it's ignored
+  './offline.html'
 ];
 
-const API_HOST = 'okobserver-proxy.bob-b5c.workers.dev';
-const API_PATH = '/wp-json/wp/v2/';
-
+// ------------------------------
+// INSTALL
+// ------------------------------
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_SHELL).then((c) => c.addAll(SHELL_ASSETS.filter(Boolean))).then(() => self.skipWaiting())
+    caches.open(CACHE_SHELL)
+      .then(cache => cache.addAll(SHELL_ASSETS.filter(Boolean)))
+      .then(() => self.skipWaiting())
   );
 });
 
+// ------------------------------
+// ACTIVATE — Purge old caches
+// ------------------------------
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(
-      keys.filter(k => ![CACHE_SHELL, CACHE_DATA].includes(k)).map(k => caches.delete(k))
+      keys.filter(k => ![CACHE_SHELL, CACHE_DATA].includes(k))
+          .map(k => caches.delete(k))
     );
     await self.clients.claim();
+    console.log(`[SW] Activated ${VER}`);
   })());
 });
 
-// Helper: is this a WP API request?
+// ------------------------------
+// Fetch helper: Is API request?
+// ------------------------------
 function isAPI(req) {
   try {
     const u = new URL(req.url);
     return u.hostname === API_HOST && u.pathname.startsWith(API_PATH);
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
+// ------------------------------
+// FETCH HANDLER
+// ------------------------------
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Only handle GET.
   if (req.method !== 'GET') return;
 
-  // Network-first for API (keeps content fresh).
+  // API requests → network first
   if (isAPI(req)) {
     event.respondWith((async () => {
       try {
-        const net = await fetch(req, { cache: 'no-store' });
-        const clone = net.clone();
-        const c = await caches.open(CACHE_DATA);
-        c.put(req, clone);
-        return net;
+        const netRes = await fetch(req, { cache: 'no-store' });
+        const clone = netRes.clone();
+        const cache = await caches.open(CACHE_DATA);
+        cache.put(req, clone);
+        return netRes;
       } catch {
-        const c = await caches.open(CACHE_DATA);
-        const hit = await c.match(req);
-        if (hit) return hit;
-        // Last resort: generic Response
-        return new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' }});
+        const cache = await caches.open(CACHE_DATA);
+        const hit = await cache.match(req);
+        return hit || new Response(JSON.stringify({ error: 'offline' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     })());
     return;
   }
 
-  // For navigations: try network, then shell, then offline page if present.
+  // Navigations → try network, then cached shell, then offline.html
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       try {
-        const net = await fetch(req);
-        return net;
+        const netRes = await fetch(req);
+        return netRes;
       } catch {
         const cache = await caches.open(CACHE_SHELL);
         return (await cache.match('./index.html')) ||
@@ -90,19 +106,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for static shell assets.
+  // Static shell assets → cache first
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_SHELL);
     const hit = await cache.match(req, { ignoreSearch: false });
     if (hit) return hit;
+
     try {
-      const net = await fetch(req);
-      if (net.ok && (req.url.startsWith(self.location.origin))) {
-        cache.put(req, net.clone());
+      const netRes = await fetch(req);
+      if (netRes.ok && req.url.startsWith(self.location.origin)) {
+        cache.put(req, netRes.clone());
       }
-      return net;
+      return netRes;
     } catch {
-      // If offline and not cached, fall back to offline page for HTML
       if (req.headers.get('Accept')?.includes('text/html')) {
         return (await cache.match('./offline.html')) || new Response('Offline', { status: 503 });
       }
@@ -110,4 +126,14 @@ self.addEventListener('fetch', (event) => {
     }
   })());
 });
+
+// ------------------------------
+// OPTIONAL: Message listener for skipWaiting
+// ------------------------------
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 /* 🔴 sw.js */
