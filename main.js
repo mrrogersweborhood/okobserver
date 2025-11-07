@@ -1,9 +1,9 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR15-vimeoPlayerConvert+preDOM)
-// FULL FILE REPLACEMENT — converts provider URLs to real embed iframes before DOM insert.
-// Safeguards: don't double-embed if an iframe/video already exists; keeps infinite scroll, grid enforcer,
-// return-to-scroll, cartoon filter, bold byline, and gap cleanup. 
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR16-preDOM+postDOM-embedGuarantee)
+// FULL FILE REPLACEMENT. Guarantees a visible player by:
+// 1) preDomAutoEmbed() — converts provider URLs to iframes in the HTML string BEFORE insert
+// 2) postDomEnsureEmbed() — after insert, if no player is present, finds a provider URL in DOM and injects an iframe
 (function(){
-  const VER = '2025-11-07SR1-videoFixR15-vimeoPlayerConvert+preDOM';
+  const VER = '2025-11-07SR1-videoFixR16-preDOM+postDOM-embedGuarantee';
   console.log('[OkObserver] Main JS Build', VER);
 
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
@@ -19,7 +19,7 @@
   const qs=(s,c)=> (c||document).querySelector(s);
   const fetchJSON=(u)=>fetch(u,{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject(r.status));
 
-  // ---- Cartoon filter (category id or term name/slug “cartoon”, plus title fallback)
+  // Cartoon filter
   const isCartoon=(p)=>{
     try{
       if((p.categories||[]).includes(5923)) return true;
@@ -29,7 +29,7 @@
     }catch(_){return false;}
   };
 
-  // ---- Cards on home
+  // Home cards
   function buildCard(p){
     const card=el('article','post-card');
     const link=el('a'); link.href='#/post/'+p.id;
@@ -49,7 +49,6 @@
     return card;
   }
 
-  // ---- List caching + infinite scroll
   function saveList(grid){
     try{
       sessionStorage.setItem(KEYS.LIST, grid.innerHTML);
@@ -96,10 +95,10 @@
     if(!restored) loadMore(grid); else if(nearBottom()) loadMore(grid);
   }
 
-  // ---- Content hygiene
-  function nonDestructiveGapCleanup(body){
-    if(!body) return;
-    body.querySelectorAll('p').forEach(p=>{
+  // Hygiene
+  function nonDestructiveGapCleanup(root){
+    if(!root) return;
+    root.querySelectorAll('p').forEach(p=>{
       const txt=(p.textContent||'').replace(/\u00a0/g,' ').trim();
       const onlyBr = p.children.length===1 && p.firstElementChild.tagName==='BR';
       if(!txt && (p.children.length===0 || onlyBr)) p.remove();
@@ -113,76 +112,90 @@
           Object.assign(node.style,{display:'block',visibility:'visible',width:'100%',maxWidth:'100%',border:'0'});
           const w=(node.getBoundingClientRect().width||node.parentElement?.clientWidth||640);
           const minH=Math.max(Math.round(w*9/16),320);
-          if((parseInt(getComputedStyle(node).height,10)||0)<120){
-            node.style.minHeight=minH+'px';
-            node.style.height=minH+'px';
-          }else{
-            node.style.minHeight='320px';
-          }
+          const cur=parseInt(getComputedStyle(node).height,10)||0;
+          if(cur<120){ node.style.minHeight=minH+'px'; node.style.height=minH+'px'; } else { node.style.minHeight='320px'; }
         }else{
           Object.assign(node.style,{display:'block',visibility:'visible',width:'100%',maxWidth:'100%',minHeight:'320px',margin:'0 auto 16px'});
         }
       });
   }
 
-  // ---- Provider URL detection + embed conversion (pre-DOM)
+  // Provider detection
   const RX={
     vimeo: /(https?:\/\/(?:www\.)?vimeo\.com\/(\d+))(?:[^\s<>'"]*)/i,
     youtube: /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=([\w-]+)|youtu\.be\/([\w-]+)))(?:[^\s<>'"]*)/i,
     facebook: /(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch)\/[^\s<>'"]+)/i
   };
-  function alreadyHasPlayer(html){
-    return /<iframe[\s\S]*?>|<video[\s\S]*?>|class=(["'])fb-(?:video|post)\1/i.test(html);
-  }
-  function makeIframeHTMLFromURL(url){
-    // Vimeo → player.vimeo.com/video/<id>
+  const hasPlayerHTML=(html)=> /<iframe[\s\S]*?>|<video[\s\S]*?>|class=(["'])fb-(?:video|post)\1/i.test(html);
+  const normalize=(s)=> String(s||'').replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,'&');
+
+  function makeIframeFromURL(url){
+    // Vimeo
     const vm=url.match(RX.vimeo);
-    if(vm){ const id=vm[2]; const src=`https://player.vimeo.com/video/${id}`; 
-      return `<iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
+    if(vm){ const id=vm[2]; return `<iframe src="https://player.vimeo.com/video/${id}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
     // YouTube
     const ym=url.match(RX.youtube);
-    if(ym){ const id=ym[2]||ym[3]; const src=`https://www.youtube.com/embed/${id}`;
-      return `<iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
+    if(ym){ const id=ym[2]||ym[3]; return `<iframe src="https://www.youtube.com/embed/${id}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
     // Facebook
-    if(RX.facebook.test(url)){ const src=`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&autoplay=0&show_text=false`;
-      return `<iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
+    if(RX.facebook.test(url)){ const src=`https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&autoplay=0&show_text=false`; return `<iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;min-height:360px;display:block;border:0"></iframe>`; }
     return '';
   }
-  function normalizeHrefEncodings(s){ return s.replace(/&quot;/g,'"').replace(/&#039;/g,"'").replace(/&amp;/g,'&'); }
 
+  // Pre-DOM conversion
   function preDomAutoEmbed(html){
-    // If a real player already exists, leave it alone.
-    if(alreadyHasPlayer(html)) return html;
+    let working = normalize(html);
+    if(hasPlayerHTML(working)) return working;
 
-    let working = normalizeHrefEncodings(String(html||''));
-
-    // 1) Anchor href case
+    // Try anchor href first
     const aMatch = working.match(/<a[^>]+href=["']([^"']+)["'][^>]*>[\s\S]*?<\/a>/i);
     if(aMatch){
       const url=aMatch[1];
-      const iframe=makeIframeHTMLFromURL(url);
-      if(iframe){
-        // Append iframe right after the link inside its parent paragraph if possible
-        // Replace link with link+iframe to minimize layout jumps
-        working = working.replace(aMatch[0], aMatch[0] + iframe);
-        return working;
-      }
+      const iframe=makeIframeFromURL(url);
+      if(iframe){ return working.replace(aMatch[0], aMatch[0] + iframe); }
     }
-
-    // 2) Plain text URL anywhere
-    const plain = working.match(RX.vimeo) || working.match(RX.youtube) || working.match(RX.facebook);
-    if(plain){
-      const url=plain[0];
-      const iframe=makeIframeHTMLFromURL(url);
-      if(iframe){
-        // Replace the first occurrence with a clickable link followed by the iframe
-        working = working.replace(url, `<a href="${url}" target="_blank" rel="noopener">${url}</a>${iframe}`);
-      }
+    // Plain text URL anywhere
+    const pm = working.match(RX.vimeo)||working.match(RX.youtube)||working.match(RX.facebook);
+    if(pm){
+      const url=pm[0];
+      const iframe=makeIframeFromURL(url);
+      if(iframe){ working = working.replace(url, `<a href="${url}" target="_blank" rel="noopener">${url}</a>${iframe}`); }
     }
     return working;
   }
 
-  // ---- Post detail
+  // Post-DOM fallback — if no player rendered, inject one under first paragraph
+  function postDomEnsureEmbed(root){
+    if(!root) return;
+    if(root.querySelector('iframe, video, .fb-video, .fb-post')) return; // already present
+
+    // Try to find URL in anchors
+    let url='';
+    const a = root.querySelector('a[href]');
+    if(a) url = normalize(a.getAttribute('href')||'');
+
+    // Else scan text/HTML
+    if(!url){
+      const html = normalize(root.innerHTML||'');
+      const text = root.textContent||'';
+      const pick = (s)=> (s.match(RX.vimeo)||s.match(RX.youtube)||s.match(RX.facebook))?.[0] || '';
+      url = pick(html) || pick(text);
+    }
+    if(!url) return;
+
+    const iframeHTML = makeIframeFromURL(url);
+    if(!iframeHTML) return;
+
+    const firstP = root.querySelector('p');
+    const wrap = document.createElement('div');
+    wrap.innerHTML = iframeHTML;
+    const iframe = wrap.firstElementChild;
+    (firstP || root).insertAdjacentElement('afterend', iframe);
+
+    ensureEmbedsVisible(root);
+    console.log('[OkObserver] postDomEnsureEmbed injected player from', url);
+  }
+
+  // Detail
   function renderPost(id){
     fetchJSON(`${API_BASE}posts/${id}?_embed`).then(p=>{
       const hero=p._embedded?.['wp:featuredmedia']?.[0]?.source_url;
@@ -195,13 +208,16 @@
         `<strong>Oklahoma Observer</strong> — ${new Date(p.date).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`
       ));
 
-      // IMPORTANT: Convert provider links BEFORE injecting into DOM
+      // Convert BEFORE insert
       let bodyHTML = preDomAutoEmbed(p.content.rendered||'');
       const body=el('div','post-body', bodyHTML);
       article.appendChild(body);
 
       nonDestructiveGapCleanup(body);
-      ensureEmbedsVisible(body); // size + visibility enforcement (covers edge wrappers)
+      ensureEmbedsVisible(body);
+
+      // Fallback AFTER insert if still no player
+      postDomEnsureEmbed(body);
 
       const back=el('button','back-btn','← Back to Posts');
       back.onclick=()=>{ location.hash='#/'; };
@@ -211,7 +227,6 @@
     }).catch(err=>console.warn('[OkObserver] renderPost failed',err));
   }
 
-  // ---- Router
   function router(){
     const h=location.hash||'#/';
     if(h.startsWith('#/post/')){
@@ -222,11 +237,10 @@
     }
   }
 
-  // ---- Grid enforcer stays always on
   new MutationObserver(()=>{ const g=qs('#grid'); if(g) g.classList.add('okobs-grid'); })
     .observe(app,{childList:true,subtree:true});
 
   window.addEventListener('hashchange',router);
   router();
 })();
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR15-vimeoPlayerConvert+preDOM)
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR16-preDOM+postDOM-embedGuarantee)
