@@ -1,4 +1,4 @@
-<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1) -->
+<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1 + enhancerOffR1) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,11 +27,20 @@
   <main id="app" class="app"></main>
 
   <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1 + enhancerOffR1
   </footer>
 
+  <!-- 🔒 Kill-switch: disable any video enhancement so native provider iframes render untouched -->
+  <script>
+    // 🟢 enhancerOffR1: tells main.js to skip enhanceVideos() entirely.
+    window.OKOBS_DISABLE_VIDEO_ENHANCER = true;
+    console.log('[OkObserver] enhancerOffR1 flag set — enhancer disabled');
+  </script>
+
+  <!-- App (cache-busted) -->
   <script defer src="main.js?v=2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1"></script>
 
+  <!-- Service Worker (keep for prod; fine to disable during debugging if needed) -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -43,4 +52,4 @@
   </script>
 </body>
 </html>
-<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1) -->
+<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1 + enhancerOffR1) -->
