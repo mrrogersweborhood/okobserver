@@ -63,12 +63,12 @@
 
   <footer class="oo-footer">
     © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3n</span>
+    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3p-SW1</span>
   </footer>
 
   <script>
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-06SR1-perfSWR1-hotfix3n";
+    window.__OKO__.VER  = "2025-11-06SR1-perfSWR1-hotfix3p-SW1";
     window.__OKO__.DEBUG = false;
   </script>
 
@@ -98,6 +98,23 @@
         btn.__okoHardened=true;
       }
     })();
+  </script>
+
+  <!-- 🟢 SW register (scoped to /okobserver/) -->
+  <script>
+  (function(){
+    if (!('serviceWorker' in navigator)) return;
+    var SCOPE = '/okobserver/';
+    var SW_URL = 'sw.js?v=2025-11-06SR1-perfSWR1-hotfix3p';
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register(SW_URL, { scope: SCOPE })
+        .then(reg => console.log('[SW] registered:', reg.scope))
+        .catch(err => console.warn('[SW] register failed:', err));
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('[SW] controller changed');
+    });
+  })();
   </script>
 </body>
 </html>
