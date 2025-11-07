@@ -1,22 +1,63 @@
-<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3) -->
+<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR13-autoEmbedTextSafe) -->
+<!-- NOTE: Start marker: 🟢 index.html — full file replacement. End marker at bottom shows 🔴 index.html. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1E90FF">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3">
+
+  <!-- Favicon MUST remain favicon.ico per project rule -->
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR13-autoEmbedTextSafe" />
+  <style>
+    /* Minimal safety styles in case override.css is cached */
+    :root { --okblue:#1E90FF; --app-max:1200px; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; background:#f3f6f9; color:#0b1320; }
+    a { color:#1E90FF; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+
+    /* Sticky header with centered logo & motto; hamburger right */
+    .site-header { position:sticky; top:0; z-index:1000; background:var(--okblue); color:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+    .header-inner { max-width:var(--app-max); margin:0 auto; display:grid; grid-template-columns:1fr auto; align-items:center; padding:12px 16px 6px; }
+    .logo-block { grid-column:1 / -1; text-align:center; }
+    .header-logo { height:56px; display:block; margin:0 auto 6px; }
+    .motto { font-size:14px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .menu-toggle { grid-column:2; justify-self:end; font-size:22px; line-height:22px; padding:6px 10px; color:#fff; background:transparent; border:0; cursor:pointer; }
+    .main-nav { display:none; }
+    @media (min-width: 900px){
+      .header-inner { grid-template-columns: 1fr auto; }
+      .main-nav { display:flex; gap:16px; }
+      .main-nav a { color:#fff; font-weight:600; }
+    }
+
+    /* App shell */
+    #app { max-width:var(--app-max); margin:18px auto; padding:0 16px 32px; }
+
+    /* Footer */
+    .site-footer { max-width:var(--app-max); margin:32px auto; padding:12px 16px; color:#5a6a7a; font-size:13px; }
+
+    /* Back button baseline */
+    .back-btn { margin:24px 0 0; background:var(--okblue); color:#fff; border:0; padding:10px 14px; border-radius:8px; cursor:pointer; }
+  </style>
 </head>
 <body>
   <header class="site-header" id="main-header">
     <div class="header-inner">
       <div class="logo-block">
-        <img src="logo.png" alt="The Oklahoma Observer" class="header-logo">
+        <!-- Per project rules, this is the big header LOGO (NOT the favicon). Keep filename stable. -->
+        <img src="logo.png" alt="The Oklahoma Observer" class="header-logo" />
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </div>
-      <button class="menu-toggle" aria-label="Menu">☰</button>
+
+      <!-- Right-aligned hamburger (hidden label for a11y) -->
+      <button class="menu-toggle" aria-label="Menu" id="hamburger">☰</button>
+
+      <!-- Optional desktop nav; hidden on mobile by CSS -->
       <nav class="main-nav" aria-label="Primary">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
@@ -24,23 +65,37 @@
     </div>
   </header>
 
+  <!-- SPA mount -->
   <main id="app" class="app"></main>
 
-  <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3
+  <footer class="site-footer" id="site-footer">
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR13-autoEmbedTextSafe
   </footer>
 
-  <script defer src="main.js?v=2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3"></script>
+  <!-- Main app script (plain JS, no modules) -->
+  <script defer src="main.js?v=2025-11-07SR1-videoFixR13-autoEmbedTextSafe"></script>
 
+  <!-- Service Worker (kept from baseline) -->
   <script>
+    // Keep SW; GH Pages safe. Version bump is in query param only.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
-          .then(r => console.log('[OkObserver] SW registered:', r.scope))
+          .then(reg => console.log('[OkObserver] SW registered:', reg.scope))
           .catch(err => console.warn('[OkObserver] SW failed:', err));
       });
     }
   </script>
+
+  <!-- Tiny defensive script to ensure the logo stays visible/centered even if override.css is stale -->
+  <script>
+    (function(){
+      const lg = document.querySelector('.header-logo');
+      const mot = document.querySelector('.motto');
+      if (lg) { lg.style.display = 'block'; lg.style.margin = '0 auto 6px'; }
+      if (mot){ mot.style.textAlign = 'center'; }
+    })();
+  </script>
 </body>
 </html>
-<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3) -->
+<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR13-autoEmbedTextSafe) -->
