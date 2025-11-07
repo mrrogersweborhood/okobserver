@@ -1,8 +1,8 @@
 /*
  OkObserver SPA Main Script
- Build 2025-11-07SR1-perfSWR1-videoR1-fbHotfix1
+ Build 2025-11-07SR1-perfSWR1-videoR1-fbHotfix1b
  Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
- Description:
+ Notes:
  - Single fetch per page
  - Session scroll/return caching
  - Cartoon filter
@@ -10,7 +10,6 @@
  - Featured images contained
  - Click-to-play for YouTube, Vimeo, Facebook, MP4
  - Grid MutationObserver enforcement
- - Service worker supported, versioned cache purge
  - No ES modules
 */
 
@@ -19,29 +18,30 @@
   const app = document.getElementById('app');
   const scrollCacheKey = 'okobs-scroll';
   const listCacheKey = 'okobs-list';
-  const VER = '2025-11-07SR1-perfSWR1-videoR1-fbHotfix1';
+  const VER = '2025-11-07SR1-perfSWR1-videoR1-fbHotfix1b';
 
   console.log('[OkObserver] Init', VER);
 
-  // Utility helpers
+  // Utils
   const el = (tag, cls, html) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
-    if (html) e.innerHTML = html;
+    if (html != null) e.innerHTML = html;
     return e;
   };
-
   const qs = (sel, ctx = document) => ctx.querySelector(sel);
+  const fetchJSON = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return r.json(); };
 
-  const fetchJSON = async (url) => {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(res.status);
-    return await res.json();
+  // Decode entities for titles used in document.title
+  const decodeEntities = (s) => {
+    if (!s) return s;
+    const d = document.createElement('textarea');
+    d.innerHTML = s;
+    return d.value;
   };
 
-  // Render post list
+  // Home
   async function renderHome() {
-    console.log('[OkObserver] Render home');
     document.title = 'The Oklahoma Observer';
     app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
     const grid = qs('#grid');
@@ -52,16 +52,17 @@
       return;
     }
     const posts = await fetchJSON(API_BASE + 'posts?per_page=20&_embed');
-    posts.filter(p => !p.categories.includes(5923)) // 5923=cartoon
+    posts
+      .filter(p => !p.categories.includes(5923)) // cartoon category id
       .forEach(p => grid.appendChild(buildCard(p)));
     sessionStorage.setItem(listCacheKey, grid.innerHTML);
   }
 
-  // Build a post card
   function buildCard(p) {
     const card = el('article', 'post-card');
     const link = el('a');
     link.href = '#/post/' + p.id;
+
     const img = p._embedded?.['wp:featuredmedia']?.[0]?.source_url;
     if (img) {
       const pic = el('img');
@@ -70,10 +71,13 @@
       pic.loading = 'lazy';
       card.appendChild(pic);
     }
+
     const title = el('h2', 'post-title', p.title.rendered);
-    const by = el('div', 'post-meta', 'Oklahoma Observer — ' +
-      new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }));
+    const by = el('div', 'post-meta',
+      'Oklahoma Observer — ' + new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    );
     const excerpt = el('div', 'post-excerpt', p.excerpt.rendered);
+
     link.appendChild(title);
     card.appendChild(link);
     card.appendChild(by);
@@ -81,60 +85,69 @@
     return card;
   }
 
-  // Render detail
+  // Detail
   async function renderPost(id) {
-    console.log('[OkObserver] Render post', id);
     const p = await fetchJSON(API_BASE + 'posts/' + id + '?_embed');
+
     const hero = p._embedded?.['wp:featuredmedia']?.[0]?.source_url;
-    document.title = p.title.rendered + ' - The Oklahoma Observer';
+
+    document.title = decodeEntities(p.title.rendered) + ' - The Oklahoma Observer';
+
     const container = el('article', 'post-detail');
+
     if (hero) {
       const fig = el('figure', 'post-hero');
       const img = el('img');
       img.src = hero + '?cb=' + p.id;
-      img.alt = p.title.rendered;
+      img.alt = decodeEntities(p.title.rendered);
       fig.appendChild(img);
       container.appendChild(fig);
     }
+
     container.appendChild(el('h1', 'post-title', p.title.rendered));
     container.appendChild(el('div', 'post-meta',
-      'Oklahoma Observer — ' +
-      new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      'Oklahoma Observer — ' + new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     ));
+
     const body = el('div', 'post-body', p.content.rendered);
     container.appendChild(body);
+
     const back = el('button', 'back-btn', '← Back to Posts');
-    back.addEventListener('click', () => {
-      location.hash = '#/';
-    });
+    back.addEventListener('click', () => { location.hash = '#/'; });
     container.appendChild(back);
+
     app.innerHTML = '';
     app.appendChild(container);
+
+    // Enhance any embeds/links recognized as video
     enhanceVideos(body);
   }
 
-  // Enhance videos for YouTube, Vimeo, Facebook, MP4
+  // Video enhancement (YT, Vimeo, FB, MP4)
   function enhanceVideos(scope) {
-    const vids = Array.from(scope.querySelectorAll('iframe, video, a[href]'));
-    vids.forEach(elm => {
+    const nodes = Array.from(scope.querySelectorAll('iframe, video, a[href]'));
+    nodes.forEach(elm => {
       const src = elm.src || elm.href || '';
       if (!src) return;
+
       let type = '';
       if (/youtube\.com|youtu\.be/.test(src)) type = 'youtube';
       else if (/vimeo\.com/.test(src)) type = 'vimeo';
       else if (/facebook\.com|fb\.watch/.test(src)) type = 'facebook';
       else if (/\.(mp4|webm|ogg)$/i.test(src)) type = 'mp4';
       if (!type) return;
+
       if (elm.tagName === 'A') elm.removeAttribute('href');
+
       const wrap = document.createElement('div');
       wrap.className = 'okobs-video pending ' + type;
       wrap.style.position = 'relative';
       wrap.style.cursor = 'pointer';
       wrap.style.aspectRatio = '16/9';
       wrap.style.background = '#000';
+
       const btn = el('div', 'play-overlay');
       btn.innerHTML = '<div class="triangle"></div>';
-      wrap.appendChild(btn);
       const poster = el('img');
       const hero = qs('.post-hero img');
       if (hero) poster.src = hero.currentSrc || hero.src;
@@ -142,8 +155,20 @@
       poster.style.width = '100%';
       poster.style.height = '100%';
       poster.style.objectFit = 'cover';
-      wrap.insertBefore(poster, btn);
+
+      wrap.appendChild(poster);
+      wrap.appendChild(btn);
+
       wrap.addEventListener('click', () => {
+        if (type === 'mp4') {
+          const v = document.createElement('video');
+          v.src = src;
+          v.controls = true;
+          v.autoplay = true;
+          wrap.replaceChildren(v);
+          wrap.classList.remove('pending');
+          return;
+        }
         const iframe = document.createElement('iframe');
         iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
         iframe.allowFullscreen = true;
@@ -152,19 +177,12 @@
         iframe.height = '100%';
         if (type === 'youtube') iframe.src = src.replace('watch?v=', 'embed/') + '?autoplay=1';
         else if (type === 'vimeo') iframe.src = src.replace('vimeo.com', 'player.vimeo.com/video') + '?autoplay=1';
-        else if (type === 'facebook') iframe.src =
-          'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(src) + '&autoplay=1&show_text=false';
-        else if (type === 'mp4') {
-          const v = document.createElement('video');
-          v.src = src;
-          v.controls = true;
-          v.autoplay = true;
-          wrap.replaceChildren(v);
-          return;
-        }
+        else if (type === 'facebook')
+          iframe.src = 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(src) + '&autoplay=1&show_text=false';
         wrap.replaceChildren(iframe);
         wrap.classList.remove('pending');
       });
+
       elm.replaceWith(wrap);
     });
   }
@@ -182,15 +200,13 @@
   }
 
   // Scroll caching
-  function saveScroll() {
-    sessionStorage.setItem(scrollCacheKey, window.scrollY);
-  }
+  function saveScroll() { sessionStorage.setItem(scrollCacheKey, window.scrollY); }
   function restoreScroll() {
     const y = sessionStorage.getItem(scrollCacheKey);
-    if (y) window.scrollTo(0, parseFloat(y));
+    if (y != null) window.scrollTo(0, parseFloat(y));
   }
 
-  // Observe layout to enforce grid
+  // Grid enforcement (MutationObserver)
   const observer = new MutationObserver(() => {
     const grid = qs('#grid');
     if (grid) grid.classList.add('okobs-grid');
@@ -202,21 +218,19 @@
 })();
 
 /* =========================================================
-   Facebook video link → click-to-play embed hotfix
-   Build tag: 2025-11-07SR1-perfSWR1-videoR1-fbHotfix1
+   Facebook plain-link → click-to-play embed HOTFIX
+   (Handles facebook.com/.../videos/... and fb.watch/...)
    ========================================================= */
 (function () {
   if (!location.hash.startsWith('#/post/')) return;
+
   const wait = (sel, timeout = 4000) =>
     new Promise((resolve) => {
       const el = document.querySelector(sel);
       if (el) return resolve(el);
       const obs = new MutationObserver(() => {
         const e2 = document.querySelector(sel);
-        if (e2) {
-          obs.disconnect();
-          resolve(e2);
-        }
+        if (e2) { obs.disconnect(); resolve(e2); }
       });
       obs.observe(document.documentElement, { childList: true, subtree: true });
       setTimeout(() => { obs.disconnect(); resolve(null); }, timeout);
@@ -227,17 +241,13 @@
     try {
       const u = new URL(href);
       const h = u.hostname.replace(/^www\./, '');
-      return (
-        (h === 'facebook.com' || h === 'm.facebook.com' || h === 'fb.watch') &&
-        (/\/videos?\//.test(u.pathname) || h === 'fb.watch')
-      );
+      return ((h === 'facebook.com' || h === 'm.facebook.com' || h === 'fb.watch') &&
+              (/\/videos?\//.test(u.pathname) || h === 'fb.watch'));
     } catch { return false; }
   };
 
-  const makeFbIframeSrc = (href, autoplay = 1) => {
-    const enc = encodeURIComponent(href);
-    return `https://www.facebook.com/plugins/video.php?href=${enc}&autoplay=${autoplay}&show_text=false&width=1280`;
-  };
+  const makeFbIframeSrc = (href, autoplay = 1) =>
+    `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(href)}&autoplay=${autoplay}&show_text=false&width=1280`;
 
   const buildPoster = (aEl, posterUrl) => {
     const wrapper = document.createElement('div');
@@ -305,11 +315,13 @@
   (async () => {
     const body = await wait('.post-detail, .post-body, main article, #detail');
     if (!body) return;
+
     const anchors = Array.from(body.querySelectorAll('a[href]')).filter(a => isFbVideo(a.href));
     if (!anchors.length) return;
-    const heroImg =
-      body.querySelector('.post-hero img, .post-featured img, figure img, .detail-hero img, .post-detail img');
-    const posterUrl = heroImg ? heroImg.currentSrc || heroImg.src : '';
+
+    const heroImg = body.querySelector('.post-hero img, .post-featured img, figure img, .detail-hero img, .post-detail img');
+    const posterUrl = heroImg ? (heroImg.currentSrc || heroImg.src) : '';
+
     anchors.forEach((a) => {
       if (a.dataset.fbConverted === '1') return;
       a.dataset.fbConverted = '1';
