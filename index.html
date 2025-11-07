@@ -18,29 +18,25 @@
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n" />
 
   <style>
-    /* === CRITICAL HEADER OVERRIDES (hotfix3n) === */
+    /* === CRITICAL HEADER OVERRIDES (stable) === */
     header.oo-header{position:sticky;top:0;z-index:1000;background:#1E90FF;overflow:hidden}
-    header.oo-header .oo-brand{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;position:relative!important;padding:.5rem 3.5rem .65rem!important;gap:.4rem!important}
-    header.oo-header .oo-logo{display:block!important;width:min(95vw,600px)!important;height:auto!important;max-height:160px!important;object-fit:contain!important;border-radius:12px!important;margin:0 auto!important;background:transparent!important}
+    header.oo-header .oo-brand{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;position:relative!important;padding:.5rem 3.75rem .65rem 1rem!important;gap:.4rem!important}
+    header.oo-header .oo-logo{display:block!important;width:min(95vw,600px)!important;max-width:calc(100vw - 4.75rem)!important;height:auto!important;max-height:160px!important;object-fit:contain!important;border-radius:12px!important;margin:0 auto!important;background:transparent!important}
     header.oo-header .oo-title{display:flex!important;flex-direction:column!important;align-items:center!important;margin:0!important}
     header.oo-header .oo-name{display:none!important}
     header.oo-header .oo-motto{margin:.15rem 0 0 0!important;font-size:1rem!important;line-height:1.3!important;color:#fff!important;text-align:center!important;opacity:.98!important;max-width:95vw!important}
-    header.oo-header .oo-menu{position:absolute!important;right:1rem!important;top:50%!important;transform:translateY(-50%)!important;border:0!important;background:transparent!important;color:#fff!important;font-size:1.9rem!important;line-height:1!important;padding:.45rem .6rem!important;border-radius:12px!important;cursor:pointer!important;z-index:1002!important;-webkit-tap-highlight-color:transparent}
+    header.oo-header .oo-menu{position:absolute!important;right:.75rem!important;top:58%!important;transform:translateY(-50%)!important;border:0!important;background:transparent!important;color:#fff!important;font-size:1.9rem!important;line-height:1!important;padding:.45rem .6rem!important;border-radius:12px!important;cursor:pointer!important;z-index:1002!important;-webkit-tap-highlight-color:transparent}
     nav#oo-nav[hidden]{display:none!important}
-    nav#oo-nav{position:absolute!important;right:.75rem!important;top:calc(100% + 8px)!important;z-index:1001!important;background:rgba(255,255,255,.98)!important;color:#0a1f44!important;border-radius:12px!important;box-shadow:0 10px 30px rgba(0,0,0,.22)!important;padding:.5rem!important;min-width:180px!important}
+    nav#oo-nav{position:absolute!important;right:.5rem!important;top:calc(100% + 6px)!important;z-index:1001!important;background:rgba(255,255,255,.98)!important;color:#0a1f44!important;border-radius:12px!important;box-shadow:0 10px 30px rgba(0,0,0,.22)!important;padding:.5rem!important;min-width:68vw!important}
     nav#oo-nav a{display:block!important;color:#0a1f44!important;text-decoration:none!important;padding:.55rem .8rem!important;border-radius:8px!important;white-space:nowrap!important}
     nav#oo-nav a:hover{background:#eef3ff!important}
-    @media (max-width:768px){
-      header.oo-header .oo-brand{padding:.5rem 3.75rem .6rem 1rem!important}
-      header.oo-header .oo-logo{width:min(88vw,520px)!important;max-width:calc(100vw - 4.75rem)!important;height:auto!important}
-      header.oo-header .oo-menu{right:.75rem!important;top:58%!important;transform:translateY(-50%)!important}
-      nav#oo-nav{right:.5rem!important;top:calc(100% + 6px)!important;min-width:68vw!important}
-    }
 
-    /* Hide temporary favicon placeholder until real featured image loads */
+    /* Hide temporary favicon placeholder until real featured image loads (defensive) */
     #app article > img.oo-media:not([src*="wp-content"]) { visibility:hidden; }
     #app article > img.oo-media[src*="wp-content"] { visibility:visible; }
-    /* === END HEADER OVERRIDES (hotfix3n) === */
+
+    /* Guard grid before external CSS is parsed */
+    .oo-grid{display:grid;gap:16px}
   </style>
 </head>
 
@@ -63,17 +59,18 @@
 
   <footer class="oo-footer">
     © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-hotfix3s</span>
+    <span id="oo-build">Build 2025-11-07SR1-perfSWR1-videoR1</span>
   </footer>
 
+  <!-- Globals -->
   <script>
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-hotfix3s";
+    window.__OKO__.VER  = "2025-11-07SR1-perfSWR1-videoR1";
     window.__OKO__.DEBUG = false;
   </script>
 
-  <!-- App bundle -->
-  <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3p"></script>
+  <!-- App bundle (video enhancements restored) -->
+  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1"></script>
 
   <!-- Enable app after idle -->
   <script>
@@ -102,25 +99,21 @@
     })();
   </script>
 
-  <!-- 🟢 SW diag + register — hotfix3s-diag -->
+  <!-- 🟢 SW diag + register — matches sw.js hotfix3s -->
   <script>
   (function(){
     if (!('serviceWorker' in navigator)) { console.warn('[SW] not supported'); return; }
-
-    // Derive scope from current path (works on GitHub Pages subfolder)
     const scope = location.pathname.replace(/[^/]+$/, ''); // e.g. '/okobserver/'
     const swUrl = new URL('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s', location).toString();
 
-    // Probe the file to ensure it's JS (not HTML/404) before registering
+    // Probe first to avoid registering 404/HTML
     fetch(swUrl, { cache: 'no-store' }).then(async (res) => {
       const ct = res.headers.get('Content-Type') || '';
       const txt = await res.clone().text();
       console.log('[SW] probe status=%s, type=%s, len=%s', res.status, ct, txt.length);
-
       if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + swUrl);
       if (ct.includes('text/html')) throw new Error('sw.js is serving HTML (wrong path or .nojekyll missing)');
       if (!/self\.addEventListener\(/.test(txt)) throw new Error('sw.js content does not look like a SW file');
-
       return navigator.serviceWorker.register(swUrl, { scope });
     }).then((reg) => {
       console.log('[SW] registered OK, scope=', reg.scope);
