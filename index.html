@@ -14,51 +14,45 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- External styles (keep your current file; we’ll override header rules inline so this works immediately) -->
+  <!-- External styles (keep your file; cache-bust kept) -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3g" />
 
   <style>
-    /* Keep grid from flashing while CSS loads */
+    /* Guard grid before CSS loads */
     .oo-grid{display:grid;gap:16px}
 
-    /* === CRITICAL HEADER OVERRIDES (hotfix3j) ===
-       These win over any old cached CSS and ensure:
-       1) Big, responsive logo (respects aspect ratio)
-       2) Motto centered UNDER the logo
-       3) Hamburger works and stays on the right on all viewports
+    /* === CRITICAL HEADER OVERRIDES (hotfix3k) ===
+       - Big, responsive logo that never overlaps hamburger
+       - Motto centered UNDER the logo
+       - Robust hamburger/dropdown layout on all sizes
     */
-    header.oo-header{position:sticky;top:0;z-index:1000;background:#1E90FF}
+    header.oo-header{position:sticky;top:0;z-index:1000;background:#1E90FF;overflow:hidden}
 
-    /* BRAND: vertical stack */
+    /* Brand stack vertical so motto sits under logo */
     header.oo-header .oo-brand{
       display:flex !important;
       flex-direction:column !important;
       align-items:center !important;
       justify-content:center !important;
       position:relative !important;
-      padding:.5rem 3.5rem .65rem !important;  /* space for hamburger at right */
+      padding:.5rem 3.5rem .65rem !important; /* room for hamburger at right */
       gap:.4rem !important;
     }
 
-    /* LOGO: REALLY BIG (responsive), preserves 375x83 aspect ratio */
+    /* Desktop/tablet: big logo (keeps aspect ratio of 375x83) */
     header.oo-header .oo-logo{
       display:block !important;
-      width:min(95vw, 600px) !important;   /* up to 600px wide, or 95% of viewport */
-      height:auto !important;              /* keep aspect ratio */
-      max-height:160px !important;         /* safety cap for tiny screens */
+      width:min(95vw, 600px) !important;
+      height:auto !important;
+      max-height:160px !important;
       object-fit:contain !important;
       border-radius:12px !important;
       margin:0 auto !important;
       background:transparent !important;
     }
 
-    /* MOTTO: centered under logo */
-    header.oo-header .oo-title{
-      display:flex !important;
-      flex-direction:column !important;
-      align-items:center !important;
-      margin:0 !important;
-    }
+    /* Motto centered beneath */
+    header.oo-header .oo-title{display:flex !important;flex-direction:column !important;align-items:center !important;margin:0 !important}
     header.oo-header .oo-name{display:none !important}
     header.oo-header .oo-motto{
       margin:.15rem 0 0 0 !important;
@@ -70,55 +64,45 @@
       max-width:95vw !important;
     }
 
-    /* HAMBURGER: pinned right, reliable hit area, above dropdown */
+    /* Hamburger pinned right */
     header.oo-header .oo-menu{
       position:absolute !important;
-      right:1rem !important;
-      top:50% !important;
-      transform:translateY(-50%) !important;
-      border:0 !important;
-      background:transparent !important;
-      color:#fff !important;
-      font-size:1.9rem !important;
-      line-height:1 !important;
-      padding:.45rem .6rem !important;
-      border-radius:12px !important;
-      cursor:pointer !important;
-      z-index:1002 !important;
+      right:1rem !important; top:50% !important; transform:translateY(-50%) !important;
+      border:0 !important; background:transparent !important; color:#fff !important;
+      font-size:1.9rem !important; line-height:1 !important; padding:.45rem .6rem !important;
+      border-radius:12px !important; cursor:pointer !important; z-index:1002 !important;
       -webkit-tap-highlight-color:transparent;
     }
     header.oo-header .oo-menu:focus-visible{outline:3px solid #fff;outline-offset:3px}
 
-    /* DROPDOWN: hidden until toggled; overlays content on all sizes */
+    /* Dropdown */
     nav#oo-nav[hidden]{display:none !important}
     nav#oo-nav{
-      position:absolute !important;
-      right:.75rem !important;
-      top:calc(100% + 8px) !important;
-      z-index:1001 !important;
-      background:rgba(255,255,255,.98) !important;
-      color:#0a1f44 !important;
-      border-radius:12px !important;
-      box-shadow:0 10px 30px rgba(0,0,0,.22) !important;
-      padding:.5rem !important;
-      min-width:180px !important;
+      position:absolute !important; right:.75rem !important; top:calc(100% + 8px) !important;
+      z-index:1001 !important; background:rgba(255,255,255,.98) !important; color:#0a1f44 !important;
+      border-radius:12px !important; box-shadow:0 10px 30px rgba(0,0,0,.22) !important;
+      padding:.5rem !important; min-width:180px !important;
     }
-    nav#oo-nav a{
-      display:block !important;
-      color:#0a1f44 !important;
-      text-decoration:none !important;
-      padding:.55rem .8rem !important;
-      border-radius:8px !important;
-      white-space:nowrap !important;
-    }
+    nav#oo-nav a{display:block !important;color:#0a1f44 !important;text-decoration:none !important;padding:.55rem .8rem !important;border-radius:8px !important;white-space:nowrap !important}
     nav#oo-nav a:hover{background:#eef3ff !important}
-    /* === END CRITICAL HEADER OVERRIDES (hotfix3j) === */
+
+    /* Mobile constraints: keep logo fully in view (not under hamburger) */
+    @media (max-width: 768px){
+      header.oo-header .oo-brand{padding:.5rem 3.25rem .6rem 1rem !important}
+      header.oo-header .oo-logo{
+        width:min(88vw, 520px) !important;              /* responsive cap */
+        max-width:calc(100vw - 4.25rem) !important;     /* 4.25rem ≈ right padding + button */
+        height:auto !important;
+      }
+      nav#oo-nav{right:.5rem !important; top:calc(100% + 6px) !important; min-width:68vw !important}
+    }
+    /* === END CRITICAL HEADER OVERRIDES (hotfix3k) === */
   </style>
 </head>
 <body>
   <header id="oo-header" class="oo-header">
     <div class="oo-brand">
-      <!-- Real logo; fallback to favicon if missing -->
+      <!-- Real logo; fallback to favicon only if missing -->
       <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
       <div class="oo-title">
         <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
@@ -138,17 +122,17 @@
 
   <footer class="oo-footer">
     © 2025 The Oklahoma Observer • 
-    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3j</span>
+    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3k</span>
   </footer>
 
   <!-- Core globals -->
   <script>
     window.__OKO__ = window.__OKO__ || {};
-    window.__OKO__.VER  = "2025-11-06SR1-perfSWR1-hotfix3j";
+    window.__OKO__.VER  = "2025-11-06SR1-perfSWR1-hotfix3k";
     window.__OKO__.DEBUG = false;
   </script>
 
-  <!-- Main bundle -->
+  <!-- Main bundle (unchanged JS) -->
   <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3h"></script>
 
   <!-- Enable app after idle -->
@@ -158,30 +142,27 @@
     });
   </script>
 
-  <!-- Hardened hamburger toggle (guards against double-binding) -->
+  <!-- Hardened hamburger toggle: tap/click + click-outside-to-close + hashchange close -->
   <script>
     (function(){
-      function bindHamburger(){
-        var btn = document.getElementById('oo-menu');
-        var nav = document.getElementById('oo-nav');
-        if (!btn || !nav) return false;
-        if (!btn.__okoBound){
-          btn.addEventListener('click', function(){
-            var open = !nav.hasAttribute('hidden');
-            if (open){
-              nav.setAttribute('hidden','');
-              btn.setAttribute('aria-expanded','false');
-            } else {
-              nav.removeAttribute('hidden');
-              btn.setAttribute('aria-expanded','true');
-            }
-          });
-          btn.__okoBound = true;
-        }
-        return true;
+      var btn = document.getElementById('oo-menu');
+      var nav = document.getElementById('oo-nav');
+      if (!btn || !nav) return;
+
+      function openNav(){ nav.removeAttribute('hidden'); btn.setAttribute('aria-expanded','true'); }
+      function closeNav(){ nav.setAttribute('hidden',''); btn.setAttribute('aria-expanded','false'); }
+      function toggleNav(e){
+        e.preventDefault(); e.stopPropagation();
+        if (nav.hasAttribute('hidden')) openNav(); else closeNav();
       }
-      if (!bindHamburger()){
-        document.addEventListener('DOMContentLoaded', bindHamburger);
+
+      if (!btn.__okoHardened){
+        ['click','touchstart'].forEach(function(ev){ btn.addEventListener(ev, toggleNav, {passive:false}); });
+        document.addEventListener('click', function(e){
+          if (!nav.hasAttribute('hidden') && !nav.contains(e.target) && e.target !== btn){ closeNav(); }
+        });
+        window.addEventListener('hashchange', closeNav);
+        btn.__okoHardened = true;
       }
     })();
   </script>

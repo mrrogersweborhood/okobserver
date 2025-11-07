@@ -459,3 +459,28 @@ article h1 a:hover {
   text-align:center !important;
   opacity:.98 !important;
 }
+/* === hotfix3k: mobile header fit + dropdown === */
+
+/* Prevent any header overflow on small screens */
+.oo-header{ overflow:hidden; }
+
+/* Mobile: keep logo inside the header even with the hamburger present */
+@media (max-width: 768px){
+  .oo-header .oo-brand{ padding: .5rem 3.25rem .6rem 1rem !important; } /* room for hamburger on right */
+  .oo-header .oo-logo{
+    width: min(88vw, 520px) !important;                 /* responsive cap */
+    max-width: calc(100vw - 4.25rem) !important;        /* 4.25rem ≈ right padding + button */
+    height: auto !important;
+  }
+  /* dropdown sits fully on-screen */
+  #oo-nav{
+    right: .5rem !important;
+    top: calc(100% + 6px) !important;
+    min-width: 68vw !important;
+  }
+}
+
+/* Improve dropdown layering and hit behavior on all sizes */
+#oo-nav[hidden]{ display:none !important; }
+#oo-nav{ z-index:1001 !important; }
+.oo-menu{ z-index:1002 !important; -webkit-tap-highlight-color:transparent; }
