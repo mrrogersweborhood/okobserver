@@ -14,11 +14,11 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- Styles (override.css handles layout, header, and hotfix3g updates) -->
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3b" />
+  <!-- Styles: bumped cache-buster to hotfix3g (forces reload of new logo sizing rules) -->
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3g" />
 
   <style>
-    /* Guard grid display before CSS fully loads */
+    /* Prevent layout flash before CSS loads */
     .oo-grid{display:grid;gap:16px}
   </style>
 </head>
@@ -28,14 +28,14 @@
       <!-- Larger logo; fallback to favicon if missing -->
       <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
       <div class="oo-title">
-        <!-- Motto only, centered underneath logo -->
+        <!-- Motto only, centered beneath logo -->
         <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
       </div>
-      <!-- Hamburger menu -->
+      <!-- Hamburger toggle -->
       <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
 
-    <!-- Hamburger-only navigation (hidden on desktop until toggled) -->
+    <!-- Hamburger-only nav (hidden on desktop until toggled) -->
     <nav id="oo-nav" class="oo-nav" hidden>
       <a href="#/">Posts</a>
       <a href="#/about">About</a>
@@ -45,7 +45,8 @@
   <main id="app" class="oo-app" inert></main>
 
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3h</span>
+    © 2025 The Oklahoma Observer • 
+    <span id="oo-build">Build 2025-11-06SR1-perfSWR1-hotfix3h</span>
   </footer>
 
   <!-- Core globals -->
@@ -69,26 +70,26 @@
   <script>
     (function(){
       function bindHamburger(){
-        var btn = document.getElementById('oo-menu');
-        var nav = document.getElementById('oo-nav');
-        if (!btn || !nav) return false;
-        if (!btn.__okoBound){
-          btn.addEventListener('click', function(){
-            var open = !nav.hasAttribute('hidden');
-            if (open){
+        var btn=document.getElementById('oo-menu');
+        var nav=document.getElementById('oo-nav');
+        if(!btn||!nav)return false;
+        if(!btn.__okoBound){
+          btn.addEventListener('click',function(){
+            var open=!nav.hasAttribute('hidden');
+            if(open){
               nav.setAttribute('hidden','');
               btn.setAttribute('aria-expanded','false');
-            } else {
+            }else{
               nav.removeAttribute('hidden');
               btn.setAttribute('aria-expanded','true');
             }
           });
-          btn.__okoBound = true;
+          btn.__okoBound=true;
         }
         return true;
       }
-      if (!bindHamburger()){
-        document.addEventListener('DOMContentLoaded', bindHamburger);
+      if(!bindHamburger()){
+        document.addEventListener('DOMContentLoaded',bindHamburger);
       }
     })();
   </script>

@@ -408,3 +408,16 @@ article h1 a:hover {
 
 /* Ensure the header sits above the page */
 .oo-header{ position:sticky; top:0; z-index: 1000; background:#1E90FF; }
+/* === hotfix3g: header + hamburger + logo size + centered motto (force) === */
+.oo-header .oo-brand{display:flex;align-items:center;justify-content:center;position:relative;gap:.75rem}
+.oo-header .oo-logo{width:72px;height:72px;border-radius:10px;object-fit:contain;display:block;background:transparent}
+.oo-header .oo-title{display:flex;flex-direction:column;align-items:center;margin:0}
+.oo-header .oo-name{display:none}
+.oo-header .oo-motto{margin:0;font-size:.95rem;line-height:1.25;color:#fff;text-align:center;opacity:.98}
+
+/* Hamburger + dropdown hardening */
+.oo-header .oo-menu{position:absolute;right:1rem;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#fff;font-size:1.7rem;line-height:1;padding:.4rem .55rem;border-radius:12px;cursor:pointer;z-index:1002}
+#oo-nav[hidden]{display:none !important}
+#oo-nav{position:absolute;right:.75rem;top:calc(100% + 8px);z-index:1001;background:rgba(255,255,255,.98);color:#0a1f44;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:.5rem;min-width:160px}
+#oo-nav a{display:block;color:#0a1f44;text-decoration:none;padding:.5rem .75rem;border-radius:8px;white-space:nowrap}
+#oo-nav a:hover{background:#eef3ff}
