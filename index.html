@@ -14,54 +14,106 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- External styles (keep latest cache-bust) -->
+  <!-- External styles -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3g" />
 
   <style>
     /* Guard grid before CSS loads */
     .oo-grid{display:grid;gap:16px}
 
-    /* === CRITICAL INLINE OVERRIDE (temporary) ===
-       Forces large logo + centered motto regardless of cached CSS or specificity.
-       Remove this block after you confirm the look is correct. */
+    /* === CRITICAL INLINE OVERRIDE (temporary, trump everything) === */
+    header.oo-header{
+      position:sticky; top:0; z-index:1000; background:#1E90FF;
+    }
+    /* Stack BRAND vertically so motto is under logo */
     header.oo-header .oo-brand{
-      display:flex; align-items:center; justify-content:center; position:relative; gap:.75rem;
+      display:flex !important;
+      flex-direction:column !important;           /* <-- vertical stack */
+      align-items:center !important;
+      justify-content:center !important;
+      position:relative !important;
+      padding:.35rem 3.5rem .5rem !important;     /* room for hamburger at right */
+      gap:.4rem !important;
     }
+    /* Big logo, cannot be overridden */
     header.oo-header .oo-logo{
-      width:84px; height:84px; border-radius:10px; object-fit:contain; display:block; background:transparent;
+      width:96px !important;                      /* hard size */
+      height:96px !important;
+      border-radius:12px !important;
+      object-fit:contain !important;
+      display:block !important;
+      background:transparent !important;
+      image-rendering:-webkit-optimize-contrast;
     }
+    /* Motto centered UNDER the logo */
     header.oo-header .oo-title{
-      display:flex; flex-direction:column; align-items:center; margin:0;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:center !important;
+      margin:0 !important;
     }
-    header.oo-header .oo-name{ display:none }
+    header.oo-header .oo-name{ display:none !important; }  /* no site name text */
     header.oo-header .oo-motto{
-      margin:0; font-size:1rem; line-height:1.3; color:#fff; text-align:center; opacity:.98;
+      margin:0 !important;
+      font-size:1rem !important;
+      line-height:1.3 !important;
+      color:#fff !important;
+      text-align:center !important;
+      opacity:.98 !important;
+      max-width:90vw;
     }
+
+    /* Hamburger: fixed to right, above dropdown */
     header.oo-header .oo-menu{
-      position:absolute; right:1rem; top:50%; transform:translateY(-50%);
-      border:0; background:transparent; color:#fff; font-size:1.7rem; line-height:1;
-      padding:.4rem .55rem; border-radius:12px; cursor:pointer; z-index:1002;
+      position:absolute !important;
+      right:1rem !important;
+      top:50% !important;
+      transform:translateY(-50%) !important;
+      border:0 !important;
+      background:transparent !important;
+      color:#fff !important;
+      font-size:1.8rem !important;
+      line-height:1 !important;
+      padding:.45rem .6rem !important;
+      border-radius:12px !important;
+      cursor:pointer !important;
+      z-index:1002 !important;
     }
-    nav#oo-nav[hidden]{display:none !important}
+    nav#oo-nav[hidden]{ display:none !important; }
     nav#oo-nav{
-      position:absolute; right:.75rem; top:calc(100% + 8px); z-index:1001;
-      background:rgba(255,255,255,.98); color:#0a1f44; border-radius:12px;
-      box-shadow:0 10px 30px rgba(0,0,0,.22); padding:.5rem; min-width:160px;
+      position:absolute !important;
+      right:.75rem !important;
+      top:calc(100% + 8px) !important;
+      z-index:1001 !important;
+      background:rgba(255,255,255,.98) !important;
+      color:#0a1f44 !important;
+      border-radius:12px !important;
+      box-shadow:0 10px 30px rgba(0,0,0,.22) !important;
+      padding:.5rem !important;
+      min-width:160px !important;
     }
-    nav#oo-nav a{display:block; color:#0a1f44; text-decoration:none; padding:.5rem .75rem; border-radius:8px; white-space:nowrap;}
-    nav#oo-nav a:hover{background:#eef3ff}
+    nav#oo-nav a{
+      display:block !important;
+      color:#0a1f44 !important;
+      text-decoration:none !important;
+      padding:.5rem .75rem !important;
+      border-radius:8px !important;
+      white-space:nowrap !important;
+    }
+    nav#oo-nav a:hover{ background:#eef3ff !important; }
     /* === END CRITICAL INLINE OVERRIDE === */
   </style>
 </head>
 <body>
   <header id="oo-header" class="oo-header">
     <div class="oo-brand">
-      <!-- Larger logo; fallback to favicon if missing -->
-      <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
+      <!-- Use your real logo; fallback to favicon only if missing -->
+      <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" width="96" height="96" />
       <div class="oo-title">
         <!-- Motto only, centered under logo -->
         <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
       </div>
+
       <!-- Hamburger toggle -->
       <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
