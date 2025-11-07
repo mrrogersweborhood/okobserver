@@ -1200,3 +1200,35 @@ div.fb-video:empty {
   display:block !important;
   margin:0 auto 16px;
 }
+/* 🟢 2025-11-07SR1-videoFixR12-forceVisibleWrapper */
+.post-body iframe,
+.post-body video,
+.post-body .wp-block-embed__wrapper iframe,
+.post-body figure.wp-block-embed iframe,
+.post-body figure iframe,
+.post-body div iframe {
+  display: block !important;
+  visibility: visible !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  min-height: 360px !important;
+  height: auto !important;
+  margin: 0 auto 16px !important;
+}
+
+.post-body figure.wp-block-embed,
+.post-body .wp-block-embed__wrapper,
+.post-body .wp-block-embed-vimeo,
+.post-body .wp-block-embed-facebook,
+.post-body .wp-block-embed-youtube,
+.post-body .wp-block-embed-twitter,
+.post-body div[data-oembed-url],
+.post-body div.wp-block-embed {
+  display: block !important;
+  visibility: visible !important;
+  overflow: visible !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  min-height: 360px !important;
+  margin: 0 auto 16px !important;
+}
