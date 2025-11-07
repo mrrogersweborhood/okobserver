@@ -1,15 +1,16 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1)
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1)
 // Full file replacement. Includes:
 // - Infinite scroll hardening (single listener; guaranteed first/top-up loads)
-// - Robust video enhancer (YouTube/Vimeo/Facebook/MP4 + WP wrappers, data-href, text URLs)
+// - Video enhancer: DOES NOT wrap existing live provider iframes (YouTube/Vimeo/Facebook)
+// - Converts only links/WordPress wrappers/placeholders into click-to-play
 // - Black-box cleanup for stray FB placeholders
-// - NEW: Gap cleanup between hero image and first video (removes empty <p>/&nbsp; spacers, trims margins)
-// - Cartoon filter, byline, session list+scroll cache, grid enforcer
+// - Gap cleanup between hero image and first video
+// - Cartoon filter, bold byline, session list+scroll cache, grid enforcer
 // - No ES modules
-// MARKER START: 🟢 main.js
+// START MARKER: 🟢 main.js
 
 (function(){
-  const VER = '2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1';
+  const VER = '2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1';
   console.log('[OkObserver] Main JS Build', VER);
 
   // ---- constants / refs ----
@@ -17,10 +18,7 @@
   const app = document.getElementById('app');
 
   // ---- list state ----
-  let page = 1;
-  let perPage = 12;
-  let loading = false;
-  let done = false;
+  let page = 1, perPage = 12, loading = false, done = false;
   let seenIds = new Set();
 
   // single scroll handler reference (prevents duplicates)
@@ -127,24 +125,19 @@
     app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
     const grid = qs('#grid');
 
-    // fresh state every time we enter Home
+    // fresh state when entering Home
     page = 1; done = false; seenIds = new Set();
 
     const restored = restoreList(grid);
 
     // Ensure exactly ONE scroll listener
     if (_onHomeScroll) window.removeEventListener('scroll', _onHomeScroll);
-    _onHomeScroll = ()=>{
-      if (!done && !loading && nearBottom()) loadMore(grid);
-    };
+    _onHomeScroll = ()=>{ if (!done && !loading && nearBottom()) loadMore(grid); };
     window.addEventListener('scroll', _onHomeScroll, { passive:true });
 
     // Always fetch at least once; top-up if page is short
-    if (!restored) {
-      loadMore(grid);
-    } else if (nearBottom()) {
-      loadMore(grid);
-    }
+    if (!restored) loadMore(grid);
+    else if (nearBottom()) loadMore(grid);
   }
 
   // ---- detail ----
@@ -197,8 +190,9 @@
   }
 
   function enhanceVideos(scope){
+    // wrap only wrappers/links/placeholders — leave REAL provider iframes alone
     const nodes = [
-      ...qsa('iframe, video, figure.wp-block-embed, .wp-block-embed__wrapper, p > a[href]', scope),
+      ...qsa('figure.wp-block-embed, .wp-block-embed__wrapper, p > a[href]', scope),
       ...qsa('.fb-video, .fb-post, [data-href*="facebook.com"]', scope)
     ];
     const handled = new WeakSet();
@@ -206,14 +200,24 @@
     nodes.forEach(node=>{
       if (handled.has(node)) return;
 
+      // If a proper provider iframe already exists here, do NOT replace it
+      const existingIframe = node.tagName === 'IFRAME' ? node : node.querySelector?.('iframe');
+      if (existingIframe) {
+        const s = existingIframe.src || '';
+        if (/youtube\.com|youtu\.be|vimeo\.com|facebook\.com|fb\.watch/i.test(s)) {
+          // if it’s the first element, remove extra top gap
+          if (node.parentElement && node === node.parentElement.firstElementChild) node.style.marginTop = '0';
+          return;
+        }
+      }
+
       let src = '', type = '';
       const tag = node.tagName;
 
-      if (tag === 'IFRAME' || tag === 'VIDEO'){
-        src = node.src||''; type = typeFromUrl(src);
-      } else if (tag === 'A'){
+      if (tag === 'A'){
         src = node.href||''; type = typeFromUrl(src);
       } else {
+        // for wrappers/placeholders, try to extract a video URL
         src = firstFacebookUrlFrom(node);
         if (!src){
           const a = node.querySelector?.('a[href], a');
@@ -273,8 +277,7 @@
 
     // 🧹 Collapse white-space blocks between hero and first video
     (function cleanGaps(){
-      const body = scope; // scope is .post-body
-      if (!body) return;
+      const body = scope; if (!body) return;
 
       // Remove empty paragraphs and non-breaking-space spacers
       body.querySelectorAll('p').forEach(p=>{
@@ -309,5 +312,5 @@
   router();
 })();
 
-// MARKER END: 🔴 main.js
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR7-infiniteR1-gapFixR1)
+// END MARKER: 🔴 main.js
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR8-noWrapLive-infiniteR1-gapFixR1)
