@@ -325,3 +325,86 @@ article h1 a {
 article h1 a:hover {
   color:#0f6ddf !important;
 }
+/* === hotfix3g: header + hamburger + logo size + centered motto === */
+
+/* Center logo+motto block; pin hamburger on the right on ALL viewports */
+.oo-brand{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  gap:.75rem;
+}
+
+/* Bigger logo, never blurry or cropped */
+.oo-logo{
+  width:72px;            /* ↑ make it big */
+  height:72px;
+  border-radius:10px;
+  object-fit:contain;
+  display:block;
+  background:transparent;
+}
+
+/* Motto centered directly under/next to logo block */
+.oo-title{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  margin:0;
+}
+.oo-name{ display:none }  /* keep name hidden per your spec */
+.oo-motto{
+  margin:0;
+  font-size:0.95rem;
+  line-height:1.25;
+  color:#fff;
+  text-align:center;
+  opacity:.98;
+}
+
+/* Hamburger button: fixed hit area, high z-index, desktop included */
+.oo-menu{
+  position:absolute;
+  right:1rem;
+  top:50%;
+  transform:translateY(-50%);
+  border:0;
+  background:transparent;
+  color:#fff;
+  font-size:1.7rem;
+  line-height:1;
+  padding:.4rem .55rem;   /* larger tap target */
+  border-radius:12px;
+  cursor:pointer;
+  z-index: 1002;          /* above dropdown container */
+}
+.oo-menu:focus-visible{outline:3px solid #fff; outline-offset:3px}
+
+/* Hamburger menu dropdown: hidden unless toggled, overlays content */
+#oo-nav[hidden]{ display:none !important; }
+#oo-nav{
+  position:absolute;
+  right:0.75rem;
+  top:calc(100% + 8px);   /* sits below header bar */
+  z-index:1001;
+  background:rgba(255,255,255,.98);
+  color:#0a1f44;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.22);
+  padding:.5rem;
+  min-width:160px;
+}
+#oo-nav a{
+  display:block;
+  color:#0a1f44;
+  text-decoration:none;
+  padding:.5rem .75rem;
+  border-radius:8px;
+  white-space:nowrap;
+}
+#oo-nav a:hover{ background:#eef3ff }
+#oo-nav a:focus-visible{ outline:2px solid #1E90FF; outline-offset:2px }
+
+/* Ensure the header sits above the page */
+.oo-header{ position:sticky; top:0; z-index: 1000; background:#1E90FF; }
