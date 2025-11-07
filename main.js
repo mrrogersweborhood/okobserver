@@ -1,16 +1,8 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR3-debugR1)
-// Note: This build logs its version so we can confirm the *new* file is running.
-/*
-  - Infinite scroll (one fetch at a time) with duplicate guard
-  - Bold byline on cards and detail
-  - Robust video click-to-play (YouTube/Vimeo/Facebook/MP4) handling WP wrappers
-  - Cartoon filter (category 5923 + term/title)
-  - Session list + scroll restore
-  - Grid MutationObserver enforcement
-  - No ES modules
-*/
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1)
+// Full file replacement — includes all prior stable logic + blank-video cleanup.
+// START MARKER: 🟢 main.js
 (function(){
-  const VER='2025-11-07SR1-videoFixR3-debugR1';
+  const VER='2025-11-07SR1-videoFixR5-cleanR1';
   console.log('[OkObserver] Main JS Build', VER);
 
   const API_BASE='https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
@@ -156,23 +148,47 @@
     if(/\.(mp4|webm|ogg)(\?|#|$)/i.test(u)) return 'mp4';
     return '';
   }
+  const fbPlugin=u=>'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(u)+'&autoplay=1&show_text=false&width=1280';
 
-  function fbPlugin(u){
-    return 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(u) + '&autoplay=1&show_text=false&width=1280';
+  function firstFacebookUrlFrom(node){
+    const dh=node.getAttribute?.('data-href');
+    if(dh && /facebook\.com/i.test(dh)) return dh.trim();
+    const a=node.querySelector?.('a[href*="facebook.com"], a[href*="fb.watch"]');
+    if(a) return a.href;
+    const ifr=node.querySelector?.('iframe[src*="facebook.com"], iframe[src*="fb.watch"]');
+    if(ifr) return ifr.src;
+    const m=(node.textContent||'').match(/https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch)[^\s"')]+/i);
+    if(m) return m[0];
+    return '';
   }
 
   function enhanceVideos(scope){
-    const nodes = qsa('iframe, video, figure.wp-block-embed, .wp-block-embed__wrapper, p > a[href]', scope);
+    const nodes=[
+      ...qsa('iframe, video, figure.wp-block-embed, .wp-block-embed__wrapper, p > a[href]', scope),
+      ...qsa('.fb-video, .fb-post, [data-href*="facebook.com"]', scope)
+    ];
+    const handled=new WeakSet();
+
     nodes.forEach(node=>{
+      if(handled.has(node)) return;
       let src='', type='';
-      if(node.tagName==='IFRAME' || node.tagName==='VIDEO'){ src=node.src||''; type=typeFromUrl(src); }
-      else if(node.tagName==='A'){ src=node.href||''; type=typeFromUrl(src); }
-      else{
-        const a=node.querySelector('a[href]'); const i=node.querySelector('iframe');
-        src = a ? a.href : (i ? i.src : '');
+      const tag=node.tagName;
+
+      if(tag==='IFRAME' || tag==='VIDEO'){
+        src=node.src||''; type=typeFromUrl(src);
+      } else if(tag==='A'){
+        src=node.href||''; type=typeFromUrl(src);
+      } else {
+        src=firstFacebookUrlFrom(node);
+        if(!src){
+          const a=node.querySelector?.('a[href], a');
+          const i=node.querySelector?.('iframe');
+          src=a?(a.href||''):(i?(i.src||''):'');
+        }
         type=typeFromUrl(src);
       }
-      if(!src || !type) return;
+
+      if(!src||!type)return;
 
       const wrap=document.createElement('div');
       wrap.className='okobs-video pending '+type;
@@ -190,6 +206,7 @@
 
       wrap.append(poster, btn);
       node.replaceWith(wrap);
+      handled.add(wrap);
 
       wrap.addEventListener('click', ()=>{
         if(type==='mp4'){
@@ -207,6 +224,13 @@
         wrap.replaceChildren(ifr); wrap.classList.remove('pending');
       });
     });
+
+    // 🧹 Remove empty placeholders or blank black boxes
+    document.querySelectorAll('.fb-video, figure.wp-block-embed, .wp-block-embed__wrapper').forEach(el=>{
+      const ifr=el.querySelector('iframe');
+      const hasPlayer=ifr && (ifr.src||'').includes('facebook.com');
+      if(!hasPlayer && el.offsetHeight < 80) el.remove();
+    });
   }
 
   function router(){
@@ -215,11 +239,10 @@
     else { renderHome(); }
   }
 
-  // Keep grid class enforced
   new MutationObserver(()=>{const g=qs('#grid'); if(g) g.classList.add('okobs-grid');})
     .observe(app,{childList:true,subtree:true});
 
   window.addEventListener('hashchange', router);
   router();
 })();
-// 🔴 main.js
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1)

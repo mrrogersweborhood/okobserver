@@ -1,63 +1,46 @@
-<!-- 🟢 index.html (OkObserver TEMP no-SW shell; Build 2025-11-07SR1-debugR1) -->
-<!doctype html>
+<!-- 🟢 index.html (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1) -->
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><!-- 🟢 index.html start -->
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Oklahoma Observer</title>
-
-  <!-- Favicon -->
-  <link rel="icon" href="favicon.ico">
-
-  <!-- Styles: bump version to force fresh CSS -->
-  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-headerCenterLockR5-debugR1">
-
-  <!-- Meta -->
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
   <meta name="theme-color" content="#1E90FF">
-  <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
-  <base href="/okobserver/">
+  <link rel="stylesheet" href="override.css?v=2025-11-07">
 </head>
 <body>
-  <!-- Header with centered logo + motto -->
-  <header id="site-header" class="okobs-header">
-    <div class="okobs-header-inner">
-      <a class="brand" href="#/">
-        <img alt="The Oklahoma Observer logo" class="logo" src="logo.png">
+  <header id="main-header" class="site-header">
+    <div class="header-inner">
+      <div class="logo-block">
+        <img src="logo.png" alt="The Oklahoma Observer Logo" class="header-logo">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-      </a>
-      <button id="hamburger" aria-label="Open menu" class="hamburger" aria-haspopup="true" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-      <nav id="mobile-menu" class="menu" hidden>
+      </div>
+      <button id="menu-toggle" class="menu-toggle" aria-label="Menu">☰</button>
+      <nav id="main-nav" class="main-nav">
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
       </nav>
     </div>
   </header>
 
-  <main id="app" role="main"></main>
+  <main id="app" class="app"></main>
 
   <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-debugR1
+    <p>© 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR5-cleanR1</p>
   </footer>
 
-  <!-- TEMP: Disable SW while we debug cache issues -->
+  <script defer src="main.js?v=2025-11-07SR1-videoFixR5-cleanR1"></script>
   <script>
-    /* 🛑 Service Worker intentionally disabled during debugging
+    // 🟢 register service worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
-          .then(reg => console.log('[SW] Registered:', reg.scope))
-          .catch(err => console.warn('[SW] Registration failed:', err));
+          .then(r => console.log('[OkObserver] SW registered:', r.scope))
+          .catch(err => console.warn('[OkObserver] SW failed:', err));
       });
     }
-    */
-    console.log('[OkObserver] index.html Build 2025-11-07SR1-debugR1 (SW disabled)');
   </script>
-
-  <!-- App Script: bump version to force fresh JS -->
-  <script defer src="main.js?v=2025-11-07SR1-videoFixR3-debugR1"></script>
-  <!-- 🔴 index.html -->
 </body>
 </html>
+<!-- 🔴 index.html (OkObserver Build 2025-11-07SR1-videoFixR5-cleanR1) -->

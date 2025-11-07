@@ -1017,3 +1017,46 @@ header.okobs-header nav.menu[hidden] {
   transform: translateY(-3px);
 }
 /* ======================================================== */
+/* ==== videoPlaceholderCleanR2 ==== */
+.okobs-video {
+  background: #000;
+  margin: 0 auto 20px;
+  max-width: 960px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.okobs-video.pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.okobs-video img[alt="Play video"] {
+  display: block;
+}
+.play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.play-overlay .triangle {
+  width: 0;
+  height: 0;
+  border-left: 24px solid #fff;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  margin-left: 4px;
+}
+figure.wp-block-embed:empty,
+.wp-block-embed__wrapper:empty,
+div.fb-video:empty {
+  display: none !important;
+}
+/* ===================================================== */
