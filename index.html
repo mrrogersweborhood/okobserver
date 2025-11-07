@@ -14,7 +14,7 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- Styles -->
+  <!-- Styles (unchanged cache-bust is fine) -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3b" />
 
   <style>
@@ -25,15 +25,15 @@
 <body>
   <header id="oo-header" class="oo-header">
     <div class="oo-brand">
-      <!-- Use real logo; fallback to favicon if logo.png missing -->
-      <img src="logo.png" onerror="this.src='favicon.ico'" alt="" class="oo-logo" decoding="async" />
+      <!-- Larger logo; fallback to favicon if logo.png missing -->
+      <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
       <div class="oo-title">
-        <h1 class="oo-name">The Oklahoma Observer</h1>
+        <!-- Title removed by request -->
         <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
       </div>
       <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
-    <!-- Hamburger-only: keep nav hidden by default; JS toggles visibility -->
+    <!-- Hamburger-only: always hidden until toggled on ANY viewport -->
     <nav id="oo-nav" class="oo-nav" hidden>
       <a href="#/">Posts</a>
       <a href="#/about">About</a>
@@ -53,13 +53,26 @@
     window.__OKO__.DEBUG = false;
   </script>
 
-  <!-- Cache-busted main bundle -->
+  <!-- App bundle -->
   <script defer src="main.js?v=2025-11-06SR1-perfSWR1-hotfix3e"></script>
 
   <!-- Defer non-critical enabling -->
   <script>
     (window.requestIdleCallback || function(cb){return setTimeout(cb,50)})(function(){
       document.getElementById('app')?.removeAttribute('inert');
+    });
+
+    // Hamburger toggle (desktop included)
+    window.addEventListener('DOMContentLoaded', function(){
+      var btn = document.getElementById('oo-menu');
+      var nav = document.getElementById('oo-nav');
+      if (btn && nav){
+        btn.addEventListener('click', function(){
+          var open = !nav.hasAttribute('hidden');
+          if (open){ nav.setAttribute('hidden',''); btn.setAttribute('aria-expanded','false'); }
+          else { nav.removeAttribute('hidden'); btn.setAttribute('aria-expanded','true'); }
+        });
+      }
     });
   </script>
 </body>

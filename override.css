@@ -257,3 +257,56 @@ a:focus-visible, button:focus-visible{outline:2px solid var(--oko-blue);outline-
 }
 .oo-backbtn:hover{filter:brightness(1.05)}
 .oo-backbtn:focus-visible{outline:3px solid #1E90FF;outline-offset:2px;background:#1479d8}
+/* === hotfix-header-cleanup === */
+/* Bigger logo, centered motto, remove visible title spacing, hamburger-only nav */
+
+.oo-brand{
+  display:flex;
+  align-items:center;
+  justify-content:center;   /* center logo + motto together */
+  position:relative;
+  gap:.6rem;
+}
+.oo-logo{
+  width:48px;               /* larger logo */
+  height:48px;
+  border-radius:8px;
+  object-fit:contain;
+  display:block;
+}
+.oo-title{display:flex;flex-direction:column;align-items:center;margin:0}
+.oo-name{display:none}      /* hide “The Oklahoma Observer” text */
+.oo-motto{
+  margin:0;
+  font-size:.9rem;
+  color:#fff;
+  text-align:center;
+  opacity:.98;
+}
+
+/* Hamburger pinned to right on all viewports */
+.oo-menu{
+  position:absolute; right:1rem; top:50%; transform:translateY(-50%);
+  border:0; background:transparent; color:#fff;
+  font-size:1.6rem; line-height:1; padding:.25rem .5rem; border-radius:10px; cursor:pointer;
+}
+.oo-menu:focus-visible{outline:3px solid #fff; outline-offset:3px}
+
+/* Nav is hamburger-only: always hidden unless toggled (no desktop auto-show) */
+.oo-nav{display:flex; flex-direction:column; gap:.5rem; padding:.5rem 1rem}
+.oo-nav[hidden]{display:none !important;}
+/* Optional: quick dropdown styling when opened */
+#oo-nav{
+  position:absolute; right:0.75rem; top:62px;
+  background:rgba(255,255,255,.98); color:#0a1f44;
+  border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,.18);
+}
+#oo-nav a{
+  color:#0a1f44; text-decoration:none; padding:.5rem .75rem; border-radius:8px;
+}
+#oo-nav a:hover{background:#eef3ff}
+#oo-nav a:focus-visible{outline:2px solid #1E90FF; outline-offset:2px;}
+
+/* Keep */
+.oo-header{background:#1E90FF;}
+/* === end hotfix-header-cleanup === */
