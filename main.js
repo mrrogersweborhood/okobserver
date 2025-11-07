@@ -1,13 +1,12 @@
-// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3)
+// 🟢 main.js (OkObserver Build 2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3)
 // FULL FILE REPLACEMENT
-// Policy: DO NOT TOUCH/REPLACE EMBEDS. We only ensure they are visible and correctly sized.
-// - Infinite scroll hardened
-// - Cartoon filter, bold byline, list+scroll restore, grid enforcer
-// - Non-destructive gap cleanup
-// - NEW ensureEmbedsVisible(): forces provider iframes/videos to show even if height=0/hidden
+// - Never touches existing provider iframes/videos
+// - If no visible player is present, auto-embeds when it finds a Vimeo/YouTube/Facebook URL in post body
+// - Infinite scroll hardened; cartoon filter; bold byline; list+scroll restore; grid enforcer
+// - Non-destructive gap cleanup; ensure embeds visible
 // START MARKER: 🟢 main.js
 (function(){
-  const VER = '2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3';
+  const VER = '2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3';
   console.log('[OkObserver] Main JS Build', VER);
 
   const API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/';
@@ -120,7 +119,7 @@
     else if (nearBottom()) loadMore(grid);
   }
 
-  // safe gap cleanup
+  // gap cleanup
   function nonDestructiveGapCleanup(body){
     if (!body) return;
     body.querySelectorAll('p').forEach(p=>{
@@ -133,41 +132,84 @@
       first.style.marginTop = '0';
   }
 
-  // NEW: make any embed visible & correctly sized (16:9 if height is 0/auto)
+  // visibility & sizing
   function ensureEmbedsVisible(body){
     if (!body) return;
-    const embeds = body.querySelectorAll('iframe, video, .fb-video, .fb-post, figure.wp-block-embed, .wp-block-embed__wrapper');
+    const embeds = body.querySelectorAll('iframe, video, .fb-video, .fb-post, figure.wp-block-embed, .wp-block-embed__wrapper, div[data-oembed-url]');
     embeds.forEach(node=>{
       if (node instanceof HTMLIFrameElement || node instanceof HTMLVideoElement){
         node.style.display = 'block';
         node.style.visibility = 'visible';
         node.style.maxWidth = '100%';
         node.style.width = '100%';
-        // If provider set height=0/auto or CSS collapsed it, force a sane aspect box
         const h = parseInt(getComputedStyle(node).height, 10);
         if (!h || h < 80){
-          // compute from width
           const w = node.getBoundingClientRect().width || node.parentElement?.clientWidth || 640;
           const calcH = Math.round(w * 9 / 16);
           node.style.minHeight = Math.max(calcH, 320) + 'px';
           node.style.height = Math.max(calcH, 320) + 'px';
         }
       }else{
-        // wrappers
         node.style.display = 'block';
         node.style.visibility = 'visible';
+        node.style.overflow = 'visible';
         node.style.maxWidth = '100%';
-        node.style.margin = '0 auto 16px auto';
+        node.style.width = '100%';
+        node.style.minHeight = '320px';
+        node.style.margin = '0 auto 16px';
       }
     });
+  }
 
-    // Diagnostics
-    const counts = {
-      iframes: body.querySelectorAll('iframe').length,
-      videos:  body.querySelectorAll('video').length,
-      fbDivs:  body.querySelectorAll('.fb-video, .fb-post').length
-    };
-    console.log('[OkObserver] ensureEmbedsVisible counts:', counts);
+  // URL detectors
+  const rx = {
+    vimeo: /(https?:\/\/(?:www\.)?vimeo\.com\/\d+(?:[^\s<>'"]*)?)/i,
+    youtube: /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[\w-]+|youtu\.be\/[\w-]+)(?:[^\s<>'"]*)?)/i,
+    facebook: /(https?:\/\/(?:www\.)?(?:facebook\.com|fb\.watch)\/[^\s<>'"]*)/i
+  };
+
+  function findFirstProviderUrl(root){
+    // href on <a>
+    const a = root.querySelector('a[href*="vimeo.com"], a[href*="youtube.com"], a[href*="youtu.be"], a[href*="facebook.com"], a[href*="fb.watch"]');
+    if (a) return a.href;
+    // any text URL in body
+    const txt = root.textContent || '';
+    const m = txt.match(rx.vimeo) || txt.match(rx.youtube) || txt.match(rx.facebook);
+    return m ? m[1] : '';
+  }
+
+  function makeIframeFor(url){
+    let src = '', type='';
+    if (rx.vimeo.test(url)){ type='vimeo'; src = url.replace('vimeo.com/','player.vimeo.com/video/'); }
+    else if (rx.youtube.test(url)){
+      type='youtube';
+      src = url.includes('watch?v=') ? url.replace('watch?v=','embed/') : url.replace('youtu.be/','www.youtube.com/embed/');
+    }else if (rx.facebook.test(url)){ type='facebook'; src = 'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(url)+'&autoplay=0&show_text=false&width=1280'; }
+    if (!type) return null;
+
+    const ifr = document.createElement('iframe');
+    ifr.allow = 'autoplay; encrypted-media; picture-in-picture';
+    ifr.allowFullscreen = true; ifr.frameBorder='0';
+    ifr.style.width = '100%'; ifr.style.minHeight = '360px'; ifr.style.display='block';
+    ifr.src = src;
+    return ifr;
+  }
+
+  function maybeAutoEmbed(body){
+    // if a player already exists, do nothing
+    const already = body.querySelector('iframe, video, .fb-video, .fb-post');
+    if (already) { return false; }
+
+    const url = findFirstProviderUrl(body);
+    if (!url) return false;
+
+    const ifr = makeIframeFor(url);
+    if (!ifr) return false;
+
+    // Insert after any intro paragraph, otherwise at top
+    const target = body.querySelector('p') || body.firstElementChild || body;
+    target.parentNode.insertBefore(ifr, target.nextSibling);
+    return true;
   }
 
   function renderPost(id){
@@ -189,9 +231,14 @@
       const body = el('div','post-body', p.content.rendered);
       article.appendChild(body);
 
-      // Never rewrite embeds; just clean blank spacers and force embeds visible
       nonDestructiveGapCleanup(body);
       ensureEmbedsVisible(body);
+
+      const auto = maybeAutoEmbed(body);
+      if (auto) {
+        console.log('[OkObserver] Auto-embedded provider video from body URL');
+        ensureEmbedsVisible(body);
+      }
 
       const back = el('button','back-btn','← Back to Posts');
       back.onclick = ()=>{ location.hash = '#/'; };
@@ -215,4 +262,4 @@
   router();
 })();
 // END MARKER: 🔴 main.js
-// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR11-hardNoEnhance+forceVisible-infiniteR1-gapFixR3)
+// 🔴 main.js (OkObserver Build 2025-11-07SR1-videoFixR12-autoEmbedSafe-infiniteR1-gapFixR3)
