@@ -1,11 +1,11 @@
 /*
  OkObserver SPA Main Script
- Build: 2025-11-07SR1-perfSWR1-videoR1
+ Build: 2025-11-07SR1-perfSWR1-videoR1-restoreFix1
  Proxy: https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
  Notes:
  - Single fetch per page
  - Session scroll + return-to-position
- - Cartoon posts filtered out
+ - Cartoon posts filtered out (robust)
  - Excerpts immediate (no lazy-mount)
  - Featured images contained, edge-to-edge hero on detail
  - Click-to-play: YouTube, Vimeo, Facebook (embeds), MP4
@@ -18,7 +18,7 @@
   var app = document.getElementById('app');
   var scrollCacheKey = 'okobs-scroll';
   var listCacheKey = 'okobs-list';
-  var VER = '2025-11-07SR1-perfSWR1-videoR1';
+  var VER = '2025-11-07SR1-perfSWR1-videoR1-restoreFix1';
 
   console.log('[OkObserver] Init', VER);
 
@@ -43,29 +43,51 @@
     return d.value;
   }
 
+  // Robust cartoon filter: id 5923 OR any category/tag term with slug/name containing 'cartoon' OR title mentions cartoon
+  function isCartoon(p) {
+    try {
+      if ((p.categories || []).includes(5923)) return true;
+      var terms = [];
+      if (p._embedded && p._embedded['wp:term']) {
+        p._embedded['wp:term'].forEach(function(arr){ if (Array.isArray(arr)) terms = terms.concat(arr); });
+      }
+      var hasCartoonTerm = terms.some(function(t){
+        var slug = (t && t.slug || '').toLowerCase();
+        var name = (t && t.name || '').toLowerCase();
+        return slug.includes('cartoon') || name.includes('cartoon');
+      });
+      if (hasCartoonTerm) return true;
+      var title = (p.title && p.title.rendered || '').toLowerCase();
+      return title.includes('cartoon');
+    } catch(e){ return false; }
+  }
+
   // ---------- home ----------
   function buildCard(p) {
     var card = el('article', 'post-card');
+
+    // One link that wraps both image + title so clicking the image works
     var link = el('a');
     link.href = '#/post/' + p.id;
 
-    var img = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0] && p._embedded['wp:featuredmedia'][0].source_url;
-    if (img) {
+    var imgUrl = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0] && p._embedded['wp:featuredmedia'][0].source_url;
+    if (imgUrl) {
       var pic = el('img');
-      pic.src = img + '?cb=' + p.id;
+      pic.src = imgUrl + '?cb=' + p.id;
       pic.alt = p.title.rendered;
       pic.loading = 'lazy';
-      card.appendChild(pic);
+      // Put the image INSIDE the anchor
+      link.appendChild(pic);
     }
 
     var title = el('h2', 'post-title', p.title.rendered);
+    link.appendChild(title);
+    card.appendChild(link);
+
     var by = el('div', 'post-meta',
       'Oklahoma Observer — ' + new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
     );
     var excerpt = el('div', 'post-excerpt', p.excerpt.rendered);
-
-    link.appendChild(title);
-    card.appendChild(link);
     card.appendChild(by);
     card.appendChild(excerpt);
     return card;
@@ -77,7 +99,7 @@
     app.innerHTML = '<div id="grid" class="okobs-grid"></div>';
     var grid = qs('#grid');
 
-    // session list cache (restores immediately, then we re-render on next nav)
+    // session list cache
     var cached = sessionStorage.getItem(listCacheKey);
     if (cached) {
       grid.innerHTML = cached;
@@ -86,9 +108,9 @@
     }
 
     return fetchJSON(API_BASE + 'posts?per_page=20&_embed').then(function(posts) {
-      // cartoon category hard filter — 5923 must remain excluded
-      posts.filter(function (p) { return !(p.categories || []).includes(5923); })
-           .forEach(function (p) { grid.appendChild(buildCard(p)); });
+      posts
+        .filter(function (p) { return !isCartoon(p); })          // <- robust cartoon filter
+        .forEach(function (p) { grid.appendChild(buildCard(p)); });
       sessionStorage.setItem(listCacheKey, grid.innerHTML);
     });
   }

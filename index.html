@@ -9,22 +9,21 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico">
 
-  <!-- Baseline stylesheet (do not change this version string) -->
+  <!-- Baseline stylesheet -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 
-  <!-- App meta -->
+  <!-- Meta -->
   <meta name="theme-color" content="#1E90FF">
   <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
 
-  <!-- Prevent GH Pages 404 for SPA deep links -->
+  <!-- Prevent GitHub Pages SPA 404 -->
   <base href="/okobserver/">
 </head>
 <body>
-  <!-- Sticky header with centered motto + hamburger -->
+  <!-- Sticky header (baseline, untouched) -->
   <header id="site-header" class="okobs-header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/">
-        <!-- Intentionally uses your current asset; replace with logo.png later only if you ask -->
         <img alt="The Oklahoma Observer" class="logo" src="favicon.ico">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </a>
@@ -46,7 +45,7 @@
     © 2025 The Oklahoma Observer • Build 2025-11-07SR1-perfSWR1-videoR1
   </footer>
 
-  <!-- Service Worker registration (baseline) -->
+  <!-- Service Worker registration -->
   <script>
     (function () {
       if ('serviceWorker' in navigator) {
@@ -62,7 +61,7 @@
     })();
   </script>
 
-  <!-- Baseline app script (no hotfix tags here) -->
-  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1"></script>
+  <!-- App script (updated to restoreFix1) -->
+  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1-restoreFix1"></script>
 </body>
 </html>
