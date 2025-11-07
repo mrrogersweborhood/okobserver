@@ -6,24 +6,33 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>OkObserver</title>
 
+  <!-- Favicon -->
   <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-headerLogoR1">
+
+  <!-- Meta -->
   <meta name="theme-color" content="#1E90FF">
   <meta name="description" content="The Oklahoma Observer — To comfort the afflicted and afflict the comfortable">
   <base href="/okobserver/">
 </head>
 <body>
+  <!-- Sticky Header -->
   <header id="site-header" class="okobs-header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/">
-        <!-- Using your current image asset; CSS below will size it large and center it -->
-        <img alt="The Oklahoma Observer" class="logo" src="favicon.ico">
+        <!-- REAL LOGO (use your actual file, not favicon) -->
+        <img alt="The Oklahoma Observer logo" class="logo" src="logo.png">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </a>
+
+      <!-- Hamburger -->
       <button id="hamburger" aria-label="Open menu" class="hamburger" aria-haspopup="true" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
+
+      <!-- Nav -->
       <nav id="mobile-menu" class="menu" hidden>
         <a href="#/">Posts</a>
         <a href="#/about">About</a>
@@ -31,27 +40,26 @@
     </div>
   </header>
 
+  <!-- Main outlet -->
   <main id="app" role="main"></main>
 
+  <!-- Footer -->
   <footer class="site-footer">
     © 2025 The Oklahoma Observer • Build 2025-11-07SR1-perfSWR1-videoR1
   </footer>
 
+  <!-- Service Worker -->
   <script>
-    (function () {
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker
-            .register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
-            .then(function (reg) { console.log('[SW] Registered:', reg.scope); })
-            .catch(function (err) { console.warn('[SW] Registration failed:', err); });
-        });
-      } else {
-        console.log('[SW] Not supported');
-      }
-    })();
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js?v=2025-11-07SR1-perfSWR1-hotfix3s')
+          .then(reg => console.log('[SW] Registered:', reg.scope))
+          .catch(err => console.warn('[SW] Registration failed:', err));
+      });
+    }
   </script>
 
+  <!-- App Script -->
   <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1-fbFix2"></script>
 </body>
 </html>
