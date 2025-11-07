@@ -421,3 +421,41 @@ article h1 a:hover {
 #oo-nav{position:absolute;right:.75rem;top:calc(100% + 8px);z-index:1001;background:rgba(255,255,255,.98);color:#0a1f44;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:.5rem;min-width:160px}
 #oo-nav a{display:block;color:#0a1f44;text-decoration:none;padding:.5rem .75rem;border-radius:8px;white-space:nowrap}
 #oo-nav a:hover{background:#eef3ff}
+/* === hotfix3i: Logo scaling + centered motto === */
+.oo-header .oo-brand{
+  display:flex !important;
+  flex-direction:column !important;   /* stacks vertically */
+  align-items:center !important;
+  justify-content:center !important;
+  position:relative !important;
+  padding:.35rem 3.5rem .5rem !important;
+  gap:.4rem !important;
+}
+
+/* Allow a wide horizontal logo to scale responsively */
+.oo-header .oo-logo{
+  max-width:420px !important;   /* increase total width shown */
+  width:90% !important;
+  height:auto !important;       /* keep natural ratio */
+  border-radius:12px !important;
+  object-fit:contain !important;
+  display:block !important;
+  margin:0 auto !important;
+  background:transparent !important;
+}
+
+/* Motto centered beneath logo */
+.oo-header .oo-title{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  margin:0 !important;
+}
+.oo-header .oo-motto{
+  margin:.25rem 0 0 0 !important;
+  font-size:1rem !important;
+  line-height:1.3 !important;
+  color:#fff !important;
+  text-align:center !important;
+  opacity:.98 !important;
+}
