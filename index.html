@@ -14,12 +14,43 @@
   <!-- Favicon -->
   <link rel="icon" href="favicon.ico" sizes="any">
 
-  <!-- Styles: bumped cache-buster to hotfix3g (forces reload of new logo sizing rules) -->
+  <!-- External styles (keep latest cache-bust) -->
   <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3g" />
 
   <style>
-    /* Prevent layout flash before CSS loads */
+    /* Guard grid before CSS loads */
     .oo-grid{display:grid;gap:16px}
+
+    /* === CRITICAL INLINE OVERRIDE (temporary) ===
+       Forces large logo + centered motto regardless of cached CSS or specificity.
+       Remove this block after you confirm the look is correct. */
+    header.oo-header .oo-brand{
+      display:flex; align-items:center; justify-content:center; position:relative; gap:.75rem;
+    }
+    header.oo-header .oo-logo{
+      width:84px; height:84px; border-radius:10px; object-fit:contain; display:block; background:transparent;
+    }
+    header.oo-header .oo-title{
+      display:flex; flex-direction:column; align-items:center; margin:0;
+    }
+    header.oo-header .oo-name{ display:none }
+    header.oo-header .oo-motto{
+      margin:0; font-size:1rem; line-height:1.3; color:#fff; text-align:center; opacity:.98;
+    }
+    header.oo-header .oo-menu{
+      position:absolute; right:1rem; top:50%; transform:translateY(-50%);
+      border:0; background:transparent; color:#fff; font-size:1.7rem; line-height:1;
+      padding:.4rem .55rem; border-radius:12px; cursor:pointer; z-index:1002;
+    }
+    nav#oo-nav[hidden]{display:none !important}
+    nav#oo-nav{
+      position:absolute; right:.75rem; top:calc(100% + 8px); z-index:1001;
+      background:rgba(255,255,255,.98); color:#0a1f44; border-radius:12px;
+      box-shadow:0 10px 30px rgba(0,0,0,.22); padding:.5rem; min-width:160px;
+    }
+    nav#oo-nav a{display:block; color:#0a1f44; text-decoration:none; padding:.5rem .75rem; border-radius:8px; white-space:nowrap;}
+    nav#oo-nav a:hover{background:#eef3ff}
+    /* === END CRITICAL INLINE OVERRIDE === */
   </style>
 </head>
 <body>
@@ -28,14 +59,14 @@
       <!-- Larger logo; fallback to favicon if missing -->
       <img src="logo.png" onerror="this.src='favicon.ico'" alt="OkObserver logo" class="oo-logo" decoding="async" />
       <div class="oo-title">
-        <!-- Motto only, centered beneath logo -->
+        <!-- Motto only, centered under logo -->
         <p class="oo-motto">To comfort the afflicted and afflict the comfortable</p>
       </div>
       <!-- Hamburger toggle -->
       <button id="oo-menu" class="oo-menu" aria-label="Menu" aria-expanded="false">☰</button>
     </div>
 
-    <!-- Hamburger-only nav (hidden on desktop until toggled) -->
+    <!-- Hamburger-only nav -->
     <nav id="oo-nav" class="oo-nav" hidden>
       <a href="#/">Posts</a>
       <a href="#/about">About</a>
