@@ -7,7 +7,7 @@
      - Optional offline fallback (offline.html)
 */
 
-const VER = '2025-11-07SR1-perfSWR1-hotfix3q';
+const VER = '2025-11-07SR1-perfSWR1-hotfix3s';
 const CACHE_SHELL = `oko-shell-${VER}`;
 const CACHE_DATA  = `oko-data-${VER}`;
 const API_HOST = 'okobserver-proxy.bob-b5c.workers.dev';
