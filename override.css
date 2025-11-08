@@ -1301,3 +1301,113 @@ div.fb-video:empty {
 #app .post-card * {
   box-sizing: border-box;
 }
+/* --- HARD ENFORCER: 4/3/1 columns regardless of previous rules --- */
+#app .posts-grid {
+  display: grid !important;
+  grid-auto-flow: row !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+/* Kill rogue layout overrides that collapse to one column */
+#app .posts-grid > * {
+  width: auto !important;
+  max-width: none !important;
+  flex: 0 0 auto !important;
+  float: none !important;
+  clear: none !important;
+  display: block !important; /* cards stay as block children inside grid */
+}
+
+/* Some themes inject `.row`/`.col-*` semantics; neutralize them */
+#app .posts-grid [class*="col-"],
+#app .posts-grid .row {
+  width: auto !important;
+  max-width: none !important;
+  float: none !important;
+  display: block !important;
+}
+
+/* Tablet (<=1200px) */
+@media (max-width:1200px){
+  #app .posts-grid { grid-template-columns: repeat(3, minmax(0,1fr)) !important; }
+}
+
+/* Mobile (<=720px) */
+@media (max-width:720px){
+  #app .posts-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+}
+
+/* Safety: cards can’t set their own 100% width */
+#app .post-card { width: auto !important; min-width: 0 !important; }
+/* ───────────────────────────────────────────────────────────────────
+   OkObserver Grid Hard-Enforcer • 2025-11-08 • gridFix1
+   Purpose: Restore 4/3/1 columns on home cards even if wrapper classes change.
+   This is append-only and won't interfere with existing rules because it:
+   - Targets likely containers explicitly, with !important for reliability.
+   - Resets child card inline styles that can force 1-column.
+   - Leaves mobile/tablet behavior intact via media queries.
+   Remove if you later standardize on one wrapper class (e.g., .posts-grid).
+   ─────────────────────────────────────────────────────────────────── */
+
+#app .posts-grid,
+#app .post-list,
+#app .posts,
+#app .cards,
+#app main .list,
+#app main .grid,
+#app main .items {
+  display: grid !important;
+  grid-auto-flow: row !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+/* Ensure children don't clamp width or float */
+#app .posts-grid > *,
+#app .post-list > *,
+#app .posts > *,
+#app .cards > *,
+#app main .list > *,
+#app main .grid > *,
+#app main .items > * {
+  width: auto !important;
+  max-width: none !important;
+  flex: 0 0 auto !important;
+  float: none !important;
+  display: block !important;
+}
+
+/* Tablet */
+@media (max-width: 1200px) {
+  #app .posts-grid,
+  #app .post-list,
+  #app .posts,
+  #app .cards,
+  #app main .list,
+  #app main .grid,
+  #app main .items {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 720px) {
+  #app .posts-grid,
+  #app .post-list,
+  #app .posts,
+  #app .cards,
+  #app main .list,
+  #app main .grid,
+  #app main .items {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+/* Card safety: don't let a card force full width */
+#app .post-card,
+#app article {
+  width: auto !important;
+  min-width: 0 !important;
+}
