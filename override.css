@@ -1271,3 +1271,33 @@ div.fb-video:empty {
 /* Safety: any oEmbed wrappers with no content shouldn’t take space */
 .post-body .wp-block-embed__wrapper:empty,
 .post-body figure.wp-block-embed:empty { display: none !important; }
+/* --- OkObserver Grid Enforcer: 4/3/1 columns (desktop/tablet/mobile) --- */
+#app .posts-grid{
+  display:grid !important;
+  grid-template-columns: repeat(4, minmax(0,1fr)) !important;
+  gap: 18px !important;
+  align-content:start !important;
+}
+#app .post-card{ min-width:0 !important; }
+
+/* Tablet (<= 1200px) = 3 columns */
+@media (max-width: 1200px){
+  #app .posts-grid{
+    grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  }
+}
+
+/* Mobile (<= 720px) = 1 column */
+@media (max-width: 720px){
+  #app .posts-grid{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+/* Safety: prevent any rogue width rules from forcing single column */
+#app .posts-grid, 
+#app .post-card,
+#app .post-card * {
+  box-sizing: border-box;
+}
