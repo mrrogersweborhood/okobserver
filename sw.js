@@ -1,56 +1,64 @@
-/* OkObserver Service Worker — 2025-11-07SR1-perfSWR1-hotfix3s */
-const SW_VER = '2025-11-07SR1-perfSWR1-hotfix3s';
-const CACHE_NAME = 'okobs-' + SW_VER;
+/* 🟢 sw.js | OkObserver Build 2025-11-07SR1-restoreHeaderSW1
+   Clean UTF-8, versioned cache purge, offline fallback, GH Pages safe. */
+
+'use strict';
+
+const SW_VERSION = '2025-11-07SR1-restoreHeaderSW1';
+const CACHE_NAME = `okobserver-cache-${SW_VERSION}`;
 const APP_SHELL = [
   './',
   './index.html',
-  './main.js?v=2025-11-07SR1-perfSWR1-videoR1',
-  './override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1',
+  './override.css',
+  './main.js?v=2025-11-07SR1-restoreHeaderSW1',
+  './logo.png',
+  './favicon.ico',
   './offline.html'
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (evt) => {
+  evt.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+  );
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(APP_SHELL)).catch(()=>{}));
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
-    await self.clients.claim();
-  })());
+self.addEventListener('activate', (evt) => {
+  evt.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => (k.startsWith('okobserver-cache-') && k !== CACHE_NAME) ? caches.delete(k) : null))
+    )
+  );
+  self.clients.claim();
 });
 
-self.addEventListener('fetch', (e) => {
-  const req = e.request;
+self.addEventListener('fetch', (evt) => {
+  const req = evt.request;
 
-  // Only GET
+  // Only GET; let other verbs pass through
   if (req.method !== 'GET') return;
 
-  // Network-first for API, cache-first for same-origin shell
-  const url = new URL(req.url);
-  const isSameOrigin = url.origin === self.location.origin;
-  const isAPI = /\/wp-json\/wp\/v2\//.test(url.href) || /okobserver-proxy\.bob-b5c\.workers\.dev/.test(url.href);
-
-  if (isAPI) {
-    e.respondWith(
-      fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
-        return res;
-      }).catch(() => caches.match(req).then((m) => m || caches.match('./offline.html')))
+  // Network-first for HTML; cache-first for static assets
+  if (req.headers.get('accept')?.includes('text/html')) {
+    evt.respondWith(
+      fetch(req).then(r => {
+        const copy = r.clone();
+        caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(()=>{});
+        return r;
+      }).catch(() => caches.match(req).then(r => r || caches.match('./offline.html')))
     );
     return;
   }
 
-  if (isSameOrigin) {
-    e.respondWith(
-      caches.match(req).then((m) => m || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(req, copy));
-        return res;
-      }).catch(() => caches.match('./offline.html')))
-    );
-  }
+  evt.respondWith(
+    caches.match(req).then(r => r || fetch(req).then(net => {
+      const copy = net.clone();
+      caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(()=>{});
+      return net;
+    }).catch(() => {
+      // As a last resort, offline page for navigations
+      if (req.mode === 'navigate') return caches.match('./offline.html');
+      return Promise.reject(new Error('Network fail (non-HTML)'));
+    }))
+  );
 });
+/* 🔴 sw.js */

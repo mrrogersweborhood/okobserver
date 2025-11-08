@@ -1,39 +1,110 @@
-<!-- 🟢 index.html – rollback-safe shell + additive embed hotfix loader
-     NOTE: This is the SAME baseline shell layout you already use.
-     Only addition is the new embed-fix.js tag loaded AFTER main.js. -->
+<!-- 🟢 index.html  | OkObserver Build 2025-11-07SR1-restoreHeaderSW1
+     Notes: Full restore of header (large centered logo + one-line centered motto),
+     proper hamburger, and guaranteed SW registration with cache-busted main.js.
+     Do NOT convert to ES modules. Keep .nojekyll at repo root. -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#1E90FF" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1E90FF">
   <title>The Oklahoma Observer</title>
 
-  <link rel="icon" href="favicon.ico" />
-  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-stableR1"><!-- keep your current override.css -->
+  <!-- Favicon (leave as .ico) -->
+  <link rel="icon" href="favicon.ico">
 
-  <!-- Keep your baseline build of main.js here (unchanged) -->
-  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1"></script>
+  <!-- Base styles (keep lightweight; grid/enforcer handled in override.css/main.js) -->
+  <style>
+    :root { --blue:#1E90FF; --text:#0b1220; --card:#fff; }
+    html,body{margin:0;padding:0;background:#f3f5f7;color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";}
+    a{color:#1E90FF;text-decoration:none}
+    a:hover{text-decoration:underline}
+    header.site-header{
+      position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;
+      box-shadow:0 2px 8px rgba(0,0,0,.08)
+    }
+    .header-inner{
+      max-width:1200px;margin:0 auto;padding:18px 16px 12px;display:flex;flex-direction:column;align-items:center
+    }
+    .brand-row{width:100%;display:flex;align-items:center;justify-content:center;gap:12px}
+    .brand-logo{
+      display:block;height:60px; /* large logo */
+      filter: drop-shadow(0 1px 0 rgba(0,0,0,.08));
+    }
+    .motto{
+      margin:8px 0 0; font-weight:600; color:#fff; text-align:center; letter-spacing:.1px;
+      white-space:nowrap; /* one line */
+    }
+    .hamburger{
+      position:absolute; right:16px; top:18px; width:28px;height:22px; cursor:pointer; display:flex;flex-direction:column;justify-content:space-between
+    }
+    .hamburger span{display:block;height:3px;background:#fff;border-radius:2px}
+    nav.site-nav{display:none}
+    @media (max-width:900px){
+      .brand-logo{height:52px}
+    }
+    main{max-width:1200px;margin:20px auto;padding:0 16px}
+    footer{margin:48px 0 32px;text-align:center;color:#6c7785;font-size:14px}
+  </style>
 
-  <!-- ADDITIVE: tiny, standalone video/embed fix (safe to roll back by just deleting this tag) -->
-  <script defer src="embed-fix.js?v=2025-11-07SR1-embedHotfix1"></script>
+  <link rel="preload" href="main.js?v=2025-11-07SR1-restoreHeaderSW1" as="script" crossorigin="anonymous">
+  <link rel="stylesheet" href="override.css?v=2025-11-06SR1-gridLock1-hotfix3n-videoR1">
 </head>
-
 <body>
-  <header class="site-header">
+  <header class="site-header" role="banner">
     <div class="header-inner">
-      <img src="logo.png" alt="The Oklahoma Observer" class="logo" />
+      <div class="brand-row" aria-label="Site branding">
+        <!-- IMPORTANT: logo is an <img>, NOT the favicon -->
+        <img class="brand-logo" src="logo.png" alt="The Oklahoma Observer">
+      </div>
       <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-      <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
+      <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="menu">
+        <span></span><span></span><span></span>
+      </button>
+      <nav id="menu" class="site-nav" aria-hidden="true"></nav>
     </div>
   </header>
 
-  <main id="app"></main>
+  <main id="app" role="main" aria-live="polite"></main>
 
-  <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-stableR1 + embedHotfix1
+  <footer>
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-restoreHeaderSW1
   </footer>
+
+  <!-- App JS (plain script; no type=module). Keep the version unique when you change main.js -->
+  <script defer src="main.js?v=2025-11-07SR1-restoreHeaderSW1"></script>
+
+  <!-- Guaranteed service worker registration w/ clear diagnostics -->
+  <script>
+    // OkObserver SW register (restoreHeaderSW1)
+    (function(){
+      const tag='[OkObserver SW]';
+      if ('serviceWorker' in navigator) {
+        const swUrl = 'sw.js?v=2025-11-07SR1-restoreHeaderSW1';
+        window.addEventListener('load', async () => {
+          try {
+            const reg = await navigator.serviceWorker.register(swUrl, { scope: './' });
+            console.log(tag,'registered:', reg.scope);
+          } catch (e) {
+            console.warn(tag,'failed to register:', e);
+          }
+        });
+      } else {
+        console.warn(tag,'not supported in this browser');
+      }
+      // Simple hamburger show/hide so it never regresses
+      const btn = document.getElementById('hamburger');
+      const nav = document.getElementById('menu');
+      if (btn) btn.addEventListener('click', () => {
+        const open = nav.style.display === 'block';
+        nav.style.display = open ? 'none' : 'block';
+        btn.setAttribute('aria-expanded', String(!open));
+        nav.setAttribute('aria-hidden', String(open));
+      });
+    })();
+  </script>
+
 </body>
 </html>
 <!-- 🔴 index.html -->
