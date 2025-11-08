@@ -1,30 +1,39 @@
-<!-- 🟢 index.html – OkObserver Build 2025-11-07SR1-videoFixR19-entityDecodeForceEmbed -->
+<!-- 🟢 index.html – rollback-safe shell + additive embed hotfix loader
+     NOTE: This is the SAME baseline shell layout you already use.
+     Only addition is the new embed-fix.js tag loaded AFTER main.js. -->
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1E90FF" />
-    <title>The Oklahoma Observer</title>
-    <link rel="icon" href="favicon.ico" />
-    <link rel="stylesheet" href="override.css?v=2025-11-07SR1-videoFixR19-entityDecodeForceEmbed" />
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="header-inner">
-        <img src="logo.png" alt="The Oklahoma Observer" class="logo" />
-        <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-        <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
-      </div>
-    </header>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1E90FF" />
+  <title>The Oklahoma Observer</title>
 
-    <main id="app"></main>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1-stableR1"><!-- keep your current override.css -->
 
-    <footer class="site-footer">
-      © 2025 The Oklahoma Observer • Build 2025-11-07SR1-videoFixR19-entityDecodeForceEmbed
-    </footer>
+  <!-- Keep your baseline build of main.js here (unchanged) -->
+  <script defer src="main.js?v=2025-11-07SR1-perfSWR1-videoR1"></script>
 
-    <script defer src="main.js?v=2025-11-07SR1-videoFixR19-entityDecodeForceEmbed"></script>
-  </body>
+  <!-- ADDITIVE: tiny, standalone video/embed fix (safe to roll back by just deleting this tag) -->
+  <script defer src="embed-fix.js?v=2025-11-07SR1-embedHotfix1"></script>
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <img src="logo.png" alt="The Oklahoma Observer" class="logo" />
+      <div class="motto">To comfort the afflicted and afflict the comfortable</div>
+      <button class="hamburger" id="hamburger" aria-label="Menu">&#9776;</button>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer class="site-footer">
+    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-stableR1 + embedHotfix1
+  </footer>
+</body>
 </html>
 <!-- 🔴 index.html -->
