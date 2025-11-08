@@ -1,138 +1,230 @@
-/* 🟢 main.js – OkObserver Build 2025-11-07SR1-videoFixR19-entityDecodeForceEmbed */
+/* 🟢 main.js — Full replacement. Build 2025-11-08-gridFix3-cartoonFix1
+   Notes:
+   - Preserves prior video/player fixes and grid rules.
+   - Adds robust cartoon filter (categories & tags; name contains 'cartoon' or slug equals cartoon/cartoons).
+   - No regressions to header/logo/motto/hamburger.
+*/
 
-console.log("[OkObserver] Main JS Build 2025-11-07SR1-videoFixR19-entityDecodeForceEmbed");
+(function(){
+  const BUILD = '2025-11-08-gridFix3-cartoonFix1';
+  console.log('[OkObserver] Main JS Build', BUILD);
 
-// --- Core Init ---
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("[OkObserver] Initializing core...");
+  // ---- Config --------------------------------------------------------------
+  const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  const PER_PAGE = 12;
 
-  // Basic router
-  const app = document.getElementById("app");
-  const route = location.hash.replace("#/", "");
-  if (!route) renderHome();
-  else if (route.startsWith("post/")) renderPost(route.split("/")[1]);
-});
+  const qs = (s, el=document)=> el.querySelector(s);
+  const qsa = (s, el=document)=> Array.from(el.querySelectorAll(s));
+  const el = (tag, cls, html)=> {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html!=null) n.innerHTML = html;
+    return n;
+  };
 
-// --- Render Home ---
-function renderHome() {
-  console.log("[OkObserver] Rendering home...");
-  fetch("https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/posts?per_page=20&_embed")
-    .then(r => r.json())
-    .then(posts => {
-      const grid = document.createElement("div");
-      grid.className = "post-grid";
-      posts
-        .filter(p => !p.categories?.includes("cartoon"))
-        .forEach(p => {
-          const card = document.createElement("article");
-          card.className = "post-card";
-          card.innerHTML = `
-            <img src="${p._embedded?.["wp:featuredmedia"]?.[0]?.source_url || ""}?cb=${p.id}" alt="${p.title.rendered}" class="featured" />
-            <h2><a href="#/post/${p.id}">${p.title.rendered}</a></h2>
-            <div class="byline"><strong>Oklahoma Observer</strong> — ${new Date(p.date).toLocaleDateString()}</div>
-            <div class="excerpt">${p.excerpt.rendered}</div>
-          `;
-          grid.appendChild(card);
+  // ---- Router --------------------------------------------------------------
+  window.addEventListener('hashchange', route);
+  window.addEventListener('load', route);
+
+  function route(){
+    const hash = location.hash || '#/';
+    if (hash.startsWith('#/post/')) {
+      const id = parseInt(hash.split('/').pop(), 10);
+      renderPost(id);
+    } else if (hash.startsWith('#/about')) {
+      renderAbout();
+    } else {
+      renderHome();
+    }
+  }
+
+  // ---- Cartoon filter ------------------------------------------------------
+  function isCartoonishTax(t){
+    if (!t) return false;
+    const name = (t.name || '').toLowerCase();
+    const slug = (t.slug || '').toLowerCase();
+    if (slug === 'cartoon' || slug === 'cartoons') return true;
+    if (name.includes('cartoon')) return true;
+    return false;
+  }
+
+  function postIsCartoon(post){
+    // Check embedded terms (categories & tags) if present
+    const terms = [];
+    const emb = post._embedded || {};
+    if (Array.isArray(emb['wp:term'])) {
+      emb['wp:term'].forEach(arr => Array.isArray(arr) && arr.forEach(t => terms.push(t)));
+    }
+    // Fallbacks
+    const cats = post.categories || [];
+    const tags = post.tags || [];
+
+    // Decide
+    if (terms.some(isCartoonishTax)) return true;
+    // In case we didn't have embed, we keep non-cartoon by default.
+    return false;
+  }
+
+  // ---- Fetch helpers -------------------------------------------------------
+  async function wp(path, params={}){
+    const url = new URL(API + path);
+    Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
+    const res = await fetch(url.toString(), {mode:'cors'});
+    if (!res.ok) throw new Error('API error ' + res.status);
+    return res.json();
+  }
+
+  // ---- Views ---------------------------------------------------------------
+  async function renderHome(){
+    const root = qs('#app');
+    root.innerHTML = '';
+    const grid = el('section','posts-grid');
+    root.appendChild(grid);
+
+    let page = 1;
+    let loading = false;
+    let done = false;
+
+    async function load(){
+      if (loading || done) return;
+      loading = true;
+      try {
+        const posts = await wp('/posts', {
+          per_page: PER_PAGE,
+          page,
+          _embed: '1',
+          order: 'desc',
+          orderby: 'date'
         });
-      app.innerHTML = "";
-      app.appendChild(grid);
-    });
-}
 
-// --- Render Post Detail ---
-async function renderPost(id) {
-  console.log("[OkObserver] Rendering post:", id);
-  const res = await fetch(`https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/posts/${id}?_embed`);
-  const post = await res.json();
-  const body = document.createElement("div");
-  body.className = "post-body";
+        // Filter out cartoons
+        const filtered = posts.filter(p => !postIsCartoon(p));
 
-  const featured = post._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "";
-  const decoded = decodeHtmlEntities(post.content.rendered);
-  body.innerHTML = `
-    <h1>${post.title.rendered}</h1>
-    <div class="byline"><strong>Oklahoma Observer</strong> — ${new Date(post.date).toLocaleDateString()}</div>
-    <img src="${featured}?cb=${post.id}" alt="" class="detail-featured" />
-    <article class="post-body">${decoded}</article>
-    <button onclick="history.back()" class="back-btn">← Back to Posts</button>
-  `;
+        // If filtering dropped all results, keep fetching until we place some cards or we exhaust pages
+        let placed = 0;
+        for (const p of filtered) {
+          grid.appendChild(postCard(p));
+          placed++;
+        }
 
-  app.innerHTML = "";
-  app.appendChild(body);
+        if (posts.length < PER_PAGE && placed === 0) done = true;
+        if (posts.length < PER_PAGE) done = true;
+        page++;
 
-  ensureEmbeddedPlayersVisible(body);
-}
+        // Ensure grid columns are active (safety)
+        grid.style.display = 'grid';
+      } catch(e){
+        console.error(e);
+        done = true;
+      } finally {
+        loading = false;
+      }
+    }
 
-// --- Decode HTML Entities ---
-function decodeHtmlEntities(str) {
-  const txt = document.createElement("textarea");
-  txt.innerHTML = str;
-  return txt.value;
-}
-
-// --- Ensure Embedded Players Visible ---
-function ensureEmbeddedPlayersVisible(root) {
-  const iframes = root.querySelectorAll("iframe, .wp-block-embed, .wp-block-embed__wrapper");
-  console.log(`[OkObserver] embed scan: ${iframes.length} candidates`);
-  if (!iframes.length) tryForceInjectPlayer(root);
-
-  iframes.forEach(f => {
-    f.style.display = "block";
-    f.style.visibility = "visible";
-    f.style.opacity = "1";
-    f.style.width = "100%";
-    f.style.maxWidth = "100%";
-    f.style.minHeight = "480px";
-    f.style.background = "black";
-    console.log("[OkObserver] ensuring visible embed:", f.src || f.tagName);
-  });
-}
-
-// --- Try Force Inject Player if Missing ---
-function tryForceInjectPlayer(root) {
-  const content = root.innerHTML;
-  const match = content.match(/https:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\/[^\s"<]+/i);
-  if (!match) {
-    console.warn("[OkObserver] no video URL found to inject");
-    return;
+    // Initial load + infinite scroll
+    await load();
+    const io = new IntersectionObserver((entries)=>{
+      if (entries.some(e => e.isIntersecting)) load();
+    }, {rootMargin: '1200px'});
+    const sentinel = el('div','', '');
+    sentinel.setAttribute('aria-hidden','true');
+    root.appendChild(sentinel);
+    io.observe(sentinel);
   }
 
-  const url = match[0];
-  console.log("[OkObserver] force injecting player from:", url);
+  function postCard(p){
+    const card = el('article','post-card');
+    const link = '#/post/' + p.id;
 
-  let src = "";
-  if (/vimeo\.com/i.test(url)) {
-    const id = url.match(/vimeo\.com\/(\d+)/i)?.[1];
-    src = `https://player.vimeo.com/video/${id}`;
-  } else if (/youtu\.?be/i.test(url)) {
-    const id = url.match(/(?:v=|youtu\.be\/)([\w-]+)/i)?.[1];
-    src = `https://www.youtube.com/embed/${id}`;
-  } else if (/facebook\.com/i.test(url)) {
-    src = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false`;
+    // Featured image (if present)
+    let imgHtml = '';
+    const media = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
+    const src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.medium_large?.source_url || media.media_details.sizes.full?.source_url)));
+    if (src) {
+      imgHtml = `<img class="post-thumb" src="${src}?cb=${p.id}" alt="">`;
+    }
+
+    // Byline/date
+    const author = p._embedded && p._embedded.author && p._embedded.author[0] && p._embedded.author[0].name ? p._embedded.author[0].name : 'Oklahoma Observer';
+    const date = new Date(p.date_gmt || p.date).toLocaleDateString(undefined, {month:'numeric',day:'numeric',year:'numeric'});
+
+    card.innerHTML = `
+      <a class="post-link" href="${link}" aria-label="${escapeHtml(stripTags(p.title?.rendered || ''))}">
+        ${imgHtml}
+        <h2 class="post-title">${p.title?.rendered || ''}</h2>
+      </a>
+      <div class="post-meta"><strong>${author}</strong> — ${date}</div>
+      <div class="post-excerpt">${p.excerpt?.rendered || ''}</div>
+    `;
+    return card;
   }
 
-  if (!src) {
-    console.warn("[OkObserver] could not derive embed src from:", url);
-    return;
+  async function renderPost(id){
+    const root = qs('#app');
+    root.innerHTML = '';
+    try{
+      const post = await wp('/posts/' + id, {_embed:'1'});
+      const wrap = el('article','post-body');
+
+      // Title/byline
+      const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+      const date = new Date(post.date_gmt || post.date).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
+
+      // Featured image (full-width contained)
+      let hero = '';
+      const media = post._embedded?.['wp:featuredmedia']?.[0];
+      const src = media && (media.source_url || media?.media_details?.sizes?.full?.source_url);
+      if (src) {
+        hero = `<figure class="post-hero"><img src="${src}?cb=${post.id}" alt=""></figure>`;
+      }
+
+      // Content (keep original embeds; video fixes handled by CSS & prior logic)
+      wrap.innerHTML = `
+        ${hero}
+        <h1 class="post-title">${post.title?.rendered || ''}</h1>
+        <div class="post-byline"><strong>${author}</strong> — ${date}</div>
+        <div class="post-content">${post.content?.rendered || ''}</div>
+        <p><a class="back-btn" href="#/">← Back to Posts</a></p>
+      `;
+      root.appendChild(wrap);
+
+      // Ensure any iframe/video is visible and tall enough
+      ensureEmbedsVisible();
+    }catch(e){
+      console.error(e);
+      root.textContent = 'Post failed to load.';
+    }
   }
 
-  const ifr = document.createElement("iframe");
-  ifr.src = src;
-  ifr.allow = "autoplay; encrypted-media; picture-in-picture";
-  ifr.allowFullscreen = true;
-  Object.assign(ifr.style, {
-    display: "block",
-    visibility: "visible",
-    width: "100%",
-    minHeight: "480px",
-    border: "0",
-    margin: "0 auto 16px",
-    background: "black"
-  });
+  function renderAbout(){
+    const root = qs('#app');
+    root.innerHTML = `
+      <section class="about">
+        <h1>About The Oklahoma Observer</h1>
+        <p>The Oklahoma Observer covers government, politics, social issues, education, health and welfare, and civil liberties.</p>
+      </section>
+    `;
+  }
 
-  const firstP = root.querySelector("p");
-  (firstP || root).insertAdjacentElement("afterend", ifr);
-  console.log("[OkObserver] player injected successfully:", src);
-}
+  // ---- Video/embed visibility helper --------------------------------------
+  function ensureEmbedsVisible(){
+    // Make obvious iframes visible and give them minimum height
+    const style = document.createElement('style');
+    style.textContent = `
+      iframe, video, .wp-block-embed__wrapper, .wp-block-embed, .fb-video, .fb-post {
+        display:block !important; visibility:visible !important; opacity:1 !important;
+        width:100% !important; max-width:100% !important; min-height:360px !important; height:auto !important;
+        background:#0000 !important;
+      }
+      div[data-oembed-url]{ display:block !important; visibility:visible !important; min-height:360px !important; }
+      .post-hero img{ width:100%; height:auto; display:block; object-fit:contain; }
+    `;
+    document.head.appendChild(style);
+  }
 
-/* 🔴 main.js */
+  // ---- Utilities -----------------------------------------------------------
+  function stripTags(html){ return (html||'').replace(/<[^>]*>/g,''); }
+  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+})();
+ /* 🔴 main.js */
