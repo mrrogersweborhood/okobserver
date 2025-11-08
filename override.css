@@ -1411,3 +1411,43 @@ div.fb-video:empty {
   width: auto !important;
   min-width: 0 !important;
 }
+/* --- Grid Hard Lock (11/08) --------------------------------------- */
+/* Prefer class hook if present */
+.posts-grid,
+.posts-list,
+#posts,
+.cards-wrap {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 22px !important;
+}
+
+/* Robust fallback: any container that *directly* holds .post-card items */
+div:has(> .post-card):not(.post-detail) {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 22px !important;
+}
+
+/* Card should not fight the grid */
+.post-card { width: 100% !important; }
+
+/* Responsive steps */
+@media (max-width: 1100px) {
+  .posts-grid,
+  .posts-list,
+  #posts,
+  .cards-wrap,
+  div:has(> .post-card):not(.post-detail) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 720px) {
+  .posts-grid,
+  .posts-list,
+  #posts,
+  .cards-wrap,
+  div:has(> .post-card):not(.post-detail) {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -1,98 +1,96 @@
-<!-- 🟢 index.html | OkObserver Build 2025-11-07SR1-restoreHeaderSW2
-     Notes: Header/motto layout retained, preload removed to silence console warnings.
-     SW registration confirmed. Keep .nojekyll at repo root. -->
-
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#1E90FF">
-  <title>The Oklahoma Observer</title>
-  <link rel="stylesheet" href="override.css?v=2025-11-08-gridFix1">   
-  <!-- Favicon -->
-  <link rel="icon" href="favicon.ico">
+  <!-- 🟢 index.html • Build 2025-11-08-gridFix2 • includes JS grid enforcer -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Oklahoma Observer</title>
 
-  <!-- Base styles -->
-  <style>
-    :root { --blue:#1E90FF; --text:#0b1220; --card:#fff; }
-    html,body{margin:0;padding:0;background:#f3f5f7;color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";}
-    a{color:#1E90FF;text-decoration:none}
-    a:hover{text-decoration:underline}
-    header.site-header{
-      position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;
-      box-shadow:0 2px 8px rgba(0,0,0,.08)
-    }
-    .header-inner{
-      max-width:1200px;margin:0 auto;padding:18px 16px 12px;display:flex;flex-direction:column;align-items:center
-    }
-    .brand-row{width:100%;display:flex;align-items:center;justify-content:center;gap:12px}
-    .brand-logo{display:block;height:60px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.08));}
-    .motto{
-      margin:8px 0 0;font-weight:600;color:#fff;text-align:center;letter-spacing:.1px;white-space:nowrap;
-    }
-    .hamburger{
-      position:absolute;right:16px;top:18px;width:28px;height:22px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between
-    }
-    .hamburger span{display:block;height:3px;background:#fff;border-radius:2px}
-    nav.site-nav{display:none}
-    @media (max-width:900px){.brand-logo{height:52px}}
-    main{max-width:1200px;margin:20px auto;padding:0 16px}
-    footer{margin:48px 0 32px;text-align:center;color:#6c7785;font-size:14px}
-  </style>
+    <!-- favicon -->
+    <link rel="icon" href="favicon.ico" />
+
+    <!-- Core Styles -->
+    <link rel="stylesheet" href="override.css?v=2025-11-08-gridFix2" />
+
+    <!-- Manifest & PWA support -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Meta -->
+    <meta name="theme-color" content="#1E90FF" />
   </head>
-<body>
-  <header class="site-header" role="banner">
-    <div class="header-inner">
-      <div class="brand-row" aria-label="Site branding">
-        <img class="brand-logo" src="logo.png" alt="The Oklahoma Observer">
+
+  <body>
+    <!-- HEADER -->
+    <header class="site-header">
+      <div class="header-inner">
+        <img src="logo.png" alt="The Oklahoma Observer logo" class="logo" />
+        <p class="motto">To comfort the afflicted and afflict the comfortable</p>
+        <button id="menu-toggle" aria-label="Toggle navigation">&#9776;</button>
       </div>
-      <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-      <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="menu">
-        <span></span><span></span><span></span>
-      </button>
-      <nav id="menu" class="site-nav" aria-hidden="true"></nav>
-    </div>
-  </header>
+      <nav id="nav-menu" class="hidden">
+        <a href="#/">Posts</a>
+        <a href="#/about">About</a>
+      </nav>
+    </header>
 
-  <main id="app" role="main" aria-live="polite"></main>
+    <!-- MAIN APP ROOT -->
+    <main id="app"></main>
 
-  <footer>
-    © 2025 The Oklahoma Observer • Build 2025-11-07SR1-restoreHeaderSW2
-  </footer>
+    <!-- FOOTER -->
+    <footer class="site-footer">
+      <p>
+        © 2025 The Oklahoma Observer • Build 2025-11-08-gridFix2<br />
+        To comfort the afflicted and afflict the comfortable
+      </p>
+    </footer>
 
-  <!-- Main script -->
-  <script defer src="main.js?v=2025-11-07SR1-restoreHeaderSW2"></script>
+    <!-- Main JS App -->
+    <script defer src="main.js?v=2025-11-08-gridFix2"></script>
 
-  <!-- Service worker registration -->
-  <script>
-    (function(){
-      const tag='[OkObserver SW]';
-      if('serviceWorker' in navigator){
-        const swUrl='sw.js?v=2025-11-07SR1-restoreHeaderSW2';
-        window.addEventListener('load',async()=>{
-          try{
-            const reg=await navigator.serviceWorker.register(swUrl,{scope:'./'});
-            console.log(tag,'registered:',reg.scope);
-          }catch(e){
-            console.warn(tag,'failed to register:',e);
-          }
+    <!-- Service Worker Registration -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("sw.js?v=2025-11-08-gridFix2")
+            .then((reg) =>
+              console.log("[OkObserver] SW registered:", reg.scope)
+            )
+            .catch((err) =>
+              console.warn("[OkObserver] SW registration failed:", err)
+            );
         });
-      }else{
-        console.warn(tag,'not supported in this browser');
       }
-      // Hamburger toggle
-      const btn=document.getElementById('hamburger');
-      const nav=document.getElementById('menu');
-      if(btn)btn.addEventListener('click',()=>{
-        const open=nav.style.display==='block';
-        nav.style.display=open?'none':'block';
-        btn.setAttribute('aria-expanded',String(!open));
-        nav.setAttribute('aria-hidden',String(open));
-      });
-    })();
-  </script>
+    </script>
 
-</body>
+    <!-- 🧩 Grid Enforcer Script -->
+    <script>
+      (() => {
+        // Enforce 4/3/1 columns on any post-card container
+        const apply = () => {
+          const cols = innerWidth < 720 ? 1 : innerWidth < 1100 ? 3 : 4;
+          document
+            .querySelectorAll(
+              'div:has(> .post-card):not(.post-detail), .posts-grid, .posts-list, #posts, .cards-wrap'
+            )
+            .forEach((wrap) => {
+              if (wrap.closest(".post-detail")) return;
+              Object.assign(wrap.style, {
+                display: "grid",
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                gap: "22px",
+              });
+            });
+        };
+        const root = document.querySelector("main") || document.body;
+        new MutationObserver(apply).observe(root, {
+          childList: true,
+          subtree: true,
+        });
+        addEventListener("resize", apply);
+        apply();
+      })();
+    </script>
+  </body>
 </html>
 <!-- 🔴 index.html -->
