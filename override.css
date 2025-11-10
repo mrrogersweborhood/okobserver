@@ -1488,3 +1488,19 @@ div:has(> .post-card):not(.post-detail) {
 }
 
 /* 🔴 override.css — end of appended block */
+/* 🟢 override.css addendum 2025-11-10R2 video+grid */
+.posts-grid { align-items:start; }
+.post-card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.08); overflow:hidden; }
+.post-card .card-media img { width:100%; height:auto; display:block; }
+.post-title a { color:#1166ff; text-decoration:none; }
+.post-hero { margin: 16px 0; }
+.post-hero-img { width:100%; height:auto; display:block; }
+.post-body iframe { display:block; width:100%; max-width:100%; min-height:420px; border:0; }
+.ok-header { position:sticky; top:0; background:#1E90FF; color:#fff; z-index:10; }
+.ok-header-inner { max-width:1100px; margin:0 auto; padding:12px 16px; text-align:center; position:relative; }
+.ok-logo { height:64px; display:block; margin:0 auto 6px; }
+.ok-motto { font-weight:600; }
+.ok-hamburger { position:absolute; right:8px; top:8px; font-size:22px; background:transparent; color:#fff; border:0; }
+.ok-nav { text-align:center; padding:6px 0; }
+.ok-nav a { color:#fff; margin:0 8px; text-decoration:none; font-weight:600; }
+.ok-footer { padding:24px; text-align:center; color:#666; }

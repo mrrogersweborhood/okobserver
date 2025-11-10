@@ -1,82 +1,43 @@
-<!-- 🟢 index.html — Full replacement. Build 2025-11-08-gridFix3-cartoonFix1 -->
+<!-- 🟢 index.html — FULL FILE REPLACEMENT
+     OkObserver Build 2025-11-10R2-restoreHeader-grid-safeShell
+     This is a minimal shell that defers to main.js + PostDetail.js.
+     Keep 🟢/🔴 markers in this file. -->
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico">
-  <!-- Core styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-08-gridFix3-cartoonFix1">
-  <style>
-    /* keep page calm while JS boots */
-    body { background:#f3f6f9; margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#123; }
-    header.site-header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;}
-    .header-inner{max-width:1200px;margin:0 auto;padding:22px 16px;text-align:center;position:relative}
-    .brand-logo{display:block;margin:0 auto;width:min(520px,80%);}
-    .motto{margin-top:6px;font-weight:600}
-    .hamburger{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:28px;height:22px;cursor:pointer}
-    .hamburger span, .hamburger::before, .hamburger::after{
-      content:"";display:block;height:3px;background:#fff;border-radius:2px;margin:4px 0
-    }
-    nav.primary{display:none;} /* hidden until toggled */
-    nav.primary.open{display:block;}
-    /* footer */
-    footer{max-width:1200px;margin:40px auto 80px;padding:0 16px;color:#456}
-    /* grid container (kept minimal here; main rules are in override.css) */
-    .posts-grid{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;gap:18px}
-    @media (min-width: 1200px){ .posts-grid{grid-template-columns: repeat(4, 1fr);} }
-    @media (min-width: 900px) and (max-width:1199.98px){ .posts-grid{grid-template-columns: repeat(3, 1fr);} }
-    @media (max-width: 899.98px){ .posts-grid{grid-template-columns: 1fr;} }
-  </style>
+  <link rel="stylesheet" href="override.css?v=2025-11-10R2">
 </head>
 <body>
-  <header class="site-header" role="banner">
-    <div class="header-inner">
-      <img class="brand-logo" src="logo.png" alt="The Oklahoma Observer logo">
-      <div class="motto">To comfort the afflicted and afflict the comfortable</div>
-      <button id="menuBtn" class="hamburger" aria-label="Open menu"><span></span></button>
+  <header class="ok-header">
+    <div class="ok-header-inner">
+      <img class="ok-logo" src="logo.png" alt="The Oklahoma Observer">
+      <div class="ok-motto">To comfort the afflicted and afflict the comfortable</div>
+      <button id="navBtn" class="ok-hamburger" aria-label="menu">≡</button>
     </div>
-    <nav id="primaryNav" class="primary" aria-label="Primary">
-      <!-- (kept for accessibility; hidden until hamburger toggles) -->
-      <ul style="list-style:none;margin:0;padding:0;text-align:center">
-        <li style="display:inline-block;margin:0 8px"><a href="#/" style="color:#fff;text-decoration:none">Posts</a></li>
-        <li style="display:inline-block;margin:0 8px"><a href="#/about" style="color:#fff;text-decoration:none">About</a></li>
-      </ul>
+    <nav class="ok-nav">
+      <a href="#/home">Posts</a>
+      <a href="#/about">About</a>
     </nav>
   </header>
 
-  <main id="app" role="main" aria-busy="true">
-    <!-- App content renders here -->
-    <section class="posts-grid" id="gridBootSkeleton" aria-hidden="true"></section>
-  </main>
+  <main id="app" role="main"></main>
 
-  <footer>
-    <div>© 2025 The Oklahoma Observer • Build 2025-11-08-gridFix3-cartoonFix1</div>
+  <footer class="ok-footer">
+    <small>© 2025 The Oklahoma Observer • Build 2025-11-10R2-restoreHeader-grid-safeShell</small>
   </footer>
 
+  <!-- Scripts (no module syntax; GH Pages safe) -->
+  <script defer src="PostDetail.js?v=2025-11-10R2"></script>
+  <script defer src="main.js?v=2025-11-10R2"></script>
   <script>
-    // simple nav toggle (no framework)
-    (function(){
-      const btn = document.getElementById('menuBtn');
-      const nav = document.getElementById('primaryNav');
-      btn?.addEventListener('click', ()=> nav.classList.toggle('open'));
-    })();
+    document.getElementById('navBtn').addEventListener('click',function(){
+      document.body.classList.toggle('nav-open');
+    });
   </script>
-
-  <!-- Main application script; keep version bumped for cache busting -->
-  <script defer src="main.js?v=2025-11-08-gridFix3-cartoonCatOnly1"></script>
-
-  <!-- Optional: service worker (same filename, version busting inside SW) -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', ()=> {
-        try { navigator.serviceWorker.register('./sw.js'); } catch(e){}
-      });
-    }
-    console.log('[OkObserver] index.html Build 2025-11-08-gridFix3-cartoonFix1 (SW auto)');
-  </script>
-  <!-- 🟢 index.html — end -->
 </body>
 </html>
-<!-- 🔴 index.html -->
+<!-- 🔴 index.html — END FULL FILE -->
