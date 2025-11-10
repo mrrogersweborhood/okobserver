@@ -1,12 +1,12 @@
-/* 🟢 main.js — Full replacement. Build 2025-11-08-gridFix3-cartoonFix1
-   Notes:
-   - Preserves prior video/player fixes and grid rules.
-   - Adds robust cartoon filter (categories & tags; name contains 'cartoon' or slug equals cartoon/cartoons).
-   - No regressions to header/logo/motto/hamburger.
+/* 🟢 main.js — Full replacement. Build 2025-11-08-gridFix3-cartoonCatOnly1
+   Changes:
+   - Cartoon filter now checks ONLY WordPress CATEGORIES via _embedded['wp:term'][0] (the categories array).
+   - Tags are ignored.
+   - All other behavior unchanged.
 */
 
 (function(){
-  const BUILD = '2025-11-08-gridFix3-cartoonFix1';
+  const BUILD = '2025-11-08-gridFix3-cartoonCatOnly1';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   // ---- Config --------------------------------------------------------------
@@ -38,30 +38,23 @@
     }
   }
 
-  // ---- Cartoon filter ------------------------------------------------------
-  function isCartoonishTax(t){
-    if (!t) return false;
-    const name = (t.name || '').toLowerCase();
-    const slug = (t.slug || '').toLowerCase();
+  // ---- Cartoon filter (CATEGORIES ONLY) ------------------------------------
+  function isCartoonCategory(term){
+    if (!term) return false;
+    const name = String(term.name || '').toLowerCase();
+    const slug = String(term.slug || '').toLowerCase();
     if (slug === 'cartoon' || slug === 'cartoons') return true;
     if (name.includes('cartoon')) return true;
     return false;
   }
 
-  function postIsCartoon(post){
-    // Check embedded terms (categories & tags) if present
-    const terms = [];
-    const emb = post._embedded || {};
-    if (Array.isArray(emb['wp:term'])) {
-      emb['wp:term'].forEach(arr => Array.isArray(arr) && arr.forEach(t => terms.push(t)));
-    }
-    // Fallbacks
-    const cats = post.categories || [];
-    const tags = post.tags || [];
+  function postIsCartoonByCategory(post){
+    // WordPress embeds categories at _embedded['wp:term'][0]
+    const catArray = post?._embedded?.['wp:term']?.[0];
+    if (Array.isArray(catArray) && catArray.some(isCartoonCategory)) return true;
 
-    // Decide
-    if (terms.some(isCartoonishTax)) return true;
-    // In case we didn't have embed, we keep non-cartoon by default.
+    // If we didn't get embeds, we do NOT exclude to avoid false positives.
+    // (We already request _embed in our fetch below.)
     return false;
   }
 
@@ -97,21 +90,19 @@
           orderby: 'date'
         });
 
-        // Filter out cartoons
-        const filtered = posts.filter(p => !postIsCartoon(p));
+        // Filter out cartoons by CATEGORY ONLY
+        const filtered = posts.filter(p => !postIsCartoonByCategory(p));
 
-        // If filtering dropped all results, keep fetching until we place some cards or we exhaust pages
         let placed = 0;
         for (const p of filtered) {
           grid.appendChild(postCard(p));
           placed++;
         }
 
-        if (posts.length < PER_PAGE && placed === 0) done = true;
         if (posts.length < PER_PAGE) done = true;
         page++;
 
-        // Ensure grid columns are active (safety)
+        // Safety: enforce grid display
         grid.style.display = 'grid';
       } catch(e){
         console.error(e);
@@ -136,16 +127,14 @@
     const card = el('article','post-card');
     const link = '#/post/' + p.id;
 
-    // Featured image (if present)
+    // Featured image
     let imgHtml = '';
-    const media = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
-    const src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.medium_large?.source_url || media.media_details.sizes.full?.source_url)));
-    if (src) {
-      imgHtml = `<img class="post-thumb" src="${src}?cb=${p.id}" alt="">`;
-    }
+    const media = p._embedded?.['wp:featuredmedia']?.[0];
+    const src = media && (media.source_url || media?.media_details?.sizes?.medium_large?.source_url || media?.media_details?.sizes?.full?.source_url);
+    if (src) imgHtml = `<img class="post-thumb" src="${src}?cb=${p.id}" alt="">`;
 
     // Byline/date
-    const author = p._embedded && p._embedded.author && p._embedded.author[0] && p._embedded.author[0].name ? p._embedded.author[0].name : 'Oklahoma Observer';
+    const author = p._embedded?.author?.[0]?.name || 'Oklahoma Observer';
     const date = new Date(p.date_gmt || p.date).toLocaleDateString(undefined, {month:'numeric',day:'numeric',year:'numeric'});
 
     card.innerHTML = `
@@ -166,19 +155,14 @@
       const post = await wp('/posts/' + id, {_embed:'1'});
       const wrap = el('article','post-body');
 
-      // Title/byline
       const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
       const date = new Date(post.date_gmt || post.date).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
 
-      // Featured image (full-width contained)
       let hero = '';
       const media = post._embedded?.['wp:featuredmedia']?.[0];
       const src = media && (media.source_url || media?.media_details?.sizes?.full?.source_url);
-      if (src) {
-        hero = `<figure class="post-hero"><img src="${src}?cb=${post.id}" alt=""></figure>`;
-      }
+      if (src) hero = `<figure class="post-hero"><img src="${src}?cb=${post.id}" alt=""></figure>`;
 
-      // Content (keep original embeds; video fixes handled by CSS & prior logic)
       wrap.innerHTML = `
         ${hero}
         <h1 class="post-title">${post.title?.rendered || ''}</h1>
@@ -188,7 +172,6 @@
       `;
       root.appendChild(wrap);
 
-      // Ensure any iframe/video is visible and tall enough
       ensureEmbedsVisible();
     }catch(e){
       console.error(e);
@@ -208,7 +191,6 @@
 
   // ---- Video/embed visibility helper --------------------------------------
   function ensureEmbedsVisible(){
-    // Make obvious iframes visible and give them minimum height
     const style = document.createElement('style');
     style.textContent = `
       iframe, video, .wp-block-embed__wrapper, .wp-block-embed, .fb-video, .fb-post {
