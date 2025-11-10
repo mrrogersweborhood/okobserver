@@ -1,43 +1,77 @@
 <!-- 🟢 index.html — FULL FILE REPLACEMENT
-     OkObserver Build 2025-11-10R2-restoreHeader-grid-safeShell
-     This is a minimal shell that defers to main.js + PostDetail.js.
-     Keep 🟢/🔴 markers in this file. -->
+     OkObserver Build 2025-11-10R3-infiniteFix1
+     Notes:
+     - Stable header: big centered logo + one-line centered motto
+     - 4/3/1 grid handled mostly by CSS + JS in main.js
+     - Service worker registration intact
+     - Cache-busted CSS/JS versions aligned with main.js build
+-->
+
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="override.css?v=2025-11-10R2">
+
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.ico" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="override.css?v=2025-11-10R3-infiniteFix1" />
+
+  <style>
+    /* Minimal shell styles (app uses override.css for most layout) */
+    :root { --blue:#1E90FF; }
+    html,body{margin:0;padding:0;background:#f3f6f9;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#102030}
+    a{color:#1E90FF;text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    /* Header */
+    .topbar{position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .topbar .brand{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;align-items:center}
+    .brand-logo{height:64px;display:block;filter:drop-shadow(0 1px 0 rgba(0,0,0,.08))}
+    .brand-motto{margin-top:6px;font-weight:600;text-align:center;white-space:nowrap}
+    .hamburger{position:absolute;right:16px;top:16px;width:28px;height:22px;background:transparent;border:0;color:#fff;cursor:pointer;font-size:22px}
+    .mainnav{display:none}
+    .menu-open .mainnav{display:block;text-align:center;padding:6px 0}
+    .mainnav a{color:#fff;margin:0 8px;font-weight:600}
+
+    /* App container */
+    #home, #detail {max-width:1200px;margin:20px auto;padding:0 16px}
+
+    .site-footer{max-width:1200px;margin:48px auto 32px;padding:0 16px;text-align:center;color:#586174;font-size:14px}
+  </style>
 </head>
 <body>
-  <header class="ok-header">
-    <div class="ok-header-inner">
-      <img class="ok-logo" src="logo.png" alt="The Oklahoma Observer">
-      <div class="ok-motto">To comfort the afflicted and afflict the comfortable</div>
-      <button id="navBtn" class="ok-hamburger" aria-label="menu">≡</button>
-    </div>
-    <nav class="ok-nav">
-      <a href="#/home">Posts</a>
-      <a href="#/about">About</a>
-    </nav>
-  </header>
 
-  <main id="app" role="main"></main>
+  <!-- App root gets rendered by main.js -->
+  <div id="app">
+    <!-- main.js will render header, content, and footer -->
+  </div>
 
-  <footer class="ok-footer">
-    <small>© 2025 The Oklahoma Observer • Build 2025-11-10R2-restoreHeader-grid-safeShell</small>
-  </footer>
+  <!-- Scripts (plain JS; no modules) -->
+  <script defer src="PostDetail.js?v=2025-11-10R3-infiniteFix1"></script>
+  <script defer src="main.js?v=2025-11-10R3-infiniteFix1"></script>
 
-  <!-- Scripts (no module syntax; GH Pages safe) -->
-  <script defer src="PostDetail.js?v=2025-11-10R2"></script>
-  <script defer src="main.js?v=2025-11-10R2"></script>
+  <!-- Service Worker Registration -->
   <script>
-    document.getElementById('navBtn').addEventListener('click',function(){
-      document.body.classList.toggle('nav-open');
-    });
+    (function(){
+      const tag='[OkObserver SW]';
+      if('serviceWorker' in navigator){
+        window.addEventListener('load', async () => {
+          try{
+            const reg = await navigator.serviceWorker.register('sw.js?v=2025-11-10R3-infiniteFix1', {scope:'./'});
+            console.log(tag,'registered:', reg.scope);
+          }catch(e){
+            console.warn(tag,'failed to register:', e);
+          }
+        });
+      }
+    })();
   </script>
+
 </body>
 </html>
-<!-- 🔴 index.html — END FULL FILE -->
+<!-- 🔴 index.html -->
