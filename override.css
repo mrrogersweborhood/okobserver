@@ -1451,3 +1451,40 @@ div:has(> .post-card):not(.post-detail) {
     grid-template-columns: 1fr !important;
   }
 }
+/* 🟢 override.css — APPEND ONLY (OkObserver Build 2025-11-10R1-embedFix)
+   Ensures any embeds inside post bodies are visible and sized sanely. */
+
+.post-body iframe,
+.post-body .wp-block-embed__wrapper iframe,
+.post-body .wp-block-embed iframe,
+.post-body .fb-video iframe,
+.post-body .fb_iframe_widget iframe {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: 420px !important;
+  border: 0 !important;
+}
+
+.post-body video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.post-body [data-oembed-url],
+.post-body .wp-block-embed,
+.post-body .wp-block-embed__wrapper {
+  display: block !important;
+  min-height: 420px;
+}
+
+/* Kill any accidental black placeholder backgrounds */
+.post-body iframe,
+.post-body .wp-block-embed,
+.post-body [data-oembed-url] {
+  background: transparent !important;
+}
+
+/* 🔴 override.css — end of appended block */

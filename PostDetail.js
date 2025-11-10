@@ -1,242 +1,174 @@
-/* OkObserver Post Detail (click-to-activate embeds)
-   Version: 2025-11-02D4
-   - _embed narrowed to author, wp:featuredmedia
-   - Defers heavy iframes: shows poster + "Play" button; builds iframe on click
-   - Cleans duplicate leading image in WP content when hero is shown
-   - Title blue, byline bold, Back button blue; hero images contained
-*/
+/* 🟢 PostDetail.js — full file replacement (OkObserver Build 2025-11-10R1-embedFix)
+   NOTE: This file is a complete replacement. The 🟢/🔴 markers are required by the user. */
 
-export async function renderPost(id, { VER } = {}) {
-  const API_BASE = "https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2";
-  const $app =
-    document.getElementById("app") ||
-    document.querySelector("#app") ||
-    document.body;
+(function () {
+  'use strict';
 
-  if (!$app || !id) return;
-
-  $app.innerHTML = `
-    <article class="post-detail" style="max-width:980px;margin:0 auto;padding:18px 14px 60px;">
-      <div class="loading" style="text-align:center;padding:1.25rem 0;">Loading…</div>
-    </article>
-  `;
-  const $detail = $app.querySelector(".post-detail");
-
-  // ---- Fetch post ----
-  let post = null;
-  try {
-    const res = await fetch(
-      `${API_BASE}/posts/${id}?_embed=wp:featuredmedia,author&_=${encodeURIComponent(VER || "detail")}`,
-      { credentials: "omit", cache: "no-store", keepalive: false }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    post = await res.json();
-  } catch (err) {
-    console.error("[PostDetail] fetch failed:", err);
-    $detail.innerHTML = `
-      <h2 style="margin:0 0 .5rem 0;">Unable to load this post.</h2>
-      <p style="color:#666">Please try again, or return to the post list.</p>
-      <footer style="margin-top:28px;">
-        <a href="#/" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">← Back to posts</a>
-      </footer>
-    `;
-    return;
+  // Utility: simple entity decoder so WP body with &amp; etc. becomes real text
+  function decodeEntities(html) {
+    const ta = document.createElement('textarea');
+    ta.innerHTML = html;
+    return ta.value;
   }
 
-  // ---- Helpers ----
-  const textFromHTML = (html = "") => { const d = document.createElement("div"); d.innerHTML = html; return (d.textContent || d.innerText || "").trim(); };
-  const getAuthor = (p) => { try { return p?._embedded?.author?.[0]?.name || ""; } catch {} return ""; };
-  const fmtDate = (iso) => { try { const d = new Date(iso); return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }); } catch { return ""; } };
+  // Utility: make provider iframe from a plain URL
+  function iframeFromUrl(url) {
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, '');
 
-  function getFeaturedInfo(p) {
-    const m = p?._embedded?.["wp:featuredmedia"]?.[0] || null;
-    if (!m) return null;
-    const poster = m?.source_url || "";
-    const md = m?.media_details || {};
-    const meta = m?.meta || {};
-    const possible = [md?.source_url, md?.file, m?.source_url, meta?.video_url, meta?.source_url].filter(Boolean);
-    const mp4 = possible.find((u) => /\.mp4($|\?)/i.test(u)) || "";
-    return { poster, mp4, alt: m?.alt_text || "", w: md?.width || 0, h: md?.height || 0 };
-  }
-
-  function detectLinksFromContent(html = "") {
-    const tmp = document.createElement("div"); tmp.innerHTML = html;
-    const urls = new Set();
-    const raw = (tmp.textContent || "").trim();
-    const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
-    (raw.match(urlRegex) || []).forEach((u) => urls.add(u.trim()));
-    tmp.querySelectorAll("a[href]").forEach((a) => urls.add(a.getAttribute("href")));
-    let vimeo = null, youtube = null, facebook = null;
-    for (const u of urls) {
-      if (!vimeo)  { const m = u.match(/vimeo\.com\/(\d+)/i); if (m && m[1]) vimeo = { id: m[1], url: u }; }
-      if (!youtube){
-        const vParam = u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-        const short  = u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
-        const shorts = u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/);
-        const vid = (vParam && vParam[1]) || (short && short[1]) || (shorts && shorts[1]) || "";
-        if (vid) youtube = { id: vid, url: u };
-      }
-      if (!facebook && /facebook\.com\/.*\/videos\/\d+/i.test(u)) { facebook = { url: u }; }
-      if (vimeo && youtube && facebook) break;
-    }
-    return { vimeo, youtube, facebook };
-  }
-
-  function cleanContent(html, { removeLeadingMedia } = { removeLeadingMedia: false }) {
-    if (!html) return "";
-    const root = document.createElement("div"); root.innerHTML = html;
-    root.querySelectorAll('div.mceTemp, div[data-mce-bogus="all"]').forEach((n) => n.remove());
-    if (removeLeadingMedia) {
-      const first = root.firstElementChild;
-      if (first && first.tagName === "P" && first.textContent.trim() === "" && first.querySelector("br")) first.remove();
-      let cur = root.firstElementChild;
-      if (cur) {
-        const isImgBlock = cur.matches("p,div,figure") && cur.querySelector("img") && (cur.querySelector("a[href]") || cur.querySelector("img"));
-        const isBareImg = cur.matches("img");
-        if (isImgBlock || isBareImg) {
-          cur.remove();
-          while (root.firstElementChild && root.firstElementChild.textContent.trim() === "" && !root.firstElementChild.querySelector("img,video,iframe")) {
-            root.firstElementChild.remove();
-          }
+      // Vimeo: https://vimeo.com/{id}
+      if (host === 'vimeo.com') {
+        const id = u.pathname.split('/').filter(Boolean)[0];
+        if (id && /^\d+$/.test(id)) {
+          const ifr = document.createElement('iframe');
+          ifr.src = `https://player.vimeo.com/video/${id}`;
+          ifr.allow = 'autoplay; encrypted-media; picture-in-picture';
+          ifr.allowFullscreen = true;
+          ifr.setAttribute('frameborder', '0');
+          ifr.style.width = '100%';
+          ifr.style.maxWidth = '100%';
+          ifr.style.display = 'block';
+          ifr.style.minHeight = '420px';
+          ifr.style.border = '0';
+          ifr.loading = 'lazy';
+          return ifr;
         }
       }
+
+      // YouTube (watch or youtu.be)
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtu.be') {
+        let vid = null;
+        if (host === 'youtu.be') {
+          vid = u.pathname.split('/').filter(Boolean)[0];
+        } else if (u.pathname === '/watch') {
+          vid = u.searchParams.get('v');
+        } else if (u.pathname.startsWith('/shorts/')) {
+          vid = u.pathname.split('/').filter(Boolean)[1];
+        }
+        if (vid) {
+          const ifr = document.createElement('iframe');
+          ifr.src = `https://www.youtube.com/embed/${vid}`;
+          ifr.allow = 'autoplay; encrypted-media; picture-in-picture';
+          ifr.allowFullscreen = true;
+          ifr.setAttribute('frameborder', '0');
+          ifr.style.width = '100%';
+          ifr.style.maxWidth = '100%';
+          ifr.style.display = 'block';
+          ifr.style.minHeight = '420px';
+          ifr.style.border = '0';
+          ifr.loading = 'lazy';
+          return ifr;
+        }
+      }
+
+      // Facebook video URLs (fb.watch or facebook.com/plugins/video)
+      if (host === 'fb.watch' || host.endsWith('facebook.com')) {
+        const ifr = document.createElement('iframe');
+        const href = encodeURIComponent(url);
+        ifr.src = `https://www.facebook.com/plugins/video.php?href=${href}&show_text=false`;
+        ifr.allow = 'autoplay; encrypted-media; picture-in-picture';
+        ifr.allowFullscreen = true;
+        ifr.setAttribute('frameborder', '0');
+        ifr.style.width = '100%';
+        ifr.style.maxWidth = '100%';
+        ifr.style.display = 'block';
+        ifr.style.minHeight = '420px';
+        ifr.style.border = '0';
+        ifr.loading = 'lazy';
+        return ifr;
+      }
+    } catch (e) {
+      // ignore bad URLs
     }
-    return root.innerHTML;
+    return null;
   }
 
-  // ---- Data ----
-  const title = textFromHTML(post?.title?.rendered) || "Untitled";
-  const author = getAuthor(post);
-  const date = fmtDate(post?.date);
-  const featured = getFeaturedInfo(post);
-  const rawContentHTML = post?.content?.rendered || "";
-  const links = featured && featured.mp4 ? {} : detectLinksFromContent(rawContentHTML);
-
-  // ---- Lazy embed helpers ----
-  function buttonHTML(label="Play"){
-    return `<button type="button" class="button" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;border:0;cursor:pointer;">${label}</button>`;
-  }
-  function mountOnClick($slot, makeIframe){
-    const $btn = $slot.querySelector("button"); if (!$btn) return;
-    $btn.addEventListener("click", ()=>{
-      const wrap = document.createElement("div");
-      wrap.className = "oko-embed";
-      wrap.style.cssText = "position:relative;width:100%;padding-top:56.25%;margin:12px 0;";
-      const iframe = makeIframe();
-      Object.assign(iframe.style, {position:"absolute",top:"0",left:"0",width:"100%",height:"100%",border:"0",borderRadius:"10px"});
-      wrap.appendChild(iframe);
-      $slot.replaceWith(wrap);
-    }, { once:true });
+  // Ensure any existing iframes are visible and have height
+  function normalizeIframes(scope) {
+    scope.querySelectorAll('iframe').forEach(ifr => {
+      const cs = getComputedStyle(ifr);
+      if (cs.display === 'none') ifr.style.display = 'block';
+      if (parseInt(cs.height, 10) < 200 || ifr.offsetHeight < 200) {
+        ifr.style.minHeight = '420px';
+      }
+      ifr.style.width = '100%';
+      ifr.style.maxWidth = '100%';
+      ifr.style.border = '0';
+    });
   }
 
-  // Build hero block
-  let mediaHTML = "";
-  let removeLeadingMediaFromContent = false;
+  // From router - render function for the detail page
+  window.renderPostDetail = async function renderPostDetail(post, options = {}) {
+    const root = document.getElementById('app');
+    root.innerHTML = `
+      <article class="post-detail">
+        <header class="post-header">
+          <h1 class="post-title">${post.title?.rendered || ''}</h1>
+          <div class="post-meta">
+            <span class="post-byline"><strong>Oklahoma Observer</strong> — ${new Date(post.date).toLocaleDateString()}</span>
+          </div>
+        </header>
+        <figure class="post-hero">
+          ${post._ok_featuredImg ? `<img class="post-hero-img" src="${post._ok_featuredImg}" alt="">` : ''}
+        </figure>
+        <section class="post-body"></section>
+        <nav class="post-nav">
+          <button class="back-btn" onclick="history.back()">← Back to Posts</button>
+        </nav>
+      </article>
+    `;
 
-  if (featured && featured.mp4) {
-    mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;">
-        <video playsinline controls preload="metadata" style="width:100%;height:auto;border-radius:10px;background:#000;max-height:70vh;">
-          <source src="${featured.mp4}" type="video/mp4">
-        </video>
-      </figure>`;
-    removeLeadingMediaFromContent = true;
-  } else if (links.vimeo) {
-    mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;text-align:center;">
-        ${buttonHTML("▶ Play Vimeo")}
-      </figure>`;
-    removeLeadingMediaFromContent = true;
-  } else if (links.youtube) {
-    mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;text-align:center;">
-        ${buttonHTML("▶ Play YouTube")}
-      </figure>`;
-    removeLeadingMediaFromContent = true;
-  } else if (links.facebook) {
-    const fbBtn = `<a href="${links.facebook.url}" target="_blank" rel="noopener"
-           class="button" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#1E90FF;color:#fff;text-decoration:none;">▶ Watch on Facebook</a>`;
-    if (featured && featured.poster) {
-      const alt = (featured.alt || title).replace(/"/g, "&quot;");
-      const wAttr = featured.w ? ` width="${featured.w}"` : "";
-      const hAttr = featured.h ? ` height="${featured.h}"` : "";
-      mediaHTML = `
-        <figure class="post-hero" style="margin:18px 0; text-align:center;">
-          <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
-               style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
-          <div style="margin-top:12px;">${fbBtn}</div>
-        </figure>`;
-    } else {
-      mediaHTML = `<figure class="post-hero" style="margin:18px 0;text-align:center;">${fbBtn}</figure>`;
+    // Render post body safely (decode entities, let provider markup exist)
+    const body = root.querySelector('.post-body');
+    const html = decodeEntities(post.content?.rendered || '');
+    body.innerHTML = html;
+
+    // Convert raw provider links into embeds (common for Vimeo)
+    // We look for standalone <a> lines and plaintext URLs in paragraphs
+    const candidates = [];
+    body.querySelectorAll('a[href]').forEach(a => {
+      // Only if anchor contains *only* the URL text or is clearly the single child
+      const text = a.textContent.trim();
+      if (text === a.getAttribute('href').trim()) candidates.push(a);
+    });
+    body.childNodes.forEach(node => {
+      if (node.nodeType === 3) {
+        const raw = node.nodeValue.trim();
+        if (raw.startsWith('http')) {
+          // wrap in a span for replacement
+          const span = document.createElement('span');
+          span.textContent = raw;
+          node.parentNode.replaceChild(span, node);
+          candidates.push(span);
+        }
+      }
+    });
+
+    candidates.forEach(el => {
+      const url = (el.getAttribute && el.getAttribute('href')) || el.textContent?.trim();
+      const ifr = iframeFromUrl(url || '');
+      if (ifr) {
+        // Replace the link/text with the iframe
+        const p = el.closest('p') || el;
+        p.replaceWith(ifr);
+      }
+    });
+
+    // Normalize any existing iframes that came from WP oEmbed
+    normalizeIframes(body);
+
+    // After hero image loads, recheck in case layout shifted
+    const hero = root.querySelector('.post-hero-img');
+    if (hero) {
+      if (hero.complete) {
+        normalizeIframes(body);
+      } else {
+        hero.addEventListener('load', () => normalizeIframes(body), { once: true });
+        hero.addEventListener('error', () => normalizeIframes(body), { once: true });
+      }
     }
-    removeLeadingMediaFromContent = true;
-  } else if (featured && featured.poster) {
-    const alt = (featured.alt || title).replace(/"/g, "&quot;");
-    const wAttr = featured.w ? ` width="${featured.w}"` : "";
-    const hAttr = featured.h ? ` height="${featured.h}"` : "";
-    mediaHTML = `
-      <figure class="post-hero" style="margin:18px 0;">
-        <img src="${featured.poster}"${wAttr}${hAttr} alt="${alt}"
-             style="display:block;width:100%;height:auto;border-radius:10px;object-fit:contain;max-height:70vh;"/>
-      </figure>`;
-    removeLeadingMediaFromContent = true;
-  }
+  };
+})();
 
-  const contentHTML = cleanContent(rawContentHTML, { removeLeadingMedia: removeLeadingMediaFromContent });
-
-  // Render
-  $detail.innerHTML = `
-    ${mediaHTML || ""}
-
-    <header class="post-header" style="margin:10px 0 10px 0;background:transparent;">
-      <h1 class="post-title" style="margin:0 0 .35rem 0; line-height:1.2; font-size:2rem; color:#1E90FF;">
-        ${title}
-      </h1>
-      <div class="byline" style="color:#444; font-weight:600; font-size:.95rem; margin-top:2px;">
-        ${author ? `${author} • ` : ""}${date}
-      </div>
-    </header>
-
-    <section class="post-content oko-content" style="margin:20px 0 28px 0; color:#111; line-height:1.65;">
-      ${contentHTML}
-    </section>
-
-    <footer class="post-footer" style="margin:28px 0 0 0;">
-      <a href="#/" class="button" style="text-decoration:none;">← Back to posts</a>
-    </footer>
-  `;
-
-  // Activate embeds on click (if applicable)
-  try {
-    if (links.vimeo) {
-      const slot = $detail.querySelector('.post-hero');
-      mountOnClick(slot, () => {
-        const f = document.createElement('iframe');
-        f.src = `https://player.vimeo.com/video/${links.vimeo.id}`;
-        f.allow = "autoplay; fullscreen; picture-in-picture"; f.allowFullscreen = true;
-        return f;
-      });
-    }
-    if (links.youtube) {
-      const slot = $detail.querySelector('.post-hero');
-      mountOnClick(slot, () => {
-        const f = document.createElement('iframe');
-        f.src = `https://www.youtube.com/embed/${links.youtube.id}`;
-        f.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"; f.allowFullscreen = true;
-        return f;
-      });
-    }
-  } catch {}
-
-  // Keep header sticky (defensive)
-  try {
-    const $hdr = document.querySelector("header");
-    if ($hdr) {
-      $hdr.style.position = "sticky";
-      $hdr.style.top = "0";
-      $hdr.style.zIndex = "1000";
-    }
-  } catch {}
-}
-
-export default renderPost;
+/* 🔴 PostDetail.js — end of full file */
