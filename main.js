@@ -1,212 +1,282 @@
-/* 🟢 main.js — Full replacement. Build 2025-11-08-gridFix3-cartoonCatOnly1
-   Changes:
-   - Cartoon filter now checks ONLY WordPress CATEGORIES via _embedded['wp:term'][0] (the categories array).
-   - Tags are ignored.
-   - All other behavior unchanged.
-*/
+/* 🟢 main.js — FULL FILE REPLACEMENT
+   OkObserver Build 2025-11-10R1-embedFix + grid/enforce + cartoonFilter + SW register
+   This file is a complete replacement. Keep 🟢/🔴 markers. */
 
-(function(){
-  const BUILD = '2025-11-08-gridFix3-cartoonCatOnly1';
+(function () {
+  'use strict';
+
+  // ==== BUILD TAG ============================================================
+  var BUILD = '2025-11-10R1-embedFix';
   console.log('[OkObserver] Main JS Build', BUILD);
 
-  // ---- Config --------------------------------------------------------------
-  const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
-  const PER_PAGE = 12;
+  // ==== CONSTANTS ============================================================
+  var API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  var POSTS_PER_PAGE = 12;
+  var CARTOON_CATEGORY_SLUGS = ['cartoon', 'cartoons']; // WP categories to exclude
 
-  const qs = (s, el=document)=> el.querySelector(s);
-  const qsa = (s, el=document)=> Array.from(el.querySelectorAll(s));
-  const el = (tag, cls, html)=> {
-    const n = document.createElement(tag);
-    if (cls) n.className = cls;
-    if (html!=null) n.innerHTML = html;
-    return n;
+  // ==== STATE ================================================================
+  var state = {
+    route: location.hash.replace('#', '') || '/home',
+    posts: [],
+    page: 1,
+    done: false,
+    loading: false,
+    catsById: {}, // {id: {id, name, slug}}
+    categoriesLoaded: false,
+    scrollY: 0,
   };
 
-  // ---- Router --------------------------------------------------------------
-  window.addEventListener('hashchange', route);
-  window.addEventListener('load', route);
+  // ==== DOM HELPERS ==========================================================
+  function el(tag, cls, html) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+  function qs(s, r) { return (r || document).querySelector(s); }
+  function qsa(s, r) { return [].slice.call((r || document).querySelectorAll(s)); }
 
-  function route(){
-    const hash = location.hash || '#/';
-    if (hash.startsWith('#/post/')) {
-      const id = parseInt(hash.split('/').pop(), 10);
-      renderPost(id);
-    } else if (hash.startsWith('#/about')) {
-      renderAbout();
-    } else {
-      renderHome();
+  // ==== CATEGORIES (for cartoon filtering) ===================================
+  function ensureCategories() {
+    if (state.categoriesLoaded) return Promise.resolve();
+    return fetch(API_BASE + '/categories?per_page=100')
+      .then(function (r) { return r.json(); })
+      .then(function (cats) {
+        state.catsById = {};
+        cats.forEach(function (c) { state.catsById[c.id] = c; });
+        state.categoriesLoaded = true;
+      })
+      .catch(function () { /* ignore */ });
+  }
+  function isCartoon(post) {
+    if (!post.categories || !post.categories.length) return false;
+    for (var i = 0; i < post.categories.length; i++) {
+      var c = state.catsById[post.categories[i]];
+      if (c && CARTOON_CATEGORY_SLUGS.indexOf((c.slug || '').toLowerCase()) !== -1) return true;
     }
-  }
-
-  // ---- Cartoon filter (CATEGORIES ONLY) ------------------------------------
-  function isCartoonCategory(term){
-    if (!term) return false;
-    const name = String(term.name || '').toLowerCase();
-    const slug = String(term.slug || '').toLowerCase();
-    if (slug === 'cartoon' || slug === 'cartoons') return true;
-    if (name.includes('cartoon')) return true;
-    return false;
-  }
-
-  function postIsCartoonByCategory(post){
-    // WordPress embeds categories at _embedded['wp:term'][0]
-    const catArray = post?._embedded?.['wp:term']?.[0];
-    if (Array.isArray(catArray) && catArray.some(isCartoonCategory)) return true;
-
-    // If we didn't get embeds, we do NOT exclude to avoid false positives.
-    // (We already request _embed in our fetch below.)
-    return false;
-  }
-
-  // ---- Fetch helpers -------------------------------------------------------
-  async function wp(path, params={}){
-    const url = new URL(API + path);
-    Object.entries(params).forEach(([k,v])=> url.searchParams.set(k, v));
-    const res = await fetch(url.toString(), {mode:'cors'});
-    if (!res.ok) throw new Error('API error ' + res.status);
-    return res.json();
-  }
-
-  // ---- Views ---------------------------------------------------------------
-  async function renderHome(){
-    const root = qs('#app');
-    root.innerHTML = '';
-    const grid = el('section','posts-grid');
-    root.appendChild(grid);
-
-    let page = 1;
-    let loading = false;
-    let done = false;
-
-    async function load(){
-      if (loading || done) return;
-      loading = true;
-      try {
-        const posts = await wp('/posts', {
-          per_page: PER_PAGE,
-          page,
-          _embed: '1',
-          order: 'desc',
-          orderby: 'date'
-        });
-
-        // Filter out cartoons by CATEGORY ONLY
-        const filtered = posts.filter(p => !postIsCartoonByCategory(p));
-
-        let placed = 0;
-        for (const p of filtered) {
-          grid.appendChild(postCard(p));
-          placed++;
-        }
-
-        if (posts.length < PER_PAGE) done = true;
-        page++;
-
-        // Safety: enforce grid display
-        grid.style.display = 'grid';
-      } catch(e){
-        console.error(e);
-        done = true;
-      } finally {
-        loading = false;
+    // also consider common tag slugs if present
+    if (post._embedded && post._embedded['wp:term']) {
+      var terms = [].concat.apply([], post._embedded['wp:term']);
+      for (var j = 0; j < terms.length; j++) {
+        var t = terms[j];
+        var slug = (t.slug || '').toLowerCase();
+        if (slug === 'cartoon' || slug === 'cartoons') return true;
       }
     }
-
-    // Initial load + infinite scroll
-    await load();
-    const io = new IntersectionObserver((entries)=>{
-      if (entries.some(e => e.isIntersecting)) load();
-    }, {rootMargin: '1200px'});
-    const sentinel = el('div','', '');
-    sentinel.setAttribute('aria-hidden','true');
-    root.appendChild(sentinel);
-    io.observe(sentinel);
+    return false;
   }
 
-  function postCard(p){
-    const card = el('article','post-card');
-    const link = '#/post/' + p.id;
+  // ==== FETCH HELPERS ========================================================
+  function fetchPosts(page) {
+    var url = API_BASE + '/posts?_embed=1&per_page=' + POSTS_PER_PAGE + '&page=' + page;
+    return fetch(url).then(function (r) {
+      state.done = !r.headers.get('Link') || !/rel="next"/.test(r.headers.get('Link'));
+      return r.json();
+    });
+  }
+  function featuredImage(post) {
+    try {
+      var m = post._embedded['wp:featuredmedia'];
+      if (m && m[0] && m[0].source_url) return m[0].source_url + '?cb=' + post.id;
+    } catch (e) {}
+    return '';
+  }
 
-    // Featured image
-    let imgHtml = '';
-    const media = p._embedded?.['wp:featuredmedia']?.[0];
-    const src = media && (media.source_url || media?.media_details?.sizes?.medium_large?.source_url || media?.media_details?.sizes?.full?.source_url);
-    if (src) imgHtml = `<img class="post-thumb" src="${src}?cb=${p.id}" alt="">`;
-
-    // Byline/date
-    const author = p._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-    const date = new Date(p.date_gmt || p.date).toLocaleDateString(undefined, {month:'numeric',day:'numeric',year:'numeric'});
-
-    card.innerHTML = `
-      <a class="post-link" href="${link}" aria-label="${escapeHtml(stripTags(p.title?.rendered || ''))}">
-        ${imgHtml}
-        <h2 class="post-title">${p.title?.rendered || ''}</h2>
-      </a>
-      <div class="post-meta"><strong>${author}</strong> — ${date}</div>
-      <div class="post-excerpt">${p.excerpt?.rendered || ''}</div>
-    `;
+  // ==== RENDER HOME ==========================================================
+  function postCard(post) {
+    var img = featuredImage(post);
+    var d = new Date(post.date);
+    var card = el('article', 'post-card');
+    card.innerHTML = [
+      img ? ('<div class="card-media"><img alt="" src="' + img + '"></div>') : '',
+      '<h2 class="card-title"><a href="#/post/' + post.id + '">' + (post.title && post.title.rendered || '') + '</a></h2>',
+      '<div class="card-meta"><strong>Oklahoma Observer</strong> — ' + d.toLocaleDateString() + '</div>',
+      '<div class="card-excerpt">' + (post.excerpt && post.excerpt.rendered || '') + '</div>',
+    ].join('');
     return card;
   }
 
-  async function renderPost(id){
-    const root = qs('#app');
-    root.innerHTML = '';
-    try{
-      const post = await wp('/posts/' + id, {_embed:'1'});
-      const wrap = el('article','post-body');
+  function renderHome(initial) {
+    var app = qs('#app');
+    if (initial) app.innerHTML = [
+      '<section class="posts-wrap">',
+        '<div class="posts-grid" id="postsGrid"></div>',
+        '<div id="feedSentinel" class="feed-sentinel" aria-hidden="true"></div>',
+      '</section>'
+    ].join('');
 
-      const author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
-      const date = new Date(post.date_gmt || post.date).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'});
+    // grid enforce (4/3/1)
+    var grid = qs('#postsGrid');
+    if (grid && !grid.classList.contains('grid-enforced')) {
+      grid.classList.add('grid-enforced');
+      grid.style.display = 'grid';
+      grid.style.gridGap = '16px';
+      function setCols() {
+        var w = grid.clientWidth || window.innerWidth;
+        var cols = w >= 1200 ? 4 : (w >= 800 ? 3 : 1);
+        grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+      }
+      setCols();
+      window.addEventListener('resize', setCols);
+    }
 
-      let hero = '';
-      const media = post._embedded?.['wp:featuredmedia']?.[0];
-      const src = media && (media.source_url || media?.media_details?.sizes?.full?.source_url);
-      if (src) hero = `<figure class="post-hero"><img src="${src}?cb=${post.id}" alt=""></figure>`;
+    // fill visible cards
+    var gridEl = qs('#postsGrid');
+    var frag = document.createDocumentFragment();
+    state.posts.forEach(function (p) {
+      if (!p.__drawn) {
+        p.__drawn = true;
+        frag.appendChild(postCard(p));
+      }
+    });
+    gridEl.appendChild(frag);
 
-      wrap.innerHTML = `
-        ${hero}
-        <h1 class="post-title">${post.title?.rendered || ''}</h1>
-        <div class="post-byline"><strong>${author}</strong> — ${date}</div>
-        <div class="post-content">${post.content?.rendered || ''}</div>
-        <p><a class="back-btn" href="#/">← Back to Posts</a></p>
-      `;
-      root.appendChild(wrap);
+    // sentinel for infinite
+    ensureInfinite();
+  }
 
-      ensureEmbedsVisible();
-    }catch(e){
-      console.error(e);
-      root.textContent = 'Post failed to load.';
+  // ==== INFINITE SCROLL ======================================================
+  var io;
+  function ensureInfinite() {
+    if (io) return;
+    var sent = qs('#feedSentinel');
+    if (!sent) return;
+    io = new IntersectionObserver(function (ents) {
+      ents.forEach(function (e) {
+        if (e.isIntersecting) loadMore();
+      });
+    }, { rootMargin: '600px' });
+    io.observe(sent);
+  }
+
+  function loadMore() {
+    if (state.loading || state.done) return;
+    state.loading = true;
+    var next = state.page + 1;
+
+    ensureCategories()
+      .then(function () { return fetchPosts(next); })
+      .then(function (rows) {
+        rows.forEach(function (p) { p._ok_featuredImg = featuredImage(p); });
+        // filter cartoons
+        var filtered = rows.filter(function (p) { return !isCartoon(p); });
+        state.posts = state.posts.concat(filtered);
+        state.page = next;
+        renderHome(false);
+      })
+      .catch(function () { /* ignore */ })
+      .finally(function () { state.loading = false; });
+  }
+
+  // ==== RENDER DETAIL (wired to PostDetail.js) ===============================
+  function renderDetail(id) {
+    var app = qs('#app');
+    app.innerHTML = '<div class="loading">Loading…</div>';
+
+    ensureCategories()
+      .then(function () {
+        return fetch(API_BASE + '/posts/' + id + '?_embed=1').then(function (r) { return r.json(); });
+      })
+      .then(function (post) {
+        post._ok_featuredImg = featuredImage(post);
+        if (window.renderPostDetail) {
+          window.renderPostDetail(post);
+        } else {
+          // Fallback simple renderer if PostDetail.js isn’t loaded for any reason
+          var d = new Date(post.date);
+          app.innerHTML = [
+            '<article class="post-detail">',
+              '<header class="post-header">',
+                '<h1 class="post-title">', (post.title && post.title.rendered || ''), '</h1>',
+                '<div class="post-meta"><strong>Oklahoma Observer</strong> — ', d.toLocaleDateString(), '</div>',
+              '</header>',
+              post._ok_featuredImg ? ('<figure class="post-hero"><img class="post-hero-img" src="' + post._ok_featuredImg + '"></figure>') : '',
+              '<section class="post-body">', (post.content && post.content.rendered || ''), '</section>',
+              '<nav class="post-nav"><button class="back-btn" onclick="history.back()">← Back to Posts</button></nav>',
+            '</article>'
+          ].join('');
+        }
+      })
+      .catch(function () {
+        app.innerHTML = '<p class="error">Unable to load this post.</p>';
+      });
+  }
+
+  // ==== ROUTER ===============================================================
+  function parseRoute() {
+    var h = location.hash.replace('#', '');
+    if (!h || h === '/' || h === '/home') return { name: 'home' };
+    var m = h.match(/^\/post\/(\d+)/);
+    if (m) return { name: 'detail', id: m[1] };
+    return { name: 'home' };
+  }
+
+  function router() {
+    var r = parseRoute();
+    state.route = r.name;
+    if (r.name === 'home') {
+      state.scrollY = 0;
+      if (!state.posts.length) {
+        // first load
+        ensureCategories()
+          .then(function () { return fetchPosts(1); })
+          .then(function (rows) {
+            rows.forEach(function (p) { p._ok_featuredImg = featuredImage(p); });
+            state.posts = rows.filter(function (p) { return !isCartoon(p); });
+            state.page = 1;
+            state.done = state.posts.length < POSTS_PER_PAGE;
+            renderHome(true);
+          })
+          .catch(function () {
+            qs('#app').innerHTML = '<p class="error">Unable to load posts.</p>';
+          });
+      } else {
+        renderHome(true);
+      }
+    } else if (r.name === 'detail') {
+      renderDetail(r.id);
     }
   }
 
-  function renderAbout(){
-    const root = qs('#app');
-    root.innerHTML = `
-      <section class="about">
-        <h1>About The Oklahoma Observer</h1>
-        <p>The Oklahoma Observer covers government, politics, social issues, education, health and welfare, and civil liberties.</p>
-      </section>
-    `;
+  window.addEventListener('hashchange', router);
+  window.addEventListener('DOMContentLoaded', function () {
+    // inject app shell if not present
+    if (!qs('#app')) {
+      var root = el('div');
+      root.id = 'app';
+      document.body.appendChild(root);
+    }
+    router();
+  });
+
+  // ==== SERVICE WORKER (light-touch) ========================================
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        console.log('[OkObserver SW] registered:', reg.scope);
+      }).catch(function (err) {
+        console.log('[OkObserver SW] register failed:', err);
+      });
+    });
   }
 
-  // ---- Video/embed visibility helper --------------------------------------
-  function ensureEmbedsVisible(){
-    const style = document.createElement('style');
-    style.textContent = `
-      iframe, video, .wp-block-embed__wrapper, .wp-block-embed, .fb-video, .fb-post {
-        display:block !important; visibility:visible !important; opacity:1 !important;
-        width:100% !important; max-width:100% !important; min-height:360px !important; height:auto !important;
-        background:#0000 !important;
+  // ==== SMALL STYLE GUARDS (in case CSS missed) ==============================
+  // keep grid layout sane even if CSS fails to load
+  (function gridEnforcer() {
+    var obs = new MutationObserver(function () {
+      var g = qs('.posts-grid');
+      if (g) {
+        if (getComputedStyle(g).display !== 'grid') g.style.display = 'grid';
+        if (!g.style.gridTemplateColumns) {
+          var w = g.clientWidth || window.innerWidth;
+          var cols = w >= 1200 ? 4 : (w >= 800 ? 3 : 1);
+          g.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0,1fr))';
+        }
       }
-      div[data-oembed-url]{ display:block !important; visibility:visible !important; min-height:360px !important; }
-      .post-hero img{ width:100%; height:auto; display:block; object-fit:contain; }
-    `;
-    document.head.appendChild(style);
-  }
-
-  // ---- Utilities -----------------------------------------------------------
-  function stripTags(html){ return (html||'').replace(/<[^>]*>/g,''); }
-  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  })();
 
 })();
- /* 🔴 main.js */
+ 
+/* 🔴 main.js — END FULL FILE */
