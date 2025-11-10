@@ -1,77 +1,147 @@
 /* 🟢 PostDetail.js — FULL FILE REPLACEMENT
-   OkObserver Build 2025-11-10R4-detailOrder+video+backBtn
-   - Order: HERO → TITLE → BYLINE → CONTENT → Back button (bottom-left)
-   - Video injector: creates visible iframe for Vimeo/YouTube/Facebook if missing
-   - Ensures existing iframes are visible and non-zero height
-   - No autoplay; responsive width; min-height guard
+   OkObserver Build 2025-11-10R5-videoForceDetect
+   Purpose: Force a visible player for Vimeo/YouTube/Facebook on posts like /post/381733.
+   Strategy:
+     1) Find an existing iframe and normalize it (display:block; min-height).
+     2) If none, scan for: data-oembed-url, <figure data-oembed-url>, <a href>, raw URL text, Gutenberg wrappers.
+     3) Derive an embeddable SRC and inject a first-class <iframe>.
+     4) Clean tiny black placeholders.
+   Includes a small diagnostic banner (remove later if desired).
 */
 
 (function(){
   'use strict';
 
-  var BUILD = '2025-11-10R4-detailOrder+video+backBtn';
+  var BUILD = '2025-11-10R5-videoForceDetect';
   console.log('[OkObserver] PostDetail Build', BUILD);
 
-  // Utilities
+  // ---------- Utilities ----------
   function qs(s, r){ return (r||document).querySelector(s); }
+  function qsa(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
   function el(t,c,h){ var n=document.createElement(t); if(c) n.className=c; if(h!=null) n.innerHTML=h; return n; }
   function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});}catch(e){return iso;} }
 
-  // Extract an embeddable src from HTML (iframe or raw URL)
-  function extractEmbedSrc(html){
-    if (!html) return null;
-    var m;
-    // 1) iframe src
-    m = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
-    if (m && m[1]) return m[1];
+  // Add a tiny dev banner once (helps verify what we detected on 381733)
+  function devBanner(lines){
+    try{
+      if (document.getElementById('okobs-dev-banner')) return;
+      var b = el('div','okobs-dev-banner', '<strong>OkObserver video debug</strong><br>'+lines.map(escapeHTML).join('<br>'));
+      b.id = 'okobs-dev-banner';
+      b.style.cssText = 'position:sticky;top:0;z-index:2000;background:#fffbcc;color:#333;padding:6px 10px;border-bottom:1px solid #e6d87a;font:12px/1.35 system-ui;box-shadow:0 2px 6px rgba(0,0,0,.08)';
+      document.body.prepend(b);
+    }catch(e){}
+  }
+  function escapeHTML(s){ return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-    // 2) Vimeo raw URL → player URL
-    m = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
-    if (m && m[1]) return 'https://player.vimeo.com/video/'+m[1];
+  // ---------- Detection ----------
+  function firstExistingIframe(scope){
+    var ifr = scope.querySelector('iframe');
+    return ifr || null;
+  }
 
-    // 3) YouTube (watch or youtu.be) → embed
-    m = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-z0-9_\-]+)/i) || html.match(/https?:\/\/youtu\.be\/([a-z0-9_\-]+)/i);
-    if (m && m[1]) return 'https://www.youtube.com/embed/'+m[1];
-
-    // 4) Facebook → plugin
-    m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/(?:watch\/\?v=|[^/]+\/videos\/)(\d+)/i);
-    if (m && m[1]) return 'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent('https://www.facebook.com/watch/?v='+m[1])+'&show_text=false';
-
+  function getDataOembedUrl(scope){
+    // Gutenberg blocks commonly set this
+    var el1 = scope.querySelector('[data-oembed-url]');
+    if (el1 && el1.getAttribute('data-oembed-url')) return el1.getAttribute('data-oembed-url');
+    // sometimes figure has it
+    var el2 = scope.querySelector('figure[data-oembed-url]');
+    if (el2) return el2.getAttribute('data-oembed-url');
     return null;
   }
 
-  function makeIframe(src){
+  function findAnchorUrl(scope){
+    // Prefer anchors whose textContent is exactly the href (raw pasted link)
+    var anchors = qsa('a[href]', scope);
+    for (var i=0;i<anchors.length;i++){
+      var a = anchors[i];
+      var href = (a.getAttribute('href')||'').trim();
+      if (!href) continue;
+      var txt = (a.textContent||'').trim();
+      if (txt === href) return href;
+      // fallback: first href containing known providers
+      if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com|fb\.watch/i.test(href)) return href;
+    }
+    return null;
+  }
+
+  function findRawUrlText(scope){
+    // Look for bare URLs (text nodes) in common wrappers
+    var urlRe = /(https?:\/\/[^\s<>"']+)/i;
+    var nodes = qsa('p, div, span, li, figure', scope);
+    for (var i=0;i<nodes.length;i++){
+      var html = nodes[i].innerHTML;
+      var m = html && html.match(urlRe);
+      if (m && m[1]) return m[1];
+    }
+    return null;
+  }
+
+  function toEmbeddableSrc(url){
+    if (!url) return null;
+    try{
+      var u = new URL(url);
+      var host = u.hostname.replace(/^www\./,'').toLowerCase();
+
+      // Vimeo: vimeo.com/{id} or player.vimeo.com/video/{id}
+      if (host === 'vimeo.com') {
+        var id = u.pathname.split('/').filter(Boolean)[0];
+        if (/^\d+$/.test(id)) return 'https://player.vimeo.com/video/'+id;
+      }
+      if (host === 'player.vimeo.com') {
+        return url; // already embeddable
+      }
+
+      // YouTube: youtube.com/watch?v=.. or youtu.be/..
+      if (host === 'youtube.com' || host === 'm.youtube.com') {
+        var vid = u.searchParams.get('v');
+        if (vid) return 'https://www.youtube.com/embed/'+vid;
+      }
+      if (host === 'youtu.be') {
+        var vid2 = u.pathname.split('/').filter(Boolean)[0];
+        if (vid2) return 'https://www.youtube.com/embed/'+vid2;
+      }
+
+      // Facebook: fb.watch or facebook.com/.../videos/{id}
+      if (host === 'fb.watch') {
+        return 'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(url)+'&show_text=false';
+      }
+      if (host.endsWith('facebook.com')) {
+        // Accept as-is: FB plugin URL or watch URL
+        if (u.pathname.indexOf('/plugins/video.php') !== -1) return url;
+        return 'https://www.facebook.com/plugins/video.php?href='+encodeURIComponent(url)+'&show_text=false';
+      }
+    }catch(e){}
+    return null;
+  }
+
+  // ---------- Normalization ----------
+  function normalizeIframe(ifr){
+    if (!ifr) return;
+    var cs = getComputedStyle(ifr);
+    if (cs.display === 'none') ifr.style.display = 'block';
+    if (parseInt(cs.height,10) < 200 || ifr.offsetHeight < 200) ifr.style.minHeight = '420px';
+    ifr.style.width = '100%';
+    ifr.style.maxWidth = '100%';
+    ifr.style.border = '0';
+    ifr.style.visibility = 'visible';
+    ifr.removeAttribute('hidden');
+  }
+
+  function injectIframe(scope, src){
     var ifr = document.createElement('iframe');
     ifr.src = src;
     ifr.allow = 'autoplay; encrypted-media; picture-in-picture; web-share';
     ifr.allowFullscreen = true;
     ifr.setAttribute('frameborder','0');
     ifr.loading = 'lazy';
-    ifr.style.display = 'block';
-    ifr.style.visibility = 'visible';
-    ifr.style.width = '100%';
-    ifr.style.maxWidth = '100%';
-    ifr.style.minHeight = '420px';
-    ifr.style.border = '0';
+    ifr.style.cssText = 'display:block;visibility:visible;width:100%;max-width:100%;min-height:420px;border:0;margin:16px 0';
+    // insert at very top of content
+    scope.insertAdjacentElement('afterbegin', ifr);
     return ifr;
   }
 
-  function normalizeExistingIframes(scope){
-    scope.querySelectorAll('iframe').forEach(function(ifr){
-      var cs = getComputedStyle(ifr);
-      if (cs.display === 'none') ifr.style.display = 'block';
-      if (parseInt(cs.height,10) < 200 || ifr.offsetHeight < 200) ifr.style.minHeight = '420px';
-      ifr.style.width = '100%';
-      ifr.style.maxWidth = '100%';
-      ifr.style.border = '0';
-      ifr.style.visibility = 'visible';
-      ifr.removeAttribute('hidden');
-    });
-  }
-
-  function scrubEmptyPlaceholders(scope){
-    // Remove tiny empty wrappers/black boxes
-    scope.querySelectorAll('figure, .wp-block-embed, .wp-embed-aspect-16-9, .fb-video, .fb-post, div').forEach(function(node){
+  function scrubTinyBlackBoxes(scope){
+    qsa('figure, .wp-block-embed, .wp-embed-aspect-16-9, .fb-video, .fb-post, div', scope).forEach(function(node){
       var hasIframe = !!node.querySelector('iframe');
       var rect = node.getBoundingClientRect();
       var bg = getComputedStyle(node).backgroundColor;
@@ -81,80 +151,80 @@
     });
   }
 
-  // PUBLIC: renderPostDetail(post) is called by main.js
+  // ---------- Public render ----------
   window.renderPostDetail = function renderPostDetail(post){
     var app = qs('#app');
-    var author = post._embedded?.author?.[0]?.name || 'Oklahoma Observer';
+
+    var author = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
     var dateStr = fmtDate(post.date_gmt || post.date);
 
-    // Build DOM in the required order
-    var article = el('article','post-detail');
-
-    // HERO image first (edge-to-edge contained)
+    // Order: HERO → TITLE → BYLINE → CONTENT → Back button
+    var article = el('article','post-detail','');
     if (post._ok_img) {
-      var fig = el('figure','post-hero','<img class="post-hero-img" alt="" src="'+post._ok_img+'">');
-      article.appendChild(fig);
+      article.appendChild(el('figure','post-hero','<img class="post-hero-img" alt="" src="'+post._ok_img+'">'));
     }
-
-    // TITLE next
-    var h1 = el('h1','post-title', post.title?.rendered || '');
-    article.appendChild(h1);
-
-    // BYLINE next
-    var by = el('div','post-byline','<strong>'+author+'</strong> — '+dateStr);
-    article.appendChild(by);
-
-    // CONTENT
-    var body = el('section','post-body', post.content?.rendered || '');
+    article.appendChild(el('h1','post-title', post.title && post.title.rendered || ''));
+    article.appendChild(el('div','post-byline','<strong>'+author+'</strong> — '+dateStr));
+    var body = el('section','post-body', post.content && post.content.rendered || '');
     article.appendChild(body);
-
-    // Back button (real <button>) at very bottom, left-aligned
     var nav = el('nav','post-nav','');
     var btn = el('button','back-to-posts','← Back to Posts');
-    btn.type = 'button';
-    btn.addEventListener('click', function(){
-      // go home and let SPA render
-      location.hash = '#/posts';
-      // optional: scroll restore handled in main.js
-    });
+    btn.type='button';
+    btn.addEventListener('click', function(){ location.hash = '#/posts'; });
     nav.appendChild(btn);
     article.appendChild(nav);
 
-    // Mount
     app.innerHTML = '';
     app.appendChild(article);
 
-    // Ensure embeds are visible, inject if missing
-    enforceEmbedVisibility(body);
+    // ---- VIDEO: detect, normalize, or inject ----
+    var foundExisting = !!firstExistingIframe(body);
+    var dataEmbed = getDataOembedUrl(body);
+    var aUrl = findAnchorUrl(body);
+    var rawUrl = findRawUrlText(body);
+    var chosenUrl = dataEmbed || aUrl || rawUrl || null;
+    var embedSrc = foundExisting ? null : toEmbeddableSrc(chosenUrl);
 
-    // After hero load, re-normalize (layout shifts)
+    devBanner([
+      'PostDetail.js '+BUILD,
+      'existing iframe: ' + (foundExisting ? 'YES' : 'NO'),
+      'data-oembed-url: ' + (dataEmbed || 'none'),
+      'anchor url: ' + (aUrl || 'none'),
+      'raw url: ' + (rawUrl || 'none'),
+      'embed src to inject: ' + (embedSrc || 'none')
+    ]);
+
+    var ifr = firstExistingIframe(body);
+    if (ifr) {
+      normalizeIframe(ifr);
+    } else if (embedSrc) {
+      normalizeIframe(injectIframe(body, embedSrc));
+    }
+
+    // scrub tiny black boxes / empty wrappers
+    scrubTinyBlackBoxes(body);
+
+    // After hero image load, re-normalize
     var hero = qs('.post-hero-img', article);
     if (hero) {
-      if (hero.complete) enforceEmbedVisibility(body);
-      else {
-        hero.addEventListener('load', function(){ enforceEmbedVisibility(body); }, {once:true});
-        hero.addEventListener('error', function(){ enforceEmbedVisibility(body); }, {once:true});
+      if (hero.complete) {
+        var ifr2 = firstExistingIframe(body);
+        if (ifr2) normalizeIframe(ifr2);
+      } else {
+        hero.addEventListener('load', function(){
+          var ifr3 = firstExistingIframe(body);
+          if (ifr3) normalizeIframe(ifr3);
+        }, {once:true});
       }
     }
+
+    // Watch for async script replacing embeds (FB/Vimeo)
+    var mo = new MutationObserver(function(){
+      var i = firstExistingIframe(body);
+      if (i) normalizeIframe(i);
+    });
+    mo.observe(body, {childList:true, subtree:true, attributes:true});
   };
-
-  function enforceEmbedVisibility(scope){
-    // 1) If an iframe exists, make sure it's visible and tall enough
-    normalizeExistingIframes(scope);
-
-    // 2) If no iframe, try to build one from the content HTML
-    if (!scope.querySelector('iframe')) {
-      var src = extractEmbedSrc(scope.innerHTML);
-      if (src) {
-        var ifr = makeIframe(src);
-        // Insert the player at the very top of the content
-        scope.insertAdjacentElement('afterbegin', ifr);
-      }
-    }
-
-    // 3) Clean tiny black placeholders
-    scrubEmptyPlaceholders(scope);
-  }
 
 })();
  /* 🔴 PostDetail.js — END FULL FILE */

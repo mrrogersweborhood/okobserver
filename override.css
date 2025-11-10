@@ -1543,3 +1543,6 @@ div:has(> .post-card):not(.post-detail) {
   cursor: pointer;
 }
 .back-to-posts:hover { filter: brightness(0.95); }
+/* 🟢 override.css add 2025-11-10R5 */
+.okobs-dev-banner { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+.post-body iframe { display:block !important; width:100% !important; max-width:100% !important; min-height:420px !important; border:0 !important; visibility:visible !important; opacity:1 !important; }
