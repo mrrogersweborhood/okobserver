@@ -1,12 +1,11 @@
 <!-- 🟢 index.html — FULL FILE REPLACEMENT
-     OkObserver Build 2025-11-10R3-infiniteFix1
+     OkObserver Build 2025-11-10R6
      Notes:
-     - Stable header: big centered logo + one-line centered motto
-     - 4/3/1 grid handled mostly by CSS + JS in main.js
-     - Service worker registration intact
-     - Cache-busted CSS/JS versions aligned with main.js build
--->
-
+     - Stable header (centered logo + one-line centered motto)
+     - App content is rendered by main.js
+     - Cache-busted PostDetail.js and main.js
+     - SW registration retained
+     - Keep override.css external (your existing file) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,45 +14,39 @@
   <meta name="theme-color" content="#1E90FF" />
   <title>The Oklahoma Observer</title>
 
-  <!-- Favicon -->
   <link rel="icon" href="favicon.ico" />
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="override.css?v=2025-11-10R3-infiniteFix1" />
+  <link rel="stylesheet" href="override.css?v=2025-11-10R6" />
 
   <style>
-    /* Minimal shell styles (app uses override.css for most layout) */
+    /* Minimal shell styles; main layout in override.css */
     :root { --blue:#1E90FF; }
     html,body{margin:0;padding:0;background:#f3f6f9;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#102030}
-    a{color:#1E90FF;text-decoration:none}
-    a:hover{text-decoration:underline}
+    a{color:#1E90FF;text-decoration:none} a:hover{text-decoration:underline}
 
     /* Header */
     .topbar{position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08)}
     .topbar .brand{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;align-items:center}
-    .brand-logo{height:64px;display:block;filter:drop-shadow(0 1px 0 rgba(0,0,0,.08))}
+    .brand-logo{height:64px;display:block}
     .brand-motto{margin-top:6px;font-weight:600;text-align:center;white-space:nowrap}
     .hamburger{position:absolute;right:16px;top:16px;width:28px;height:22px;background:transparent;border:0;color:#fff;cursor:pointer;font-size:22px}
     .mainnav{display:none}
     .menu-open .mainnav{display:block;text-align:center;padding:6px 0}
     .mainnav a{color:#fff;margin:0 8px;font-weight:600}
 
-    /* App container */
+    /* Containers */
     #home, #detail {max-width:1200px;margin:20px auto;padding:0 16px}
-
     .site-footer{max-width:1200px;margin:48px auto 32px;padding:0 16px;text-align:center;color:#586174;font-size:14px}
   </style>
+  <!-- (🟢 index.html marker: begin; build 2025-11-10R6) -->
 </head>
 <body>
 
-  <!-- App root gets rendered by main.js -->
-  <div id="app">
-    <!-- main.js will render header, content, and footer -->
-  </div>
+  <!-- Root; main.js renders everything inside -->
+  <div id="app"></div>
 
   <!-- Scripts (plain JS; no modules) -->
-  <script defer src="PostDetail.js?v=2025-11-10R3-infiniteFix1"></script>
-  <script defer src="main.js?v=2025-11-10R3-infiniteFix1"></script>
+  <script defer src="PostDetail.js?v=2025-11-10R6"></script>
+  <script defer src="main.js?v=2025-11-10R6"></script>
 
   <!-- Service Worker Registration -->
   <script>
@@ -62,7 +55,7 @@
       if('serviceWorker' in navigator){
         window.addEventListener('load', async () => {
           try{
-            const reg = await navigator.serviceWorker.register('sw.js?v=2025-11-10R3-infiniteFix1', {scope:'./'});
+            const reg = await navigator.serviceWorker.register('sw.js?v=2025-11-10R6', {scope:'./'});
             console.log(tag,'registered:', reg.scope);
           }catch(e){
             console.warn(tag,'failed to register:', e);
@@ -71,7 +64,6 @@
       }
     })();
   </script>
-
 </body>
 </html>
 <!-- 🔴 index.html -->

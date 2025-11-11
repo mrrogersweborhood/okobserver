@@ -1546,3 +1546,28 @@ div:has(> .post-card):not(.post-detail) {
 /* 🟢 override.css add 2025-11-10R5 */
 .okobs-dev-banner { font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
 .post-body iframe { display:block !important; width:100% !important; max-width:100% !important; min-height:420px !important; border:0 !important; visibility:visible !important; opacity:1 !important; }
+/* 2025-11-10R6 detail/button/embed guards */
+.post-detail { max-width: 980px; margin: 24px auto 64px; padding: 0 16px; }
+.post-hero { margin: 0 0 16px; }
+.post-hero-img { width:100%; height:auto; display:block; object-fit:contain; }
+.post-title { margin: 8px 0 6px; line-height: 1.2; }
+.post-byline { margin: 0 0 18px; color: #516173; }
+
+/* Real button */
+.post-nav { margin-top: 28px; }
+.back-to-posts{
+  appearance:none; display:inline-block; padding:10px 14px;
+  border-radius:8px; border:0; background:#1E90FF; color:#fff;
+  font-weight:600; cursor:pointer;
+}
+.back-to-posts:hover{ filter:brightness(0.95); }
+
+/* Make any embeds visible and sized sanely */
+.post-body iframe,
+.post-body .wp-block-embed__wrapper iframe,
+.post-body .wp-block-embed iframe,
+.post-body .fb-video iframe,
+.post-body .fb-post iframe {
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  width:100% !important; max-width:100% !important; min-height:420px !important; border:0 !important;
+}
