@@ -1,12 +1,11 @@
-// 🟢 Full file: main.js v2025-11-11R1c + router-aware duplicate guard + hamburger + video logs + diagR1
-/* 🟢 main.js — FULL FILE REPLACEMENT
-   OkObserver Build 2025-11-11R1-headerHamburger
-   Guarantees:
-     • Zero regression, no ES modules, plain JS only
-     • One fetch per page (home), infinite scroll intact
-     • Cartoon category filtered
-     • Grid enforcer & sticky header unaffected
-     • Append-only utilities at bottom (hamburger, dedupe, logs, diagnostics)
+// 🟢 Full file: main.js v2025-11-11R1d • Home boot logs + safe grid mount + manual trigger + router-aware dedupe + hamburger + video logs + diagR1
+/* OkObserver Build 2025-11-11R1-headerHamburger
+   Zero-regression guardrails:
+   - Plain JS only (no modules)
+   - One fetch per page on Home (infinite scroll)
+   - Cartoon category filtered
+   - Sticky header + grid enforcer unaffected
+   - Helpers appended after core
 */
 
 (function () {
@@ -32,8 +31,6 @@
     } else {
       renderHome();
     }
-
-    // Announce route changes so helpers (dedupe) can react
     document.dispatchEvent(new CustomEvent('okobs:route', { detail: { hash: hash } }));
   }
 
@@ -42,7 +39,6 @@
     try { var d=new Date(iso); return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}); }
     catch(e){ return iso; }
   }
-  // Decode WordPress title HTML entities safely
   function decodeHTML(htmlString){
     if (!htmlString) return '';
     var div = document.createElement('div');
@@ -53,8 +49,21 @@
   // Home (grid + cartoon filter + infinite scroll)
   var paging = { page: 1, busy: false, done: false };
 
+  function ensureGrid(){
+    var grid = app.querySelector('.posts-grid');
+    if (!grid) {
+      grid = document.createElement('section');
+      grid.className = 'posts-grid';
+      app.innerHTML = ''; // ensure clean mount
+      app.appendChild(grid);
+    }
+    return grid;
+  }
+
   function renderHome() {
-    app.innerHTML = '<section class="posts-grid" aria-label="Posts grid"></section>';
+    console.debug('[OkObserver] renderHome()');
+    window.onscroll = null; // reset any prior detail listeners
+    ensureGrid();
     paging = { page: 1, busy: false, done: false };
     loadMore();
     window.onscroll = onScroll;
@@ -67,14 +76,17 @@
   }
 
   function loadMore() {
+    var grid = ensureGrid();
+    if (paging.busy || paging.done) return;
     paging.busy = true;
+    console.debug('[OkObserver] loadMore page', paging.page);
+
     fetch(API + '/posts?_embed&per_page=12&page=' + paging.page)
       .then(function(r){
         if (!r.ok) { if (r.status === 400 || r.status === 404) paging.done = true; throw new Error('no more'); }
         return r.json();
       })
       .then(function(arr){
-        var grid = app.querySelector('.posts-grid');
         arr.forEach(function(p){
           // CATEGORY cartoon filter
           var cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
@@ -108,20 +120,17 @@
 
         paging.page += 1;
         paging.busy = false;
+        console.debug('[OkObserver] loadMore complete; next page', paging.page, 'done?', paging.done);
       })
-      .catch(function(){
+      .catch(function(err){
+        console.warn('[OkObserver] loadMore error:', err && (err.message || err));
         paging.busy = false;
         paging.done = true;
       });
-
-    // grid defensive (ensure section exists)
-    setTimeout(function(){
-      var g = app.querySelector('.posts-grid');
-      if (!g) {
-        var s = document.createElement('section'); s.className='posts-grid'; app.prepend(s);
-      }
-    }, 0);
   }
+
+  // Expose a manual trigger for debugging (safe no-op if already busy/done)
+  window.__ok_loadMore = function(){ try { loadMore(); } catch(e){ console.error(e); } };
 
   // About
   function renderAbout() {
@@ -130,7 +139,7 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // Detail shell; content filled and video normalized by PostDetail.js
+  // Detail shell; content filled by PostDetail.js
   function renderDetail(id) {
     window.onscroll = null;
     app.innerHTML =
@@ -166,13 +175,10 @@
 
 })();
 
-/* ======== APPEND-ONLY HELPERS BELOW (no changes to core logic above) ======== */
+/* ======== HELPERS (append-only) ======== */
 
 /** Hamburger toggle + auto-close (safe no-op if hooks not present) */
 (function initHamburgerSafety() {
-  var root = document.body || document.documentElement;
-  var appRoot = document.getElementById('app') || root;
-
   var btn = document.querySelector('[data-oo="hamburger"]')
            || document.querySelector('.oo-hamburger')
            || document.getElementById('hamburger');
@@ -188,9 +194,10 @@
   }
 
   var OPEN_CLASS = 'is-menu-open';
-  var open = function(){ (document.getElementById('app')||document.body).classList.add(OPEN_CLASS); };
-  var close = function(){ (document.getElementById('app')||document.body).classList.remove(OPEN_CLASS); };
-  var isOpen = function(){ return (document.getElementById('app')||document.body).classList.contains(OPEN_CLASS); };
+  var target = document.getElementById('app') || document.body;
+  var open = function(){ target.classList.add(OPEN_CLASS); };
+  var close = function(){ target.classList.remove(OPEN_CLASS); };
+  var isOpen = function(){ return target.classList.contains(OPEN_CLASS); };
 
   btn.addEventListener('click', function(e){
     e.stopPropagation();
@@ -213,7 +220,7 @@
 /** Infinite-scroll duplicate guard (router-aware attach) */
 (function initDuplicateGuardRouterAware(){
   var seen = new Set();
-  var attachedTo; // current grid element observed
+  var attachedTo;
 
   function scan(root, grid){
     var base = root || grid;
@@ -236,10 +243,8 @@
   function attachIfNeeded() {
     var grid = document.querySelector('#app .posts-grid');
     if (!grid) return;
+    if (attachedTo === grid) return;
 
-    if (attachedTo === grid) return; // already observing this grid
-
-    // (Re)attach to this grid
     attachedTo = grid;
     scan(grid, grid);
 
@@ -258,10 +263,7 @@
     console.debug('[OkObserver] duplicate guard active');
   }
 
-  // Try now (if home already rendered)
   attachIfNeeded();
-
-  // Re-attempt on route changes (works when returning from detail/about)
   document.addEventListener('okobs:route', function(ev){
     if (!ev.detail) return;
     var h = ev.detail.hash || '#/';
@@ -271,9 +273,9 @@
   });
 })();
 
-/** Dev-only video logging (helps verify embeds & hard fallback post) */
+/** Dev-only video logging (detail only) */
 (function initVideoLogging(){
-  if (location.hash.indexOf('#/post/') !== 0) return; // only on detail
+  if (location.hash.indexOf('#/post/') !== 0) return;
   var target = document.querySelector('#app .post-body');
   if (!target) return;
 
@@ -288,7 +290,6 @@
     }
   }
 
-  // initial & observe
   logEmbeds(target);
   var mo = new MutationObserver(function(muts){
     muts.forEach(function(m){
@@ -307,10 +308,7 @@
   }
 })();
 
-/** OkObserver diagR1 — proxy fetch diagnostics (append-only, safe if proxy OK)
- *  - Logs post fetches & statuses
- *  - On first failure shows a fixed top dev banner with a Retry button
- */
+/** Proxy diagnostics (diagR1) */
 (function okobsDiagnosticsR1(){
   if (window.__okobs_diag_installed) return;
   window.__okobs_diag_installed = true;
@@ -348,7 +346,7 @@
         if (!res.ok) {
           res.clone().text().then(function(txt){
             console.warn('[OkObserver] posts fetch failed:', res.status, String(txt).slice(0,150));
-            showDevBanner('Proxy returned '+res.status+' for posts. See console for details.', true);
+            showDevBanner('Proxy returned '+res.status+' for posts. See console.', true);
           }).catch(function(){
             showDevBanner('Proxy request failed. Status '+res.status, true);
           });
@@ -364,12 +362,10 @@
     });
   };
 
-  // Hint if home grid not yet mounted (can be normal briefly)
   setTimeout(function(){
     if ((location.hash || '#/').replace('#','') === '/' && !document.querySelector('#app .posts-grid')) {
       console.debug('[OkObserver] home grid not mounted yet (this can be normal briefly).');
     }
   }, 800);
 })();
-
-// 🔴 main.js — END FULL FILE
+ // 🔴 main.js — END FULL FILE
