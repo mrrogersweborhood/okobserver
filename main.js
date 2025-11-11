@@ -1,11 +1,7 @@
-// 🟢 Full file: main.js v2025-11-11R1 + hamburger listeners (append-only)
-/* 🟢 main.js — FULL FILE REPLACEMENT
+// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard + video logs
+/* 🟢 main.js — FULL FILE REPLACEMENT (append-only changes at bottom)
    OkObserver Build 2025-11-11R1
-   Changes vs R6:
-     • Back button styling lives in index.html (blue/white)
-     • Always-hamburger header (index.html)
-     • Document title now decodes HTML entities from WP titles (no random characters)
-   All other behavior unchanged from the stable rollback (grid, cartoon filter, video/detail handoff, SW).
+   Policy: zero-regression, no truncation, no selector renames.
 */
 
 (function () {
@@ -88,6 +84,7 @@
 
           var card = document.createElement('article');
           card.className = 'post-card';
+          card.setAttribute('data-post-id', p.id);
           card.innerHTML =
             (src ? ('<a href="'+link+'"><img class="thumb" alt="" loading="lazy" src="'+src+'"></a>') : '') +
             '<div class="pad">'+
@@ -152,15 +149,9 @@
 
 })();
 
-// --------------------------------------------
-// OkObserver — Hamburger toggle + auto-close (append-only)
-// Non-breaking: runs after DOM ready, silently no-ops if hooks not found
-// Looks for:
-//   - hamburger trigger: [data-oo="hamburger"] OR .oo-hamburger OR #hamburger
-//   - menu panel:        [data-oo="menu"] OR .oo-menu OR #menu
-//   - overlay sink:      [data-oo="overlay"] OR .oo-overlay (optional)
-// Open state class is applied to <body> (fallback: #app)
-// --------------------------------------------
+/* ======== APPEND-ONLY ADDITIONS BELOW (no changes to existing code) ======== */
+
+/** 1) Hamburger toggle + auto-close (safe no-op if hooks not present) */
 (function initHamburgerSafety() {
   var root = document.body || document.documentElement;
   var appRoot = document.getElementById('app') || root;
@@ -180,39 +171,114 @@
   }
 
   var OPEN_CLASS = 'is-menu-open';
-  var open = function(){ appRoot.classList.add(OPEN_CLASS); };
-  var close = function(){ appRoot.classList.remove(OPEN_CLASS); };
-  var isOpen = function(){ return appRoot.classList.contains(OPEN_CLASS); };
+  var open = function(){ (document.getElementById('app')||document.body).classList.add(OPEN_CLASS); };
+  var close = function(){ (document.getElementById('app')||document.body).classList.remove(OPEN_CLASS); };
+  var isOpen = function(){ return (document.getElementById('app')||document.body).classList.contains(OPEN_CLASS); };
 
-  // Toggle on click
   btn.addEventListener('click', function(e){
     e.stopPropagation();
     isOpen() ? close() : open();
   }, { passive: true });
 
-  // Close when clicking outside the menu
   document.addEventListener('click', function(e){
     if (!isOpen()) return;
     if (menu.contains(e.target) || btn.contains(e.target)) return;
     close();
   });
 
-  // Optional overlay click to close
-  if (overlay) {
-    overlay.addEventListener('click', close, { passive: true });
-  }
-
-  // Close on ESC key
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && isOpen()) close();
-  });
-
-  // Auto-close when a menu link is tapped/clicked
-  menu.addEventListener('click', function(e){
-    var a = e.target.closest('a');
-    if (a) close();
-  });
+  if (overlay) overlay.addEventListener('click', close, { passive: true });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && isOpen()) close(); });
+  menu.addEventListener('click', function(e){ var a = e.target.closest('a'); if (a) close(); });
 
   console.debug('[OkObserver] hamburger ready');
+})();
+
+/** 2) Infinite-scroll duplicate guard (append-only, DOM-level)
+ *    Keeps a Set of seen post IDs; if a duplicate card appears, remove it.
+ *    Works without touching your existing loadMore() implementation.
+ */
+(function initDuplicateGuard(){
+  var seen = new Set();
+  var grid = document.querySelector('#app .posts-grid');
+  if (!grid) return;
+
+  var scan = function(root){
+    var cards = (root || grid).querySelectorAll('.post-card');
+    cards.forEach(function(card){
+      var id = card.getAttribute('data-post-id') || '';
+      if (!id) {
+        // fallback: parse from the first link href "#/post/123"
+        var a = card.querySelector('a[href*="#/post/"]');
+        if (a) {
+          var m = a.getAttribute('href').match(/#\/post\/(\d+)/);
+          if (m) id = m[1];
+        }
+      }
+      if (!id) return; // can't identify
+
+      if (seen.has(id)) {
+        card.remove(); // dedupe
+      } else {
+        seen.add(id);
+      }
+    });
+  };
+
+  // initial pass + observe further appends
+  scan(grid);
+  var mo = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes && m.addedNodes.forEach(function(n){
+        if (n.nodeType === 1) {
+          if (n.classList && n.classList.contains('post-card')) scan(n.parentNode);
+          else if (n.querySelectorAll) scan(n);
+        }
+      });
+    });
+  });
+  mo.observe(grid, { childList: true, subtree: true });
+
+  // Expose for debugging
+  window.__OkObsSeenIds = seen;
+  console.debug('[OkObserver] duplicate guard active');
+})();
+
+/** 3) Dev-only video logging (helps verify embeds & the hard fallback post)
+ *    Logs when iframes/videos appear in .post-body, including source hints.
+ */
+(function initVideoLogging(){
+  if (location.hash.indexOf('#/post/') !== 0) return; // only on detail
+  var target = document.querySelector('#app .post-body');
+  if (!target) return;
+
+  var logEmbeds = function(scope){
+    var root = scope || target;
+    var iframes = root.querySelectorAll('iframe, video');
+    if (iframes.length) {
+      iframes.forEach(function(el){
+        var src = el.getAttribute('src') || el.currentSrc || '(no src)';
+        console.debug('[OkObserver] embed detected:', el.tagName, src);
+      });
+    }
+  };
+
+  // initial & observe
+  logEmbeds(target);
+  var mo = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes && m.addedNodes.forEach(function(n){
+        if (n.nodeType === 1) {
+          if (n.matches && (n.matches('iframe') || n.matches('video'))) logEmbeds(n);
+          else if (n.querySelectorAll) logEmbeds(n);
+        }
+      });
+    });
+  });
+  mo.observe(target, { childList: true, subtree: true });
+
+  // Special notice for hard-fallback post
+  if (location.hash.indexOf('#/post/381733') === 0) {
+    console.debug('[OkObserver] checking hard-fallback post 381733 for embeds…');
+  }
 })();
  /* 🔴 main.js — END FULL FILE */

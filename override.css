@@ -1625,3 +1625,60 @@ div:has(> .post-card):not(.post-detail) {
   transform: scale(0.98);
 }
 /* 🔴 override.css — END FULL FILE */
+/* 🟢 Full file: override.css v2025-11-07SR1 + append-only: hamburger animation hooks */
+/* (All your existing rules retained; new block appended at the end.) */
+
+/* … your existing override.css content remains here unchanged … */
+
+/* --------------------------------------------
+ * OkObserver — Hamburger animation (append-only)
+ * Safe: no existing selectors overridden
+ * Requires a wrapper to toggle .is-menu-open on <body> or #app
+ * -------------------------------------------- */
+
+/* Subtle fade+slide for dropdown */
+@keyframes oo-slide-fade-in {
+  0% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes oo-slide-fade-out {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Menu panel (closed by default) */
+.oo-menu {
+  will-change: opacity, transform;
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Open state */
+.is-menu-open .oo-menu {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  animation: oo-slide-fade-in 120ms ease;
+}
+
+/* Optional overlay to capture outside clicks (invisible) */
+.oo-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+.is-menu-open .oo-overlay {
+  display: block;
+}
+
+/* Reduce tap-jank on the hamburger button */
+.oo-hamburger {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.oo-hamburger:active {
+  transform: scale(0.98);
+}
+/* 🔴 override.css — END FULL FILE */
