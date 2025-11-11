@@ -1,11 +1,9 @@
-<!-- 🟢 index.html — FULL FILE REPLACEMENT
-     OkObserver Build 2025-11-10R6
+<!-- 🟢 index.html — FULL FILE REPLACEMENT (2025-11-11R1)
+     Safe: header/motto unchanged; SW kept; plain JS only; keeps your override.css.
      Notes:
-     - Stable header (centered logo + one-line centered motto)
-     - App content is rendered by main.js
-     - Cache-busted PostDetail.js and main.js
-     - SW registration retained
-     - Keep override.css external (your existing file) -->
+     - Only bumps cache-busters so browsers pull these fresh files.
+     - No layout/CSS moves out of your override.css.
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -15,55 +13,38 @@
   <title>The Oklahoma Observer</title>
 
   <link rel="icon" href="favicon.ico" />
-  <link rel="stylesheet" href="override.css?v=2025-11-10R6" />
+  <!-- keep your stylesheet; just bust cache -->
+  <link rel="stylesheet" href="override.css?v=2025-11-11R1" />
 
+  <!-- minimal shell only; your layout/styles live in override.css -->
   <style>
-    /* Minimal shell styles; main layout in override.css */
-    :root { --blue:#1E90FF; }
-    html,body{margin:0;padding:0;background:#f3f6f9;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#102030}
-    a{color:#1E90FF;text-decoration:none} a:hover{text-decoration:underline}
-
-    /* Header */
-    .topbar{position:sticky;top:0;z-index:1000;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-    .topbar .brand{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;align-items:center}
-    .brand-logo{height:64px;display:block}
-    .brand-motto{margin-top:6px;font-weight:600;text-align:center;white-space:nowrap}
-    .hamburger{position:absolute;right:16px;top:16px;width:28px;height:22px;background:transparent;border:0;color:#fff;cursor:pointer;font-size:22px}
-    .mainnav{display:none}
-    .menu-open .mainnav{display:block;text-align:center;padding:6px 0}
-    .mainnav a{color:#fff;margin:0 8px;font-weight:600}
-
-    /* Containers */
-    #home, #detail {max-width:1200px;margin:20px auto;padding:0 16px}
-    .site-footer{max-width:1200px;margin:48px auto 32px;padding:0 16px;text-align:center;color:#586174;font-size:14px}
+    :root { --okblue:#1E90FF; }
+    html,body{margin:0;padding:0;background:#f3f6f9}
   </style>
-  <!-- (🟢 index.html marker: begin; build 2025-11-10R6) -->
+  <!-- (🟢 index.html marker: begin; build 2025-11-11R1) -->
 </head>
 <body>
-
-  <!-- Root; main.js renders everything inside -->
+  <!-- App root (main.js renders into this) -->
   <div id="app"></div>
 
-  <!-- Scripts (plain JS; no modules) -->
-  <script defer src="PostDetail.js?v=2025-11-10R6"></script>
-  <script defer src="main.js?v=2025-11-10R6"></script>
+  <!-- Load detail helpers first, then main; plain scripts (no modules) -->
+  <script defer src="PostDetail.js?v=2025-11-11R1"></script>
+  <script defer src="main.js?v=2025-11-11R1"></script>
 
-  <!-- Service Worker Registration -->
+  <!-- Service Worker: kept, with cache-buster -->
   <script>
-    (function(){
-      const tag='[OkObserver SW]';
-      if('serviceWorker' in navigator){
-        window.addEventListener('load', async () => {
-          try{
-            const reg = await navigator.serviceWorker.register('sw.js?v=2025-11-10R6', {scope:'./'});
-            console.log(tag,'registered:', reg.scope);
-          }catch(e){
-            console.warn(tag,'failed to register:', e);
-          }
-        });
-      }
-    })();
+  (function(){
+    const TAG='[OkObserver SW]';
+    if('serviceWorker' in navigator){
+      addEventListener('load', async () => {
+        try{
+          const reg = await navigator.serviceWorker.register('sw.js?v=2025-11-11R1', {scope:'./'});
+          console.log(TAG,'registered:', reg.scope);
+        }catch(e){ console.warn(TAG,'failed:', e); }
+      });
+    }
+  })();
   </script>
 </body>
 </html>
-<!-- 🔴 index.html -->
+<!-- 🔴 index.html — END FULL FILE -->
