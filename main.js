@@ -1,4 +1,4 @@
-// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard (lazy attach) + video logs
+// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard (router hook) + video logs
 /* 🟢 main.js — FULL FILE REPLACEMENT (append-only changes at bottom)
    OkObserver Build 2025-11-11R1
    Policy: zero-regression, no truncation, no selector renames.
@@ -27,6 +27,9 @@
     } else {
       renderHome();
     }
+
+    // 👇 NEW (append-only): announce route changes so helpers can react
+    document.dispatchEvent(new CustomEvent('okobs:route', { detail: { hash: hash } }));
   }
 
   // Utilities
@@ -193,70 +196,68 @@
   console.debug('[OkObserver] hamburger ready');
 })();
 
-/** 2) Infinite-scroll duplicate guard (lazy attach)
- *    Waits for .posts-grid to exist, then activates and logs.
+/** 2) Infinite-scroll duplicate guard (router-aware attach)
+ *    Attaches on first grid, and reattaches on any route that renders home.
  */
-(function initDuplicateGuardLazy(){
+(function initDuplicateGuardRouterAware(){
   var seen = new Set();
-  function attach(grid){
-    if (!grid || grid.__okobs_dedupe_attached) return;
-    grid.__okobs_dedupe_attached = true;
+  var attachedTo; // current grid element observed
 
-    function scan(root){
-      var cards = (root || grid).querySelectorAll('.post-card');
-      cards.forEach(function(card){
-        var id = card.getAttribute('data-post-id') || '';
-        if (!id) {
-          var a = card.querySelector('a[href*="#/post/"]');
-          if (a) {
-            var m = a.getAttribute('href').match(/#\/post\/(\d+)/);
-            if (m) id = m[1];
-          }
+  function scan(root, grid){
+    var base = root || grid;
+    var cards = base.querySelectorAll('.post-card');
+    cards.forEach(function(card){
+      var id = card.getAttribute('data-post-id') || '';
+      if (!id) {
+        var a = card.querySelector('a[href*="#/post/"]');
+        if (a) {
+          var m = a.getAttribute('href').match(/#\/post\/(\d+)/);
+          if (m) id = m[1];
         }
-        if (!id) return;
-        if (seen.has(id)) card.remove();
-        else seen.add(id);
-      });
-    }
+      }
+      if (!id) return;
+      if (seen.has(id)) card.remove();
+      else seen.add(id);
+    });
+  }
 
-    // initial scan + observe further appends
-    scan(grid);
+  function attachIfNeeded() {
+    var grid = document.querySelector('#app .posts-grid');
+    if (!grid) return;
+
+    if (attachedTo === grid) return; // already observing this grid
+
+    // (Re)attach to this grid
+    attachedTo = grid;
+    scan(grid, grid);
+
     var mo = new MutationObserver(function(muts){
       muts.forEach(function(m){
         m.addedNodes && m.addedNodes.forEach(function(n){
           if (n.nodeType !== 1) return;
-          if (n.classList && n.classList.contains('post-card')) scan(n.parentNode);
-          else if (n.querySelectorAll) scan(n);
+          if (n.classList && n.classList.contains('post-card')) scan(n.parentNode, grid);
+          else if (n.querySelectorAll) scan(n, grid);
         });
       });
     });
     mo.observe(grid, { childList:true, subtree:true });
 
-    // export for debugging and announce readiness
     window.__OkObsSeenIds = seen;
     console.debug('[OkObserver] duplicate guard active');
   }
 
-  // if grid already present, attach immediately; otherwise wait
-  var existing = document.querySelector('#app .posts-grid');
-  if (existing) { attach(existing); return; }
+  // Try now (if home already rendered)
+  attachIfNeeded();
 
-  var appRoot = document.getElementById('app');
-  if (!appRoot) return;
-
-  var watch = new MutationObserver(function(muts){
-    for (var i=0;i<muts.length;i++){
-      var nlist = muts[i].addedNodes;
-      for (var j=0;j<nlist.length;j++){
-        var n = nlist[j];
-        if (n.nodeType === 1){
-          var grid = n.matches && n.matches('.posts-grid') ? n : n.querySelector && n.querySelector('.posts-grid');
-          if (grid) { attach(grid); watch.disconnect(); return; }
-        }
-      }
-    }
+  // 👇 NEW: when route changes, try again (works when returning from detail)
+  document.addEventListener('okobs:route', function(ev){
+    // only care about the home route
+    if (!ev.detail || ev.detail.hash.indexOf('#/post/') === 0) return;
+    if (ev.detail.hash.indexOf('#/about') === 0) return;
+    // Home or anything else => attempt attach
+    // wait a tick for renderHome to set innerHTML
+    setTimeout(attachIfNeeded, 0);
   });
-  watch.observe(appRoot, { childList:true, subtree:true });
 })();
 
 /** 3) Dev-only video logging (helps verify embeds & the hard fallback post)
