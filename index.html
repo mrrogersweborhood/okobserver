@@ -1,4 +1,4 @@
-<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • HOTFIX: remove favicon-as-logo -->
+<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • RESTORE: static logo.png -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,14 +6,17 @@
   <title>The Oklahoma Observer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1E90FF">
+  <!-- Tab icon only -->
   <link rel="icon" href="favicon.ico">
+  <!-- Core styles (stable) -->
   <link rel="stylesheet" href="override.css?v=2025-11-07SR1">
   <style>
+    /* Minimal safety styles that won’t fight override.css */
     body{margin:0;background:#f7f8fa;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     header.okobs-header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
     header.okobs-header .okobs-header-inner{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:center;position:relative}
     header.okobs-header a.brand{text-decoration:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:8px}
-    /* LOGO IMAGE REMOVED IN HOTFIX (avoids favicon showing in header) */
+    header.okobs-header img.logo{width:220px;max-width:70vw;height:auto;display:block;border-radius:8px}
     header.okobs-header .motto{font-weight:600;opacity:.98;text-align:center}
     header.okobs-header button.hamburger{position:absolute;right:16px;top:14px;border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}
     header.okobs-header nav.menu[hidden]{display:none}
@@ -23,10 +26,12 @@
   </style>
 </head>
 <body>
+  <!-- Sticky header with centered logo + motto; always-hamburger on right -->
   <header class="okobs-header" role="banner" aria-label="OkObserver Header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/" aria-label="Go to posts">
-        <!-- 🔧 HOTFIX: removed <img class="logo" src="favicon.ico"> to prevent favicon showing in header -->
+        <!-- RESTORED: static root logo.png (never favicon). Cache-busted so you see it immediately. -->
+        <img class="logo" src="logo.png?v=2025-11-11R1" alt="The Oklahoma Observer">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </a>
       <button class="hamburger" aria-label="Menu" data-oo="hamburger" aria-controls="oo-nav" aria-expanded="false">≡</button>
@@ -38,14 +43,19 @@
     </div>
   </header>
 
+  <!-- App mount point -->
   <main id="app" class="oo-app" role="main" aria-live="polite" aria-busy="true"></main>
 
+  <!-- Footer with build tag -->
   <footer class="site-footer">
     © 2025 The Oklahoma Observer • Build 2025-11-11R1-headerHamburger
   </footer>
 
+  <!-- Post detail helper then main app -->
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
   <script defer src="main.js?v=2025-11-11R1c"></script>
+
+  <!-- Service worker registration -->
   <script>
     (function(){
       try{
