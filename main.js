@@ -1,4 +1,4 @@
-// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard + video logs
+// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard (lazy attach) + video logs
 /* 🟢 main.js — FULL FILE REPLACEMENT (append-only changes at bottom)
    OkObserver Build 2025-11-11R1
    Policy: zero-regression, no truncation, no selector renames.
@@ -193,54 +193,70 @@
   console.debug('[OkObserver] hamburger ready');
 })();
 
-/** 2) Infinite-scroll duplicate guard (append-only, DOM-level)
- *    Keeps a Set of seen post IDs; if a duplicate card appears, remove it.
- *    Works without touching your existing loadMore() implementation.
+/** 2) Infinite-scroll duplicate guard (lazy attach)
+ *    Waits for .posts-grid to exist, then activates and logs.
  */
-(function initDuplicateGuard(){
+(function initDuplicateGuardLazy(){
   var seen = new Set();
-  var grid = document.querySelector('#app .posts-grid');
-  if (!grid) return;
+  function attach(grid){
+    if (!grid || grid.__okobs_dedupe_attached) return;
+    grid.__okobs_dedupe_attached = true;
 
-  var scan = function(root){
-    var cards = (root || grid).querySelectorAll('.post-card');
-    cards.forEach(function(card){
-      var id = card.getAttribute('data-post-id') || '';
-      if (!id) {
-        // fallback: parse from the first link href "#/post/123"
-        var a = card.querySelector('a[href*="#/post/"]');
-        if (a) {
-          var m = a.getAttribute('href').match(/#\/post\/(\d+)/);
-          if (m) id = m[1];
+    function scan(root){
+      var cards = (root || grid).querySelectorAll('.post-card');
+      cards.forEach(function(card){
+        var id = card.getAttribute('data-post-id') || '';
+        if (!id) {
+          var a = card.querySelector('a[href*="#/post/"]');
+          if (a) {
+            var m = a.getAttribute('href').match(/#\/post\/(\d+)/);
+            if (m) id = m[1];
+          }
         }
-      }
-      if (!id) return; // can't identify
+        if (!id) return;
+        if (seen.has(id)) card.remove();
+        else seen.add(id);
+      });
+    }
 
-      if (seen.has(id)) {
-        card.remove(); // dedupe
-      } else {
-        seen.add(id);
-      }
-    });
-  };
-
-  // initial pass + observe further appends
-  scan(grid);
-  var mo = new MutationObserver(function(muts){
-    muts.forEach(function(m){
-      m.addedNodes && m.addedNodes.forEach(function(n){
-        if (n.nodeType === 1) {
+    // initial scan + observe further appends
+    scan(grid);
+    var mo = new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes && m.addedNodes.forEach(function(n){
+          if (n.nodeType !== 1) return;
           if (n.classList && n.classList.contains('post-card')) scan(n.parentNode);
           else if (n.querySelectorAll) scan(n);
-        }
+        });
       });
     });
-  });
-  mo.observe(grid, { childList: true, subtree: true });
+    mo.observe(grid, { childList:true, subtree:true });
 
-  // Expose for debugging
-  window.__OkObsSeenIds = seen;
-  console.debug('[OkObserver] duplicate guard active');
+    // export for debugging and announce readiness
+    window.__OkObsSeenIds = seen;
+    console.debug('[OkObserver] duplicate guard active');
+  }
+
+  // if grid already present, attach immediately; otherwise wait
+  var existing = document.querySelector('#app .posts-grid');
+  if (existing) { attach(existing); return; }
+
+  var appRoot = document.getElementById('app');
+  if (!appRoot) return;
+
+  var watch = new MutationObserver(function(muts){
+    for (var i=0;i<muts.length;i++){
+      var nlist = muts[i].addedNodes;
+      for (var j=0;j<nlist.length;j++){
+        var n = nlist[j];
+        if (n.nodeType === 1){
+          var grid = n.matches && n.matches('.posts-grid') ? n : n.querySelector && n.querySelector('.posts-grid');
+          if (grid) { attach(grid); watch.disconnect(); return; }
+        }
+      }
+    }
+  });
+  watch.observe(appRoot, { childList:true, subtree:true });
 })();
 
 /** 3) Dev-only video logging (helps verify embeds & the hard fallback post)
@@ -251,7 +267,7 @@
   var target = document.querySelector('#app .post-body');
   if (!target) return;
 
-  var logEmbeds = function(scope){
+  function logEmbeds(scope){
     var root = scope || target;
     var iframes = root.querySelectorAll('iframe, video');
     if (iframes.length) {
@@ -260,7 +276,7 @@
         console.debug('[OkObserver] embed detected:', el.tagName, src);
       });
     }
-  };
+  }
 
   // initial & observe
   logEmbeds(target);
