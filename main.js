@@ -1,3 +1,4 @@
+// 🟢 Full file: main.js v2025-11-11R1 + hamburger listeners (append-only)
 /* 🟢 main.js — FULL FILE REPLACEMENT
    OkObserver Build 2025-11-11R1
    Changes vs R6:
@@ -149,5 +150,69 @@
     });
   }
 
+})();
+
+// --------------------------------------------
+// OkObserver — Hamburger toggle + auto-close (append-only)
+// Non-breaking: runs after DOM ready, silently no-ops if hooks not found
+// Looks for:
+//   - hamburger trigger: [data-oo="hamburger"] OR .oo-hamburger OR #hamburger
+//   - menu panel:        [data-oo="menu"] OR .oo-menu OR #menu
+//   - overlay sink:      [data-oo="overlay"] OR .oo-overlay (optional)
+// Open state class is applied to <body> (fallback: #app)
+// --------------------------------------------
+(function initHamburgerSafety() {
+  var root = document.body || document.documentElement;
+  var appRoot = document.getElementById('app') || root;
+
+  var btn = document.querySelector('[data-oo="hamburger"]')
+           || document.querySelector('.oo-hamburger')
+           || document.getElementById('hamburger');
+  var menu = document.querySelector('[data-oo="menu"]')
+            || document.querySelector('.oo-menu')
+            || document.getElementById('menu');
+  var overlay = document.querySelector('[data-oo="overlay"]')
+               || document.querySelector('.oo-overlay');
+
+  if (!btn || !menu) {
+    console.debug('[OkObserver] hamburger hooks not found — noop');
+    return;
+  }
+
+  var OPEN_CLASS = 'is-menu-open';
+  var open = function(){ appRoot.classList.add(OPEN_CLASS); };
+  var close = function(){ appRoot.classList.remove(OPEN_CLASS); };
+  var isOpen = function(){ return appRoot.classList.contains(OPEN_CLASS); };
+
+  // Toggle on click
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    isOpen() ? close() : open();
+  }, { passive: true });
+
+  // Close when clicking outside the menu
+  document.addEventListener('click', function(e){
+    if (!isOpen()) return;
+    if (menu.contains(e.target) || btn.contains(e.target)) return;
+    close();
+  });
+
+  // Optional overlay click to close
+  if (overlay) {
+    overlay.addEventListener('click', close, { passive: true });
+  }
+
+  // Close on ESC key
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && isOpen()) close();
+  });
+
+  // Auto-close when a menu link is tapped/clicked
+  menu.addEventListener('click', function(e){
+    var a = e.target.closest('a');
+    if (a) close();
+  });
+
+  console.debug('[OkObserver] hamburger ready');
 })();
  /* 🔴 main.js — END FULL FILE */

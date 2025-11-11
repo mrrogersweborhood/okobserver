@@ -1,3 +1,4 @@
+/* 🟢 Full file: override.css v2025-11-07SR1 + hamburger animations (append-only) */
 /* OkObserver override.css — v=2025-11-06SR1-gridLock1 (compatible with hotfix3) */
 /* Keep existing visual identity; add tiny polish + focus states + hover softness */
 
@@ -776,7 +777,7 @@ header.okobs-header {
   z-index: 1000;
   background: #1E90FF;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0,0,0, 0.15);
   text-align: center;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -879,7 +880,7 @@ header.okobs-header {
   z-index: 1000;
   background: #1E90FF;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0,0,0, 0.15);
   text-align: center;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -1571,3 +1572,56 @@ div:has(> .post-card):not(.post-detail) {
   display:block !important; visibility:visible !important; opacity:1 !important;
   width:100% !important; max-width:100% !important; min-height:420px !important; border:0 !important;
 }
+
+/* --------------------------------------------
+ * OkObserver — Hamburger animation (append-only)
+ * Safe: no existing selectors overridden
+ * Requires a wrapper to toggle .is-menu-open on <body> or #app
+ * -------------------------------------------- */
+
+/* Subtle fade+slide for dropdown */
+@keyframes oo-slide-fade-in {
+  0% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes oo-slide-fade-out {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Menu panel (closed by default) */
+.oo-menu {
+  will-change: opacity, transform;
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Open state */
+.is-menu-open .oo-menu {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  animation: oo-slide-fade-in 120ms ease;
+}
+
+/* Optional overlay to capture outside clicks (invisible) */
+.oo-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+}
+.is-menu-open .oo-overlay {
+  display: block;
+}
+
+/* Reduce tap-jank on the hamburger button */
+.oo-hamburger {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.oo-hamburger:active {
+  transform: scale(0.98);
+}
+/* 🔴 override.css — END FULL FILE */
