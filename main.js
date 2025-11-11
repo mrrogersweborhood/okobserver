@@ -1,7 +1,12 @@
-// 🟢 Full file: main.js v2025-11-11R1 + append-only: hamburger + duplicate guard (router hook) + video logs
-/* 🟢 main.js — FULL FILE REPLACEMENT (append-only changes at bottom)
-   OkObserver Build 2025-11-11R1
-   Policy: zero-regression, no truncation, no selector renames.
+// 🟢 Full file: main.js v2025-11-11R1c + router-aware duplicate guard + hamburger + video logs + diagR1
+/* 🟢 main.js — FULL FILE REPLACEMENT
+   OkObserver Build 2025-11-11R1-headerHamburger
+   Guarantees:
+     • Zero regression, no ES modules, plain JS only
+     • One fetch per page (home), infinite scroll intact
+     • Cartoon category filtered
+     • Grid enforcer & sticky header unaffected
+     • Append-only utilities at bottom (hamburger, dedupe, logs, diagnostics)
 */
 
 (function () {
@@ -28,7 +33,7 @@
       renderHome();
     }
 
-    // 👇 NEW (append-only): announce route changes so helpers can react
+    // Announce route changes so helpers (dedupe) can react
     document.dispatchEvent(new CustomEvent('okobs:route', { detail: { hash: hash } }));
   }
 
@@ -47,30 +52,33 @@
 
   // Home (grid + cartoon filter + infinite scroll)
   var paging = { page: 1, busy: false, done: false };
+
   function renderHome() {
     app.innerHTML = '<section class="posts-grid" aria-label="Posts grid"></section>';
     paging = { page: 1, busy: false, done: false };
     loadMore();
     window.onscroll = onScroll;
   }
+
   function onScroll() {
     if (paging.busy || paging.done) return;
     var nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 1000);
     if (nearBottom) loadMore();
   }
+
   function loadMore() {
     paging.busy = true;
     fetch(API + '/posts?_embed&per_page=12&page=' + paging.page)
-      .then(r => {
+      .then(function(r){
         if (!r.ok) { if (r.status === 400 || r.status === 404) paging.done = true; throw new Error('no more'); }
         return r.json();
       })
-      .then(arr => {
+      .then(function(arr){
         var grid = app.querySelector('.posts-grid');
-        arr.forEach(p => {
+        arr.forEach(function(p){
           // CATEGORY cartoon filter
           var cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
-          var isCartoon = cats.some(c => {
+          var isCartoon = cats.some(function(c){
             var nm = (c.name || '').toLowerCase();
             var sl = (c.slug || '').toLowerCase();
             return nm.includes('cartoon') || sl.includes('cartoon');
@@ -78,7 +86,7 @@
           if (isCartoon) return;
 
           var link = '#/post/' + p.id;
-          var title = p.title && p.title.rendered || 'Untitled';
+          var title = (p.title && p.title.rendered) || 'Untitled';
           var date = niceDate(p.date);
 
           // featured image
@@ -91,9 +99,9 @@
           card.innerHTML =
             (src ? ('<a href="'+link+'"><img class="thumb" alt="" loading="lazy" src="'+src+'"></a>') : '') +
             '<div class="pad">'+
-            '<h3><a href="'+link+'">'+title+'</a></h3>'+
-            '<div class="byline">Oklahoma Observer — '+date+'</div>'+
-            '<div class="excerpt">'+(p.excerpt && p.excerpt.rendered || '')+'</div>'+
+              '<h3><a href="'+link+'">'+title+'</a></h3>'+
+              '<div class="byline">Oklahoma Observer — '+date+'</div>'+
+              '<div class="excerpt">'+((p.excerpt && p.excerpt.rendered) || '')+'</div>'+
             '</div>';
           grid.appendChild(card);
         });
@@ -101,10 +109,13 @@
         paging.page += 1;
         paging.busy = false;
       })
-      .catch(() => { paging.busy = false; paging.done = true; });
+      .catch(function(){
+        paging.busy = false;
+        paging.done = true;
+      });
 
-    // grid defensive
-    setTimeout(() => {
+    // grid defensive (ensure section exists)
+    setTimeout(function(){
       var g = app.querySelector('.posts-grid');
       if (!g) {
         var s = document.createElement('section'); s.className='posts-grid'; app.prepend(s);
@@ -131,30 +142,33 @@
         '<p><a class="btn-back" href="#/">← Back to Posts</a></p>'+
       '</article>';
 
-    fetch(API + '/posts/'+id+'?_embed').then(r=>r.json()).then(post=>{
-      var rawTitle = (post.title && post.title.rendered) || '';
-      var cleanTitle = decodeHTML(rawTitle);
-      document.title = (cleanTitle ? cleanTitle + ' – ' : '') + 'The Oklahoma Observer';
+    fetch(API + '/posts/'+id+'?_embed')
+      .then(function(r){ return r.json(); })
+      .then(function(post){
+        var rawTitle = (post.title && post.title.rendered) || '';
+        var cleanTitle = decodeHTML(rawTitle);
+        document.title = (cleanTitle ? cleanTitle + ' – ' : '') + 'The Oklahoma Observer';
 
-      var hero = app.querySelector('.hero');
-      var media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
-      var src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.large || media.media_details.sizes.full).source_url));
-      if (src){ hero.src = src; hero.style.display='block'; }
+        var hero = app.querySelector('.hero');
+        var media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
+        var src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.large || media.media_details.sizes.full).source_url));
+        if (src){ hero.src = src; hero.style.display='block'; }
 
-      app.querySelector('.detail-title').innerHTML = rawTitle;
-      app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + niceDate(post.date);
-      app.querySelector('.post-body').innerHTML = (post.content && post.content.rendered) || 'Post loaded.';
-    }).catch(function(){
-      document.title = 'Post – The Oklahoma Observer';
-      app.querySelector('.post-body').textContent = 'Post not found.';
-    });
+        app.querySelector('.detail-title').innerHTML = rawTitle;
+        app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + niceDate(post.date);
+        app.querySelector('.post-body').innerHTML = (post.content && post.content.rendered) || 'Post loaded.';
+      })
+      .catch(function(){
+        document.title = 'Post – The Oklahoma Observer';
+        app.querySelector('.post-body').textContent = 'Post not found.';
+      });
   }
 
 })();
 
-/* ======== APPEND-ONLY ADDITIONS BELOW (no changes to existing code) ======== */
+/* ======== APPEND-ONLY HELPERS BELOW (no changes to core logic above) ======== */
 
-/** 1) Hamburger toggle + auto-close (safe no-op if hooks not present) */
+/** Hamburger toggle + auto-close (safe no-op if hooks not present) */
 (function initHamburgerSafety() {
   var root = document.body || document.documentElement;
   var appRoot = document.getElementById('app') || root;
@@ -196,9 +210,7 @@
   console.debug('[OkObserver] hamburger ready');
 })();
 
-/** 2) Infinite-scroll duplicate guard (router-aware attach)
- *    Attaches on first grid, and reattaches on any route that renders home.
- */
+/** Infinite-scroll duplicate guard (router-aware attach) */
 (function initDuplicateGuardRouterAware(){
   var seen = new Set();
   var attachedTo; // current grid element observed
@@ -249,20 +261,17 @@
   // Try now (if home already rendered)
   attachIfNeeded();
 
-  // 👇 NEW: when route changes, try again (works when returning from detail)
+  // Re-attempt on route changes (works when returning from detail/about)
   document.addEventListener('okobs:route', function(ev){
-    // only care about the home route
-    if (!ev.detail || ev.detail.hash.indexOf('#/post/') === 0) return;
-    if (ev.detail.hash.indexOf('#/about') === 0) return;
-    // Home or anything else => attempt attach
-    // wait a tick for renderHome to set innerHTML
+    if (!ev.detail) return;
+    var h = ev.detail.hash || '#/';
+    if (h.indexOf('#/post/') === 0) return;
+    if (h.indexOf('#/about') === 0) return;
     setTimeout(attachIfNeeded, 0);
   });
 })();
 
-/** 3) Dev-only video logging (helps verify embeds & the hard fallback post)
- *    Logs when iframes/videos appear in .post-body, including source hints.
- */
+/** Dev-only video logging (helps verify embeds & hard fallback post) */
 (function initVideoLogging(){
   if (location.hash.indexOf('#/post/') !== 0) return; // only on detail
   var target = document.querySelector('#app .post-body');
@@ -293,9 +302,74 @@
   });
   mo.observe(target, { childList: true, subtree: true });
 
-  // Special notice for hard-fallback post
   if (location.hash.indexOf('#/post/381733') === 0) {
     console.debug('[OkObserver] checking hard-fallback post 381733 for embeds…');
   }
 })();
- /* 🔴 main.js — END FULL FILE */
+
+/** OkObserver diagR1 — proxy fetch diagnostics (append-only, safe if proxy OK)
+ *  - Logs post fetches & statuses
+ *  - On first failure shows a fixed top dev banner with a Retry button
+ */
+(function okobsDiagnosticsR1(){
+  if (window.__okobs_diag_installed) return;
+  window.__okobs_diag_installed = true;
+
+  function showDevBanner(message, retry) {
+    try {
+      if (document.getElementById('okobs-dev-banner')) return;
+      var bar = document.createElement('div');
+      bar.id = 'okobs-dev-banner';
+      bar.style.cssText = [
+        'position:fixed;left:0;right:0;top:0;z-index:9999;',
+        'background:#222;color:#fff;font:14px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif;',
+        'padding:8px 12px;box-shadow:0 2px 10px rgba(0,0,0,.25)'
+      ].join('');
+      bar.innerHTML = '<strong>OkObserver:</strong> '+ (message || 'Fetch failed.') +
+        (retry ? ' <button id="okobs-retry" style="margin-left:8px;background:#1E90FF;color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer">Retry</button>' : '');
+      document.body.appendChild(bar);
+      var btn = document.getElementById('okobs-retry');
+      if (btn) btn.addEventListener('click', function(){
+        location.hash = '#/';
+        setTimeout(function(){ location.reload(); }, 50);
+      });
+    } catch(e){}
+  }
+
+  var REAL_FETCH = window.fetch;
+  window.fetch = function(input, init){
+    var url = (typeof input === 'string') ? input : (input && input.url) || '';
+    var isWP = url.includes('/wp-json/wp/v2/posts');
+    if (isWP) console.debug('[OkObserver] fetching posts →', url);
+
+    return REAL_FETCH.apply(this, arguments).then(function(res){
+      if (isWP) {
+        console.debug('[OkObserver] posts status:', res.status);
+        if (!res.ok) {
+          res.clone().text().then(function(txt){
+            console.warn('[OkObserver] posts fetch failed:', res.status, String(txt).slice(0,150));
+            showDevBanner('Proxy returned '+res.status+' for posts. See console for details.', true);
+          }).catch(function(){
+            showDevBanner('Proxy request failed. Status '+res.status, true);
+          });
+        }
+      }
+      return res;
+    }).catch(function(err){
+      if (isWP) {
+        console.error('[OkObserver] posts fetch error:', err);
+        showDevBanner('Network error contacting proxy. Check connection/CORS.', true);
+      }
+      throw err;
+    });
+  };
+
+  // Hint if home grid not yet mounted (can be normal briefly)
+  setTimeout(function(){
+    if ((location.hash || '#/').replace('#','') === '/' && !document.querySelector('#app .posts-grid')) {
+      console.debug('[OkObserver] home grid not mounted yet (this can be normal briefly).');
+    }
+  }, 800);
+})();
+
+// 🔴 main.js — END FULL FILE
