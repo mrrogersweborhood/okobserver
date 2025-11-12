@@ -1746,3 +1746,9 @@ div:has(> .post-card):not(.post-detail) {
 /* extra guard: any ratio box without media */
 .post-detail .post-body > *[style*="padding-top"]:not(:has(iframe,video)) { display:none; }
 /* 🔴 gap killer */
+/* gap guards for any truly empty remnants near the top of the article */
+.post-detail .post-body p:empty,
+.post-detail > p:empty { display: none; }
+
+/* Ensure byline is bold (requested) */
+.detail-byline { font-weight: 700; }
