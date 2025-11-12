@@ -8,12 +8,12 @@
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
   <style>
-    /* keep minimal critical CSS here; bulk is in override.css */
-    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    /* Minimal critical CSS only; full styles in override.css */
+    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
-  <link rel="preload" href="override.css?v=2025-11-12H5" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-12H5" />
+  <link rel="preload" href="override.css?v=2025-11-12H8" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-12H8" />
 </head>
 <body>
   <!-- Sticky Header -->
@@ -41,7 +41,7 @@
 
   <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H7
+    © 2025 The Oklahoma Observer • Build 2025-11-12H8
   </footer>
 
   <!-- Grid Enforcer (MutationObserver must stay) -->
@@ -66,26 +66,30 @@
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker: plain script, explicit scope to /okobserver/ -->
+  <!-- Service Worker registration (plain URL, directory scope, after load) -->
   <script>
     (function(){
-      if (!('serviceWorker' in navigator)) return;
+      if (!('serviceWorker' in navigator)) { console.warn('[OkObserver] SW not supported'); return; }
 
-      // Compute the directory scope, e.g. '/okobserver/'
-      const SCOPE = (location.pathname.endsWith('/')) 
-        ? location.pathname 
-        : location.pathname.replace(/[^/]+$/, '');
+      window.addEventListener('load', function(){
+        // Directory scope for GitHub Pages subpath (e.g., /okobserver/)
+        const scopePath = (location.pathname.endsWith('/')) 
+          ? location.pathname 
+          : location.pathname.replace(/[^/]+$/, '/');
 
-      // Register plain sw.js (no query string) so GH Pages can find it
-      navigator.serviceWorker.register('sw.js', { scope: SCOPE, updateViaCache: 'none' })
-        .then(reg => {
-          console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
-          try { reg.update(); } catch (_) {}
-        })
-        .catch(err => console.warn('[OkObserver] SW register failed:', err));
+        const scriptURL = new URL('sw.js', location.href).href;
 
-      navigator.serviceWorker.getRegistrations()
-        .then(list => console.log('[OkObserver] SW registrations:', list.map(r => ({scope:r.scope, script: (r.active||r.waiting||r.installing)?.scriptURL})) ));
+        navigator.serviceWorker.register('sw.js', { scope: scopePath, updateViaCache: 'none' })
+          .then(reg => {
+            console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL || scriptURL });
+            try { reg.update(); } catch (_) {}
+          })
+          .catch(err => console.warn('[OkObserver] SW register failed:', err));
+
+        // Optional: quick visibility into all registrations on this origin
+        navigator.serviceWorker.getRegistrations()
+          .then(list => console.log('[OkObserver] SW registrations:', list.map(r => ({scope:r.scope, script:(r.active||r.waiting||r.installing)?.scriptURL})) ));
+      });
     })();
   </script>
 </body>

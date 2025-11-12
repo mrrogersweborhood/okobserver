@@ -1,18 +1,17 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h9
-   Scope: directory of sw.js (computed in index.html as '/okobserver/')
+/* OkObserver Service Worker — Build 2025-11-12R1h10
+   Scope: directory of sw.js (index registers with scope = current directory, e.g., '/okobserver/')
    Strategy: Network-first for HTML; cache-first for static assets
-   No query strings on worker URL (GH Pages friendly)
+   IMPORTANT: keep this file in the same directory as index.html on GitHub Pages.
 */
 
-// 🟢 sw.js — start of full file
-const SW_BUILD   = '2025-11-12R1h9';
+const SW_BUILD   = '2025-11-12R1h10';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
   '/', './',
-  'index.html?v=2025-11-12H7',
-  'override.css?v=2025-11-12H5',
+  'index.html?v=2025-11-12H8',
+  'override.css?v=2025-11-12H8',
   'main.js?v=2025-11-12R1h8',
   'PostDetail.js?v=2025-11-10R6',
   'logo.png',
@@ -43,7 +42,6 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
 
   if (isHTML(req)){
-    // Network-first for navigations/HTML
     event.respondWith((async()=>{
       try{
         const fresh = await fetch(req);
@@ -52,14 +50,13 @@ self.addEventListener('fetch', (event) => {
         return fresh;
       }catch(_){
         const cache = await caches.open(CACHE_NAME);
-        const fallback = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H7');
+        const fallback = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H8');
         return fallback || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());
     return;
   }
 
-  // Cache-first for static assets
   event.respondWith((async()=>{
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(req);
@@ -69,5 +66,4 @@ self.addEventListener('fetch', (event) => {
     return new Response('', { status: 504 });
   })());
 });
-
 // 🔴 sw.js — end of full file
