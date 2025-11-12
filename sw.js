@@ -1,16 +1,16 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h3
+/* OkObserver Service Worker — Build 2025-11-12R1h4
    - Versioned cache to force purge on deploys
    - Network-first for HTML routes; cache-first for static assets
    - Plain JS only
 */
-const SW_BUILD = '2025-11-12R1h3';
+const SW_BUILD = '2025-11-12R1h4';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
   '/', './', 'index.html?v=2025-11-12H3',
   'override.css?v=2025-11-12H3',
-  'main.js?v=2025-11-12R1h5',
+  'main.js?v=2025-11-12R1h6',
   'PostDetail.js?v=2025-11-10R6',
   'logo.png', 'favicon.ico'
 ];

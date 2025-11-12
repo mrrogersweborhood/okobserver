@@ -1,8 +1,8 @@
 // 🟢 main.js — start of full file
-/* OkObserver Main — Build 2025-11-12R1h5
+/* OkObserver Main — Build 2025-11-12R1h6
    - Preserves 4/3/1 grid, deduped infinite scroll, one fetch/page
    - Strict cartoon filter (slug === 'cartoon' only)
-   - Detail: decode titles; “reveal after ready”; scrub empty wrappers to kill top white gap
+   - Detail: decode titles; “reveal after ready”; scrub/replace embed placeholders to kill blank rectangles
    - Video autodetect (Vimeo/YouTube) + hard fallback for /post/381733
    - Robust hamburger (single controller) + overlay; closes on ESC/resize/link
    - Emits okobs:route events for grid-enforcer
@@ -10,7 +10,7 @@
 */
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h5';
+  const BUILD = '2025-11-12R1h6';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -157,28 +157,35 @@
       const bodyHTML = (post.content && post.content.rendered) || '';
       const bodyEl = app.querySelector('.post-body'); bodyEl.innerHTML = bodyHTML;
 
-      // scrub empty/ratio wrappers that create top gap
+      // scrub obvious blank nodes at the top
       tidyArticleSpacing(bodyEl);
 
-      const videoSlot = app.querySelector('.video-slot');
+      // Detect video URL
       const candidate = findVideoUrl(bodyHTML);
-      const embed = buildEmbed(candidate, post.id);
+      const embedHTML = buildEmbed(candidate, post.id);
 
-      if (embed){
+      // Try to REPLACE the first WP embed wrapper with our iframe (prevents blank rounded rectangles).
+      let replaced = false;
+      if (embedHTML){
+        replaced = replaceFirstEmbedWrapper(bodyEl, embedHTML, candidate);
+      }
+
+      const videoSlot = app.querySelector('.video-slot');
+      if (!replaced && embedHTML){
+        // Fallback: use dedicated slot near the top
         videoSlot.style.display='none';
-        videoSlot.innerHTML = embed;
+        videoSlot.innerHTML = embedHTML;
         const iframe = videoSlot.querySelector('iframe');
         let shown=false;
-
-        const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
-        const giveUp  = ()=>{ if(shown) return; videoSlot.innerHTML=''; videoSlot.style.display='none'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
-
+        const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; };
+        const giveUp  = ()=>{ if(shown) return; videoSlot.innerHTML=''; videoSlot.style.display='none'; };
         iframe && iframe.addEventListener('load', showNow, { once:true });
         setTimeout(showNow, 600);
         setTimeout(giveUp, 4000);
-      } else {
-        scrubLeadingEmbedPlaceholders(bodyEl, candidate);
       }
+
+      // Purge ANY leftover empty embed wrappers anywhere in the body (prevents the blank rounded rectangle seen in your screenshot).
+      purgeEmptyEmbedBoxes(bodyEl, candidate);
 
       requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
     }).catch(()=>{
@@ -255,26 +262,46 @@
     }
   }
 
-  function scrubLeadingEmbedPlaceholders(container, urlCandidate){
-    let changed=false;
-    while (container.firstElementChild){
-      const el = container.firstElementChild;
-      const cls = (el.className||'')+'';
-      const html = el.innerHTML||'';
-      const hasIframe = el.querySelector ? !!el.querySelector('iframe, video') : false;
-      const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
-      const isVideoLinkPara = el.tagName === 'P' &&
-        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test((el.textContent||'')) && !hasIframe;
-      const style = el.getAttribute && (el.getAttribute('style') || '');
-      const looksLikeRatio = /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
-      const matchesDetected = urlCandidate && ((html||'').includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
-      if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected){ el.remove(); changed=true; continue; }
-      break;
+  // Replace the first WP embed wrapper with a real iframe
+  function replaceFirstEmbedWrapper(container, embedHTML, urlCandidate){
+    const sel = [
+      '.wp-block-embed',
+      '.wp-block-embed__wrapper',
+      '.wp-embed-aspect-16-9',
+      'div[data-oembed-url]',
+      'p'
+    ].join(',');
+    const nodes = Array.from(container.querySelectorAll(sel));
+    for (const el of nodes){
+      const txt = (el.textContent||'').trim();
+      const hasIframe = !!el.querySelector('iframe,video');
+      const looksVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(txt);
+      const isWpEmbed = /\bwp-block-embed\b/.test(el.className||'') || /\bwp-embed-aspect\b/.test(el.className||'') || el.hasAttribute('data-oembed-url');
+      if (hasIframe) continue;
+      if (isWpEmbed || looksVideoLink){
+        const wrap = document.createElement('div');
+        wrap.innerHTML = embedHTML;
+        el.replaceWith(wrap.firstElementChild);
+        return true;
+      }
     }
-    if (changed){
-      const fc = container.firstElementChild;
-      if (fc) fc.style.marginTop='0';
-    }
+    return false;
+  }
+
+  // Remove ANY empty embed boxes (anywhere), not just the first
+  function purgeEmptyEmbedBoxes(container, urlCandidate){
+    const candidates = container.querySelectorAll('.wp-block-embed, .wp-block-embed__wrapper, .wp-embed-aspect-16-9, div[data-oembed-url], p');
+    candidates.forEach(el=>{
+      const hasMedia = !!el.querySelector('iframe,video');
+      const text = (el.textContent||'').trim();
+      const isVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(text);
+      if (!hasMedia && (isVideoLink || /\bwp-block-embed\b/.test(el.className||'') || el.hasAttribute('data-oembed-url'))){
+        // If it’s just a placeholder or naked link, drop it to avoid blank rounded rectangles.
+        el.remove();
+      }
+    });
+    // After removals, ensure top margin is clean.
+    const fc = container.firstElementChild; if (fc) fc.style.marginTop='0';
   }
 
   // ---------- Safety ----------
