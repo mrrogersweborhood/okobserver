@@ -1738,3 +1738,11 @@ div:has(> .post-card):not(.post-detail) {
 /* ensure top of article starts tight */
 .post-detail .post-body > *:first-child { margin-top:0 !important; }
 /* 🔴 detail gap fixes */
+/* 🟢 gap killer for stray Gutenberg wrappers */
+.post-detail .post-body figure.wp-block-embed:not(:has(iframe)),
+.post-detail .post-body .wp-embed-aspect:not(:has(iframe)),
+.post-detail .post-body .wp-block-video:not(:has(video)) { display:none; }
+
+/* extra guard: any ratio box without media */
+.post-detail .post-body > *[style*="padding-top"]:not(:has(iframe,video)) { display:none; }
+/* 🔴 gap killer */
