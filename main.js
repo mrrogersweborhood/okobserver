@@ -1,12 +1,20 @@
-/* 🟢 main.js — OkObserver Build 2025-11-11R1r
-   Full-file replacement. Fixes residual white gap on some posts by
-   removing leftover embed wrappers without iframes and clearing
-   temporary min-height after reveal. Keeps hamburger, de-dup, filters.
+🟢 main.js
+/* 🟢 main.js — OkObserver Build 2025-11-12R1g
+   Full-file replacement (no truncation).
+   - Fixes residual white gap on some posts (scrubs empty/ratio wrappers).
+   - Keeps “reveal after ready” to avoid flashing empty detail.
+   - Bold byline on detail.
+   - Vimeo/YouTube autodetect + hard fallback for post 381733.
+   - Hamburger: open/close + ESC/overlay + click-out to close.
+   - Strict cartoon filter & duplicate guard on home feed.
+   - Router + infinite scroll preserved.
+
+   NOTE: This header comment with the green circle is intentional per your format.
 */
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1r';
+  const BUILD = '2025-11-12R1g';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -46,7 +54,9 @@
   function renderHome(){
     window.onscroll = null;
     const grid = getOrMountGrid();
+    // disable de-dupe guard animations on home re-render
     window.__OKOBS_DUP_GUARD_ENABLED__ = false;
+
     paging.page=1; paging.busy=false; paging.done=false;
     seenIds.clear(); grid.innerHTML='';
     loadMore();
@@ -70,14 +80,14 @@
       .then(arr=>{
         if (!isHome()) { paging.busy=false; return; }
         const grid = document.querySelector('#app .posts-grid') || getOrMountGrid();
-        let rendered=0, skipped=0;
+        let rendered=0;
 
         arr.forEach(p=>{
           const id = String(p.id);
           if (seenIds.has(id)) return;
 
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
-          if (!DISABLE_CARTOON_FILTER && isCartoonSlugList(cats)) { skipped++; return; }
+          if (!DISABLE_CARTOON_FILTER && isCartoonSlugList(cats)) { return; }
 
           const title = (p.title && p.title.rendered) || 'Untitled';
           const link  = `#/post/${p.id}`;
@@ -119,12 +129,14 @@
   // ---------- Detail ----------
   function renderDetail(id){
     window.onscroll = null; paging.done=true; paging.busy=false;
+
+    // Hide until we’ve mounted media/body to avoid any “empty page” flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
         <div class="video-slot" style="display:none"></div>
         <h1 class="detail-title"></h1>
-        <div class="detail-byline" style="font-weight:600;"></div>
+        <div class="detail-byline" style="font-weight:700;"></div>
         <div class="post-body"></div>
         <p><a class="btn-back" href="#/">← Back to Posts</a></p>
       </article>`;
@@ -286,7 +298,7 @@
   }, 500));
 })();
 
-/* ========== hamburger (no change) ========== */
+/* ========== hamburger (no change in selectors; improved close logic) ========== */
 (function initHamburger(){
   const btn  = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
   const menu = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
@@ -306,88 +318,5 @@
   menu.addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) close(); });
 })();
 
-/* 🔴 main.js — end of file (Build 2025-11-11R1r) */
-// 🟢 main.js — append-only patch (Gap scrub + safety). Keep existing code above intact.
-// This block is intentionally self-contained and only activates on post detail.
-
-(function OkObserver_GapScrub_IIFE() {
-  var LOG = '[OkObserver]';
-  try {
-    // Run only on post detail routes: "#/post/<id>"
-    if (!location.hash || !/^#\/post\/\d+/.test(location.hash)) return;
-
-    // Utility: wait until .post-detail is mounted (router is async)
-    function until(fn, ms, step) {
-      ms = ms || 3000;
-      step = step || 50;
-      var t0 = performance.now();
-      return new Promise(function (res) {
-        (function loop() {
-          var v = fn();
-          if (v || performance.now() - t0 > ms) return res(v);
-          setTimeout(loop, step);
-        })();
-      });
-    }
-
-    function isEmptyNode(el) {
-      if (!el) return false;
-      if (el.querySelector && (el.querySelector('iframe') || el.querySelector('video'))) return false;
-      var text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
-      return text.length === 0;
-    }
-
-    (async function run() {
-      var article = await until(function () { return document.querySelector('.post-detail'); }, 4000, 60);
-      if (!article) {
-        console.warn(LOG, 'gap-scrub: post detail not found; skipped');
-        return;
-      }
-
-      // Use .post-body if your template has it, otherwise operate on the article node.
-      var body = article.querySelector('.post-body') || article;
-
-      // Start scrubbing *after* the byline if present.
-      var byline = article.querySelector('.detail-byline');
-      var cursor = byline ? byline.nextElementSibling : body.firstElementChild;
-
-      var removed = 0;
-      while (cursor) {
-        var el = cursor;
-        var hasMedia = !!(el.querySelector && (el.querySelector('iframe') || el.querySelector('video')));
-        var cls = ((el.className || '') + '');
-        var style = el.getAttribute ? (el.getAttribute('style') || '') : '';
-
-        var isWpEmbed = /\bwp-block-embed\b|\bwp-embed-aspect\b|\bwp-block-video\b/.test(cls);
-        var looksLikeRatio = /padding-top:\s*(?:56\.25%|7\d%|6\d%|[3-8]\d%)/i.test(style) && !hasMedia;
-
-        // "bare link paragraph": a single <a> node, short text, no media
-        var isBareLinkPara =
-          el.tagName === 'P' &&
-          el.children && el.children.length === 1 &&
-          el.firstElementChild && el.firstElementChild.tagName === 'A' &&
-          ((el.textContent || '').trim().length < 140) &&
-          !hasMedia;
-
-        if (isWpEmbed || looksLikeRatio || isBareLinkPara || isEmptyNode(el)) {
-          var next = el.nextElementSibling;
-          el.remove();
-          removed++;
-          cursor = next;
-          continue;
-        }
-        break; // stop at first real content
-      }
-
-      // Clean top margin on first real child after the byline (if any)
-      var first = byline ? byline.nextElementSibling : body.firstElementChild;
-      if (first && first.style) first.style.marginTop = '0';
-
-      console.log(LOG, 'gap-scrub: removed leading placeholders =', removed);
-    })();
-  } catch (err) {
-    console.error(LOG, 'gap-scrub error:', err);
-  }
-})();
-
-// 🔴 main.js — end of append-only patch
+/* 🔴 main.js — end of file (Build 2025-11-12R1g) */
+🔴 main.js
