@@ -1,8 +1,13 @@
-// 🟢 main.js — OkObserver Build 2025-11-11R1n (detail video autodetect + hard fallback for /post/381733, hamburger fix, hidden pre-render)
+/* 🟢 main.js — OkObserver Build 2025-11-11R1p
+   Notes: full-file replacement with guarded video mount (prevents white gap),
+   hamburger fix (toggle [hidden] + aria), strict cartoon filter,
+   hidden pre-render on detail, append-time de-dup on home.
+   This header is the required 🟢 marker with filename.
+*/
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1n';
+  const BUILD = '2025-11-11R1p';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -154,7 +159,7 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // ---------- Detail (hidden pre-render + video autodetect) ----------
+  // ---------- Detail (hidden pre-render + video autodetect with guarded mount) ----------
   function renderDetail(id) {
     window.onscroll = null;
     paging.done = true; paging.busy = false;
@@ -189,23 +194,37 @@
         app.querySelector('.detail-title').innerHTML = rawTitle;
         app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + new Date(post.date).toLocaleDateString();
         const bodyHTML = (post.content && post.content.rendered) || '';
-        app.querySelector('.post-body').innerHTML = bodyHTML;
+        const bodyEl = app.querySelector('.post-body');
+        bodyEl.innerHTML = bodyHTML;
+
+        // Tidy leading gaps in WP HTML (remove truly empty first blocks, zero out first-child top margin)
+        (function tidyArticleSpacing(container){
+          // remove leading empties
+          while (container.firstElementChild && isTrulyEmpty(container.firstElementChild)) {
+            container.firstElementChild.remove();
+          }
+          // clamp first child top margin if exists
+          const fc = container.firstElementChild;
+          if (fc) fc.style.marginTop = '0';
+          function isTrulyEmpty(node){
+            if (!node) return false;
+            const imgs = node.querySelectorAll('img, iframe, video, svg, picture');
+            if (imgs.length) return false;
+            const text = (node.textContent || '').replace(/\u00a0/g,' ').trim();
+            return text.length === 0;
+          }
+        })(bodyEl);
 
         // ---- Video autodetect (Vimeo / YouTube); place right under hero ----
         const videoSlot = app.querySelector('.video-slot');
 
-        // Find candidate URLs in the body (anchors or bare links)
         function findVideoUrl(html) {
           const tmp = document.createElement('div');
           tmp.innerHTML = html;
-          // 1) anchors
           const a = Array.from(tmp.querySelectorAll('a[href]')).map(x => x.href);
-          // 2) bare text links
           const text = tmp.textContent || '';
           const bare = (text.match(/https?:\/\/\S+/g) || []);
           const urls = [...a, ...bare];
-
-          // Prioritize Vimeo/YouTube
           for (const u of urls) {
             if (/vimeo\.com\/\d+/.test(u)) return u;
             if (/youtu\.be\/[A-Za-z0-9_-]{6,}/.test(u)) return u;
@@ -248,8 +267,7 @@
 
           // Hard fallback for specific problematic post(s)
           if (postId === 381733) {
-            // From your WP editor: https://vimeo.com/1126193884
-            const vid = '1126193884';
+            const vid = '1126193884'; // Vimeo ID from WP
             return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                       <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
                         allow="autoplay; fullscreen; picture-in-picture"
@@ -262,10 +280,31 @@
 
         const candidate = findVideoUrl(bodyHTML);
         const embed = buildEmbed(candidate, post.id);
+
+        // 🟢 guarded video mount: only show after iframe loads (prevents white gap)
         if (embed) {
+          videoSlot.style.display = 'none';
           videoSlot.innerHTML = embed;
-          videoSlot.style.display = 'block';
+
+          const iframe = videoSlot.querySelector('iframe');
+          let shown = false;
+
+          function showNow() {
+            if (shown) return;
+            shown = true;
+            videoSlot.style.display = 'block';
+          }
+          function giveUp() {
+            if (shown) return;
+            videoSlot.innerHTML = '';
+            videoSlot.style.display = 'none';
+          }
+
+          iframe && iframe.addEventListener('load', showNow, { once: true });
+          setTimeout(() => { if (!shown) showNow(); }, 600);  // cached fast path
+          setTimeout(giveUp, 4000);                           // final fallback
         }
+        // 🔴 guarded video mount
 
         requestAnimationFrame(() => { detailEl.style.visibility = 'visible'; });
       })
@@ -286,7 +325,7 @@
 
 /* ========== helpers ========== */
 
-// 🟢 Hamburger: toggle [hidden] + aria-expanded + overlay (kept from R1m)
+// 🟢 Hamburger fix: toggle [hidden] + aria-expanded + overlay (unchanged behavior)
 (function initHamburger(){
   const btn     = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
   const menu    = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
@@ -318,17 +357,21 @@
   }, { passive: true });
   document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && isOpen()) close(); });
 
+  // close menu after navigation click
   menu.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if (a) close(); });
 
   console.debug('[OkObserver] hamburger ready (hidden toggle + aria)');
 })();
 
-// Legacy duplicate guard — intentionally disabled
+// Legacy duplicate guard — intentionally disabled (append-time de-dup is used)
 (function dupGuard(){
   if (window.__OKOBS_DUP_GUARD_ENABLED__ === false) {
     console.debug('[OkObserver] duplicate guard disabled');
     return;
   }
+  // no-op by design
 })();
 
-// 🔴 main.js — end of file (Build 2025-11-11R1n)
+/* 🔴 main.js — end of file (Build 2025-11-11R1p)
+   This footer is the required 🔴 marker with filename.
+*/

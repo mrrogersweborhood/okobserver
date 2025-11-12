@@ -1710,3 +1710,15 @@ div:has(> .post-card):not(.post-detail) {
   position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 1000;
 }
 /* 🔴 hamburger dropdown basics */
+/* 🟢 detail spacing tighten */
+.post-detail .hero { display:block; max-width:100%; height:auto; margin:12px auto 16px; }
+.post-detail .video-embed { margin:12px 0 20px; }
+
+/* remove phantom gaps from empty nodes */
+.post-detail .post-body p:empty,
+.post-detail .post-body div:empty,
+.post-detail .post-body figure:empty { display:none; }
+
+/* avoid extra top gap on first element */
+.post-detail > *:first-child { margin-top: 0; }
+/* 🔴 detail spacing tighten */
