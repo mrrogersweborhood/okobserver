@@ -11,8 +11,8 @@
     html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
-  <link rel="preload" href="override.css?v=2025-11-12H8" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-12H8" />
+  <link rel="preload" href="override.css?v=2025-11-12H10" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-12H10" />
 </head>
 <body>
   <!-- Sticky Header -->
@@ -50,7 +50,7 @@
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
         if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(el => { el.classList.add('post-card'); });
+        grid.querySelectorAll('.post-card').forEach(el => el.classList.add('post-card'));
       };
       const mo = new MutationObserver(ensure);
       mo.observe(document.getElementById('app'), { childList:true, subtree:true });
@@ -74,10 +74,13 @@
       const SCRIPT = '/okobserver/sw.js';
 
       window.addEventListener('load', function(){
-        // Preflight: make sure sw.js is actually reachable (prevents the “script: Unknown / Not found” error)
         fetch(SCRIPT, { cache: 'no-store' })
           .then(r => {
-            if (!r.ok) { console.warn('[OkObserver] SW preflight failed:', r.status, r.statusText); return; }
+            if (!r.ok) {
+              console.warn('[OkObserver] SW preflight failed:', r.status, r.statusText, r.url);
+              console.warn('Move sw.js next to index.html so it is served at', SCRIPT);
+              return null;
+            }
             return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' });
           })
           .then(reg => {

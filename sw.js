@@ -1,15 +1,16 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h12
-   Absolute registration: SCRIPT=/okobserver/sw.js, SCOPE=/okobserver/
+/* OkObserver Service Worker — Build 2025-11-12R1h13
+   Registration: SCRIPT=/okobserver/sw.js  SCOPE=/okobserver/
+   Keep this file in the SAME FOLDER as index.html (GitHub Pages /okobserver/).
    Strategy: Network-first for HTML; cache-first for static.
 */
-const SW_BUILD   = '2025-11-12R1h12';
+const SW_BUILD   = '2025-11-12R1h13';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
   '/okobserver/', './',
   'index.html?v=2025-11-12H10',
-  'override.css?v=2025-11-12H8',
+  'override.css?v=2025-11-12H10',
   'main.js?v=2025-11-12R1h8',
   'PostDetail.js?v=2025-11-10R6',
   'logo.png',
