@@ -1,4 +1,4 @@
-<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • RESTORE: static logo.png -->
+<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • SCRIPT TAG FIX -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,12 +6,9 @@
   <title>The Oklahoma Observer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1E90FF">
-  <!-- Tab icon only -->
   <link rel="icon" href="favicon.ico">
-  <!-- Core styles (stable) -->
   <link rel="stylesheet" href="override.css?v=2025-11-07SR1">
   <style>
-    /* Minimal safety styles that won’t fight override.css */
     body{margin:0;background:#f7f8fa;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     header.okobs-header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
     header.okobs-header .okobs-header-inner{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:center;position:relative}
@@ -22,15 +19,13 @@
     header.okobs-header nav.menu[hidden]{display:none}
     main#app{max-width:1200px;margin:18px auto;padding:0 16px;min-height:40vh}
     footer.site-footer{max-width:1200px;margin:32px auto;padding:24px 16px;color:#555;font-size:14px;text-align:center}
-    a.btn-back, .back-to-posts, .oo-backbtn{background:#1E90FF;color:#fff;border:0;border-radius:10px;padding:.5rem .75rem;text-decoration:none}
+    a.btn-back,.back-to-posts,.oo-backbtn{background:#1E90FF;color:#fff;border:0;border-radius:10px;padding:.5rem .75rem;text-decoration:none}
   </style>
 </head>
 <body>
-  <!-- Sticky header with centered logo + motto; always-hamburger on right -->
   <header class="okobs-header" role="banner" aria-label="OkObserver Header">
     <div class="okobs-header-inner">
       <a class="brand" href="#/" aria-label="Go to posts">
-        <!-- RESTORED: static root logo.png (never favicon). Cache-busted so you see it immediately. -->
         <img class="logo" src="logo.png?v=2025-11-11R1" alt="The Oklahoma Observer">
         <div class="motto">To comfort the afflicted and afflict the comfortable</div>
       </a>
@@ -43,20 +38,18 @@
     </div>
   </header>
 
-  <!-- App mount point -->
   <main id="app" class="oo-app" role="main" aria-live="polite" aria-busy="true"></main>
 
-  <!-- Footer with build tag -->
   <footer class="site-footer">
     © 2025 The Oklahoma Observer • Build 2025-11-11R1-headerHamburger
   </footer>
 
-  <!-- Post detail helper then main app -->
+  <!-- Order matters: PostDetail helper first, then MAIN (now pointing to R1f) -->
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
-  <script defer src="main.js?v=2025-11-11R1f></script>
+  <script defer src="main.js?v=2025-11-11R1f"></script>
 
-  <!-- Service worker registration -->
   <script>
+    // Keep SW but allow easy version bump
     (function(){
       try{
         if('serviceWorker' in navigator){
