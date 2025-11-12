@@ -1,21 +1,24 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h9
+// 🟢 main.js — OkObserver Build 2025-11-12R1h10
 /* Full-file replacement (no truncation).
-   - Facebook videos: **NO IFRAME**. Show a 16:9 preview block with a big
-     “Watch on Facebook” button (always works even when FB blocks embedding).
-   - Vimeo/YouTube: normal responsive iframe embed.
-   - Preserve <a> links in post excerpts (unwrap others, keep children).
-   - Scrub stray Gutenberg/embed wrappers that caused leading white gap.
-   - Reveal detail only after media/body ready (prevents empty flash).
-   - Bold byline on detail.
-   - Hard fallback for post 381733 (Vimeo id 1126193884).
+   Key update:
+   - For Facebook videos: we DO NOT render an iframe nor a separate video box.
+     Instead we turn the featured image (hero) into a clickable overlay with a
+     centered “Watch on Facebook” button. This removes the gray gap and matches
+     the desired look (“featured image with play button”).
+   Other preserved behavior:
+   - Vimeo/YouTube: responsive iframe embed + optional CTA link.
+   - Preserve <a> links in excerpts; unwrap other tags.
+   - Scrub Gutenberg/embed wrappers that caused leading white gap.
+   - Reveal detail after media/body ready to avoid flashes.
+   - Bold byline under image; hard fallback for post 381733 (Vimeo id 1126193884).
    - Hamburger overlay controller (ESC / click-out / resize-close).
-   - Strict cartoon filter & duplicate guard on home (4/3/1 grid is CSS).
+   - Strict cartoon filter & duplicate guard on home (4/3/1 grid via CSS).
 */
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h9';
+  const BUILD = '2025-11-12R1h10';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -58,10 +61,9 @@
     const title = decodeHtml(post.title && post.title.rendered || '');
     const date = new Date(post.date);
     const byline = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
-
     const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
 
-    // Preserve anchors anywhere in the excerpt (unwrap other tags but keep children)
+    // Preserve anchors anywhere in the excerpt (unwrap others, keep children)
     const excerptHTML = sanitizeExcerptKeepAnchors(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
 
     el.innerHTML = `
@@ -139,7 +141,9 @@
     // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
-        <img class="hero" alt="" style="display:none" />
+        <div class="hero-wrap" style="position:relative;">
+          <img class="hero" alt="" style="display:none" />
+        </div>
         <div class="video-slot" style="display:none"></div>
         <h1 class="detail-title"></h1>
         <div class="detail-byline" style="font-weight:700;"></div>
@@ -150,6 +154,7 @@
 
     fetch(`${API}/posts/${id}?_embed`).then(r=>r.json()).then(post=>{
       const detailEl = app.querySelector('.post-detail');
+      const heroWrap = app.querySelector('.hero-wrap');
       const hero = app.querySelector('.hero');
       const titleEl = app.querySelector('.detail-title');
       const bylineEl = app.querySelector('.detail-byline');
@@ -174,45 +179,48 @@
       const videoSlot = app.querySelector('.video-slot');
       const candidate = findVideoUrl(bodyHTML);
       const isFB = candidate && /facebook\.com/i.test(candidate);
-      const embed = isFB ? '' : buildEmbed(candidate, post.id); // <- flip: never iframe FB
 
-      if (embed){
-        // Vimeo/YouTube path (true iframe)
-        videoSlot.style.display='none';
-        videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
-        const iframe = videoSlot.querySelector('iframe');
-        let shown=false;
-        const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
-        const giveUp  = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
-        iframe && iframe.addEventListener('load', showNow, { once:true });
-        setTimeout(showNow, 600);
-        setTimeout(giveUp, 4000);
-      } else if (candidate) {
-        // FB path: show 16:9 dark preview with CTA only
-        videoSlot.style.display='block';
-        const previewSrc = img ? `${img}?cb=${post.id}` : '';
-        const bg = previewSrc ? `style="background:#000;border-radius:12px;overflow:hidden;position:relative"` :
-                                `style="background:#000;border-radius:12px;overflow:hidden;position:relative"`;
-        const imageLayer = previewSrc
-          ? `<img src="${previewSrc}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.6">`
-          : '';
-        videoSlot.innerHTML = `
-          <div class="video-embed" data-host="facebook"
-               style="position:relative;padding-top:56.25%;box-shadow:0 8px 22px rgba(0,0,0,.15);">
-            <div ${bg}>
-              ${imageLayer}
-              <a href="${candidate}" target="_blank" rel="noopener"
-                 style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-                        display:inline-block;background:#1E90FF;color:#fff;padding:12px 18px;border-radius:999px;
-                        text-decoration:none;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25)">
-                Watch on Facebook ↗
-              </a>
-            </div>
-          </div>`;
+      if (isFB) {
+        // Turn HERO into a “watch on Facebook” overlay (no separate video box)
+        if (heroWrap && hero){
+          heroWrap.style.borderRadius = '12px';
+          heroWrap.style.overflow = 'hidden';
+          heroWrap.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
+          hero.style.display='block';
+          hero.style.width='100%';
+          hero.style.height='auto';
+          // Button overlay
+          const btn = document.createElement('a');
+          btn.href = candidate;
+          btn.target = '_blank';
+          btn.rel = 'noopener';
+          btn.textContent = 'Watch on Facebook ↗';
+          btn.setAttribute('aria-label','Watch on Facebook');
+          Object.assign(btn.style, {
+            position:'absolute', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
+            background:'#1E90FF', color:'#fff', padding:'12px 18px', borderRadius:'999px',
+            textDecoration:'none', fontWeight:'700', boxShadow:'0 2px 10px rgba(0,0,0,.25)'
+          });
+          heroWrap.appendChild(btn);
+        }
+        // Ensure any leading embed placeholders are gone
         scrubLeadingEmbedPlaceholders(bodyEl, candidate);
       } else {
-        // No video detected
-        scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        // Vimeo/YouTube / special-case fallback path
+        const embed = buildEmbed(candidate, post.id);
+        if (embed){
+          videoSlot.style.display='none';
+          videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
+          const iframe = videoSlot.querySelector('iframe');
+          let shown=false;
+          const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
+          const giveUp  = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
+          iframe && iframe.addEventListener('load', showNow, { once:true });
+          setTimeout(showNow, 600);
+          setTimeout(giveUp, 4000);
+        } else {
+          scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        }
       }
 
       requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
@@ -270,11 +278,10 @@
     return null;
   }
 
-  // Build external CTA used for iframe hosts (not used for FB since we render overlay)
+  // Build external CTA used for iframe hosts (not used for FB since hero handles it)
   function buildExternalCTA(url){
     if (!url) return '';
-    const isFB = /facebook\.com/i.test(url);
-    if (isFB) return ''; // FB handled with overlay block above
+    if (/facebook\.com/i.test(url)) return '';
     const isYT = /youtu(?:\.be|be\.com)/i.test(url);
     const isVM = /vimeo\.com/i.test(url);
     const label = isYT ? 'Watch on YouTube' : isVM ? 'Watch on Vimeo' : 'Open Video';
@@ -288,7 +295,7 @@
       </div>`;
   }
 
-  // Build embed iframe for Vimeo/YouTube only
+  // Build embed iframe for Vimeo/YouTube only; plus hard fallback for 381733
   function buildEmbed(url, postId){
     if (!url) return '';
     // Vimeo
@@ -373,25 +380,20 @@
   }
 })();
 
-/* 🟢 main.js (APPEND) — Hamburger controller v2025-11-12H2
-   Tolerant init: waits for DOMContentLoaded, overlay optional, no false warnings. */
+/* 🟢 main.js (APPEND) — Hamburger controller v2025-11-12H2 */
 (function () {
   function init() {
     const btn = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
     const menu = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
     const overlay = document.querySelector('[data-oo="overlay"]')|| document.querySelector('.oo-overlay'); // optional
 
-    if (!btn || !menu) {
-      console.warn('[OkObserver] hamburger elements missing');
-      return;
-    }
+    if (!btn || !menu) { console.warn('[OkObserver] hamburger elements missing'); return; }
 
     const root = document.documentElement;
-
-    function isOpen(){ return root.classList.contains('is-menu-open'); }
-    function openMenu(){ root.classList.add('is-menu-open'); menu.hidden=false; btn.setAttribute('aria-expanded','true'); if(overlay) overlay.hidden=false; }
-    function closeMenu(){ root.classList.remove('is-menu-open'); menu.hidden=true; btn.setAttribute('aria-expanded','false'); if(overlay) overlay.hidden=true; }
-    function toggle(){ isOpen() ? closeMenu() : openMenu(); }
+    const isOpen = ()=>root.classList.contains('is-menu-open');
+    const openMenu = ()=>{ root.classList.add('is-menu-open'); menu.hidden=false; btn.setAttribute('aria-expanded','true'); if(overlay) overlay.hidden=false; };
+    const closeMenu= ()=>{ root.classList.remove('is-menu-open'); menu.hidden=true;  btn.setAttribute('aria-expanded','false'); if(overlay) overlay.hidden=true; };
+    const toggle   = ()=>{ isOpen()? closeMenu(): openMenu(); };
 
     btn.addEventListener('click', e=>{ e.stopPropagation(); toggle(); });
     document.addEventListener('click', e=>{ if(!isOpen()) return; if(menu.contains(e.target) || btn.contains(e.target)) return; closeMenu(); }, { passive:true });
@@ -402,12 +404,8 @@
 
     console.log('[OkObserver] hamburger ready');
   }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once:true });
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
+  else init();
 })();
  /* 🔴 main.js (APPEND) — END */
 
