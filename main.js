@@ -1,15 +1,16 @@
-// 🟢 Full file: main.js v2025-11-11R1g • Tight cartoon filter + render diagnostics + override hook
+// 🟢 Full file: main.js v2025-11-11R1h • Stabilize grid mount, live-append, suspend dup-guard on Home, strict cartoon filter
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1g';
+  const BUILD = '2025-11-11R1h';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   let app = document.getElementById('app');
 
-  // Router
+  // ---- Router ----
   window.addEventListener('hashchange', route);
   window.addEventListener('load', route);
+
   function route() {
     const hash = location.hash || '#/';
     console.log('[OkObserver] route()', hash);
@@ -20,22 +21,16 @@
   }
   window.__ok_route = h => { if (h) location.hash=h; route(); };
 
-  // Home state
+  // ---- Home state ----
   const paging = { page:1, busy:false, done:false };
-  let DISABLE_CARTOON_FILTER = false; // can be toggled from console
+  let DISABLE_CARTOON_FILTER = false;
+  window.__ok_disableCartoonFilter = (on=true)=>{ DISABLE_CARTOON_FILTER=!!on; console.warn('[OkObserver] cartoon filter disabled =', DISABLE_CARTOON_FILTER); route(); };
 
-  // Expose override so we can prove rendering
-  window.__ok_disableCartoonFilter = function(on=true){
-    DISABLE_CARTOON_FILTER = !!on;
-    console.warn('[OkObserver] Cartoon filter disabled =', DISABLE_CARTOON_FILTER, '— refreshing home…');
-    location.hash = '#/'; route();
-  };
-
-  function ensureGrid(){
+  function getOrMountGrid() {
+    if (!app) app = document.getElementById('app');
     let grid = app && app.querySelector('.posts-grid');
     if (!grid) {
-      if (!app) app = document.getElementById('app');
-      if (!app) { console.error('[OkObserver] #app missing'); return null; }
+      // mount once; do NOT clear later during the same session
       grid = document.createElement('section');
       grid.className = 'posts-grid';
       app.innerHTML = '';
@@ -47,7 +42,13 @@
   function renderHome(){
     console.log('[OkObserver] renderHome() start');
     window.onscroll = null;
-    const grid = ensureGrid(); if (!grid) return;
+
+    // Mount grid once; do not clear subsequent renders
+    getOrMountGrid();
+
+    // Suspend duplicate guard for home (it has been removing fresh cards)
+    window.__OKOBS_DUP_GUARD_ENABLED__ = false;
+
     paging.page = 1; paging.busy = false; paging.done = false;
     loadMore();
     window.onscroll = onScroll;
@@ -59,8 +60,11 @@
     if (nearBottom) loadMore();
   }
 
+  function strictCartoon(cats){
+    return cats.some(c => (c.slug||'').toLowerCase() === 'cartoon');
+  }
+
   function loadMore(){
-    const grid = ensureGrid(); if (!grid) return;
     if (paging.busy || paging.done) return;
     paging.busy = true;
     console.log('[OkObserver] loadMore page', paging.page);
@@ -76,19 +80,24 @@
         let skipped = 0, rendered = 0;
         const preview = [];
 
+        // Always re-grab the LIVE grid node right before appending
+        let grid = document.querySelector('#app .posts-grid');
+        if (!grid) grid = getOrMountGrid();
+
         arr.forEach(p=>{
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
-          const isCartoon = !DISABLE_CARTOON_FILTER && cats.some(c => (c.slug||'').toLowerCase() === 'cartoon');
+          const isCartoon = !DISABLE_CARTOON_FILTER && strictCartoon(cats);
           if (isCartoon){ skipped++; return; }
 
-          // prepare preview list (first 3)
           if (preview.length < 3) preview.push((p.title && p.title.rendered) || 'Untitled');
 
           const link = `#/post/${p.id}`;
           const title = (p.title && p.title.rendered) || 'Untitled';
           const dt = new Date(p.date).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
           const media = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
-          const src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.medium || media.media_details.sizes.full).source_url));
+          const src = media && (media.source_url ||
+                     (media.media_details && media.media_details.sizes &&
+                      (media.media_details.sizes.medium || media.media_details.sizes.full).source_url));
 
           const card = document.createElement('article');
           card.className = 'post-card';
@@ -100,7 +109,9 @@
                <div class="byline">Oklahoma Observer — ${dt}</div>
                <div class="excerpt">${(p.excerpt && p.excerpt.rendered) || ''}</div>
              </div>`;
-          grid.appendChild(card);
+
+          // Live append
+          (document.querySelector('#app .posts-grid') || grid).appendChild(card);
           rendered++;
         });
 
@@ -108,10 +119,8 @@
 
         paging.page += 1;
         paging.busy = false;
-        if (arr.length === 0 || rendered === 0) {
-          // If nothing actually rendered, avoid infinite loop
-          paging.done = true;
-        }
+        if (arr.length === 0 || rendered === 0) paging.done = true;
+
         console.log('[OkObserver] loadMore complete; next page', paging.page, 'done?', paging.done);
       })
       .catch(err=>{
@@ -147,7 +156,9 @@
 
         const hero = app.querySelector('.hero');
         const media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
-        const src = media && (media.source_url || (media.media_details && media.media_details.sizes && (media.media_details.sizes.large || media.media_details.sizes.full).source_url));
+        const src = media && (media.source_url ||
+                     (media.media_details && media.media_details.sizes &&
+                      (media.media_details.sizes.large || media.media_details.sizes.full).source_url));
         if (src){ hero.src = src; hero.style.display='block'; }
 
         app.querySelector('.detail-title').innerHTML = rawTitle;
@@ -160,7 +171,7 @@
       });
   }
 
-  // Safety: if home grid missing shortly after load, force home once
+  // Safety: if home grid missing after load, force home once
   window.addEventListener('load', ()=>setTimeout(()=>{
     if (!document.querySelector('.posts-grid') && ((location.hash||'#/')==='#/')) {
       console.warn('[OkObserver] forcing home route'); location.hash='#/'; route();
@@ -168,8 +179,51 @@
   }, 500));
 })();
 
-/* ======== helpers (unchanged behavior) ======== */
-(function initHamburger(){var b=document.querySelector('[data-oo="hamburger"]')||document.querySelector('.oo-hamburger');var m=document.querySelector('[data-oo="menu"]')||document.querySelector('.oo-menu');if(!b||!m){console.debug('[OkObserver] hamburger hooks not found — noop');return;}var t=document.getElementById('app')||document.body;var o=()=>t.classList.add('is-menu-open'),c=()=>t.classList.remove('is-menu-open'),i=()=>t.classList.contains('is-menu-open');b.addEventListener('click',e=>{e.stopPropagation();i()?c():o();});document.addEventListener('click',e=>{if(!i())return;if(m.contains(e.target)||b.contains(e.target))return;c();});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&i())c();});console.debug('[OkObserver] hamburger ready');})();
-(function dupGuard(){var s=new Set(),a;function scan(r,g){(r||g).querySelectorAll('.post-card').forEach(c=>{var id=c.getAttribute('data-post-id');if(!id){var ah=c.querySelector('a[href*="#/post/"]');if(ah){var m=ah.getAttribute('href').match(/#\/post\/(\d+)/);if(m)id=m[1];}}if(!id)return;if(s.has(id))c.remove();else s.add(id);});}
-function attach(){var g=document.querySelector('#app .posts-grid');if(!g||a===g)return;a=g;scan(g,g);var mo=new MutationObserver(m=>m.forEach(x=>x.addedNodes&&x.addedNodes.forEach(n=>{if(n.nodeType!==1)return;if(n.classList&&n.classList.contains('post-card'))scan(n.parentNode,g);else if(n.querySelectorAll)scan(n,g);})));mo.observe(g,{childList:true,subtree:true});console.debug('[OkObserver] duplicate guard active');}
-attach();document.addEventListener('okobs:route',e=>{if(!e.detail)return;var h=e.detail.hash;if(h.indexOf('#/post/')===0||h.indexOf('#/about')===0)return;setTimeout(attach,0);});})();
+/* ======== helpers ======== */
+(function initHamburger(){
+  const b=document.querySelector('[data-oo="hamburger"]')||document.querySelector('.oo-hamburger');
+  const m=document.querySelector('[data-oo="menu"]')||document.querySelector('.oo-menu');
+  if(!b||!m){console.debug('[OkObserver] hamburger hooks not found — noop');return;}
+  const t=document.getElementById('app')||document.body;
+  const o=()=>t.classList.add('is-menu-open'), c=()=>t.classList.remove('is-menu-open'), i=()=>t.classList.contains('is-menu-open');
+  b.addEventListener('click',e=>{e.stopPropagation();i()?c():o();});
+  document.addEventListener('click',e=>{if(!i())return;if(m.contains(e.target)||b.contains(e.target))return;c();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&i())c();});
+  console.debug('[OkObserver] hamburger ready');
+})();
+
+// Duplicate guard (suspended on Home initial render)
+(function dupGuard(){
+  if (window.__OKOBS_DUP_GUARD_ENABLED__ === false) {
+    console.debug('[OkObserver] duplicate guard suspended for Home');
+    return;
+  }
+  const seen = new Set(); let attachedTo;
+  function scan(base, grid){
+    (base||grid).querySelectorAll('.post-card').forEach(card=>{
+      let id = card.getAttribute('data-post-id') || '';
+      if (!id) { const a = card.querySelector('a[href*="#/post/"]'); if (a){ const m=a.getAttribute('href').match(/#\/post\/(\d+)/); if (m) id=m[1]; } }
+      if (!id) return;
+      if (seen.has(id)) card.remove(); else seen.add(id);
+    });
+  }
+  function attach(){
+    const grid=document.querySelector('#app .posts-grid'); if(!grid||attachedTo===grid) return;
+    attachedTo = grid; scan(grid, grid);
+    const mo=new MutationObserver(muts=>{
+      muts.forEach(m=>m.addedNodes&&m.addedNodes.forEach(n=>{
+        if(n.nodeType!==1)return;
+        if(n.classList&&n.classList.contains('post-card')) scan(n.parentNode, grid);
+        else if(n.querySelectorAll) scan(n, grid);
+      }));
+    });
+    mo.observe(grid,{childList:true,subtree:true});
+    console.debug('[OkObserver] duplicate guard active');
+  }
+  attach();
+  document.addEventListener('okobs:route', ev=>{
+    const h = ev.detail?.hash || '';
+    if (h.startsWith('#/post/') || h.startsWith('#/about')) return;
+    setTimeout(()=>{ window.__OKOBS_DUP_GUARD_ENABLED__ = false; attach(); }, 0);
+  });
+})();
