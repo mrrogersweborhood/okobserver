@@ -1,94 +1,39 @@
 <!-- 🟢 index.html — start of full file -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="favicon.ico" />
-  <meta name="theme-color" content="#1E90FF" />
-  <style>
-    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
-    #app { min-height: 100vh; }
-  </style>
-  <link rel="preload" href="override.css?v=2025-11-12H10" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-12H10" />
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="override.css?v=2025-11-12R3">
+  <script defer src="main.js?v=2025-11-12R3"></script>
 </head>
 <body>
-  <!-- Sticky Header -->
-  <header class="oo-header" role="banner">
-    <div class="oo-header-inner">
-      <button class="oo-hamburger" data-oo="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
-      <a class="oo-brand" href="#/">
-        <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
-        <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
-      </a>
+  <header class="header">
+    <div class="logo">
+      <img src="logo.png" alt="The Oklahoma Observer Logo">
+      <p class="motto">To comfort the afflicted and afflict the comfortable</p>
     </div>
+    <button class="hamburger" aria-label="Menu">&#9776;</button>
   </header>
 
-  <!-- Overlay + Menu -->
-  <div class="oo-overlay" data-oo="overlay" hidden></div>
-  <nav class="oo-menu" data-oo="menu" hidden>
-    <ul>
-      <li><a href="#/">Posts</a></li>
-      <li><a href="#/about">About</a></li>
-    </ul>
-  </nav>
+  <main id="app"></main>
 
-  <!-- App Root -->
-  <main id="app" role="main" aria-live="polite"></main>
-
-  <!-- Footer (preserve build tag) -->
-  <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H10
+  <footer>
+    © 2025 The Oklahoma Observer • Build 2025-11-12R3
   </footer>
 
-  <!-- Grid Enforcer (MutationObserver must stay) -->
+  <!-- Service Worker registration (final stable version, single filename) -->
   <script>
-    (function(){
-      const ensure = () => {
-        const grid = document.querySelector('#app .posts-grid');
-        if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(el => el.classList.add('post-card'));
-      };
-      const mo = new MutationObserver(ensure);
-      mo.observe(document.getElementById('app'), { childList:true, subtree:true });
-      addEventListener('hashchange', ensure);
-      document.addEventListener('okobs:route', ensure);
-      setInterval(ensure, 1500);
-    })();
-  </script>
-
-  <!-- App Scripts (plain JS only) -->
-  <script defer src="main.js?v=2025-11-12R1h8"></script>
-  <script defer src="PostDetail.js?v=2025-11-10R6"></script>
-
-  <!-- Service Worker registration (versioned filename to force GitHub to refresh) -->
-  <script>
-    (function(){
-      if (!('serviceWorker' in navigator)) return;
-
-      const SCOPE  = '/okobserver/';
-      const SCRIPT = '/okobserver/sw-2025-11-12.js?v=2025-11-12R2';
-
-      window.addEventListener('load', function(){
-        fetch(SCRIPT, { cache: 'no-store' })
-          .then(r => {
-            if (!r.ok) {
-              console.warn('[OkObserver] SW preflight failed:', r.status, r.statusText, r.url);
-              console.warn('Move sw-2025-11-12.js next to index.html so it is served at', SCRIPT);
-              return null;
-            }
-            return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' });
-          })
-          .then(reg => {
-            if (reg) {
-              console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
-            }
-          })
-          .catch(err => console.warn('[OkObserver] SW registration error:', err));
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/okobserver/sw.js')
+          .then(reg => console.log('[OkObserver] SW registered:', reg.scope))
+          .catch(err => console.error('[OkObserver] SW error:', err));
       });
-    })();
+    }
   </script>
 </body>
 </html>

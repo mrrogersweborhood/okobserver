@@ -1,68 +1,57 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h13
-   Registration: SCRIPT=/okobserver/sw.js  SCOPE=/okobserver/
-   Keep this file in the SAME FOLDER as index.html (GitHub Pages /okobserver/).
-   Strategy: Network-first for HTML; cache-first for static.
-*/
-const SW_BUILD   = '2025-11-12R1h13';
-const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
-
+/* OkObserver Service Worker — single stable version */
+const CACHE = 'okobserver-cache-v1';
+const OFFLINE_URL = '/okobserver/offline.html';
 const ASSETS = [
-  '/okobserver/', './',
-  'index.html?v=2025-11-12H10',
-  'override.css?v=2025-11-12H10',
-  'main.js?v=2025-11-12R1h8',
-  'PostDetail.js?v=2025-11-10R6',
-  'logo.png',
-  'favicon.ico'
+  '/okobserver/',
+  '/okobserver/index.html',
+  '/okobserver/override.css',
+  '/okobserver/main.js',
+  '/okobserver/PostDetail.js',
+  '/okobserver/logo.png',
+  '/okobserver/favicon.ico',
+  OFFLINE_URL
 ];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => { if (k !== CACHE_NAME) return caches.delete(k); }));
-    await self.clients.claim();
-  })());
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE && caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
-function isHTML(req){
+function isHTML(req) {
   return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 }
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
+self.addEventListener('fetch', e => {
+  const req = e.request;
 
-  if (isHTML(req)){
-    event.respondWith((async()=>{
-      try{
-        const fresh = await fetch(req);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(req, fresh.clone());
-        return fresh;
-      }catch(_){
-        const cache = await caches.open(CACHE_NAME);
-        const fallback = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H10');
-        return fallback || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
-      }
-    })());
+  if (isHTML(req)) {
+    e.respondWith(
+      fetch(req)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req, {ignoreSearch:true}).then(r => r || caches.match(OFFLINE_URL)))
+    );
     return;
   }
 
-  event.respondWith((async()=>{
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(req);
-    if (cached) return cached;
-    const fresh = await fetch(req).catch(()=>null);
-    if (fresh) { cache.put(req, fresh.clone()); return fresh; }
-    return new Response('', { status: 504 });
-  })());
+  e.respondWith(
+    caches.match(req).then(r => r || fetch(req).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(req, copy));
+      return res;
+    }).catch(() => caches.match(OFFLINE_URL)))
+  );
 });
 // 🔴 sw.js — end of full file
