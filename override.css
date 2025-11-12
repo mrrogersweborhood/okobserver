@@ -1682,3 +1682,31 @@ div:has(> .post-card):not(.post-detail) {
   transform: scale(0.98);
 }
 /* 🔴 override.css — END FULL FILE */
+/* 🟢 post detail byline */
+.post-detail .detail-byline {
+  font-weight: 600;      /* bold */
+  margin: 0.25rem 0 1rem;
+  color: #222;           /* keep readable against white background */
+}
+/* 🔴 post detail byline */
+/* 🟢 hamburger dropdown basics */
+.oo-menu {
+  position: absolute;
+  right: 16px;
+  top: 56px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(0,0,0,.14);
+  padding: 8px;
+  min-width: 160px;
+  z-index: 1100;
+}
+.oo-menu a {
+  display:block; padding:10px 12px; border-radius:8px; color:#111; text-decoration:none;
+}
+.oo-menu a:hover { background:#f2f4f7; }
+/* optional page-dimming overlay */
+.oo-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 1000;
+}
+/* 🔴 hamburger dropdown basics */

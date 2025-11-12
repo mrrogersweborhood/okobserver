@@ -1,7 +1,8 @@
-// 🟢 main.js — OkObserver Build 2025-11-11R1k (hidden pre-render fix for post detail)
+// 🟢 main.js — OkObserver Build 2025-11-11R1m (hamburger fix + detail pre-render + safe home gating)
+
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1k';
+  const BUILD = '2025-11-11R1m';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -10,6 +11,9 @@
   // ---------- Router ----------
   window.addEventListener('hashchange', route);
   window.addEventListener('load', route);
+
+  function isHome()  { return (location.hash || '#/') === '#/'; }
+  function isDetail(){ return (location.hash || '').startsWith('#/post/'); }
 
   function route() {
     const hash = location.hash || '#/';
@@ -24,7 +28,7 @@
   // ---------- Home State ----------
   const paging = { page: 1, busy: false, done: false };
   let DISABLE_CARTOON_FILTER = false;
-  const seenIds = new Set();
+  const seenIds = new Set(); // append-time de-dup
 
   window.__ok_disableCartoonFilter = (on = true) => {
     DISABLE_CARTOON_FILTER = !!on;
@@ -47,27 +51,38 @@
   function renderHome() {
     console.log('[OkObserver] renderHome() start');
     window.onscroll = null;
+
+    // mount grid once; clear only at start of Home
     const grid = getOrMountGrid();
+
+    // disable legacy duplicate guard
     window.__OKOBS_DUP_GUARD_ENABLED__ = false;
+
+    // reset state
     paging.page = 1; paging.busy = false; paging.done = false;
     seenIds.clear();
     grid.innerHTML = '';
+
     loadMore();
     window.onscroll = onScroll;
   }
 
   function onScroll() {
-    if (paging.busy || paging.done) return;
+    if (paging.busy || paging.done || !isHome()) return;
     const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 1000);
     if (nearBottom) loadMore();
   }
 
   function isCartoonSlugList(cats) {
+    // strict: only exclude slug exactly 'cartoon'
     return cats.some(c => (c.slug || '').toLowerCase() === 'cartoon');
   }
 
   function loadMore() {
+    // absolutely no home work if not on home
+    if (!isHome()) { paging.busy = false; return; }
     if (paging.busy || paging.done) return;
+
     paging.busy = true;
     console.log('[OkObserver] loadMore page', paging.page);
 
@@ -78,26 +93,32 @@
         return r.json();
       })
       .then(arr => {
+        // if user navigated away while waiting, bail
+        if (!isHome()) { paging.busy = false; return; }
+
         console.log('[OkObserver] received posts:', arr.length);
         let skipped = 0, rendered = 0;
         const preview = [];
+
         const grid = document.querySelector('#app .posts-grid') || getOrMountGrid();
 
         arr.forEach(p => {
           const id = String(p.id);
-          if (seenIds.has(id)) return;
+          if (seenIds.has(id)) return; // append-time de-dup
+
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
           const isCartoon = !DISABLE_CARTOON_FILTER && isCartoonSlugList(cats);
           if (isCartoon) { skipped++; return; }
+
           if (preview.length < 3) preview.push((p.title && p.title.rendered) || 'Untitled');
 
-          const link = `#/post/${p.id}`;
+          const link  = `#/post/${p.id}`;
           const title = (p.title && p.title.rendered) || 'Untitled';
-          const dt = new Date(p.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+          const dt    = new Date(p.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
           const media = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
-          const src = media && (media.source_url ||
-                      (media.media_details && media.media_details.sizes &&
-                       (media.media_details.sizes.medium || media.media_details.sizes.full).source_url));
+          const src   = media && (media.source_url ||
+                        (media.media_details && media.media_details.sizes &&
+                         (media.media_details.sizes.medium || media.media_details.sizes.full).source_url));
 
           const card = document.createElement('article');
           card.className = 'post-card';
@@ -109,15 +130,20 @@
                <div class="byline">Oklahoma Observer — ${dt}</div>
                <div class="excerpt">${(p.excerpt && p.excerpt.rendered) || ''}</div>
              </div>`;
+
+          // append only if still on home at append time
+          if (!isHome()) return;
           (document.querySelector('#app .posts-grid') || grid).appendChild(card);
           seenIds.add(id);
           rendered++;
         });
 
         console.log(`[OkObserver] render summary — rendered: ${rendered}, skipped(cartoon): ${skipped}, preview:`, preview);
+
         paging.page += 1;
         paging.busy = false;
         if (arr.length === 0 || rendered === 0) paging.done = true;
+
         console.log('[OkObserver] loadMore complete; next page', paging.page, 'done?', paging.done);
       })
       .catch(err => {
@@ -130,21 +156,25 @@
   // ---------- Static Pages ----------
   function renderAbout() {
     window.onscroll = null;
+    // entering About — stop home work
+    paging.done = true; paging.busy = false;
+
     app.innerHTML = '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer…</p></div>';
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // ---------- Improved Detail ----------
+  // ---------- Detail (hidden pre-render to avoid flash) ----------
   function renderDetail(id) {
     window.onscroll = null;
+    // entering Detail — stop any further home work
     paging.done = true; paging.busy = false;
 
-    // Mount hidden shell
+    // Mount hidden shell to avoid flash of empty UI
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
         <h1 class="detail-title"></h1>
-        <div class="detail-byline"></div>
+        <div class="detail-byline" style="font-weight:600;"></div>
         <div class="post-body"></div>
         <p><a class="btn-back" href="#/">← Back to Posts</a></p>
       </article>`;
@@ -177,31 +207,62 @@
       });
   }
 
+  // ---------- Safety ----------
   window.addEventListener('load', () => setTimeout(() => {
-    if (!document.querySelector('.posts-grid') && ((location.hash || '#/') === '#/')) {
+    if (!document.querySelector('.posts-grid') && isHome()) {
       console.warn('[OkObserver] forcing home route'); location.hash = '#/'; route();
     }
   }, 500));
 })();
 
 /* ========== helpers ========== */
-(function initHamburger(){
-  const b = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
-  const m = document.querySelector('[data-oo="menu"]') || document.querySelector('.oo-menu');
-  if (!b || !m) { console.debug('[OkObserver] hamburger hooks not found — noop'); return; }
-  const t = document.getElementById('app') || document.body;
-  const o = () => t.classList.add('is-menu-open'), c = () => t.classList.remove('is-menu-open'), i = () => t.classList.contains('is-menu-open');
-  b.addEventListener('click', e => { e.stopPropagation(); i() ? c() : o(); });
-  document.addEventListener('click', e => { if (!i()) return; if (m.contains(e.target) || b.contains(e.target)) return; c(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && i()) c(); });
-  console.debug('[OkObserver] hamburger ready');
-})();
 
+// 🟢 Hamburger fix: toggle [hidden] + aria-expanded + overlay
+(function initHamburger(){
+  const btn     = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
+  const menu    = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
+  const overlay = document.querySelector('[data-oo="overlay"]')   || document.querySelector('.oo-overlay') || null;
+  const root    = document.getElementById('app') || document.body;
+
+  if (!btn || !menu) { console.debug('[OkObserver] hamburger hooks not found — noop'); return; }
+
+  function isOpen(){ return root.classList.contains('is-menu-open'); }
+  function open(){
+    root.classList.add('is-menu-open');
+    menu.hidden = false;                     // make dropdown visible
+    btn.setAttribute('aria-expanded','true');
+    if (overlay) overlay.hidden = false;
+  }
+  function close(){
+    root.classList.remove('is-menu-open');
+    menu.hidden = true;                      // hide dropdown
+    btn.setAttribute('aria-expanded','false');
+    if (overlay) overlay.hidden = true;
+  }
+  function toggle(){ isOpen() ? close() : open(); }
+
+  btn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+  document.addEventListener('click', (e)=>{
+    if (!isOpen()) return;
+    if (menu.contains(e.target) || btn.contains(e.target)) return;
+    close();
+  }, { passive: true });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && isOpen()) close(); });
+
+  // close menu after navigation click
+  menu.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if (a) close(); });
+
+  console.debug('[OkObserver] hamburger ready (hidden toggle + aria)');
+})();
+// 🔴 Hamburger fix end
+
+// Legacy duplicate guard — intentionally disabled (append-time de-dup is used)
 (function dupGuard(){
   if (window.__OKOBS_DUP_GUARD_ENABLED__ === false) {
     console.debug('[OkObserver] duplicate guard disabled');
     return;
   }
+  // no-op by design
 })();
 
-// 🔴 main.js — end of file (Build 2025-11-11R1k)
+// 🔴 main.js — end of file (Build 2025-11-11R1m)
