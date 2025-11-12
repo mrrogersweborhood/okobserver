@@ -1,6 +1,7 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h6
+// 🟢 main.js — OkObserver Build 2025-11-12R1h7
 /* Full-file replacement (no truncation).
+   - NEW: Facebook video embeds (facebook.com/.../videos/<id> and /watch?v=<id>)
    - Preserve <a> links in post excerpts (keeps anchors anywhere; unwraps other tags).
    - Scrubs stray Gutenberg/embed wrappers that caused the white gap.
    - “Reveal after ready” on detail to prevent empty flash.
@@ -12,7 +13,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h6';
+  const BUILD = '2025-11-12R1h7';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -206,7 +207,7 @@
   function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
   function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
 
-  // **FIXED**: Keep anchors anywhere; unwrap other elements but preserve their children
+  // Keep anchors anywhere; unwrap other elements but preserve their children
   function sanitizeExcerptKeepAnchors(html=''){
     const root = document.createElement('div');
     root.innerHTML = html;
@@ -222,14 +223,12 @@
         } else if (n.nodeType === 1) { // Element
           if (n.tagName === 'A') {
             const a = n.cloneNode(true);
-            // normalize anchor attrs
             a.removeAttribute('onclick');
             a.setAttribute('target','_blank');
             a.setAttribute('rel','noopener');
             out.push(a.outerHTML);
           } else {
-            // unwrap: keep children recursively, drop the element tag
-            collect(n);
+            collect(n); // unwrap
           }
         }
       });
@@ -238,18 +237,30 @@
     return out.join('').replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
   }
 
-  // Vimeo/YouTube detection + 381733 fallback
+  // Detect video url (Vimeo/YouTube/Facebook) + return canonical URL
   function findVideoUrl(html){
+    // Vimeo
     const m1 = html && html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
     if (m1) return m1[0];
+
+    // YouTube short / long
     const m2 = html && html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (m2) return m2[0];
     const m3 = html && html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"]*v=([A-Za-z0-9_-]{6,})/);
     if (m3) return m3[0];
+
+    // Facebook page videos or watch?v=
+    const m4 = html && html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
+    if (m4) return m4[0];
+    const m5 = html && html.match(/https?:\/\/(?:www\.)?facebook\.com\/watch\/?\?[^"'\s]*v=(\d+)/i);
+    if (m5) return m5[0];
+
     return null;
   }
 
+  // Build embed iframe for Vimeo/YouTube/Facebook
   function buildEmbed(url, postId){
+    // Vimeo
     const vm = url && url.match(/vimeo\.com\/(\d+)/);
     if (vm){
       const vid = vm[1];
@@ -259,6 +270,8 @@
                   style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
               </div>`;
     }
+
+    // YouTube short & long
     const yb = url && url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (yb){
       const vid = yb[1];
@@ -277,7 +290,24 @@
                   style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
-    if (postId === 381733){ // hard fallback
+
+    // Facebook — official plugin iframe
+    const fb1 = url && url.match(/facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
+    const fb2 = !fb1 && url && url.match(/facebook\.com\/watch\/?\?[^"'\s]*v=(\d+)/i);
+    if (fb1 || fb2){
+      const href = encodeURIComponent(url);
+      return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15);background:#000">
+                <iframe
+                  src="https://www.facebook.com/plugins/video.php?href=${href}&show_text=false&allowfullscreen=true"
+                  title="Facebook video"
+                  style="position:absolute;inset:0;border:0;width:100%;height:100%;"
+                  scrolling="no" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen>
+                </iframe>
+              </div>`;
+    }
+
+    // Hard fallback for 381733
+    if (postId === 381733){
       const vid='1126193884';
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
@@ -315,7 +345,7 @@
       const hasIframe = !!el.querySelector('iframe, video');
       const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
       const isVideoLinkPara = el.tagName === 'P' &&
-        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test((el.textContent||'')) && !hasIframe;
+        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\//i.test((el.textContent||'')) && !hasIframe;
       const style = el.getAttribute('style') || '';
       const looksLikeRatio = /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
       const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
