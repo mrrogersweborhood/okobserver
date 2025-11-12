@@ -1,10 +1,14 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h6 */
-const SW_BUILD = '2025-11-12R1h6';
+/* OkObserver Service Worker — Build 2025-11-12R1h7
+   Scope: ./  (i.e., /okobserver/)
+   Strategy: Network-first for HTML routes; cache-first for static assets
+   Notes: keep file at repo root /okobserver/sw.js on GitHub Pages so scope is correct.
+*/
+const SW_BUILD = '2025-11-12R1h7';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
-  '/', './', 'index.html?v=2025-11-12H5',
+  '/', './', 'index.html?v=2025-11-12H6',
   'override.css?v=2025-11-12H5',
   'main.js?v=2025-11-12R1h8',
   'PostDetail.js?v=2025-11-10R6',
@@ -15,7 +19,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(ASSETS))
-      .then(()=> self.skipWaiting())
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -28,7 +32,8 @@ self.addEventListener('activate', event => {
 });
 
 function isHTML(req){
-  return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+  return req.mode === 'navigate' ||
+         (req.headers.get('accept') || '').includes('text/html');
 }
 
 self.addEventListener('fetch', event => {
@@ -43,7 +48,7 @@ self.addEventListener('fetch', event => {
         return fresh;
       }catch(_){
         const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H5');
+        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H6');
         return cached || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());
