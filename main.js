@@ -1,6 +1,7 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h
+// 🟢 main.js — OkObserver Build 2025-11-12R1h5
 /* Full-file replacement (no truncation).
+   - Preserve links in post excerpts (anchor-only sanitizer).
    - Scrubs stray Gutenberg/embed wrappers that caused the white gap.
    - “Reveal after ready” on detail to prevent empty flash.
    - Byline bold on detail.
@@ -11,7 +12,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h';
+  const BUILD = '2025-11-12R1h5';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -56,7 +57,8 @@
     const byline = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
 
     const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
-    const excerpt = stripTags(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
+    // ⬅️ preserve links in excerpt (anchor-only sanitizer)
+    const excerptHTML = sanitizeExcerpt(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
 
     el.innerHTML = `
       <a class="thumb" href="#/post/${post.id}" aria-label="${escapeHtmlAttr(title)}">
@@ -64,7 +66,7 @@
       </a>
       <h2 class="title"><a href="#/post/${post.id}">${title}</a></h2>
       <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
-      <p class="excerpt">${excerpt}</p>
+      <p class="excerpt">${excerptHTML}</p>
     `;
     return el;
   }
@@ -199,9 +201,38 @@
     return `${by} — ${dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}`;
   }
 
+  // ---- helpers ----
   function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
-  function stripTags(s=''){ return s.replace(/<[^>]*>/g,''); }
   function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
+
+  // **NEW**: Keep links, strip everything else safely
+  function sanitizeExcerpt(html=''){
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    // remove scripts/styles
+    tmp.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
+
+    // unwrap any elements that aren't <a>
+    tmp.querySelectorAll('*').forEach(node=>{
+      if (node.tagName !== 'A') {
+        // Replace with text-only node to preserve spacing
+        const text = document.createTextNode(node.textContent || '');
+        node.replaceWith(text);
+      }
+    });
+
+    // normalize anchors
+    tmp.querySelectorAll('a').forEach(a=>{
+      const href = a.getAttribute('href') || '#';
+      a.setAttribute('href', href);
+      a.setAttribute('target','_blank');
+      a.setAttribute('rel','noopener');
+    });
+
+    // collapse excessive whitespace
+    return tmp.innerHTML.replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
+  }
 
   // Vimeo/YouTube detection + 381733 fallback
   function findVideoUrl(html){
