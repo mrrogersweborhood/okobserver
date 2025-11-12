@@ -1,12 +1,12 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h5 */
-const SW_BUILD = '2025-11-12R1h5';
+/* OkObserver Service Worker — Build 2025-11-12R1h6 */
+const SW_BUILD = '2025-11-12R1h6';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
-  '/', './', 'index.html?v=2025-11-12H4',
-  'override.css?v=2025-11-12H4',
-  'main.js?v=2025-11-12R1h7',
+  '/', './', 'index.html?v=2025-11-12H5',
+  'override.css?v=2025-11-12H5',
+  'main.js?v=2025-11-12R1h8',
   'PostDetail.js?v=2025-11-10R6',
   'logo.png', 'favicon.ico'
 ];
@@ -43,7 +43,7 @@ self.addEventListener('fetch', event => {
         return fresh;
       }catch(_){
         const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H4');
+        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H5');
         return cached || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());

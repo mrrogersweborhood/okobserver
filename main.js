@@ -1,11 +1,11 @@
 // 🟢 main.js — start of full file
-/* OkObserver Main — Build 2025-11-12R1h7
-   - Strong embed-wrapper cleanup to eliminate blank boxes (incl. /post/381733)
+/* OkObserver Main — Build 2025-11-12R1h8
+   - Strong embed-wrapper cleanup + Facebook embed fallback → “Watch on Facebook” link
    - All prior rules preserved (4/3/1 grid, dedup, one fetch/page, cartoon filter, etc.)
 */
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h7';
+  const BUILD = '2025-11-12R1h8';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -159,7 +159,7 @@
       const candidate = findVideoUrl(bodyHTML);
       const embedHTML = buildEmbed(candidate, post.id);
 
-      // Replace the first WP embed wrapper with our iframe; fallback to slot if none found
+      // Replace first wrapper with our iframe; fallback to slot if none found
       let replaced = false;
       if (embedHTML){ replaced = replaceFirstEmbedWrapper(bodyEl, embedHTML); }
       const videoSlot = app.querySelector('.video-slot');
@@ -175,9 +175,15 @@
         setTimeout(giveUp, 3500);
       }
 
-      // Kill any leftover empty embed wrappers now and shortly after
+      // 1) Remove empty embed wrappers
       purgeEmptyEmbedBoxes(bodyEl);
-      setTimeout(()=>purgeEmptyEmbedBoxes(bodyEl), 800);
+      // 2) Replace broken Facebook iframes with an external link CTA
+      replaceBrokenFacebookEmbeds(bodyEl);
+      // 3) Run once more after layout settles
+      setTimeout(()=>{
+        replaceBrokenFacebookEmbeds(bodyEl);
+        purgeEmptyEmbedBoxes(bodyEl);
+      }, 800);
 
       requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
     }).catch(()=>{
@@ -310,6 +316,28 @@
     if (removedAny){
       const fc = container.firstElementChild; if (fc) fc.style.marginTop='0';
     }
+  }
+
+  // Replace failing Facebook iframes with a CTA link to Facebook
+  function replaceBrokenFacebookEmbeds(container){
+    const frames = Array.from(container.querySelectorAll('iframe[src*="facebook.com"]'));
+    frames.forEach(ifr=>{
+      // Pull original FB URL from ?href= param if present
+      let href=null;
+      try{
+        const u = new URL(ifr.src);
+        href = u.searchParams.get('href') || null;
+      }catch(_){}
+      const cta = document.createElement('a');
+      cta.className = 'fb-cta';
+      cta.textContent = 'Watch on Facebook →';
+      cta.target = '_blank'; cta.rel='noopener';
+      cta.href = href || ifr.src;
+
+      // Replace the closest wrapper; fall back to replacing the iframe itself
+      const wrap = ifr.closest('figure.wp-block-embed, .wp-block-embed, .wp-embed, .wp-embed-responsive, .video-embed, .wp-block-video') || ifr;
+      wrap.replaceWith(cta);
+    });
   }
 
   // ---------- Safety ----------

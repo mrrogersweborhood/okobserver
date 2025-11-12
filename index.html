@@ -11,8 +11,8 @@
     html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
-  <link rel="preload" href="override.css?v=2025-11-12H4" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-12H4" />
+  <link rel="preload" href="override.css?v=2025-11-12H5" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-12H5" />
 </head>
 <body>
   <!-- Sticky Header -->
@@ -40,12 +40,11 @@
 
   <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H4
+    © 2025 The Oklahoma Observer • Build 2025-11-12H5
   </footer>
 
   <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
-    // 🟢 index.html — start of full file
     (function(){
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
@@ -58,18 +57,17 @@
       document.addEventListener('okobs:route', ensure);
       setInterval(ensure, 1500);
     })();
-    // 🔴 index.html — end of full file
   </script>
 
   <!-- App Scripts (plain JS only; version-busted) -->
-  <script defer src="main.js?v=2025-11-12R1h7"></script>
+  <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
   <!-- Service Worker registration with version param -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
-      const swUrl = 'sw.js?v=2025-11-12R1h5';
+      const swUrl = 'sw.js?v=2025-11-12R1h6';
       navigator.serviceWorker.register(swUrl).catch(()=>{});
     })();
   </script>
