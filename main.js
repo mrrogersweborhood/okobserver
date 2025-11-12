@@ -1,13 +1,13 @@
-/* 🟢 main.js — OkObserver Build 2025-11-11R1p
-   Notes: full-file replacement with guarded video mount (prevents white gap),
-   hamburger fix (toggle [hidden] + aria), strict cartoon filter,
-   hidden pre-render on detail, append-time de-dup on home.
+/* 🟢 main.js — OkObserver Build 2025-11-11R1q
+   Notes: full-file replacement; guarded video mount + cleanup of leading
+   Vimeo/YouTube placeholders to eliminate white gaps; hamburger fix; strict
+   cartoon filter; hidden pre-render on detail; append-time de-dup on home.
    This header is the required 🟢 marker with filename.
 */
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1p';
+  const BUILD = '2025-11-11R1q';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -159,7 +159,7 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // ---------- Detail (hidden pre-render + video autodetect with guarded mount) ----------
+  // ---------- Detail (hidden pre-render + video autodetect with guarded mount & cleanup) ----------
   function renderDetail(id) {
     window.onscroll = null;
     paging.done = true; paging.busy = false;
@@ -197,19 +197,17 @@
         const bodyEl = app.querySelector('.post-body');
         bodyEl.innerHTML = bodyHTML;
 
-        // Tidy leading gaps in WP HTML (remove truly empty first blocks, zero out first-child top margin)
+        // Tidy article spacing: remove leading empties, clamp first-child margin
         (function tidyArticleSpacing(container){
-          // remove leading empties
           while (container.firstElementChild && isTrulyEmpty(container.firstElementChild)) {
             container.firstElementChild.remove();
           }
-          // clamp first child top margin if exists
           const fc = container.firstElementChild;
           if (fc) fc.style.marginTop = '0';
           function isTrulyEmpty(node){
             if (!node) return false;
-            const imgs = node.querySelectorAll('img, iframe, video, svg, picture');
-            if (imgs.length) return false;
+            const media = node.querySelectorAll('img, iframe, video, svg, picture');
+            if (media.length) return false;
             const text = (node.textContent || '').replace(/\u00a0/g,' ').trim();
             return text.length === 0;
           }
@@ -293,16 +291,23 @@
             if (shown) return;
             shown = true;
             videoSlot.style.display = 'block';
+            // After we render a real player, remove obvious leading placeholders in body
+            removeLeadingVideoPlaceholders(bodyEl, candidate);
           }
           function giveUp() {
             if (shown) return;
             videoSlot.innerHTML = '';
             videoSlot.style.display = 'none';
+            // Still remove placeholders so they don't leave big white blocks
+            removeLeadingVideoPlaceholders(bodyEl, candidate);
           }
 
           iframe && iframe.addEventListener('load', showNow, { once: true });
           setTimeout(() => { if (!shown) showNow(); }, 600);  // cached fast path
           setTimeout(giveUp, 4000);                           // final fallback
+        } else {
+          // No embed; still scrub any big empty embed placeholders
+          removeLeadingVideoPlaceholders(bodyEl, candidate);
         }
         // 🔴 guarded video mount
 
@@ -313,6 +318,36 @@
         const b = app.querySelector('.post-body'); if (b) b.textContent = 'Post not found.';
         requestAnimationFrame(() => { detailEl.style.visibility = 'visible'; });
       });
+  }
+
+  // Remove leading Gutenberg/WP video placeholder blocks or lone video links
+  function removeLeadingVideoPlaceholders(container, urlCandidate) {
+    let changed = false;
+    while (container.firstElementChild) {
+      const el = container.firstElementChild;
+      const cls = (el.className || '') + '';
+      const html = el.innerHTML || '';
+      const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
+      const hasIFrame = !!el.querySelector('iframe');
+      const isVideoLinkPara =
+        el.tagName === 'P' &&
+        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(el.textContent || '') &&
+        !hasIFrame;
+
+      // Also match the specific URL we detected (when available)
+      const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent || '').includes(urlCandidate));
+
+      if (isWpEmbed || isVideoLinkPara || matchesDetected) {
+        el.remove();
+        changed = true;
+        continue;
+      }
+      break; // stop at first non-placeholder
+    }
+    if (changed) {
+      const fc = container.firstElementChild;
+      if (fc) fc.style.marginTop = '0';
+    }
   }
 
   // ---------- Safety ----------
@@ -372,6 +407,6 @@
   // no-op by design
 })();
 
-/* 🔴 main.js — end of file (Build 2025-11-11R1p)
+/* 🔴 main.js — end of file (Build 2025-11-11R1q)
    This footer is the required 🔴 marker with filename.
 */

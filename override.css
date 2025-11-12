@@ -1722,3 +1722,19 @@ div:has(> .post-card):not(.post-detail) {
 /* avoid extra top gap on first element */
 .post-detail > *:first-child { margin-top: 0; }
 /* 🔴 detail spacing tighten */
+/* 🟢 detail gap fixes */
+.post-detail .hero { display:block; max-width:100%; height:auto; margin:12px auto 16px; }
+.post-detail .video-embed { margin:12px 0 20px; }
+
+/* collapse phantom blocks that render no content */
+.post-detail .post-body p:empty,
+.post-detail .post-body div:empty,
+.post-detail .post-body figure:empty { display:none; }
+
+/* Gutenberg embed wrappers sometimes linger with no iframe */
+.post-detail .post-body figure.wp-block-embed:has(iframe) { display:block; }
+.post-detail .post-body figure.wp-block-embed:not(:has(iframe)) { display:none; }
+
+/* ensure top of article starts tight */
+.post-detail .post-body > *:first-child { margin-top:0 !important; }
+/* 🔴 detail gap fixes */
