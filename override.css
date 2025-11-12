@@ -2222,3 +2222,18 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
   text-decoration: none;
 }
 .oo-menu a:hover, [data-oo="menu"] a:hover { background: #f5f7fb; }
+/* === OkObserver — header micro-tweak (append-only) =================== */
+/* 1) Add safe spacing between logo block and hamburger on all sizes    */
+.oo-header .oo-brand{ padding-right:3.25rem !important; } /* room for button */
+.oo-header .oo-menu{ right:1rem !important; z-index:1002 !important; }
+
+/* 2) Kill any underline on the motto, even if the brand is a link      */
+.oo-header .oo-title .oo-motto,
+.oo-header a.brand .oo-motto,
+.oo-header .motto {
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+}
+
+/* Keep the dropdown above content and fully tappable */
+#oo-nav{ z-index:1001 !important; }
