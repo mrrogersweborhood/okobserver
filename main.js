@@ -1,8 +1,8 @@
-// 🟢 main.js — OkObserver Build 2025-11-11R1m (hamburger fix + detail pre-render + safe home gating)
+// 🟢 main.js — OkObserver Build 2025-11-11R1n (detail video autodetect + hard fallback for /post/381733, hamburger fix, hidden pre-render)
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1m';
+  const BUILD = '2025-11-11R1n';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -52,13 +52,9 @@
     console.log('[OkObserver] renderHome() start');
     window.onscroll = null;
 
-    // mount grid once; clear only at start of Home
     const grid = getOrMountGrid();
-
-    // disable legacy duplicate guard
     window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
-    // reset state
     paging.page = 1; paging.busy = false; paging.done = false;
     seenIds.clear();
     grid.innerHTML = '';
@@ -74,12 +70,10 @@
   }
 
   function isCartoonSlugList(cats) {
-    // strict: only exclude slug exactly 'cartoon'
     return cats.some(c => (c.slug || '').toLowerCase() === 'cartoon');
   }
 
   function loadMore() {
-    // absolutely no home work if not on home
     if (!isHome()) { paging.busy = false; return; }
     if (paging.busy || paging.done) return;
 
@@ -93,7 +87,6 @@
         return r.json();
       })
       .then(arr => {
-        // if user navigated away while waiting, bail
         if (!isHome()) { paging.busy = false; return; }
 
         console.log('[OkObserver] received posts:', arr.length);
@@ -104,7 +97,7 @@
 
         arr.forEach(p => {
           const id = String(p.id);
-          if (seenIds.has(id)) return; // append-time de-dup
+          if (seenIds.has(id)) return;
 
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
           const isCartoon = !DISABLE_CARTOON_FILTER && isCartoonSlugList(cats);
@@ -131,7 +124,6 @@
                <div class="excerpt">${(p.excerpt && p.excerpt.rendered) || ''}</div>
              </div>`;
 
-          // append only if still on home at append time
           if (!isHome()) return;
           (document.querySelector('#app .posts-grid') || grid).appendChild(card);
           seenIds.add(id);
@@ -156,23 +148,21 @@
   // ---------- Static Pages ----------
   function renderAbout() {
     window.onscroll = null;
-    // entering About — stop home work
     paging.done = true; paging.busy = false;
 
     app.innerHTML = '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer…</p></div>';
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // ---------- Detail (hidden pre-render to avoid flash) ----------
+  // ---------- Detail (hidden pre-render + video autodetect) ----------
   function renderDetail(id) {
     window.onscroll = null;
-    // entering Detail — stop any further home work
     paging.done = true; paging.busy = false;
 
-    // Mount hidden shell to avoid flash of empty UI
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
+        <div class="video-slot" style="display:none"></div>
         <h1 class="detail-title"></h1>
         <div class="detail-byline" style="font-weight:600;"></div>
         <div class="post-body"></div>
@@ -187,6 +177,7 @@
         const clean = (function (h) { const d = document.createElement('div'); d.innerHTML = h; return d.textContent || d.innerText || ''; })(rawTitle);
         document.title = `${clean} – The Oklahoma Observer`;
 
+        // Featured image
         const hero = app.querySelector('.hero');
         const media = post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0];
         const src = media && (media.source_url ||
@@ -194,9 +185,87 @@
                      (media.media_details.sizes.large || media.media_details.sizes.full).source_url));
         if (src) { hero.src = src; hero.style.display = 'block'; }
 
+        // Title + byline + body
         app.querySelector('.detail-title').innerHTML = rawTitle;
         app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + new Date(post.date).toLocaleDateString();
-        app.querySelector('.post-body').innerHTML = (post.content && post.content.rendered) || 'Post loaded.';
+        const bodyHTML = (post.content && post.content.rendered) || '';
+        app.querySelector('.post-body').innerHTML = bodyHTML;
+
+        // ---- Video autodetect (Vimeo / YouTube); place right under hero ----
+        const videoSlot = app.querySelector('.video-slot');
+
+        // Find candidate URLs in the body (anchors or bare links)
+        function findVideoUrl(html) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = html;
+          // 1) anchors
+          const a = Array.from(tmp.querySelectorAll('a[href]')).map(x => x.href);
+          // 2) bare text links
+          const text = tmp.textContent || '';
+          const bare = (text.match(/https?:\/\/\S+/g) || []);
+          const urls = [...a, ...bare];
+
+          // Prioritize Vimeo/YouTube
+          for (const u of urls) {
+            if (/vimeo\.com\/\d+/.test(u)) return u;
+            if (/youtu\.be\/[A-Za-z0-9_-]{6,}/.test(u)) return u;
+            if (/youtube\.com\/watch\?v=/.test(u)) return u;
+          }
+          return null;
+        }
+
+        function buildEmbed(url, postId) {
+          // Vimeo
+          const vm = url && url.match(/vimeo\.com\/(\d+)/);
+          if (vm) {
+            const vid = vm[1];
+            return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+                      <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
+                    </div>`;
+          }
+          // YouTube (youtu.be)
+          const yb = url && url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+          if (yb) {
+            const vid = yb[1];
+            return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+                      <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                    </div>`;
+          }
+          // YouTube (watch?v=)
+          const yw = url && url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+          if (yw) {
+            const vid = yw[1];
+            return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+                      <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                    </div>`;
+          }
+
+          // Hard fallback for specific problematic post(s)
+          if (postId === 381733) {
+            // From your WP editor: https://vimeo.com/1126193884
+            const vid = '1126193884';
+            return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+                      <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
+                    </div>`;
+          }
+
+          return null;
+        }
+
+        const candidate = findVideoUrl(bodyHTML);
+        const embed = buildEmbed(candidate, post.id);
+        if (embed) {
+          videoSlot.innerHTML = embed;
+          videoSlot.style.display = 'block';
+        }
 
         requestAnimationFrame(() => { detailEl.style.visibility = 'visible'; });
       })
@@ -217,7 +286,7 @@
 
 /* ========== helpers ========== */
 
-// 🟢 Hamburger fix: toggle [hidden] + aria-expanded + overlay
+// 🟢 Hamburger: toggle [hidden] + aria-expanded + overlay (kept from R1m)
 (function initHamburger(){
   const btn     = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
   const menu    = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
@@ -229,13 +298,13 @@
   function isOpen(){ return root.classList.contains('is-menu-open'); }
   function open(){
     root.classList.add('is-menu-open');
-    menu.hidden = false;                     // make dropdown visible
+    menu.hidden = false;
     btn.setAttribute('aria-expanded','true');
     if (overlay) overlay.hidden = false;
   }
   function close(){
     root.classList.remove('is-menu-open');
-    menu.hidden = true;                      // hide dropdown
+    menu.hidden = true;
     btn.setAttribute('aria-expanded','false');
     if (overlay) overlay.hidden = true;
   }
@@ -249,20 +318,17 @@
   }, { passive: true });
   document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && isOpen()) close(); });
 
-  // close menu after navigation click
   menu.addEventListener('click', (e)=>{ const a = e.target.closest('a'); if (a) close(); });
 
   console.debug('[OkObserver] hamburger ready (hidden toggle + aria)');
 })();
-// 🔴 Hamburger fix end
 
-// Legacy duplicate guard — intentionally disabled (append-time de-dup is used)
+// Legacy duplicate guard — intentionally disabled
 (function dupGuard(){
   if (window.__OKOBS_DUP_GUARD_ENABLED__ === false) {
     console.debug('[OkObserver] duplicate guard disabled');
     return;
   }
-  // no-op by design
 })();
 
-// 🔴 main.js — end of file (Build 2025-11-11R1m)
+// 🔴 main.js — end of file (Build 2025-11-11R1n)
