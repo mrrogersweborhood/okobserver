@@ -2369,3 +2369,83 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 
 /* 5) Let the hidden attribute be the single source of truth */
 [hidden]{ display: none !important; }
+/* === OkObserver header/menu stability patch (append-only) ============ */
+:root{
+  --oo-h-desktop: 72px;   /* adjust if your header is taller/shorter */
+  --oo-h-mobile:  64px;
+}
+
+/* 1) Stabilize header height so nothing "scoots" on open */
+.oo-header, .site-header, header{
+  position: sticky; top: 0; z-index: 1002;
+  display: flex; align-items: center; justify-content: center;
+  min-height: var(--oo-h-desktop);
+}
+@media (max-width: 899px){
+  .oo-header, .site-header, header{ min-height: var(--oo-h-mobile); }
+}
+
+/* 2) Center brand/motto and reserve space on the RIGHT for the button */
+.oo-brand, .site-branding, .brand{
+  margin: 0 auto; text-align: center;
+  padding-right: 60px; /* 44px button + gutter so it never overlaps the logo */
+}
+
+/* Motto should never be underlined, even if wrapped by a link */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a,
+.oo-brand a .oo-motto, .brand a .motto{
+  text-decoration: none !important;
+  border: 0 !important;
+}
+
+/* 3) Pin hamburger on the RIGHT, vertically centered */
+[data-oo="hamburger"], .oo-hamburger{
+  position: absolute;
+  right: 16px;
+  top: calc(var(--oo-h-desktop) / 2);
+  transform: translateY(-50%);
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  z-index: 1003; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 899px){
+  [data-oo="hamburger"], .oo-hamburger{
+    right: 16px;
+    top: calc(var(--oo-h-mobile) / 2);
+  }
+}
+
+/* 4) Menu panel: fixed-position flyout on desktop; full-width drawer on mobile.
+      (We DO NOT control visibility here—JS uses the [hidden] attribute.) */
+.oo-menu, [data-oo="menu"]{
+  position: fixed !important;
+  z-index: 1001;
+  background: #fff; border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.18);
+  padding: 12px 0;
+}
+
+/* Desktop flyout (stop the full-width banner) */
+@media (min-width: 900px){
+  .oo-menu, [data-oo="menu"]{
+    top: var(--oo-h-desktop);
+    right: 16px; left: auto !important;              /* force non-full-width */
+    width: 320px; max-width: calc(100vw - 32px);
+    max-height: calc(100vh - var(--oo-h-desktop) - 24px);
+    overflow: auto;
+  }
+}
+
+/* Mobile drawer */
+@media (max-width: 899px){
+  .oo-menu, [data-oo="menu"]{
+    top: var(--oo-h-mobile);
+    right: 0; left: 0; width: auto;
+    border-radius: 0 0 12px 12px;
+    max-height: calc(100vh - var(--oo-h-mobile));
+    overflow: auto;
+  }
+}
+
+/* 5) Let JS control visibility */
+[hidden]{ display: none !important; }
