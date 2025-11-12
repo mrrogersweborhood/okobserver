@@ -1,7 +1,7 @@
-// 🟢 Full file: main.js v2025-11-11R1j • Append-time de-dup, guard disabled, strict cartoon filter, stable home grid
+// 🟢 main.js — OkObserver Build 2025-11-11R1k (hidden pre-render fix for post detail)
 (function () {
   'use strict';
-  const BUILD = '2025-11-11R1j';
+  const BUILD = '2025-11-11R1k';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -24,9 +24,8 @@
   // ---------- Home State ----------
   const paging = { page: 1, busy: false, done: false };
   let DISABLE_CARTOON_FILTER = false;
-  const seenIds = new Set(); // append-time de-dup
+  const seenIds = new Set();
 
-  // optional toggle from console
   window.__ok_disableCartoonFilter = (on = true) => {
     DISABLE_CARTOON_FILTER = !!on;
     console.warn('[OkObserver] cartoon filter disabled =', DISABLE_CARTOON_FILTER);
@@ -48,18 +47,11 @@
   function renderHome() {
     console.log('[OkObserver] renderHome() start');
     window.onscroll = null;
-
-    // mount grid once and DO NOT clear it again during this home session
     const grid = getOrMountGrid();
-
-    // disable legacy duplicate guard entirely
     window.__OKOBS_DUP_GUARD_ENABLED__ = false;
-
-    // reset paging and de-dup set for a fresh home view
     paging.page = 1; paging.busy = false; paging.done = false;
     seenIds.clear();
-    grid.innerHTML = ''; // clear once at the start of home
-
+    grid.innerHTML = '';
     loadMore();
     window.onscroll = onScroll;
   }
@@ -71,7 +63,6 @@
   }
 
   function isCartoonSlugList(cats) {
-    // strict match against 'cartoon' only
     return cats.some(c => (c.slug || '').toLowerCase() === 'cartoon');
   }
 
@@ -88,19 +79,16 @@
       })
       .then(arr => {
         console.log('[OkObserver] received posts:', arr.length);
-
         let skipped = 0, rendered = 0;
         const preview = [];
         const grid = document.querySelector('#app .posts-grid') || getOrMountGrid();
 
         arr.forEach(p => {
           const id = String(p.id);
-          if (seenIds.has(id)) { return; } // append-time de-dup
-
+          if (seenIds.has(id)) return;
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
           const isCartoon = !DISABLE_CARTOON_FILTER && isCartoonSlugList(cats);
           if (isCartoon) { skipped++; return; }
-
           if (preview.length < 3) preview.push((p.title && p.title.rendered) || 'Untitled');
 
           const link = `#/post/${p.id}`;
@@ -121,19 +109,15 @@
                <div class="byline">Oklahoma Observer — ${dt}</div>
                <div class="excerpt">${(p.excerpt && p.excerpt.rendered) || ''}</div>
              </div>`;
-
-          // append to the LIVE grid and record the id
           (document.querySelector('#app .posts-grid') || grid).appendChild(card);
           seenIds.add(id);
           rendered++;
         });
 
         console.log(`[OkObserver] render summary — rendered: ${rendered}, skipped(cartoon): ${skipped}, preview:`, preview);
-
         paging.page += 1;
         paging.busy = false;
         if (arr.length === 0 || rendered === 0) paging.done = true;
-
         console.log('[OkObserver] loadMore complete; next page', paging.page, 'done?', paging.done);
       })
       .catch(err => {
@@ -150,16 +134,21 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
+  // ---------- Improved Detail ----------
   function renderDetail(id) {
     window.onscroll = null;
+    paging.done = true; paging.busy = false;
+
+    // Mount hidden shell
     app.innerHTML = `
-      <article class="post-detail">
+      <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
         <h1 class="detail-title"></h1>
         <div class="detail-byline"></div>
         <div class="post-body"></div>
         <p><a class="btn-back" href="#/">← Back to Posts</a></p>
       </article>`;
+    const detailEl = app.querySelector('.post-detail');
 
     fetch(`${API}/posts/${id}?_embed`)
       .then(r => r.json())
@@ -178,14 +167,16 @@
         app.querySelector('.detail-title').innerHTML = rawTitle;
         app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + new Date(post.date).toLocaleDateString();
         app.querySelector('.post-body').innerHTML = (post.content && post.content.rendered) || 'Post loaded.';
+
+        requestAnimationFrame(() => { detailEl.style.visibility = 'visible'; });
       })
       .catch(() => {
         document.title = 'Post – The Oklahoma Observer';
         const b = app.querySelector('.post-body'); if (b) b.textContent = 'Post not found.';
+        requestAnimationFrame(() => { detailEl.style.visibility = 'visible'; });
       });
   }
 
-  // Safety: force home if grid missing shortly after load
   window.addEventListener('load', () => setTimeout(() => {
     if (!document.querySelector('.posts-grid') && ((location.hash || '#/') === '#/')) {
       console.warn('[OkObserver] forcing home route'); location.hash = '#/'; route();
@@ -206,12 +197,11 @@
   console.debug('[OkObserver] hamburger ready');
 })();
 
-// Legacy duplicate guard — intentionally disabled
 (function dupGuard(){
   if (window.__OKOBS_DUP_GUARD_ENABLED__ === false) {
     console.debug('[OkObserver] duplicate guard disabled');
     return;
   }
-  // (kept for compatibility; not used because we do append-time de-dup)
 })();
- // 🔴 Full file end: main.js v2025-11-11R1j
+
+// 🔴 main.js — end of file (Build 2025-11-11R1k)
