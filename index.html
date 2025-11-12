@@ -1,4 +1,4 @@
-<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • SCRIPT TAG FIX -->
+<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • script tag bumped to main.js?v=2025-11-11R1j -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#1E90FF">
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="override.css?v=2025-11-07SR1">
+  <!-- Inline header/utility styles kept minimal; main layout lives in override.css -->
   <style>
     body{margin:0;background:#f7f8fa;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     header.okobs-header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
@@ -44,12 +45,13 @@
     © 2025 The Oklahoma Observer • Build 2025-11-11R1-headerHamburger
   </footer>
 
-  <!-- Order matters: PostDetail helper first, then MAIN (now pointing to R1f) -->
+  <!-- Load helpers first, then MAIN (bumped) -->
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
-  <script defer src="main.js?v=2025-11-11R1h"></script>
+  <script defer src="main.js?v=2025-11-11R1j"></script>
 
+  <!-- Service worker registration (versioned) -->
   <script>
-    // Keep SW but allow easy version bump
+    /* index.html SW reg — keep versioned to force updates */
     (function(){
       try{
         if('serviceWorker' in navigator){
