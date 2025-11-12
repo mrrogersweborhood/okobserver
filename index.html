@@ -8,14 +8,15 @@
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
   <style>
-    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+    /* keep minimal critical CSS here; bulk is in override.css */
+    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     #app { min-height: 100vh; }
   </style>
   <link rel="preload" href="override.css?v=2025-11-12H5" as="style" />
   <link rel="stylesheet" href="override.css?v=2025-11-12H5" />
 </head>
 <body>
-  <!-- Header -->
+  <!-- Sticky Header -->
   <header class="oo-header" role="banner">
     <div class="oo-header-inner">
       <button class="oo-hamburger" data-oo="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
@@ -40,16 +41,17 @@
 
   <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H6
+    © 2025 The Oklahoma Observer • Build 2025-11-12H7
   </footer>
 
-  <!-- Grid Enforcer (must stay) -->
+  <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
+    // 🟢 index.html — start of full file
     (function(){
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
         if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(el => { el.classList.add('post-card'); });
+        grid.querySelectorAll('.post-card').forEach(el => el.classList.add('post-card'));
       };
       const mo = new MutationObserver(ensure);
       mo.observe(document.getElementById('app'), { childList:true, subtree:true });
@@ -57,23 +59,33 @@
       document.addEventListener('okobs:route', ensure);
       setInterval(ensure, 1500);
     })();
+    // 🔴 index.html — end of full file
   </script>
 
-  <!-- App Scripts (plain JS only; versions unchanged from last step) -->
+  <!-- App Scripts (plain JS only) -->
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker registration (plain URL, explicit scope) -->
+  <!-- Service Worker: plain script, explicit scope to /okobserver/ -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
-      // Register the worker script in the same directory; no query string.
-      navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+
+      // Compute the directory scope, e.g. '/okobserver/'
+      const SCOPE = (location.pathname.endsWith('/')) 
+        ? location.pathname 
+        : location.pathname.replace(/[^/]+$/, '');
+
+      // Register plain sw.js (no query string) so GH Pages can find it
+      navigator.serviceWorker.register('sw.js', { scope: SCOPE, updateViaCache: 'none' })
         .then(reg => {
-          console.log('[OkObserver] SW registered:', reg.scope);
+          console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
           try { reg.update(); } catch (_) {}
         })
         .catch(err => console.warn('[OkObserver] SW register failed:', err));
+
+      navigator.serviceWorker.getRegistrations()
+        .then(list => console.log('[OkObserver] SW registrations:', list.map(r => ({scope:r.scope, script: (r.active||r.waiting||r.installing)?.scriptURL})) ));
     })();
   </script>
 </body>
