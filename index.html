@@ -1,4 +1,4 @@
-<!-- 🟢 Full file: index.html • OkObserver Build 2025-11-11R1-headerHamburger • script tag bumped to main.js?v=2025-11-11R1v -->
+<!-- 🟢 index.html — FULL FILE (OkObserver Build 2025-11-12H2) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,7 +8,6 @@
   <meta name="theme-color" content="#1E90FF">
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="override.css?v=2025-11-07SR1">
-  <!-- Inline header/utility styles kept minimal; main layout lives in override.css -->
   <style>
     body{margin:0;background:#f7f8fa;color:#111;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     header.okobs-header{position:sticky;top:0;z-index:1000;background:#1E90FF;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
@@ -21,6 +20,26 @@
     main#app{max-width:1200px;margin:18px auto;padding:0 16px;min-height:40vh}
     footer.site-footer{max-width:1200px;margin:32px auto;padding:24px 16px;color:#555;font-size:14px;text-align:center}
     a.btn-back,.back-to-posts,.oo-backbtn{background:#1E90FF;color:#fff;border:0;border-radius:10px;padding:.5rem .75rem;text-decoration:none}
+    /* 🟢 Hamburger styles (safe, minimal) */
+    .oo-menu {
+      position: absolute;
+      right: 16px;
+      top: 54px;
+      background: #fff;
+      color: #111;
+      padding: 10px 12px;
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+      display: flex;
+      gap: 16px;
+    }
+    .oo-menu a { color:#111; text-decoration:none; font-weight:600; }
+    .oo-menu a:hover { text-decoration:underline; }
+    .oo-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.15);
+      backdrop-filter: saturate(80%) blur(1px);
+    }
   </style>
 </head>
 <body>
@@ -42,20 +61,37 @@
   <main id="app" class="oo-app" role="main" aria-live="polite" aria-busy="true"></main>
 
   <footer class="site-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-11R1-headerHamburger
+    © 2025 The Oklahoma Observer • Build 2025-11-12H2
   </footer>
 
-  <!-- Load helpers first, then MAIN (bumped) -->
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
-  script defer src="main.js?v=2025-11-12R1h2"
+  <script defer src="main.js?v=2025-11-12R1h4"></script>
 
-  <!-- Service worker registration (versioned) -->
+  <!-- 🟢 Hamburger controller -->
   <script>
-    /* index.html SW reg — keep versioned to force updates */
+  (function () {
+    const btn = document.querySelector('[data-oo="hamburger"]');
+    const menu = document.querySelector('[data-oo="menu"]');
+    const overlay = document.querySelector('[data-oo="overlay"]');
+    if (!btn || !menu || !overlay) return;
+    function openMenu(){ menu.hidden=false; overlay.hidden=false; btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
+    function closeMenu(){ menu.hidden=true; overlay.hidden=true; btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
+    btn.addEventListener('click',()=> menu.hidden?openMenu():closeMenu());
+    overlay.addEventListener('click',closeMenu);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenu(); });
+    window.addEventListener('hashchange',closeMenu);
+    window.addEventListener('resize',()=>{ if(innerWidth>=900) closeMenu(); });
+    menu.addEventListener('click',e=>{ if(e.target.closest('a')) closeMenu(); });
+    console.log('[OkObserver] hamburger ready');
+  })();
+  </script>
+
+  <!-- Service worker registration -->
+  <script>
     (function(){
       try{
         if('serviceWorker' in navigator){
-          navigator.serviceWorker.register('sw.js?v=2025-11-07SR1').catch(function(e){
+          navigator.serviceWorker.register('sw.js?v=2025-11-12R1h2').catch(e=>{
             console.warn('[OkObserver] SW register failed:', e);
           });
         }
@@ -64,4 +100,4 @@
   </script>
 </body>
 </html>
-<!-- 🔴 index.html — END FULL FILE -->
+<!-- 🔴 index.html — END FULL FILE (Build 2025-11-12H2) -->

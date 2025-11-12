@@ -305,3 +305,51 @@
 })();
 
 // 🔴 main.js — end of file (Build 2025-11-12R1h)
+/* 🟢 main.js (APPEND) — Hamburger controller v2025-11-12H1
+   Ensures the header menu toggles reliably without touching other app logic. */
+(function () {
+  const btn = document.querySelector('[data-oo="hamburger"]');
+  const menu = document.querySelector('[data-oo="menu"]');
+  const overlay = document.querySelector('[data-oo="overlay"]');
+  if (!btn || !menu || !overlay) {
+    console.warn('[OkObserver] hamburger elements missing');
+    return;
+  }
+
+  function openMenu() {
+    menu.hidden = false;
+    overlay.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu() {
+    menu.hidden = true;
+    overlay.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  // Toggle on button
+  btn.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
+
+  // Close on overlay click or Esc
+  overlay.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
+  });
+
+  // Close on nav changes (hash) and on wider screens
+  window.addEventListener('hashchange', closeMenu);
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 900) closeMenu();
+  });
+
+  // Close when a link inside the menu is clicked
+  menu.addEventListener('click', (e) => {
+    const a = e.target.closest('a');
+    if (a) closeMenu();
+  });
+
+  console.log('[OkObserver] hamburger ready');
+})();
+/* 🔴 main.js (APPEND) — END */
