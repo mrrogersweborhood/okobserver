@@ -3,20 +3,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
   <style>
-    /* Minimal critical styles to avoid FOUC; rest in override.css */
-    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
-  <link rel="preload" href="override.css?v=2025-11-12H3" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-12H3" />
+  <link rel="preload" href="override.css?v=2025-11-12H4" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-12H4" />
 </head>
 <body>
   <!-- Sticky Header -->
@@ -44,12 +40,12 @@
 
   <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H3
+    © 2025 The Oklahoma Observer • Build 2025-11-12H4
   </footer>
 
   <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
-    // Keep this tiny and robust; no ES modules.
+    // 🟢 index.html — start of full file
     (function(){
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
@@ -60,19 +56,20 @@
       mo.observe(document.getElementById('app'), { childList:true, subtree:true });
       window.addEventListener('hashchange', ensure);
       document.addEventListener('okobs:route', ensure);
-      setInterval(ensure, 1500); // light-touch guard
+      setInterval(ensure, 1500);
     })();
+    // 🔴 index.html — end of full file
   </script>
 
   <!-- App Scripts (plain JS only; version-busted) -->
-  <script defer src="main.js?v=2025-11-12R1h6"></script>
+  <script defer src="main.js?v=2025-11-12R1h7"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
   <!-- Service Worker registration with version param -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
-      const swUrl = 'sw.js?v=2025-11-12R1h4';
+      const swUrl = 'sw.js?v=2025-11-12R1h5';
       navigator.serviceWorker.register(swUrl).catch(()=>{});
     })();
   </script>

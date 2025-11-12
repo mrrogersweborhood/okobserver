@@ -1,16 +1,12 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h4
-   - Versioned cache to force purge on deploys
-   - Network-first for HTML routes; cache-first for static assets
-   - Plain JS only
-*/
-const SW_BUILD = '2025-11-12R1h4';
+/* OkObserver Service Worker — Build 2025-11-12R1h5 */
+const SW_BUILD = '2025-11-12R1h5';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
-  '/', './', 'index.html?v=2025-11-12H3',
-  'override.css?v=2025-11-12H3',
-  'main.js?v=2025-11-12R1h6',
+  '/', './', 'index.html?v=2025-11-12H4',
+  'override.css?v=2025-11-12H4',
+  'main.js?v=2025-11-12R1h7',
   'PostDetail.js?v=2025-11-10R6',
   'logo.png', 'favicon.ico'
 ];
@@ -32,15 +28,13 @@ self.addEventListener('activate', event => {
 });
 
 function isHTML(req){
-  return req.mode === 'navigate' ||
-         (req.headers.get('accept') || '').includes('text/html');
+  return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 }
 
 self.addEventListener('fetch', event => {
   const req = event.request;
 
   if (isHTML(req)){
-    // Network-first for pages
     event.respondWith((async()=>{
       try{
         const fresh = await fetch(req);
@@ -49,14 +43,13 @@ self.addEventListener('fetch', event => {
         return fresh;
       }catch(_){
         const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H3');
+        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H4');
         return cached || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());
     return;
   }
 
-  // Cache-first for static
   event.respondWith((async()=>{
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(req);

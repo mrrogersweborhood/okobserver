@@ -1,16 +1,11 @@
 // 🟢 main.js — start of full file
-/* OkObserver Main — Build 2025-11-12R1h6
-   - Preserves 4/3/1 grid, deduped infinite scroll, one fetch/page
-   - Strict cartoon filter (slug === 'cartoon' only)
-   - Detail: decode titles; “reveal after ready”; scrub/replace embed placeholders to kill blank rectangles
-   - Video autodetect (Vimeo/YouTube) + hard fallback for /post/381733
-   - Robust hamburger (single controller) + overlay; closes on ESC/resize/link
-   - Emits okobs:route events for grid-enforcer
-   - Plain JS only
+/* OkObserver Main — Build 2025-11-12R1h7
+   - Strong embed-wrapper cleanup to eliminate blank boxes (incl. /post/381733)
+   - All prior rules preserved (4/3/1 grid, dedup, one fetch/page, cartoon filter, etc.)
 */
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h6';
+  const BUILD = '2025-11-12R1h7';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -157,22 +152,18 @@
       const bodyHTML = (post.content && post.content.rendered) || '';
       const bodyEl = app.querySelector('.post-body'); bodyEl.innerHTML = bodyHTML;
 
-      // scrub obvious blank nodes at the top
+      // scrub obvious blanks at the top
       tidyArticleSpacing(bodyEl);
 
-      // Detect video URL
+      // Detect video URL + construct embed
       const candidate = findVideoUrl(bodyHTML);
       const embedHTML = buildEmbed(candidate, post.id);
 
-      // Try to REPLACE the first WP embed wrapper with our iframe (prevents blank rounded rectangles).
+      // Replace the first WP embed wrapper with our iframe; fallback to slot if none found
       let replaced = false;
-      if (embedHTML){
-        replaced = replaceFirstEmbedWrapper(bodyEl, embedHTML, candidate);
-      }
-
+      if (embedHTML){ replaced = replaceFirstEmbedWrapper(bodyEl, embedHTML); }
       const videoSlot = app.querySelector('.video-slot');
       if (!replaced && embedHTML){
-        // Fallback: use dedicated slot near the top
         videoSlot.style.display='none';
         videoSlot.innerHTML = embedHTML;
         const iframe = videoSlot.querySelector('iframe');
@@ -181,11 +172,12 @@
         const giveUp  = ()=>{ if(shown) return; videoSlot.innerHTML=''; videoSlot.style.display='none'; };
         iframe && iframe.addEventListener('load', showNow, { once:true });
         setTimeout(showNow, 600);
-        setTimeout(giveUp, 4000);
+        setTimeout(giveUp, 3500);
       }
 
-      // Purge ANY leftover empty embed wrappers anywhere in the body (prevents the blank rounded rectangle seen in your screenshot).
-      purgeEmptyEmbedBoxes(bodyEl, candidate);
+      // Kill any leftover empty embed wrappers now and shortly after
+      purgeEmptyEmbedBoxes(bodyEl);
+      setTimeout(()=>purgeEmptyEmbedBoxes(bodyEl), 800);
 
       requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
     }).catch(()=>{
@@ -214,36 +206,36 @@
     const vm = url && url.match(/vimeo\.com\/(\d+)/);
     if (vm){
       const vid = vm[1];
-      return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+      return `<div class="video-embed" style="position:relative; margin:12px 0 20px; border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
                   allow="autoplay; fullscreen; picture-in-picture"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
+                  style="position:relative; display:block; width:100%; height:360px; border:0;" loading="lazy"></iframe>
               </div>`;
     }
     const yb = url && url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (yb){
       const vid = yb[1];
-      return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+      return `<div class="video-embed" style="position:relative; margin:12px 0 20px; border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                  style="position:relative; display:block; width:100%; height:360px; border:0;" loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
     const yw = url && url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
     if (yw){
       const vid = yw[1];
-      return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+      return `<div class="video-embed" style="position:relative; margin:12px 0 20px; border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                  style="position:relative; display:block; width:100%; height:360px; border:0;" loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
     if (postId === 381733){ // hard fallback
       const vid='1126193884';
-      return `<div class="video-embed" style="position:relative;padding-top:56.25%;margin:12px 0 20px;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
+      return `<div class="video-embed" style="position:relative; margin:12px 0 20px; border-radius:12px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
                   allow="autoplay; fullscreen; picture-in-picture"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
+                  style="position:relative; display:block; width:100%; height:360px; border:0;" loading="lazy"></iframe>
               </div>`;
     }
     return null;
@@ -262,22 +254,25 @@
     }
   }
 
-  // Replace the first WP embed wrapper with a real iframe
-  function replaceFirstEmbedWrapper(container, embedHTML, urlCandidate){
-    const sel = [
+  function replaceFirstEmbedWrapper(container, embedHTML){
+    const selectors = [
+      'figure.wp-block-embed',
       '.wp-block-embed',
       '.wp-block-embed__wrapper',
       '.wp-embed-aspect-16-9',
+      '.wp-embed-responsive',
+      '.wp-embed',
+      '.wp-block-video',
       'div[data-oembed-url]',
       'p'
     ].join(',');
-    const nodes = Array.from(container.querySelectorAll(sel));
+    const nodes = Array.from(container.querySelectorAll(selectors));
     for (const el of nodes){
-      const txt = (el.textContent||'').trim();
-      const hasIframe = !!el.querySelector('iframe,video');
-      const looksVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(txt);
-      const isWpEmbed = /\bwp-block-embed\b/.test(el.className||'') || /\bwp-embed-aspect\b/.test(el.className||'') || el.hasAttribute('data-oembed-url');
-      if (hasIframe) continue;
+      const hasMedia = !!el.querySelector('iframe,video,img');
+      const text = (el.textContent||'').trim();
+      const looksVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(text);
+      const isWpEmbed = /\bwp-block-embed\b/.test(el.className||'') || /\bwp-embed\b/.test(el.className||'') || el.hasAttribute('data-oembed-url');
+      if (hasMedia) continue;
       if (isWpEmbed || looksVideoLink){
         const wrap = document.createElement('div');
         wrap.innerHTML = embedHTML;
@@ -288,20 +283,33 @@
     return false;
   }
 
-  // Remove ANY empty embed boxes (anywhere), not just the first
-  function purgeEmptyEmbedBoxes(container, urlCandidate){
-    const candidates = container.querySelectorAll('.wp-block-embed, .wp-block-embed__wrapper, .wp-embed-aspect-16-9, div[data-oembed-url], p');
-    candidates.forEach(el=>{
-      const hasMedia = !!el.querySelector('iframe,video');
+  function purgeEmptyEmbedBoxes(container){
+    const sel = [
+      'figure.wp-block-embed',
+      '.wp-block-embed',
+      '.wp-block-embed__wrapper',
+      '.wp-embed-aspect-16-9',
+      '.wp-embed-responsive',
+      '.wp-embed',
+      '.wp-block-video',
+      'div[data-oembed-url]',
+      'p'
+    ].join(',');
+    const nodes = Array.from(container.querySelectorAll(sel));
+    let removedAny = false;
+    nodes.forEach(el=>{
+      const hasMedia = !!el.querySelector('iframe,video,img');
       const text = (el.textContent||'').trim();
-      const isVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(text);
-      if (!hasMedia && (isVideoLink || /\bwp-block-embed\b/.test(el.className||'') || el.hasAttribute('data-oembed-url'))){
-        // If it’s just a placeholder or naked link, drop it to avoid blank rounded rectangles.
+      const looksVideoLink = el.tagName==='P' && /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test(text);
+      const isEmbedish = /\bwp-block-embed\b/.test(el.className||'') || /\bwp-embed\b/.test(el.className||'') || el.hasAttribute('data-oembed-url') || looksVideoLink;
+      if (isEmbedish && !hasMedia){
         el.remove();
+        removedAny = true;
       }
     });
-    // After removals, ensure top margin is clean.
-    const fc = container.firstElementChild; if (fc) fc.style.marginTop='0';
+    if (removedAny){
+      const fc = container.firstElementChild; if (fc) fc.style.marginTop='0';
+    }
   }
 
   // ---------- Safety ----------
@@ -319,10 +327,7 @@
   const overlay = document.querySelector('[data-oo="overlay"]')|| document.querySelector('.oo-overlay') || null;
   const root = document.body;
 
-  if (!btn || !menu || !overlay) {
-    console.warn('[OkObserver] hamburger elements missing');
-    return;
-  }
+  if (!btn || !menu || !overlay) { console.warn('[OkObserver] hamburger elements missing'); return; }
 
   function isOpen(){ return !menu.hidden; }
   function open(){ menu.hidden=false; overlay.hidden=false; btn.setAttribute('aria-expanded','true'); root.style.overflow='hidden'; }
