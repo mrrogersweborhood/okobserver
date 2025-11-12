@@ -1,20 +1,16 @@
-🟢 main.js
-/* 🟢 main.js — OkObserver Build 2025-11-12R1g
-   Full-file replacement (no truncation).
-   - Fixes residual white gap on some posts (scrubs empty/ratio wrappers).
-   - Keeps “reveal after ready” to avoid flashing empty detail.
-   - Bold byline on detail.
+// 🟢 main.js — OkObserver Build 2025-11-12R1h
+/* Full-file replacement (no truncation).
+   - Scrubs stray Gutenberg/embed wrappers that caused the white gap.
+   - “Reveal after ready” on detail to prevent empty flash.
+   - Byline bold on detail.
    - Vimeo/YouTube autodetect + hard fallback for post 381733.
-   - Hamburger: open/close + ESC/overlay + click-out to close.
-   - Strict cartoon filter & duplicate guard on home feed.
-   - Router + infinite scroll preserved.
-
-   NOTE: This header comment with the green circle is intentional per your format.
+   - Hamburger: open/close + ESC + click-out + overlay (no-op in markup if missing).
+   - Strict cartoon filter & duplicate guard on home.
 */
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1g';
+  const BUILD = '2025-11-12R1h';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -54,7 +50,6 @@
   function renderHome(){
     window.onscroll = null;
     const grid = getOrMountGrid();
-    // disable de-dupe guard animations on home re-render
     window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
     paging.page=1; paging.busy=false; paging.done=false;
@@ -130,7 +125,7 @@
   function renderDetail(id){
     window.onscroll = null; paging.done=true; paging.busy=false;
 
-    // Hide until we’ve mounted media/body to avoid any “empty page” flash
+    // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
@@ -161,7 +156,7 @@
       const bodyHTML = (post.content && post.content.rendered) || '';
       const bodyEl = app.querySelector('.post-body'); bodyEl.innerHTML = bodyHTML;
 
-      // tidy and scrub placeholders before/after mounting video
+      // scrub empty/ratio wrappers that create top gap
       tidyArticleSpacing(bodyEl);
 
       const videoSlot = app.querySelector('.video-slot');
@@ -178,17 +173,16 @@
         const giveUp  = ()=>{ if(shown) return; videoSlot.innerHTML=''; videoSlot.style.display='none'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
 
         iframe && iframe.addEventListener('load', showNow, { once:true });
-        setTimeout(showNow, 600);    // cached fast path
-        setTimeout(giveUp, 4000);    // ultimate fallback
+        setTimeout(showNow, 600);
+        setTimeout(giveUp, 4000);
       } else {
         scrubLeadingEmbedPlaceholders(bodyEl, candidate);
       }
 
-      // finally reveal and clear temp min-height
       requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
     }).catch(()=>{
       document.title='Post – The Oklahoma Observer';
-      const b = app.querySelector('.post-body'); if (b) b.textContent='Post not found.'; 
+      const b = app.querySelector('.post-body'); if (b) b.textContent='Post not found.';
       requestAnimationFrame(()=>{ const d=app.querySelector('.post-detail'); if(d){d.style.visibility='visible'; d.style.minHeight='';} });
     });
   }
@@ -260,7 +254,6 @@
     }
   }
 
-  // Remove leading Gutenberg/video placeholders and ratio wrappers without iframes
   function scrubLeadingEmbedPlaceholders(container, urlCandidate){
     let changed=false;
     while (container.firstElementChild){
@@ -268,20 +261,13 @@
       const cls = (el.className||'')+'';
       const html = el.innerHTML||'';
       const hasIframe = !!el.querySelector('iframe, video');
-
       const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
       const isVideoLinkPara = el.tagName === 'P' &&
         /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test((el.textContent||'')) && !hasIframe;
-
-      // ratio wrapper with no media (common gap culprit)
       const style = el.getAttribute('style') || '';
       const looksLikeRatio = /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
-
       const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
-
-      if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected){
-        el.remove(); changed=true; continue;
-      }
+      if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected){ el.remove(); changed=true; continue; }
       break;
     }
     if (changed){
@@ -298,7 +284,7 @@
   }, 500));
 })();
 
-/* ========== hamburger (no change in selectors; improved close logic) ========== */
+// ========== hamburger (improved close logic) ==========
 (function initHamburger(){
   const btn  = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
   const menu = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
@@ -318,5 +304,4 @@
   menu.addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) close(); });
 })();
 
-/* 🔴 main.js — end of file (Build 2025-11-12R1g) */
-🔴 main.js
+// 🔴 main.js — end of file (Build 2025-11-12R1h)
