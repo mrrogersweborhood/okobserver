@@ -1,83 +1,69 @@
-// 🟢 sw.js | OkObserver Build 2025-11-12R1h2
-/* Clean UTF-8, versioned cache purge, offline fallback, GH Pages safe.
-   This update bumps the cache version to force browsers to fetch the new
-   main.js (2025-11-12R1h2).  No logic changes, just a version refresh. */
+// 🟢 sw.js — start of full file
+/* OkObserver Service Worker — Build 2025-11-12R1h3
+   - Versioned cache to force purge on deploys
+   - Network-first for HTML routes; cache-first for static assets
+   - Plain JS only
+*/
+const SW_BUILD = '2025-11-12R1h3';
+const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
-'use strict';
-
-const SW_VERSION = '2025-11-12R1h2';
-const CACHE_NAME = `okobserver-cache-${SW_VERSION}`;
-
-const APP_SHELL = [
-  './',
-  './index.html',
-  './override.css',
-  './main.js?v=2025-11-12R1h2',
-  './logo.png',
-  './favicon.ico',
-  './offline.html'
+const ASSETS = [
+  '/', './', 'index.html?v=2025-11-12H3',
+  'override.css?v=2025-11-12H3',
+  'main.js?v=2025-11-12R1h5',
+  'PostDetail.js?v=2025-11-10R6',
+  'logo.png', 'favicon.ico'
 ];
 
-// ----- INSTALL -----
-self.addEventListener('install', (evt) => {
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(ASSETS))
+      .then(()=> self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// ----- ACTIVATE -----
-self.addEventListener('activate', (evt) => {
-  evt.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.map(k =>
-          k.startsWith('okobserver-cache-') && k !== CACHE_NAME
-            ? caches.delete(k)
-            : null
-        )
-      )
-    )
-  );
-  self.clients.claim();
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => { if (k !== CACHE_NAME) return caches.delete(k); }));
+    await self.clients.claim();
+  })());
 });
 
-// ----- FETCH -----
-self.addEventListener('fetch', (evt) => {
-  const req = evt.request;
-  if (req.method !== 'GET') return;
+function isHTML(req){
+  return req.mode === 'navigate' ||
+         (req.headers.get('accept') || '').includes('text/html');
+}
 
-  // Network-first for HTML, cache-first for static
-  if (req.headers.get('accept')?.includes('text/html')) {
-    evt.respondWith(
-      fetch(req)
-        .then(r => {
-          const copy = r.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(()=>{});
-          return r;
-        })
-        .catch(() =>
-          caches.match(req).then(r => r || caches.match('./offline.html'))
-        )
-    );
+self.addEventListener('fetch', event => {
+  const req = event.request;
+
+  if (isHTML(req)){
+    // Network-first for pages
+    event.respondWith((async()=>{
+      try{
+        const fresh = await fetch(req);
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(req, fresh.clone());
+        return fresh;
+      }catch(_){
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H3');
+        return cached || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
+      }
+    })());
     return;
   }
 
-  evt.respondWith(
-    caches.match(req).then(r =>
-      r ||
-      fetch(req)
-        .then(net => {
-          const copy = net.clone();
-          caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(()=>{});
-          return net;
-        })
-        .catch(() => {
-          if (req.mode === 'navigate') return caches.match('./offline.html');
-          return Promise.reject(new Error('Network fail (non-HTML)'));
-        })
-    )
-  );
+  // Cache-first for static
+  event.respondWith((async()=>{
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    const fresh = await fetch(req).catch(()=>null);
+    if (fresh) { cache.put(req, fresh.clone()); return fresh; }
+    return new Response('', { status: 504 });
+  })());
 });
-
-// 🔴 sw.js | end of file (Build 2025-11-12R1h2)
+// 🔴 sw.js — end of full file

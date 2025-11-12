@@ -1,16 +1,16 @@
-// 🟢 main.js — OkObserver Build 2025-11-12R1h
-/* Full-file replacement (no truncation).
-   - Scrubs stray Gutenberg/embed wrappers that caused the white gap.
-   - “Reveal after ready” on detail to prevent empty flash.
-   - Byline bold on detail.
-   - Vimeo/YouTube autodetect + hard fallback for post 381733.
-   - Hamburger: open/close + ESC + click-out + overlay (no-op in markup if missing).
-   - Strict cartoon filter & duplicate guard on home.
+// 🟢 main.js — start of full file
+/* OkObserver Main — Build 2025-11-12R1h5
+   - Preserves 4/3/1 grid, deduped infinite scroll, one fetch/page
+   - Strict cartoon filter (slug === 'cartoon' only)
+   - Detail: decode titles; “reveal after ready”; scrub empty wrappers to kill top white gap
+   - Video autodetect (Vimeo/YouTube) + hard fallback for /post/381733
+   - Robust hamburger (single controller) + overlay; closes on ESC/resize/link
+   - Emits okobs:route events for grid-enforcer
+   - Plain JS only
 */
-
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h';
+  const BUILD = '2025-11-12R1h5';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -56,6 +56,7 @@
     seenIds.clear(); grid.innerHTML='';
     loadMore();
     window.onscroll = onScroll;
+    document.title = 'The Oklahoma Observer';
   }
 
   function onScroll(){
@@ -82,9 +83,10 @@
           if (seenIds.has(id)) return;
 
           const cats = (p._embedded && p._embedded['wp:term'] && p._embedded['wp:term'][0]) || [];
-          if (!DISABLE_CARTOON_FILTER && isCartoonSlugList(cats)) { return; }
+          if (!DISABLE_CARTOON_FILTER && isCartoonSlugList(cats)) return;
 
-          const title = (p.title && p.title.rendered) || 'Untitled';
+          const titleHTML = (p.title && p.title.rendered) || 'Untitled';
+          const titleTXT = (d=>{d.innerHTML=titleHTML; return d.textContent || d.innerText || '';})(document.createElement('div'));
           const link  = `#/post/${p.id}`;
           const dt    = new Date(p.date).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
           const media = p._embedded && p._embedded['wp:featuredmedia'] && p._embedded['wp:featuredmedia'][0];
@@ -98,7 +100,7 @@
           card.innerHTML =
             (src ? `<a href="${link}"><img class="thumb" alt="" loading="lazy" src="${src}"></a>` : '') +
             `<div class="pad">
-               <h3><a href="${link}">${title}</a></h3>
+               <h3><a href="${link}">${titleTXT}</a></h3>
                <div class="byline">Oklahoma Observer — ${dt}</div>
                <div class="excerpt">${(p.excerpt && p.excerpt.rendered) || ''}</div>
              </div>`;
@@ -125,7 +127,6 @@
   function renderDetail(id){
     window.onscroll = null; paging.done=true; paging.busy=false;
 
-    // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <img class="hero" alt="" style="display:none" />
@@ -151,7 +152,7 @@
       if (src){ hero.src=src; hero.style.display='block'; }
 
       // title/byline/body
-      app.querySelector('.detail-title').innerHTML = rawTitle;
+      app.querySelector('.detail-title').textContent = cleanTitle;
       app.querySelector('.detail-byline').textContent = 'Oklahoma Observer — ' + new Date(post.date).toLocaleDateString();
       const bodyHTML = (post.content && post.content.rendered) || '';
       const bodyEl = app.querySelector('.post-body'); bodyEl.innerHTML = bodyHTML;
@@ -248,7 +249,7 @@
     const fc = container.firstElementChild; if (fc) fc.style.marginTop='0';
     function isTrulyEmpty(node){
       if (!node) return false;
-      if (node.querySelector('img,iframe,video,svg,picture')) return false;
+      if (node.querySelector && node.querySelector('img,iframe,video,svg,picture')) return false;
       const text = (node.textContent || '').replace(/\u00a0/g,' ').trim();
       return text.length===0;
     }
@@ -260,13 +261,13 @@
       const el = container.firstElementChild;
       const cls = (el.className||'')+'';
       const html = el.innerHTML||'';
-      const hasIframe = !!el.querySelector('iframe, video');
+      const hasIframe = el.querySelector ? !!el.querySelector('iframe, video') : false;
       const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
       const isVideoLinkPara = el.tagName === 'P' &&
         /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com)\//i.test((el.textContent||'')) && !hasIframe;
-      const style = el.getAttribute('style') || '';
+      const style = el.getAttribute && (el.getAttribute('style') || '');
       const looksLikeRatio = /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
-      const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
+      const matchesDetected = urlCandidate && ((html||'').includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
       if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected){ el.remove(); changed=true; continue; }
       break;
     }
@@ -284,72 +285,29 @@
   }, 500));
 })();
 
-// ========== hamburger (improved close logic) ==========
+// ========== Hamburger Controller (single source of truth) ==========
 (function initHamburger(){
   const btn  = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
   const menu = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
   const overlay = document.querySelector('[data-oo="overlay"]')|| document.querySelector('.oo-overlay') || null;
-  const root = document.getElementById('app') || document.body;
+  const root = document.body;
 
-  if (!btn || !menu) return;
-
-  function isOpen(){ return root.classList.contains('is-menu-open'); }
-  function open(){ root.classList.add('is-menu-open'); menu.hidden=false; btn.setAttribute('aria-expanded','true'); if(overlay) overlay.hidden=false; }
-  function close(){ root.classList.remove('is-menu-open'); menu.hidden=true; btn.setAttribute('aria-expanded','false'); if(overlay) overlay.hidden=true; }
-  function toggle(){ isOpen()?close():open(); }
-
-  btn.addEventListener('click', e=>{ e.stopPropagation(); toggle(); });
-  document.addEventListener('click', e=>{ if(!isOpen()) return; if(menu.contains(e.target)||btn.contains(e.target)) return; close(); }, { passive:true });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&isOpen()) close(); });
-  menu.addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) close(); });
-})();
-
-// 🔴 main.js — end of file (Build 2025-11-12R1h)
-/* 🟢 main.js (APPEND) — Hamburger controller v2025-11-12H1
-   Ensures the header menu toggles reliably without touching other app logic. */
-(function () {
-  const btn = document.querySelector('[data-oo="hamburger"]');
-  const menu = document.querySelector('[data-oo="menu"]');
-  const overlay = document.querySelector('[data-oo="overlay"]');
   if (!btn || !menu || !overlay) {
     console.warn('[OkObserver] hamburger elements missing');
     return;
   }
 
-  function openMenu() {
-    menu.hidden = false;
-    overlay.hidden = false;
-    btn.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeMenu() {
-    menu.hidden = true;
-    overlay.hidden = true;
-    btn.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
-  }
+  function isOpen(){ return !menu.hidden; }
+  function open(){ menu.hidden=false; overlay.hidden=false; btn.setAttribute('aria-expanded','true'); root.style.overflow='hidden'; }
+  function close(){ menu.hidden=true; overlay.hidden=true; btn.setAttribute('aria-expanded','false'); root.style.overflow=''; }
+  function toggle(){ isOpen()?close():open(); }
 
-  // Toggle on button
-  btn.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
-
-  // Close on overlay click or Esc
-  overlay.addEventListener('click', closeMenu);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeMenu();
-  });
-
-  // Close on nav changes (hash) and on wider screens
-  window.addEventListener('hashchange', closeMenu);
-  window.addEventListener('resize', () => {
-    if (window.innerWidth >= 900) closeMenu();
-  });
-
-  // Close when a link inside the menu is clicked
-  menu.addEventListener('click', (e) => {
-    const a = e.target.closest('a');
-    if (a) closeMenu();
-  });
-
+  btn.addEventListener('click', e=>{ e.stopPropagation(); toggle(); });
+  overlay.addEventListener('click', close);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&isOpen()) close(); });
+  window.addEventListener('resize', ()=>{ if(innerWidth>=900) close(); });
+  window.addEventListener('hashchange', close);
+  menu.addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) close(); });
   console.log('[OkObserver] hamburger ready');
 })();
-/* 🔴 main.js (APPEND) — END */
+// 🔴 main.js — end of full file

@@ -1752,3 +1752,134 @@ div:has(> .post-card):not(.post-detail) {
 
 /* Ensure byline is bold (requested) */
 .detail-byline { font-weight: 700; }
+/* 🟢 override.css — start of full file */
+/* OkObserver Styles — Build 2025-11-12H3
+   - Sticky blue header with centered branding + motto
+   - Always-hamburger overlay menu
+   - 4/3/1 responsive grid
+   - White cards, soft shadow, rounded corners
+   - Immediate excerpts
+   - Post detail: HERO → TITLE → BYLINE → CONTENT → Back button
+   - White-gap fix above first embeds/iframes
+*/
+
+/* Base */
+:root{
+  --oo-blue:#1E90FF;
+  --oo-bg:#f5f6f7;
+  --oo-card:#fff;
+  --oo-text:#111;
+  --oo-muted:#667085;
+  --oo-shadow:0 6px 18px rgba(0,0,0,.10);
+  --oo-radius:14px;
+  --oo-gutter:16px;
+}
+*{box-sizing:border-box}
+a{color:#0b63ce;text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Header */
+.oo-header{
+  position:sticky; top:0; z-index:50;
+  background:var(--oo-blue); color:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.15);
+}
+.oo-header-inner{
+  display:grid; grid-template-columns:48px 1fr 48px; align-items:center;
+  max-width:1200px; margin:0 auto; padding:10px 16px;
+}
+.oo-hamburger{
+  justify-self:start; width:42px; height:42px; border:0; border-radius:12px;
+  background:rgba(255,255,255,.15); color:#fff; font-size:22px; cursor:pointer;
+}
+.oo-brand{justify-self:center; display:flex; flex-direction:column; align-items:center; gap:4px; color:#fff}
+.oo-logo{height:34px; width:auto; display:block; filter:drop-shadow(0 2px 2px rgba(0,0,0,.25))}
+.oo-motto{font-size:12px; line-height:1.2; opacity:.95; text-align:center;}
+
+/* Overlay Menu */
+.oo-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.5);
+  z-index:40;
+}
+.oo-menu{
+  position:fixed; inset:0 0 auto 0; top:56px; background:#fff; z-index:41;
+  max-height:60vh; overflow:auto; border-radius:0 0 16px 16px; box-shadow:var(--oo-shadow);
+  padding:12px 16px;
+}
+.oo-menu ul{list-style:none; padding:0; margin:0}
+.oo-menu li{padding:12px 4px; border-bottom:1px solid #eee}
+.oo-menu a{color:var(--oo-text); font-weight:600}
+
+/* Grid */
+.posts-grid{
+  max-width:1200px; margin:18px auto; padding:0 var(--oo-gutter);
+  display:grid; gap:var(--oo-gutter);
+  grid-template-columns:repeat(4, 1fr);
+}
+@media (max-width: 1100px){
+  .posts-grid{ grid-template-columns:repeat(3, 1fr); }
+}
+@media (max-width: 700px){
+  .posts-grid{ grid-template-columns:1fr; }
+}
+
+/* Cards */
+.post-card{
+  background:var(--oo-card); border-radius:var(--oo-radius);
+  box-shadow:var(--oo-shadow); overflow:hidden;
+  display:flex; flex-direction:column;
+}
+.post-card .thumb{
+  width:100%; height:220px; object-fit:cover; display:block; border:0;
+}
+.post-card .pad{ padding:14px 14px 16px; }
+.post-card h3{ margin:8px 0 6px; font-size:1.05rem; line-height:1.25; }
+.post-card .byline{ color:var(--oo-muted); font-size:.9rem; margin-bottom:8px; }
+.post-card .excerpt :where(p){ margin:.5em 0; }
+.post-card .excerpt :where(p:first-child){ margin-top:0; }
+
+/* Detail */
+.post-detail{
+  max-width:860px; margin:20px auto 64px; padding:0 var(--oo-gutter);
+  background:transparent;
+}
+.post-detail .hero{
+  width:100%; height:auto; display:block; object-fit:contain; /* fully contained (no crop) */
+  border-radius:var(--oo-radius); box-shadow:var(--oo-shadow);
+  background:#fff;
+}
+.detail-title{ margin:16px 0 6px; }
+.detail-byline{ color:#333; font-weight:700; margin:0 0 14px; }
+
+/* White gap fix above first embeds/iframes in content */
+.post-body > :first-child{ margin-top:0 !important; }
+.post-body > .wp-block-embed:first-child,
+.post-body > .wp-block-embed__wrapper:first-child,
+.post-body > .wp-embed-aspect-16-9:first-child,
+.post-body > p:has(> a[href*="vimeo.com"]), 
+.post-body > p:has(> a[href*="youtube.com/watch"]),
+.post-body > p:has(> a[href*="youtu.be/"]) {
+  margin-top:0 !important;
+}
+.post-body iframe, .post-body video{
+  display:block; width:100%; max-width:100%; border:0;
+  margin:12px 0 20px; min-height:360px;
+  border-radius:12px; box-shadow:var(--oo-shadow);
+}
+
+/* Back button */
+.btn-back{
+  display:inline-block; padding:10px 14px; border-radius:12px;
+  background:var(--oo-blue); color:#fff; font-weight:700; text-decoration:none;
+}
+
+/* Footer */
+.oo-footer{
+  color:#444; font-size:.9rem; text-align:center; padding:28px 12px 36px;
+}
+
+/* 🛡️ Little helpers */
+.is-menu-open body{ overflow:hidden; }
+.no-select{ user-select:none; }
+
+/* 🔴 override.css — end of full file */

@@ -1,11 +1,8 @@
-/* 🟢 PostDetail.js — FULL FILE REPLACEMENT
-   OkObserver Build 2025-11-10R6
-   - Detail order: HERO → TITLE → BYLINE → CONTENT → Back-to-Posts BUTTON (bottom-left)
-   - Video: detect existing iframes; if none, derive embeddable src from data-oembed-url / anchors / raw text
-   - Normalizes any iframe (display:block; min-height guard)
-   - Hard fallback for /post/381733 to inject Vimeo player if still missing
+/* 🟢 PostDetail.js — start of full file */
+/* OkObserver Build 2025-11-10R6
+   Left intact to avoid regressions; works in tandem with main.js spacing scrub + CSS white-gap fix.
+   Video: detect existing iframes; if none, derive embeddable src; hard fallback for /post/381733.
 */
-
 (function(){
   'use strict';
 
@@ -98,7 +95,7 @@
     var src = deriveEmbed(body);
     if (src) { normalizeIframe(injectIframe(body, src)); return; }
 
-    // Hard fallback for the problem child (if content contains a Vimeo id in plain text)
+    // Hard fallback for /post/381733
     var path = location.hash || '';
     if (/^#\/post\/381733$/.test(path)) {
       var mm = (body.innerText || '').match(/vimeo\.com\/(\d{6,12})/i);
@@ -114,4 +111,4 @@
   window.addEventListener('hashchange', () => setTimeout(enhanceDetail, 100));
 
 })();
- /* 🔴 PostDetail.js — END FULL FILE */
+ /* 🔴 PostDetail.js — end of full file */
