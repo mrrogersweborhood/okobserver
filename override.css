@@ -2086,3 +2086,54 @@ a:hover{text-decoration:underline}
   filter: brightness(0.95);
   text-decoration: none !important;
 }
+/* 🟢 override.css — start of insert (Hamburger flyout size/position) */
+/* Compact flyout panel on desktop */
+.oo-menu {
+  position: fixed;
+  top: 72px;                 /* ~header height; adjust if your header differs */
+  right: 16px;
+  width: 320px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.18);
+  padding: 12px 0;
+  z-index: 1000;
+  display: none;             /* hidden by default; opened by .is-menu-open */
+}
+
+/* Show when toggled */
+.is-menu-open .oo-menu { display: block; }
+
+/* Optional dim overlay (if present in DOM) */
+.oo-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.25);
+  backdrop-filter: blur(1px);
+  z-index: 999;
+  display: none;
+}
+.is-menu-open .oo-overlay { display: block; }
+
+/* Menu item styling */
+.oo-menu a {
+  display: block;
+  padding: 14px 18px;
+  color: #111;
+  text-decoration: none;
+}
+.oo-menu a:hover { background: #f5f7fb; }
+
+/* Keep the old full-width drawer behavior only on small screens */
+@media (max-width: 899px) {
+  .oo-menu {
+    top: 64px;
+    right: 0;
+    left: 0;
+    width: auto;
+    border-radius: 0 0 12px 12px;
+  }
+}
+/* 🔴 override.css — end of insert */
