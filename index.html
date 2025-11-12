@@ -45,7 +45,6 @@
 
   <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
-    // 🟢 index.html — start of full file
     (function(){
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
@@ -58,36 +57,36 @@
       document.addEventListener('okobs:route', ensure);
       setInterval(ensure, 1500);
     })();
-    // 🔴 index.html — end of full file
   </script>
 
   <!-- App Scripts (plain JS only) -->
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker registration: absolute path + preflight -->
+  <!-- Service Worker registration (versioned filename to force GitHub to refresh) -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
 
-      const SCOPE = '/okobserver/';
-      const SCRIPT = '/okobserver/sw.js';
+      const SCOPE  = '/okobserver/';
+      const SCRIPT = '/okobserver/sw-2025-11-12.js?v=2025-11-12R2';
 
       window.addEventListener('load', function(){
         fetch(SCRIPT, { cache: 'no-store' })
           .then(r => {
             if (!r.ok) {
               console.warn('[OkObserver] SW preflight failed:', r.status, r.statusText, r.url);
-              console.warn('Move sw.js next to index.html so it is served at', SCRIPT);
+              console.warn('Move sw-2025-11-12.js next to index.html so it is served at', SCRIPT);
               return null;
             }
             return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' });
           })
           .then(reg => {
-            if (!reg) return;
-            console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
+            if (reg) {
+              console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
+            }
           })
-          .catch(err => console.warn('[OkObserver] SW register error:', err));
+          .catch(err => console.warn('[OkObserver] SW registration error:', err));
       });
     })();
   </script>
