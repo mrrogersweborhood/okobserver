@@ -6,7 +6,7 @@
    Deduped precache to avoid "duplicate requests" errors.
 */
 const SW_BUILD   = '2025-11-12R1h2';
-const CACHE_NAME = 'okobserver-2cache-' + SW_BUILD;
+const CACHE_NAME = 'okobserver-thiscache-' + SW_BUILD;
 
 // Keep paths explicit for GitHub Pages subpath
 const PRECACHE = [
