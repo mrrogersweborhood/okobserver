@@ -2280,3 +2280,92 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 /* Keep menu panel position styles you already have; do NOT control visibility here.
    Visibility is handled by the 'hidden' attribute in JS. */
 [hidden] { display: none !important; }
+/* === OkObserver header stability (append-only, no overrides removed) === */
+:root{
+  --oo-header-h-desktop: 72px;   /* match your actual header height if different */
+  --oo-header-h-mobile:  64px;
+}
+
+/* 1) Make header a stable bar that never changes height when menu opens */
+.oo-header, .site-header, header{
+  position: sticky;
+  top: 0;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  justify-content: center;                 /* center the brand block */
+  min-height: var(--oo-header-h-desktop);  /* fixes the desktop "scoot" */
+}
+@media (max-width: 899px){
+  .oo-header, .site-header, header{
+    min-height: var(--oo-header-h-mobile); /* fixes mobile shifting */
+  }
+}
+
+/* 2) Center brand/motto AND reserve space on the right for the hamburger
+      so the icon never overlaps the logo on mobile */
+.oo-brand, .site-branding, .brand{
+  margin: 0 auto;
+  text-align: center;
+  padding-right: 56px;                      /* 44px button + ~12px gutter */
+}
+@media (max-width: 899px){
+  .oo-brand, .site-branding, .brand{
+    padding-right: 60px;                    /* a touch more space on phones */
+  }
+}
+/* Motto should never underline */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a{
+  text-decoration: none !important;
+  border: 0 !important;
+}
+
+/* 3) Pin hamburger to the RIGHT, vertically centered, large tap target */
+[data-oo="hamburger"], .oo-hamburger{
+  position: absolute;
+  right: 12px;
+  top: calc(var(--oo-header-h-desktop) / 2);
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1003;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 899px){
+  [data-oo="hamburger"], .oo-hamburger{
+    right: 16px;
+    top: calc(var(--oo-header-h-mobile) / 2);
+  }
+}
+
+/* 4) Menu panel: position ONLY. Visibility stays controlled by [hidden]. */
+.oo-menu, [data-oo="menu"]{
+  position: fixed;
+  top: var(--oo-header-h-desktop);
+  right: 16px;
+  width: 320px;
+  max-height: calc(100vh - var(--oo-header-h-desktop) - 24px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.18);
+  padding: 12px 0;
+  z-index: 1001;
+}
+@media (max-width: 899px){
+  .oo-menu, [data-oo="menu"]{
+    top: var(--oo-header-h-mobile);
+    right: 0; left: 0;
+    width: auto;
+    border-radius: 0 0 12px 12px;
+    max-height: calc(100vh - var(--oo-header-h-mobile));
+  }
+}
+
+/* 5) Let the hidden attribute be the single source of truth */
+[hidden]{ display: none !important; }
