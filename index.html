@@ -11,12 +11,11 @@
     html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
-  <!-- keep versioned CSS -->
   <link rel="preload" href="override.css?v=2025-11-12H5" as="style" />
   <link rel="stylesheet" href="override.css?v=2025-11-12H5" />
 </head>
 <body>
-  <!-- Sticky Header -->
+  <!-- Header -->
   <header class="oo-header" role="banner">
     <div class="oo-header-inner">
       <button class="oo-hamburger" data-oo="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
@@ -44,7 +43,7 @@
     © 2025 The Oklahoma Observer • Build 2025-11-12H6
   </footer>
 
-  <!-- Grid Enforcer (MutationObserver must stay) -->
+  <!-- Grid Enforcer (must stay) -->
   <script>
     (function(){
       const ensure = () => {
@@ -60,40 +59,21 @@
     })();
   </script>
 
-  <!-- App Scripts (plain JS only; version-busted) -->
+  <!-- App Scripts (plain JS only; versions unchanged from last step) -->
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker registration (scoped to /okobserver/) -->
+  <!-- Service Worker registration (plain URL, explicit scope) -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
-
-      const versioned = 'sw.js?v=2025-11-12R1h7';
-      const plain     = 'sw.js';
-
-      // Prefer versioned URL to bust SW updates, with an explicit scope for GitHub Pages subpath
-      navigator.serviceWorker.register(versioned, { scope: './', updateViaCache: 'none' })
+      // Register the worker script in the same directory; no query string.
+      navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
         .then(reg => {
-          console.log('[OkObserver] SW registered (versioned):', reg.scope);
-          // Kick an update check on load
-          try { reg.update(); } catch (e) {}
+          console.log('[OkObserver] SW registered:', reg.scope);
+          try { reg.update(); } catch (_) {}
         })
-        .catch(err => {
-          console.warn('[OkObserver] SW register failed with versioned URL, retrying plain:', err);
-          return navigator.serviceWorker.register(plain, { scope: './', updateViaCache: 'none' })
-            .then(reg => {
-              console.log('[OkObserver] SW registered (plain):', reg.scope);
-              try { reg.update(); } catch (e) {}
-            })
-            .catch(e2 => console.warn('[OkObserver] SW register failed (plain):', e2));
-        });
-
-      // Helpful logs so you can confirm in DevTools
-      navigator.serviceWorker.ready.then(() => console.log('[OkObserver] SW ready (controlling):', navigator.serviceWorker.controller));
-      navigator.serviceWorker.getRegistrations().then(list => {
-        console.log('[OkObserver] SW registrations:', list.map(r => ({scope:r.scope, scriptURL:r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL})));
-      });
+        .catch(err => console.warn('[OkObserver] SW register failed:', err));
     })();
   </script>
 </body>

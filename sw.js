@@ -1,10 +1,9 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h7
-   Scope: ./  (i.e., /okobserver/)
-   Strategy: Network-first for HTML routes; cache-first for static assets
-   Notes: keep file at repo root /okobserver/sw.js on GitHub Pages so scope is correct.
+/* OkObserver Service Worker — Build 2025-11-12R1h8
+   Scope: ./  (GitHub Pages subpath /okobserver/)
+   Strategy: Network-first for HTML; cache-first for static.
 */
-const SW_BUILD = '2025-11-12R1h7';
+const SW_BUILD = '2025-11-12R1h8';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
