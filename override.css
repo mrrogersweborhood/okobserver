@@ -2067,3 +2067,4 @@ a:hover{text-decoration:underline}
   color: #fff;
   cursor: pointer;
 }
+.excerpt a { color: #1E90FF; text-decoration: underline; pointer-events: auto; }

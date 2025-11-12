@@ -1,7 +1,7 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h5
+// 🟢 main.js — OkObserver Build 2025-11-12R1h6
 /* Full-file replacement (no truncation).
-   - Preserve links in post excerpts (anchor-only sanitizer).
+   - Preserve <a> links in post excerpts (keeps anchors anywhere; unwraps other tags).
    - Scrubs stray Gutenberg/embed wrappers that caused the white gap.
    - “Reveal after ready” on detail to prevent empty flash.
    - Byline bold on detail.
@@ -12,7 +12,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h5';
+  const BUILD = '2025-11-12R1h6';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -57,8 +57,9 @@
     const byline = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
 
     const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
-    // ⬅️ preserve links in excerpt (anchor-only sanitizer)
-    const excerptHTML = sanitizeExcerpt(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
+
+    // Preserve anchors anywhere in the excerpt (unwrap other tags but keep their children)
+    const excerptHTML = sanitizeExcerptKeepAnchors(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
 
     el.innerHTML = `
       <a class="thumb" href="#/post/${post.id}" aria-label="${escapeHtmlAttr(title)}">
@@ -164,7 +165,7 @@
       bodyHTML = decodeHtml(bodyHTML);
       bodyEl.innerHTML = bodyHTML;
 
-      // scrub empty/ratio wrappers that create top gap
+      // scrub empty/ratio wrappers that create leading white gap
       tidyArticleSpacing(bodyEl);
 
       const videoSlot = app.querySelector('.video-slot');
@@ -205,33 +206,36 @@
   function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
   function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
 
-  // **NEW**: Keep links, strip everything else safely
-  function sanitizeExcerpt(html=''){
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
+  // **FIXED**: Keep anchors anywhere; unwrap other elements but preserve their children
+  function sanitizeExcerptKeepAnchors(html=''){
+    const root = document.createElement('div');
+    root.innerHTML = html;
 
     // remove scripts/styles
-    tmp.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
+    root.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
 
-    // unwrap any elements that aren't <a>
-    tmp.querySelectorAll('*').forEach(node=>{
-      if (node.tagName !== 'A') {
-        // Replace with text-only node to preserve spacing
-        const text = document.createTextNode(node.textContent || '');
-        node.replaceWith(text);
-      }
-    });
+    const out = [];
+    (function collect(node){
+      node.childNodes.forEach(n=>{
+        if (n.nodeType === 3) { // Text
+          out.push(n.textContent);
+        } else if (n.nodeType === 1) { // Element
+          if (n.tagName === 'A') {
+            const a = n.cloneNode(true);
+            // normalize anchor attrs
+            a.removeAttribute('onclick');
+            a.setAttribute('target','_blank');
+            a.setAttribute('rel','noopener');
+            out.push(a.outerHTML);
+          } else {
+            // unwrap: keep children recursively, drop the element tag
+            collect(n);
+          }
+        }
+      });
+    })(root);
 
-    // normalize anchors
-    tmp.querySelectorAll('a').forEach(a=>{
-      const href = a.getAttribute('href') || '#';
-      a.setAttribute('href', href);
-      a.setAttribute('target','_blank');
-      a.setAttribute('rel','noopener');
-    });
-
-    // collapse excessive whitespace
-    return tmp.innerHTML.replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
+    return out.join('').replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
   }
 
   // Vimeo/YouTube detection + 381733 fallback
