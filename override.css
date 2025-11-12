@@ -2459,3 +2459,31 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 .oo-motto, .site-motto, .motto,
 .oo-motto a, .site-motto a, .motto a{ text-decoration: none !important; border: 0 !important; }
 /* 🔴 override.css — end of patch */
+/* === Header/menu jitter + motto underline kill (append-only) ========== */
+
+/* Keep a stable scrollbar gutter so opening the menu doesn't shift layout */
+html { scrollbar-gutter: stable both-edges; }
+
+/* Never underline the motto, even on hover/active/focus states */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a,
+.oo-motto a:hover, .site-motto a:hover, .motto a:hover,
+.oo-motto a:focus, .site-motto a:focus, .motto a:focus,
+.oo-motto a:active, .site-motto a:active, .motto a:active {
+  text-decoration: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+}
+
+/* Ensure the hamburger stays on the right and doesn't steal layout space */
+[data-oo="hamburger"], .oo-hamburger{
+  position: absolute;
+  right: 16px;
+  /* top is already set by your previous patch; keep it as-is */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  cursor: pointer;
+}
+
+/* Menu is fixed so it doesn't reflow header; we DON'T touch visibility */
+.oo-menu, [data-oo="menu"]{ position: fixed !important; }
+[hidden]{ display: none !important; } /* visibility remains JS-controlled */

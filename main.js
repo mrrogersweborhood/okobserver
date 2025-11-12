@@ -441,3 +441,36 @@
   window.addEventListener('resize', close);
 })();
 // 🔴 main.js — end of patch
+// 🟢 main.js — start of tiny patch to prevent focus/scroll jitter
+(() => {
+  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
+  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
+  if (!ham || !menu) return;
+
+  // Neutralize anchor navigation if it's an <a href="#">
+  if (ham.tagName === 'A') {
+    const href = (ham.getAttribute('href') || '').trim();
+    if (href === '#' || href === '#!') ham.setAttribute('href', 'javascript:void(0)');
+  }
+
+  const open  = () => { menu.hidden = false; document.documentElement.classList.add('is-menu-open'); };
+  const close = () => { menu.hidden = true;  document.documentElement.classList.remove('is-menu-open'); };
+
+  const toggle = (e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    (menu.hidden ? open : close)();
+    // Drop focus to avoid underline/focus styles on the brand/motto
+    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
+  };
+
+  ['pointerup','click','touchend'].forEach(evt =>
+    ham.addEventListener(evt, toggle, { passive: false })
+  );
+
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', close);
+})();
+// 🔴 main.js — end of tiny patch
