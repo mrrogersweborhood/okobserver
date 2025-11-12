@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="override.css?v=2025-11-12H8" />
 </head>
 <body>
+  <!-- Sticky Header -->
   <header class="oo-header" role="banner">
     <div class="oo-header-inner">
       <button class="oo-hamburger" data-oo="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
@@ -25,6 +26,7 @@
     </div>
   </header>
 
+  <!-- Overlay + Menu -->
   <div class="oo-overlay" data-oo="overlay" hidden></div>
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul>
@@ -33,19 +35,22 @@
     </ul>
   </nav>
 
+  <!-- App Root -->
   <main id="app" role="main" aria-live="polite"></main>
 
+  <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H9
+    © 2025 The Oklahoma Observer • Build 2025-11-12H10
   </footer>
 
+  <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
     // 🟢 index.html — start of full file
     (function(){
       const ensure = () => {
         const grid = document.querySelector('#app .posts-grid');
         if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(el => el.classList.add('post-card'));
+        grid.querySelectorAll('.post-card').forEach(el => { el.classList.add('post-card'); });
       };
       const mo = new MutationObserver(ensure);
       mo.observe(document.getElementById('app'), { childList:true, subtree:true });
@@ -56,19 +61,31 @@
     // 🔴 index.html — end of full file
   </script>
 
+  <!-- App Scripts (plain JS only) -->
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Plain, absolute SW registration for GitHub Pages -->
+  <!-- Service Worker registration: absolute path + preflight -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
+
       const SCOPE = '/okobserver/';
       const SCRIPT = '/okobserver/sw.js';
-      // Register without calling reg.update() immediately
-      navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' })
-        .then(reg => console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL }))
-        .catch(err => console.warn('[OkObserver] SW register failed:', err));
+
+      window.addEventListener('load', function(){
+        // Preflight: make sure sw.js is actually reachable (prevents the “script: Unknown / Not found” error)
+        fetch(SCRIPT, { cache: 'no-store' })
+          .then(r => {
+            if (!r.ok) { console.warn('[OkObserver] SW preflight failed:', r.status, r.statusText); return; }
+            return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' });
+          })
+          .then(reg => {
+            if (!reg) return;
+            console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL });
+          })
+          .catch(err => console.warn('[OkObserver] SW register error:', err));
+      });
     })();
   </script>
 </body>
