@@ -474,3 +474,43 @@
   window.addEventListener('resize', close);
 })();
 // 🔴 main.js — end of tiny patch
+// 🟢 main.js — start of tiny mobile-tap fix
+(() => {
+  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
+  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
+  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
+  if (!ham || !menu) return;
+
+  // If the hamburger is an anchor to "#" etc., neutralize it
+  if (ham.tagName === 'A') {
+    const href = (ham.getAttribute('href') || '').trim();
+    if (href === '' || href === '#' || href === '#!' || href === '/')
+      ham.setAttribute('href', 'javascript:void(0)');
+  }
+
+  const open  = () => { menu.hidden = false; if (ovl) ovl.hidden = false; document.documentElement.classList.add('is-menu-open'); };
+  const close = () => { menu.hidden = true;  if (ovl) ovl.hidden = true; document.documentElement.classList.remove('is-menu-open'); };
+  const toggle = (e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    (menu.hidden ? open : close)();
+    // drop focus so no underline styles appear on brand/motto
+    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
+  };
+
+  // Capture as EARLY as possible on mobile
+  ['pointerdown','touchstart'].forEach(evt =>
+    ham.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false })
+  );
+  // Actual toggle on release/click
+  ['pointerup','touchend','click'].forEach(evt =>
+    ham.addEventListener(evt, toggle, { passive: false })
+  );
+
+  // Close menu on outside click / ESC / resize
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', close);
+})();
+// 🔴 main.js — end of tiny mobile-tap fix

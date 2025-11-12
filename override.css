@@ -2487,3 +2487,40 @@ html { scrollbar-gutter: stable both-edges; }
 /* Menu is fixed so it doesn't reflow header; we DON'T touch visibility */
 .oo-menu, [data-oo="menu"]{ position: fixed !important; }
 [hidden]{ display: none !important; } /* visibility remains JS-controlled */
+/* === Mobile header tap routing (append-only) ========================= */
+
+/* Motto should NEVER underline, even on hover/focus/active */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a,
+.oo-motto a:hover, .site-motto a:hover, .motto a:hover,
+.oo-motto a:focus, .site-motto a:focus, .motto a:focus,
+.oo-motto a:active, .site-motto a:active, .motto a:active {
+  text-decoration: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+}
+
+/* Make sure the hamburger is the top clickable thing */
+[data-oo="hamburger"], .oo-hamburger{
+  z-index: 10050;                 /* above brand/link */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+}
+
+/* On phones, prevent the big brand link from swallowing taps.
+   (Logo doesn’t need to be a link on small screens.) */
+@media (max-width: 899px){
+  .oo-brand a,
+  .site-branding a,
+  .brand a {
+    pointer-events: none;         /* taps go to the hamburger instead */
+  }
+}
+
+/* Keep layout from shifting when the overlay appears */
+html { scrollbar-gutter: stable both-edges; }
+
+/* Visibility still controlled by JS via [hidden] */
+[hidden]{ display:none !important; }
