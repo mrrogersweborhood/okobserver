@@ -2137,3 +2137,88 @@ a:hover{text-decoration:underline}
   }
 }
 /* 🔴 override.css — end of insert */
+/* --- OkObserver 2025-11-12H2 : header/menu fixes --- */
+
+/* Make the hamburger always tappable (44x44) and above other layers */
+[data-oo="hamburger"], .oo-hamburger {
+  position: relative;
+  z-index: 1003;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Give the hamburger breathing room from the logo */
+header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [data-oo="hamburger"] {
+  margin-left: auto;          /* pushes it to the right when header uses flex */
+  margin-right: 12px;
+}
+@media (max-width: 899px) {
+  header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [data-oo="hamburger"] {
+    margin-right: 16px;       /* a bit more space on phones */
+  }
+}
+
+/* Motto: never underline (even if it's wrapped in an <a>) */
+.site-motto, .site-motto a, .site-motto * {
+  text-decoration: none !important;
+  border: 0 !important;
+}
+
+/* Ensure the header stays on top; the menu and overlay stack cleanly */
+.site-header, header, .oo-header {
+  position: sticky; top: 0; z-index: 1002;
+}
+
+/* Hamburger flyout – compact on desktop, full-width drawer on mobile */
+.oo-menu, [data-oo="menu"] {
+  position: fixed;
+  top: 72px;                  /* ≈ header height; adjust if your header is taller/shorter */
+  right: 16px;
+  width: 320px;
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.18);
+  padding: 12px 0;
+  z-index: 1001;
+  display: none;
+}
+.is-menu-open .oo-menu,
+.is-menu-open [data-oo="menu"] { display: block; }
+
+/* Optional dimmer overlay if present */
+.oo-overlay, [data-oo="overlay"] {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.25);
+  backdrop-filter: blur(1px);
+  z-index: 1000;
+  display: none;
+}
+.is-menu-open .oo-overlay,
+.is-menu-open [data-oo="overlay"] { display: block; }
+
+/* Keep mobile as a full-width drawer */
+@media (max-width: 899px) {
+  .oo-menu, [data-oo="menu"] {
+    top: 64px;
+    right: 0; left: 0;
+    width: auto;
+    border-radius: 0 0 12px 12px;
+  }
+}
+
+/* Menu link styling */
+.oo-menu a, [data-oo="menu"] a {
+  display: block;
+  padding: 14px 18px;
+  color: #111;
+  text-decoration: none;
+}
+.oo-menu a:hover, [data-oo="menu"] a:hover { background: #f5f7fb; }
