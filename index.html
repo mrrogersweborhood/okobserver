@@ -1,39 +1,83 @@
 <!-- 🟢 index.html — start of full file -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="override.css?v=2025-11-12R3">
-  <script defer src="main.js?v=2025-11-12R3"></script>
+  <link rel="icon" href="favicon.ico" />
+  <meta name="theme-color" content="#1E90FF" />
+  <!-- Preserve stable CSS version -->
+  <link rel="preload" href="override.css?v=2025-11-07SR1" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR1" />
 </head>
 <body>
-  <header class="header">
-    <div class="logo">
-      <img src="logo.png" alt="The Oklahoma Observer Logo">
-      <p class="motto">To comfort the afflicted and afflict the comfortable</p>
+  <!-- Sticky Header: centered logo + motto, always-hamburger -->
+  <header class="oo-header" role="banner" aria-label="Site header">
+    <div class="oo-header-inner">
+      <button class="oo-hamburger" data-oo="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
+      <a class="oo-brand" href="#/">
+        <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
+        <div class="oo-motto">To comfort the afflicted and afflict the comfortable</div>
+      </a>
     </div>
-    <button class="hamburger" aria-label="Menu">&#9776;</button>
   </header>
 
-  <main id="app"></main>
+  <!-- Overlay + Menu (hamburger) -->
+  <div class="oo-overlay" data-oo="overlay" hidden></div>
+  <nav class="oo-menu" data-oo="menu" hidden>
+    <ul class="oo-menu-list">
+      <li><a href="#/">Posts</a></li>
+      <li><a href="#/about">About</a></li>
+    </ul>
+  </nav>
 
-  <footer>
-    © 2025 The Oklahoma Observer • Build 2025-11-12R3
-  </footer>
+  <!-- App Root -->
+  <main id="app" role="main" aria-live="polite"></main>
 
-  <!-- Service Worker registration (final stable version, single filename) -->
+  <!-- Footer w/ stable build tag -->
+  <footer class="oo-footer">© 2025 The Oklahoma Observer • Build 2025-11-12H2</footer>
+
+  <!-- MutationObserver grid enforcer (must remain) -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker
-          .register('/okobserver/sw.js')
-          .then(reg => console.log('[OkObserver] SW registered:', reg.scope))
-          .catch(err => console.error('[OkObserver] SW error:', err));
-      });
+  // 🟢 index.html — start of full file
+  (function(){
+    function enforceGrid(){
+      const grid = document.querySelector('#app .posts-grid');
+      if (!grid) return;
+      grid.querySelectorAll('.post-card').forEach(card => card.classList.add('post-card'));
     }
+    const mo = new MutationObserver(enforceGrid);
+    const app = document.getElementById('app');
+    if (app) mo.observe(app, { childList:true, subtree:true });
+    window.addEventListener('hashchange', enforceGrid);
+    document.addEventListener('okobs:route', enforceGrid);
+    setInterval(enforceGrid, 1500);
+  })();
+  // 🔴 index.html — end of full file
+  </script>
+
+  <!-- Core scripts (plain JS only, stable versions) -->
+  <script defer src="main.js?v=2025-11-12R1h4"></script>
+  <script defer src="PostDetail.js?v=2025-11-10R6"></script>
+
+  <!-- Service Worker: single stable name + absolute scope -->
+  <script>
+    (function(){
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function(){
+        const SCRIPT = '/okobserver/sw.js';
+        const SCOPE  = '/okobserver/';
+        // Preflight so the browser never registers a missing script
+        fetch(SCRIPT, { cache:'no-store' })
+          .then(r => {
+            if (!r.ok) { console.warn('[OkObserver] SW preflight failed:', r.status, r.url); return; }
+            return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache:'none' });
+          })
+          .then(reg => { if (reg) console.log('[OkObserver] SW registered:', reg.scope); })
+          .catch(err => console.warn('[OkObserver] SW register error:', err));
+      });
+    })();
   </script>
 </body>
 </html>

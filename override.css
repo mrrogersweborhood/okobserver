@@ -2042,3 +2042,28 @@ a:hover{text-decoration:underline}
 .no-select{ user-select:none; }
 
 /* 🔴 override.css — end of full file */
+/* Header layout: centered brand, hamburger pinned right */
+.oo-header { position: sticky; top: 0; z-index: 1000; background:#1E90FF; }
+.oo-header-inner{
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* keeps logo+motto centered */
+}
+/* Hamburger on the RIGHT */
+.oo-hamburger{
+  position: absolute;
+  right: 16px;      /* 👈 pin to right */
+  left: auto;       /* ensure not pinned left */
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+}

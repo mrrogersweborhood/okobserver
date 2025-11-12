@@ -1,57 +1,86 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — single stable version */
-const CACHE = 'okobserver-cache-v1';
-const OFFLINE_URL = '/okobserver/offline.html';
-const ASSETS = [
+/* OkObserver Service Worker — Build 2025-11-12R1h2 (stable)
+   Single filename: sw.js
+   Scope: /okobserver/
+   HTML: network-first; static assets: cache-first
+   Deduped precache to avoid "duplicate requests" errors.
+*/
+const SW_BUILD   = '2025-11-12R1h2';
+const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
+
+// Keep paths explicit for GitHub Pages subpath
+const PRECACHE = [
   '/okobserver/',
-  '/okobserver/index.html',
-  '/okobserver/override.css',
-  '/okobserver/main.js',
-  '/okobserver/PostDetail.js',
+  '/okobserver/index.html?v=2025-11-12H2',
+  '/okobserver/override.css?v=2025-11-07SR1',
+  '/okobserver/main.js?v=2025-11-12R1h4',
+  '/okobserver/PostDetail.js?v=2025-11-10R6',
   '/okobserver/logo.png',
-  '/okobserver/favicon.ico',
-  OFFLINE_URL
+  '/okobserver/favicon.ico'
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+// Deduplicate & normalize
+const UNIQUE_ASSETS = [...new Set(PRECACHE.map(u => new URL(u, self.location.origin).toString()))];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(UNIQUE_ASSETS);
+      await self.skipWaiting();
+    } catch (err) {
+      // Never fail install due to a single bad request
+      console.warn('[OkObserver SW] install warning:', err);
+      await self.skipWaiting();
+    }
+  })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => k !== CACHE && caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => (k === CACHE_NAME ? null : caches.delete(k))));
+    await self.clients.claim();
+  })());
 });
 
-function isHTML(req) {
-  return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+function isHTML(req){
+  return req.mode === 'navigate' || (req.headers.get('accept')||'').includes('text/html');
 }
 
-self.addEventListener('fetch', e => {
-  const req = e.request;
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
 
   if (isHTML(req)) {
-    e.respondWith(
-      fetch(req)
-        .then(res => {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy));
-          return res;
-        })
-        .catch(() => caches.match(req, {ignoreSearch:true}).then(r => r || caches.match(OFFLINE_URL)))
-    );
+    // Network-first for documents, fallback to cached index
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(req);
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(req, fresh.clone());
+        return fresh;
+      } catch {
+        const cache = await caches.open(CACHE_NAME);
+        return (await cache.match(req, { ignoreSearch:true })) ||
+               (await cache.match('/okobserver/index.html?v=2025-11-12H2')) ||
+               new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
+      }
+    })());
     return;
   }
 
-  e.respondWith(
-    caches.match(req).then(r => r || fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copy));
-      return res;
-    }).catch(() => caches.match(OFFLINE_URL)))
-  );
+  // Cache-first for static assets
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    try {
+      const fresh = await fetch(req);
+      cache.put(req, fresh.clone());
+      return fresh;
+    } catch {
+      return new Response('', { status: 504 });
+    }
+  })());
 });
 // 🔴 sw.js — end of full file
