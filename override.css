@@ -2524,3 +2524,34 @@ html { scrollbar-gutter: stable both-edges; }
 
 /* Visibility still controlled by JS via [hidden] */
 [hidden]{ display:none !important; }
+/* === OkObserver mobile hamburger: make it clearly clickable & topmost === */
+[data-oo="hamburger"], .oo-hamburger{
+  position: absolute;              /* stays to the right of centered logo */
+  right: 16px;
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  z-index: 10050;                  /* above any brand/link layer */
+  cursor: pointer;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: auto !important; /* MUST be clickable even if parent has PE:none */
+}
+
+/* Give a tiny visual feedback so it *feels* clickable */
+[data-oo="hamburger"]:active, .oo-hamburger:active { transform: translateY(-50%) scale(0.96); }
+
+/* Brand/motto should never underline on tap/focus */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a,
+.oo-motto a:hover, .site-motto a:hover, .motto a:hover,
+.oo-motto a:focus, .site-motto a:focus, .motto a:focus,
+.oo-motto a:active, .site-motto a:active, .motto a:active {
+  text-decoration: none !important; border: 0 !important; outline: 0 !important;
+}
+
+/* Menu is out of layout; visibility stays JS-controlled via [hidden] */
+.oo-menu, [data-oo="menu"]{ position: fixed !important; z-index: 10040; }
+[hidden]{ display: none !important; }
+
+/* Keep layout from shifting when overlay/menu appears */
+html { scrollbar-gutter: stable both-edges; }

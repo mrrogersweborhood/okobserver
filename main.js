@@ -514,3 +514,59 @@
   window.addEventListener('resize', close);
 })();
 // 🔴 main.js — end of tiny mobile-tap fix
+// 🟢 main.js — start of mobile hamburger tap hardening
+(() => {
+  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
+  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
+  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
+  if (!ham || !menu) return;
+
+  // Make the control ARIA/keyboard friendly (idempotent)
+  ham.setAttribute('role','button');
+  ham.setAttribute('aria-expanded', String(!menu.hidden));
+  if (!ham.hasAttribute('tabindex')) ham.setAttribute('tabindex','0');
+
+  // If it's an <a href="#">, neutralize default navigation that causes jitter
+  if (ham.tagName === 'A') {
+    const href = (ham.getAttribute('href') || '').trim();
+    if (href === '' || href === '#' || href === '#!' || href === '/')
+      ham.setAttribute('href', 'javascript:void(0)');
+  }
+
+  const open  = () => { menu.hidden = false; ovl && (ovl.hidden = false);
+                        document.documentElement.classList.add('is-menu-open');
+                        ham.setAttribute('aria-expanded','true'); };
+  const close = () => { menu.hidden = true;  ovl && (ovl.hidden = true);
+                        document.documentElement.classList.remove('is-menu-open');
+                        ham.setAttribute('aria-expanded','false'); };
+
+  const toggle = (e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    (menu.hidden ? open : close)();
+    // drop focus so brand/motto never shows underline focus styles
+    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
+  };
+
+  // Capture early so no parent/brand link can swallow the tap
+  ['pointerdown','touchstart'].forEach(evt =>
+    ham.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive:false, capture:true })
+  );
+
+  // Actual toggle on release/click
+  ['pointerup','touchend','click'].forEach(evt =>
+    ham.addEventListener(evt, toggle, { passive:false })
+  );
+
+  // Keyboard support
+  ham.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e); }
+  });
+
+  // Close on outside click / ESC / resize
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', close);
+})();
+// 🔴 main.js — end of mobile hamburger tap hardening
