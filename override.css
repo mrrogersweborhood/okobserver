@@ -2237,3 +2237,46 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 
 /* Keep the dropdown above content and fully tappable */
 #oo-nav{ z-index:1001 !important; }
+/* === OkObserver header fix: center brand + right-aligned hamburger (append-only) === */
+
+/* Ensure the header can anchor absolutely-positioned controls */
+.oo-header, .site-header, header { position: sticky; top: 0; z-index: 1002; }
+.oo-header, .site-header, header { position: relative; } /* for absolute hamburger */
+
+/* Center the brand block and motto */
+.oo-brand, .site-branding, .brand {
+  display: block;
+  margin: 0 auto;            /* center horizontally */
+  text-align: center;        /* center text inside */
+}
+.oo-title, .site-title, .logo-text { text-align: center; }
+.oo-motto, .site-motto, .motto {
+  text-align: center;
+  text-decoration: none !important;
+  border: 0 !important;
+}
+
+/* Put hamburger on the RIGHT, with a solid tap target, above other layers */
+[data-oo="hamburger"], .oo-hamburger {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1003;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Give a touch more space on phones */
+@media (max-width: 899px) {
+  [data-oo="hamburger"], .oo-hamburger { right: 16px; }
+}
+
+/* Keep menu panel position styles you already have; do NOT control visibility here.
+   Visibility is handled by the 'hidden' attribute in JS. */
+[hidden] { display: none !important; }
