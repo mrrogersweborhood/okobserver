@@ -8,7 +8,6 @@
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
   <style>
-    /* Minimal critical CSS only; full styles in override.css */
     html, body { margin:0; padding:0; background:#f5f6f7; color:#111; font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
     #app { min-height: 100vh; }
   </style>
@@ -16,7 +15,6 @@
   <link rel="stylesheet" href="override.css?v=2025-11-12H8" />
 </head>
 <body>
-  <!-- Sticky Header -->
   <header class="oo-header" role="banner">
     <div class="oo-header-inner">
       <button class="oo-hamburger" data-oo="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
@@ -27,7 +25,6 @@
     </div>
   </header>
 
-  <!-- Overlay + Menu -->
   <div class="oo-overlay" data-oo="overlay" hidden></div>
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul>
@@ -36,15 +33,12 @@
     </ul>
   </nav>
 
-  <!-- App Root -->
   <main id="app" role="main" aria-live="polite"></main>
 
-  <!-- Footer (preserve build tag) -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-12H8
+    © 2025 The Oklahoma Observer • Build 2025-11-12H9
   </footer>
 
-  <!-- Grid Enforcer (MutationObserver must stay) -->
   <script>
     // 🟢 index.html — start of full file
     (function(){
@@ -55,41 +49,26 @@
       };
       const mo = new MutationObserver(ensure);
       mo.observe(document.getElementById('app'), { childList:true, subtree:true });
-      window.addEventListener('hashchange', ensure);
+      addEventListener('hashchange', ensure);
       document.addEventListener('okobs:route', ensure);
       setInterval(ensure, 1500);
     })();
     // 🔴 index.html — end of full file
   </script>
 
-  <!-- App Scripts (plain JS only) -->
   <script defer src="main.js?v=2025-11-12R1h8"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker registration (plain URL, directory scope, after load) -->
+  <!-- Plain, absolute SW registration for GitHub Pages -->
   <script>
     (function(){
-      if (!('serviceWorker' in navigator)) { console.warn('[OkObserver] SW not supported'); return; }
-
-      window.addEventListener('load', function(){
-        // Directory scope for GitHub Pages subpath (e.g., /okobserver/)
-        const scopePath = (location.pathname.endsWith('/')) 
-          ? location.pathname 
-          : location.pathname.replace(/[^/]+$/, '/');
-
-        const scriptURL = new URL('sw.js', location.href).href;
-
-        navigator.serviceWorker.register('sw.js', { scope: scopePath, updateViaCache: 'none' })
-          .then(reg => {
-            console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL || scriptURL });
-            try { reg.update(); } catch (_) {}
-          })
-          .catch(err => console.warn('[OkObserver] SW register failed:', err));
-
-        // Optional: quick visibility into all registrations on this origin
-        navigator.serviceWorker.getRegistrations()
-          .then(list => console.log('[OkObserver] SW registrations:', list.map(r => ({scope:r.scope, script:(r.active||r.waiting||r.installing)?.scriptURL})) ));
-      });
+      if (!('serviceWorker' in navigator)) return;
+      const SCOPE = '/okobserver/';
+      const SCRIPT = '/okobserver/sw.js';
+      // Register without calling reg.update() immediately
+      navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache: 'none' })
+        .then(reg => console.log('[OkObserver] SW registered:', { scope: reg.scope, script: (reg.active||reg.waiting||reg.installing)?.scriptURL }))
+        .catch(err => console.warn('[OkObserver] SW register failed:', err));
     })();
   </script>
 </body>

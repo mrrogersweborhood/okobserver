@@ -1,16 +1,14 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h10
-   Scope: directory of sw.js (index registers with scope = current directory, e.g., '/okobserver/')
-   Strategy: Network-first for HTML; cache-first for static assets
-   IMPORTANT: keep this file in the same directory as index.html on GitHub Pages.
+/* OkObserver Service Worker — Build 2025-11-12R1h11
+   Absolute registration: SCRIPT=/okobserver/sw.js, SCOPE=/okobserver/
+   Strategy: Network-first for HTML; cache-first for static.
 */
-
-const SW_BUILD   = '2025-11-12R1h10';
+const SW_BUILD   = '2025-11-12R1h11';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 const ASSETS = [
-  '/', './',
-  'index.html?v=2025-11-12H8',
+  '/okobserver/', './',
+  'index.html?v=2025-11-12H9',
   'override.css?v=2025-11-12H8',
   'main.js?v=2025-11-12R1h8',
   'PostDetail.js?v=2025-11-10R6',
@@ -50,7 +48,7 @@ self.addEventListener('fetch', (event) => {
         return fresh;
       }catch(_){
         const cache = await caches.open(CACHE_NAME);
-        const fallback = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H8');
+        const fallback = await cache.match(req, { ignoreSearch:true }) || await cache.match('index.html?v=2025-11-12H9');
         return fallback || new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());
