@@ -2555,3 +2555,35 @@ html { scrollbar-gutter: stable both-edges; }
 
 /* Keep layout from shifting when overlay/menu appears */
 html { scrollbar-gutter: stable both-edges; }
+/* === OkObserver header pointer-events + motto hover fix (append-only) === */
+
+/* 1) Re-enable taps on the brand area on mobile so the hamburger can receive events */
+@media (max-width: 899px){
+  .oo-brand a,
+  .site-branding a,
+  .brand a {
+    pointer-events: auto !important;   /* undo the earlier pointer-events:none */
+  }
+}
+
+/* 2) Make sure the hamburger itself is always clickable, above everything */
+[data-oo="hamburger"],
+.oo-hamburger{
+  pointer-events: auto !important;
+  z-index: 10050;                      /* above any brand link or overlay */
+}
+
+/* 3) Motto must NEVER look like a link, even on hover/focus/active */
+.oo-header .oo-motto,
+.oo-header .oo-motto *,
+.oo-header a .oo-motto,
+.oo-header a .oo-motto *,
+.site-header .motto,
+.site-header .motto *,
+.site-header a .motto,
+.site-header a .motto *{
+  text-decoration: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  cursor: default !important;
+}
