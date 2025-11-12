@@ -2449,3 +2449,13 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 
 /* 5) Let JS control visibility */
 [hidden]{ display: none !important; }
+/* 🟢 override.css — start of patch (tap behavior + right alignment) */
+[data-oo="hamburger"], .oo-hamburger{
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  cursor: pointer;
+}
+
+/* Motto should never underline on any link wrapping */
+.oo-motto, .site-motto, .motto,
+.oo-motto a, .site-motto a, .motto a{ text-decoration: none !important; border: 0 !important; }
+/* 🔴 override.css — end of patch */

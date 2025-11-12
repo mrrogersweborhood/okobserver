@@ -410,3 +410,34 @@
  /* 🔴 main.js (APPEND) — END */
 
 // 🔴 main.js — end of full file
+// 🟢 main.js — start of patch (hamburger mobile jump/jitter fix)
+(() => {
+  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
+  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
+  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
+
+  if (!ham || !menu) return;
+
+  // If the hamburger is an anchor that points to '#', neutralize default nav
+  if (ham.tagName === 'A') {
+    const href = (ham.getAttribute('href') || '').trim();
+    if (href === '#' || href === '#!') ham.setAttribute('href', 'javascript:void(0)');
+  }
+
+  const open  = () => { menu.hidden = false; document.documentElement.classList.add('is-menu-open'); if (ovl) ovl.hidden = false; };
+  const close = () => { menu.hidden = true;  document.documentElement.classList.remove('is-menu-open'); if (ovl) ovl.hidden = true; };
+  const toggle = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } (menu.hidden ? open : close)(); };
+
+  // Make taps immediate and consistent across mobile browsers
+  ['pointerup','click','touchend'].forEach(evt =>
+    ham.addEventListener(evt, toggle, { passive: false })
+  );
+
+  // Close on click outside, ESC, or resize
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', close);
+})();
+// 🔴 main.js — end of patch
