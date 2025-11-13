@@ -2709,3 +2709,20 @@ body > header.oo-header {
   object-fit: contain;
   object-position: center center;
 }
+/* === ROLLBACK: Restore original cropped (cover) featured images === */
+
+/* Post summary cards: full-bleed cropped image */
+.post-card .thumb img {
+  width: 100% !important;
+  height: 260px !important;     /* whatever your original target height was */
+  object-fit: cover !important; /* crop to fill the space */
+  object-position: center !important;
+}
+
+/* Detail hero image: full-bleed hero, cropped */
+.post-detail .hero {
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
