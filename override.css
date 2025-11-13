@@ -2644,3 +2644,37 @@ body > header.oo-header {
   margin-top: 140px !important;        /* tweak 130–150px if it looks a bit off */
   overflow: visible !important;
 }
+/* ===== Fixed header tuning (desktop + mobile) ===== */
+
+/* Make sure the body is the scroll container everywhere */
+html,
+body {
+  margin: 0;
+  padding: 0 !important;
+  height: auto !important;
+  overflow-x: hidden;
+  overflow-y: auto !important;
+}
+
+/* Keep the main header fixed at the very top on all breakpoints */
+body > header.oo-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0;
+  right: 0;
+  margin-top: 0 !important;
+  z-index: 9999;
+}
+
+/* Default offset for content so cards don't hide under the header */
+#app {
+  margin-top: 160px !important;  /* desktop/tablet */
+  overflow: visible !important;
+}
+
+/* Extra offset on mobile where the header is taller */
+@media (max-width: 768px) {
+  #app {
+    margin-top: 190px !important;
+  }
+}
