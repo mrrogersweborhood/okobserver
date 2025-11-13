@@ -2917,3 +2917,25 @@ body > header.oo-header {
   object-position: center center !important;
   background-color: #f5f5f5;        /* light backdrop if there are side bars */
 }
+/* === 2025-11-13R3: fix text bumping into card edges on summary === */
+
+/* Add consistent padding inside all summary cards for text content */
+.posts-grid .post-card {
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+/* Do NOT pad the thumbnail area */
+.posts-grid .post-card .thumb {
+  margin-left: -14px !important;
+  margin-right: -14px !important;
+}
+
+/* Ensure title, meta, and excerpt respect padding without touching edges */
+.posts-grid .post-card h2.title,
+.posts-grid .post-card .meta,
+.posts-grid .post-card .excerpt,
+.posts-grid .post-card p.excerpt {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
