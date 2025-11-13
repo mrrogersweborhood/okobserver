@@ -1,12 +1,12 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h11
+// 🟢 main.js — OkObserver Build 2025-11-12R1h12
 /* Full-file replacement (no truncation).
-   Key update:
-   - Consolidated hamburger controller into a single, stable block, removing
-     previous stacked patches that could cause jitter / unreliable taps.
-   - Added an injected CSS patch to guarantee the motto never behaves like a
-     link (no underline, no pointer cursor, no click target), while keeping
-     the logo/brand link itself working.
+   Key updates for this revision:
+   - Consolidated hamburger controller into a single, stable block.
+   - Motto hardening:
+     * Injected CSS to ensure .oo-motto never shows underline / pointer cursor.
+     * DOM fix to move .oo-motto out of the <a.oo-brand> link, so the motto
+       physically cannot be a link target anymore.
 
    Other preserved behavior:
    - Vimeo/YouTube: responsive iframe embed + optional CTA link.
@@ -22,7 +22,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h11';
+  const BUILD = '2025-11-12R1h12';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -511,5 +511,33 @@
   }
 })();
 /* 🔴 main.js — Motto CSS hardening (never a link) */
+
+/* 🟢 main.js — Motto DOM fix (move motto out of brand link) */
+(function () {
+  function moveMottoOutOfLink() {
+    try {
+      const brand = document.querySelector('.oo-header-inner .oo-brand');
+      if (!brand) return;
+      const motto = brand.querySelector('.oo-motto');
+      if (!motto) return;
+      const parent = brand.parentElement;
+      if (!parent) return;
+
+      // Only move if motto is currently inside the <a.oo-brand>
+      if (motto.parentElement === brand) {
+        parent.insertBefore(motto, brand.nextSibling);
+      }
+    } catch (err) {
+      console.warn('[OkObserver] motto DOM fix failed:', err);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', moveMottoOutOfLink, { once:true });
+  } else {
+    moveMottoOutOfLink();
+  }
+})();
+/* 🔴 main.js — Motto DOM fix (move motto out of brand link) */
 
 // 🔴 main.js — end of full file
