@@ -1,9 +1,9 @@
-// 🟢 main.js
-// OkObserver Main JS — Build 2025-11-13R1-perf2
+// 🟢 main.js — start of full file
+// OkObserver Main JS — Build 2025-11-13R1-perf3
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-13R1-perf2';
+  const BUILD = '2025-11-13R1-perf3';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -43,19 +43,26 @@
   function makeCard(post){
     const el = document.createElement('article');
     el.className = 'post-card';
+
     const title = decodeHtml(post.title && post.title.rendered || '');
     const date = new Date(post.date);
     const byline = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
     const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
 
+    // extra spacing just for post 382365 on summary grid
+    const isSpecialSpacing = post.id === 382365;
+    const titleMargin = isSpecialSpacing ? 40 : 12;
+
     // Preserve anchors anywhere in the excerpt (unwrap others, keep children)
-    const excerptHTML = sanitizeExcerptKeepAnchors(decodeHtml((post.excerpt && post.excerpt.rendered) || '')).trim();
+    const excerptHTML = sanitizeExcerptKeepAnchors(
+      decodeHtml((post.excerpt && post.excerpt.rendered) || '')
+    ).trim();
 
     el.innerHTML = `
       <a class="thumb" href="#/post/${post.id}" aria-label="${escapeHtmlAttr(title)}">
         ${img ? `<img src="${img}?cb=${post.id}" alt="" loading="lazy" decoding="async">` : ''}
       </a>
-      <h2 class="title" style="position: static !important; margin-top: 12px !important;">
+      <h2 class="title" style="position: static; margin-top: ${titleMargin}px;">
         <a href="#/post/${post.id}">${title}</a>
       </h2>
       <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
@@ -381,7 +388,7 @@
       root.classList.remove('is-menu-open');
       menu.hidden = true;
       btn.setAttribute('aria-expanded', 'false');
-      if (overlay) overlay.hidden = true;
+      if (overlay) overlay.hidden = false;
     };
 
     const toggleMenu = (ev) => {
@@ -389,8 +396,8 @@
         ev.preventDefault();
         ev.stopPropagation();
       }
-      if (isOpen()) closeMenu();
-      else openMenu();
+        if (isOpen()) closeMenu();
+        else openMenu();
     };
 
     btn.addEventListener('click', toggleMenu);
@@ -501,4 +508,4 @@
 })();
 /* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
-// 🔴 main.js
+// 🔴 main.js — end of full file
