@@ -2596,3 +2596,14 @@ html { scrollbar-gutter: stable both-edges; }
 body {
   margin-top: 0;
 }
+/* Sticky header hardening — make sure header stays pinned on all scroll states */
+body > .oo-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 9999; /* keep it above cards and overlays */
+}
+
+/* Safety: don't let some layout rule turn #app into a separate scroll area */
+#app {
+  overflow: visible !important;
+}
