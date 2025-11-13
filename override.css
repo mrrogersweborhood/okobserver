@@ -2798,3 +2798,34 @@ body > header.oo-header {
 .posts-grid .post-card h2.title a {
   display: inline !important;
 }
+/* === Grid card title/image spacing fix — 2025-11-13R1 === */
+
+/* Stack each card vertically (image then text) */
+.posts-grid .post-card {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Thumbnail: block in the flow, no weird overlay */
+.posts-grid .post-card .thumb {
+  display: block !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+}
+
+/* Featured image: full width, automatic height, cropped center */
+.posts-grid .post-card .thumb img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+}
+
+/* Title: always below the image with a fixed gap */
+.posts-grid .post-card h2.title {
+  position: static !important;
+  flex: 0 0 auto !important;
+  margin: 12px 0 0 !important;  /* gap between image and title */
+  padding: 0 !important;
+}
