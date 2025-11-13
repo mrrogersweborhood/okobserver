@@ -2939,3 +2939,9 @@ body > header.oo-header {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+/* === 2025-11-13R4: normalize spacing between thumbnail and title === */
+
+/* Ensure some visual breathing room under every hero thumbnail */
+.posts-grid .post-card .thumb {
+  margin-bottom: 14px !important;   /* adjust this number to taste: 12–20px */
+}
