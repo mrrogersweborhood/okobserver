@@ -1,4 +1,4 @@
-🟢 main.js
+// 🟢 main.js
 // 🟢 main.js — start of full file
 // 🟢 main.js — OkObserver Build 2025-11-12R1h13
 /* Full-file replacement (no truncation).
@@ -543,4 +543,4 @@
 /* 🔴 main.js — Motto click guard (prevent nav when clicking motto) */
 
 // 🔴 main.js — end of full file
-🔴 main.js
+// 🔴 main.js
