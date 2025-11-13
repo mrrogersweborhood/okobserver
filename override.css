@@ -2689,3 +2689,23 @@ body > header.oo-header {
     padding-top: 120px !important;
   }
 }
+/* === Featured image containment & centering (cards + detail) === */
+
+/* Post summary cards: keep full image visible and centered */
+.post-card .thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 260px;              /* keep grid tidy, but no hard crop */
+  object-fit: contain;            /* show whole image, no top cut-off */
+  object-position: center center; /* center instead of anchoring to top */
+}
+
+/* Detail hero image: also fully visible & centered */
+.post-detail .hero {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center center;
+}
