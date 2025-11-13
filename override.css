@@ -2867,3 +2867,13 @@ body > header.oo-header {
   bottom: auto !important;
   transform: none !important;
 }
+/* === Extra spacing for summary card: post 382365 (A World-Class Ignoramus) === */
+
+/* Select the card whose title links to #/post/382365 and add more gap */
+.posts-grid .post-card a[href="#/post/382365"] {
+  /* no visual change here, just a hook */
+}
+
+.posts-grid .post-card a[href="#/post/382365"] + h2.title {
+  margin-top: 28px !important;   /* bigger gap under the image for this card only */
+}
