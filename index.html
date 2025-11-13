@@ -7,7 +7,12 @@
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
-  <!-- Preserve stable CSS version -->
+
+  <!-- Performance: preconnect to API proxy -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+
+  <!-- CSS -->
   <link rel="preload" href="override.css?v=2025-11-07SR4" as="style" />
   <link rel="stylesheet" href="override.css?v=2025-11-07SR4" />
 </head>
@@ -35,12 +40,14 @@
   <!-- App Root -->
   <main id="app" role="main" aria-live="polite"></main>
 
-  <!-- Footer w/ stable build tag -->
-  <footer class="oo-footer">© 2025 The Oklahoma Observer • Build 2025-11-12H2</footer>
+  <!-- Footer -->
+  <footer class="oo-footer">
+    © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
+  </footer>
 
   <!-- MutationObserver grid enforcer (must remain) -->
   <script>
-  // 🟢 index.html — start of full file (grid enforcer snippet)
+  // 🟢 index.html — grid-enforcer start
   (function(){
     function enforceGrid(){
       const grid = document.querySelector('#app .posts-grid');
@@ -54,27 +61,34 @@
     document.addEventListener('okobs:route', enforceGrid);
     setInterval(enforceGrid, 1500);
   })();
-  // 🔴 index.html — end of full file (grid enforcer snippet)
+  // 🔴 index.html — grid-enforcer end
   </script>
 
-  <!-- Core scripts (plain JS only, stable versions) -->
-  <script defer src="main.js?v=2025-11-12R1h13"></script>
+  <!-- Core scripts (plain JS only) -->
+  <script defer src="main.js?v=2025-11-13R1-perf1"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
-  <!-- Service Worker: single stable name + absolute scope -->
+  <!-- Service Worker registration -->
   <script>
     (function(){
       if (!('serviceWorker' in navigator)) return;
       window.addEventListener('load', function(){
         const SCRIPT = '/okobserver/sw.js';
         const SCOPE  = '/okobserver/';
-        // Preflight so the browser never registers a missing script
         fetch(SCRIPT, { cache:'no-store' })
           .then(r => {
-            if (!r.ok) { console.warn('[OkObserver] SW preflight failed:', r.status, r.url); return; }
-            return navigator.serviceWorker.register(SCRIPT, { scope: SCOPE, updateViaCache:'none' });
+            if (!r.ok) {
+              console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
+              return;
+            }
+            return navigator.serviceWorker.register(SCRIPT, {
+              scope: SCOPE,
+              updateViaCache:'none'
+            });
           })
-          .then(reg => { if (reg) console.log('[OkObserver] SW registered:', reg.scope); })
+          .then(reg => {
+            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
+          })
           .catch(err => console.warn('[OkObserver] SW register error:', err));
       });
     })();
@@ -82,4 +96,3 @@
 </body>
 </html>
 <!-- 🔴 index.html — end of full file -->
-

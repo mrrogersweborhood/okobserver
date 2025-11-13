@@ -1,31 +1,9 @@
-// 🟢 main.js
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h13
-/* Full-file replacement (no truncation).
-   Key updates for this revision:
-   - Consolidated hamburger controller into a single, stable block.
-   - Motto hardening:
-     * Injected CSS to ensure .oo-motto never shows underline / pointer cursor.
-     * Click guard on the brand link so clicks originating on .oo-motto do not
-       trigger navigation, while keeping the logo clickable.
-     * We NO LONGER move the motto out of the <a.oo-brand> DOM; it stays under
-       the logo, centered, exactly as in your HTML layout.
-
-   Other preserved behavior:
-   - Vimeo/YouTube: responsive iframe embed + optional CTA link.
-   - For Facebook videos: we DO NOT render an iframe nor a separate video box.
-     Instead we turn the featured image (hero) into a clickable overlay with a
-     centered “Watch on Facebook” button.
-   - Preserve <a> links in excerpts; unwrap other tags.
-   - Scrub Gutenberg/embed wrappers that caused leading white gap.
-   - Reveal detail after media/body ready to avoid flashes.
-   - Bold byline under image; hard fallback for post 381733 (Vimeo id 1126193884).
-   - Strict cartoon filter & duplicate guard on home (4/3/1 grid via CSS).
-*/
+// OkObserver Main JS — Build 2025-11-13R1-perf1
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h13';
+  const BUILD = '2025-11-13R1-perf1';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -75,7 +53,7 @@
 
     el.innerHTML = `
       <a class="thumb" href="#/post/${post.id}" aria-label="${escapeHtmlAttr(title)}">
-        ${img ? `<img src="${img}?cb=${post.id}" alt="">` : ''}
+        ${img ? `<img src="${img}?cb=${post.id}" alt="" loading="lazy" decoding="async">` : ''}
       </a>
       <h2 class="title"><a href="#/post/${post.id}">${title}</a></h2>
       <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
@@ -196,7 +174,6 @@
           hero.style.display='block';
           hero.style.width='100%';
           hero.style.height='auto';
-          // Button overlay
           const btn = document.createElement('a');
           btn.href = candidate;
           btn.target = '_blank';
@@ -210,10 +187,8 @@
           });
           heroWrap.appendChild(btn);
         }
-        // Ensure any leading embed placeholders are gone
         scrubLeadingEmbedPlaceholders(bodyEl, candidate);
       } else {
-        // Vimeo/YouTube / special-case fallback path
         const embed = buildEmbed(candidate, post.id);
         if (embed){
           videoSlot.style.display='none';
@@ -248,7 +223,6 @@
   function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
   function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
 
-  // Keep anchors anywhere; unwrap other elements but preserve their children
   function sanitizeExcerptKeepAnchors(html=''){
     const root = document.createElement('div');
     root.innerHTML = html;
@@ -271,21 +245,16 @@
     return out.join('').replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
   }
 
-  // Detect video URL (Vimeo/YouTube/Facebook)
   function findVideoUrl(html){
     if (!html) return null;
-    // Vimeo
     let m = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/); if (m) return m[0];
-    // YouTube
     m = html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/); if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/); if (m) return m[0];
-    // Facebook
     m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i); if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/watch\/?\?[^"'\s]*v=(\d+)/i); if (m) return m[0];
     return null;
   }
 
-  // Build external CTA used for iframe hosts (not used for FB since hero handles it)
   function buildExternalCTA(url){
     if (!url) return '';
     if (/facebook\.com/i.test(url)) return '';
@@ -302,10 +271,8 @@
       </div>`;
   }
 
-  // Build embed iframe for Vimeo/YouTube only; plus hard fallback for 381733
   function buildEmbed(url, postId){
     if (!url) return '';
-    // Vimeo
     let m = url.match(/vimeo\.com\/(\d+)/);
     if (m){
       const vid = m[1];
@@ -315,14 +282,14 @@
                   style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
               </div>`;
     }
-    // YouTube
     m = url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (m){
       const vid = m[1];
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                  style="position:absolute;inset:0;border:0;width:100%;height:100%;"
+                  loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
     m = url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
@@ -331,28 +298,27 @@
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy" allowfullscreen></iframe>
+                  style="position:absolute;inset:0;border:0;width:100%;height:100%;"
+                  loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
-    // Hard fallback for 381733 if nothing else matched
     if (postId === 381733){
       const vid='1126193884';
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
                   allow="autoplay; fullscreen; picture-in-picture"
-                  style="position:absolute;inset:0;border:0;width:100%;height:100%;" loading="lazy"></iframe>
+                  style="position:absolute;inset:0;border:0;width:100%;height:100%;"
+                  loading="lazy"></iframe>
               </div>`;
     }
     return '';
   }
 
   function tidyArticleSpacing(container){
-    // Remove empty wrapper blocks that cause leading white gap
     const blocks = container.querySelectorAll('.wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3');
     blocks.forEach(b=>{
       if (!b.querySelector('iframe, video')) b.remove();
     });
-    // Trim empty leading nodes
     while (container.firstElementChild && looksEmpty(container.firstElementChild)){
       container.firstElementChild.remove();
     }
@@ -425,7 +391,6 @@
       else openMenu();
     };
 
-    // Button click / keyboard
     btn.addEventListener('click', toggleMenu);
     btn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -433,7 +398,6 @@
       }
     });
 
-    // Overlay click closes
     if (overlay) {
       overlay.addEventListener('click', (e) => {
         e.preventDefault();
@@ -441,21 +405,18 @@
       });
     }
 
-    // Click outside menu closes
     document.addEventListener('click', (e) => {
       if (!isOpen()) return;
       if (menu.contains(e.target) || btn.contains(e.target)) return;
       closeMenu();
     });
 
-    // ESC closes
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen()) {
         closeMenu();
       }
     });
 
-    // Route change / resize close
     window.addEventListener('hashchange', closeMenu);
     window.addEventListener('resize', () => {
       if (isOpen() && window.innerWidth >= 900) {
@@ -463,7 +424,6 @@
       }
     });
 
-    // Menu link click closes
     menu.addEventListener('click', (e) => {
       const a = e.target.closest('a');
       if (a) {
@@ -471,7 +431,6 @@
       }
     });
 
-    // Basic ARIA
     btn.setAttribute('role', 'button');
     btn.setAttribute('aria-expanded', 'false');
     if (!btn.hasAttribute('tabindex')) btn.setAttribute('tabindex', '0');
@@ -487,9 +446,9 @@
 })();
 /* 🔴 main.js — Hamburger controller v2025-11-12H3 */
 
-/* 🟢 main.js — Motto CSS hardening (never a link) */
+/* 🟢 main.js — Motto CSS + click-guard (motto not a link) */
 (function () {
-  try {
+  function injectCss() {
     const css = `
       .oo-brand,
       .oo-brand:link,
@@ -501,7 +460,6 @@
       }
       .oo-motto {
         text-decoration: none !important;
-        pointer-events: auto !important;
         cursor: default !important;
       }
     `;
@@ -509,38 +467,36 @@
     style.setAttribute('data-oo', 'motto-link-kill');
     style.textContent = css;
     (document.head || document.documentElement).appendChild(style);
-  } catch (err) {
-    console.warn('[OkObserver] motto CSS hardening failed:', err);
   }
-})();
-/* 🔴 main.js — Motto CSS hardening (never a link) */
 
-/* 🟢 main.js — Motto click guard (prevent nav when clicking motto) */
-(function () {
-  function guardMottoClicks() {
+  function guardClicks() {
+    const brand = document.querySelector('.oo-header-inner .oo-brand');
+    if (!brand) return;
+
+    brand.addEventListener('click', (e) => {
+      const motto = e.target.closest('.oo-motto');
+      if (motto) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+  }
+
+  function init() {
     try {
-      const brand = document.querySelector('.oo-header-inner .oo-brand');
-      if (!brand) return;
-
-      brand.addEventListener('click', (e) => {
-        const motto = e.target.closest('.oo-motto');
-        if (motto) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }, true);
+      injectCss();
+      guardClicks();
     } catch (err) {
-      console.warn('[OkObserver] motto click guard failed:', err);
+      console.warn('[OkObserver] motto guard failed:', err);
     }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', guardMottoClicks, { once:true });
+    document.addEventListener('DOMContentLoaded', init, { once:true });
   } else {
-    guardMottoClicks();
+    init();
   }
 })();
-/* 🔴 main.js — Motto click guard (prevent nav when clicking motto) */
+/* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
 // 🔴 main.js — end of full file
-// 🔴 main.js

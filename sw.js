@@ -1,88 +1,94 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h13
-   Single filename: sw.js
+/* OkObserver Service Worker — Build 2025-11-13R1-perf1
    Scope: /okobserver/
-   HTML: network-first; static assets: cache-first
-   Deduped precache to avoid "duplicate requests" errors.
+   Strategy:
+   - HTML (navigation): network-first, offline fallback to cached index.
+   - Static assets (CSS/JS/images): cache-first with network fill.
 */
-const SW_BUILD   = '2025-11-12R1h13';
-const CACHE_NAME = 'okobserver-thiscache-' + SW_BUILD;
+const SW_BUILD   = '2025-11-13R1-perf1';
+const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
-// Keep paths explicit for GitHub Pages subpath
+// Explicit precache list
 const PRECACHE = [
   '/okobserver/',
-  '/okobserver/index.html?v=2025-11-12H5',
-  '/okobserver/override.css?v=2025-11-07SR4',
-  '/okobserver/main.js?v=2025-11-12R1h13',
-  '/okobserver/PostDetail.js?v=2025-11-10R6',
+  '/okobserver/index.html',
+  '/okobserver/override.css',
+  '/okobserver/main.js',
+  '/okobserver/PostDetail.js',
   '/okobserver/logo.png',
   '/okobserver/favicon.ico'
 ];
 
-// Deduplicate & normalize
-const UNIQUE_ASSETS = [...new Set(PRECACHE.map(u => new URL(u, self.location.origin).toString()))];
-
 self.addEventListener('install', (event) => {
-  event.waitUntil((async () => {
-    try {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(UNIQUE_ASSETS);
-      await self.skipWaiting();
-    } catch (err) {
-      // Never fail install due to a single bad request
-      console.warn('[OkObserver SW] install warning:', err);
-      await self.skipWaiting();
-    }
-  })());
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.warn('[OkObserver SW] install warning:', err);
+        return self.skipWaiting();
+      })
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.map(k => (k === CACHE_NAME ? null : caches.delete(k))));
-    await self.clients.claim();
-    console.log('[OkObserver SW] active', SW_BUILD);
-  })());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k)))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
 });
 
-function isHTML(req){
-  return req.mode === 'navigate' || (req.headers.get('accept')||'').includes('text/html');
+function isHTML(req) {
+  return (
+    req.mode === 'navigate' ||
+    (req.headers.get('accept') || '').includes('text/html')
+  );
 }
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
   if (isHTML(req)) {
-    // Network-first for documents, fallback to cached index
-    event.respondWith((async () => {
-      try {
-        const fresh = await fetch(req);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(req, fresh.clone());
-        return fresh;
-      } catch {
-        const cache = await caches.open(CACHE_NAME);
-        return (await cache.match(req, { ignoreSearch:true })) ||
-               (await cache.match('/okobserver/index.html?v=2025-11-12H5')) ||
-               new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
-      }
-    })());
+    event.respondWith(
+      fetch(req)
+        .then((resp) => {
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(req, copy));
+          return resp;
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          const match =
+            (await cache.match(req, { ignoreSearch: true })) ||
+            (await cache.match('/okobserver/index.html'));
+          return (
+            match ||
+            new Response('<h1>Offline</h1>', {
+              headers: { 'Content-Type': 'text/html' }
+            })
+          );
+        })
+    );
     return;
   }
 
-  // Cache-first for static assets
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(req);
-    if (cached) return cached;
-    try {
-      const fresh = await fetch(req);
-      cache.put(req, fresh.clone());
-      return fresh;
-    } catch {
-      return new Response('', { status: 504 });
-    }
-  })());
+  event.respondWith(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(req);
+      if (cached) return cached;
+      try {
+        const fresh = await fetch(req);
+        cache.put(req, fresh.clone());
+        return fresh;
+      } catch (err) {
+        return new Response('', { status: 504 });
+      }
+    })
+  );
 });
 // 🔴 sw.js — end of full file
-
