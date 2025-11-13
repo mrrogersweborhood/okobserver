@@ -1,12 +1,15 @@
+🟢 main.js
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h12
+// 🟢 main.js — OkObserver Build 2025-11-12R1h13
 /* Full-file replacement (no truncation).
    Key updates for this revision:
    - Consolidated hamburger controller into a single, stable block.
    - Motto hardening:
      * Injected CSS to ensure .oo-motto never shows underline / pointer cursor.
-     * DOM fix to move .oo-motto out of the <a.oo-brand> link, so the motto
-       physically cannot be a link target anymore.
+     * Click guard on the brand link so clicks originating on .oo-motto do not
+       trigger navigation, while keeping the logo clickable.
+     * We NO LONGER move the motto out of the <a.oo-brand> DOM; it stays under
+       the logo, centered, exactly as in your HTML layout.
 
    Other preserved behavior:
    - Vimeo/YouTube: responsive iframe embed + optional CTA link.
@@ -22,7 +25,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h12';
+  const BUILD = '2025-11-12R1h13';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -498,7 +501,7 @@
       }
       .oo-motto {
         text-decoration: none !important;
-        pointer-events: none !important;
+        pointer-events: auto !important;
         cursor: default !important;
       }
     `;
@@ -512,32 +515,32 @@
 })();
 /* 🔴 main.js — Motto CSS hardening (never a link) */
 
-/* 🟢 main.js — Motto DOM fix (move motto out of brand link) */
+/* 🟢 main.js — Motto click guard (prevent nav when clicking motto) */
 (function () {
-  function moveMottoOutOfLink() {
+  function guardMottoClicks() {
     try {
       const brand = document.querySelector('.oo-header-inner .oo-brand');
       if (!brand) return;
-      const motto = brand.querySelector('.oo-motto');
-      if (!motto) return;
-      const parent = brand.parentElement;
-      if (!parent) return;
 
-      // Only move if motto is currently inside the <a.oo-brand>
-      if (motto.parentElement === brand) {
-        parent.insertBefore(motto, brand.nextSibling);
-      }
+      brand.addEventListener('click', (e) => {
+        const motto = e.target.closest('.oo-motto');
+        if (motto) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
     } catch (err) {
-      console.warn('[OkObserver] motto DOM fix failed:', err);
+      console.warn('[OkObserver] motto click guard failed:', err);
     }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', moveMottoOutOfLink, { once:true });
+    document.addEventListener('DOMContentLoaded', guardMottoClicks, { once:true });
   } else {
-    moveMottoOutOfLink();
+    guardMottoClicks();
   }
 })();
-/* 🔴 main.js — Motto DOM fix (move motto out of brand link) */
+/* 🔴 main.js — Motto click guard (prevent nav when clicking motto) */
 
 // 🔴 main.js — end of full file
+🔴 main.js

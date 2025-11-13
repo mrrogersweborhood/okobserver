@@ -2587,3 +2587,12 @@ html { scrollbar-gutter: stable both-edges; }
   outline: 0 !important;
   cursor: default !important;
 }
+/* Sticky header hardening — keep header fixed at top */
+.oo-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+body {
+  margin-top: 0;
+}
