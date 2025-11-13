@@ -2625,3 +2625,22 @@ body {
 #app {
   overflow: visible !important;
 }
+/* Header alignment + sticky fix override */
+body {
+  padding-top: 0 !important;           /* undo earlier padding hack */
+}
+
+body > header.oo-header {
+  position: fixed !important;          /* keep it pinned to the viewport */
+  top: 0 !important;
+  left: 0;
+  right: 0;
+  margin-top: 0 !important;           /* kill any top margin that creates a white band */
+  z-index: 9999;
+}
+
+/* Push the app content down so it doesn't hide under the fixed header */
+#app {
+  margin-top: 140px !important;        /* tweak 130–150px if it looks a bit off */
+  overflow: visible !important;
+}
