@@ -2726,3 +2726,27 @@ body > header.oo-header {
   object-fit: cover !important;
   object-position: center !important;
 }
+/* === Fix: keep titles below featured image on post summary === */
+
+/* Ensure the thumbnail is a block with the text flowing *after* it */
+.post-card .thumb {
+  display: block !important;
+}
+
+/* Restore normal block image behavior (no weird inline overlap) */
+.post-card .thumb img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;        /* let height be determined by image */
+  object-fit: cover !important;   /* allow cropping, as before */
+  object-position: center !important;
+}
+
+/* Detail hero image: full-width block, cropped center */
+.post-detail .hero {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
