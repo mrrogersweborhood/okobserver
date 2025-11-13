@@ -2678,3 +2678,14 @@ body > header.oo-header {
     margin-top: 190px !important;
   }
 }
+/* Ensure slide-out menu items sit fully below the fixed header */
+.oo-menu {
+  padding-top: 96px !important;   /* approx header height on desktop */
+}
+
+/* On smaller screens, header is a bit taller */
+@media (max-width: 768px) {
+  .oo-menu {
+    padding-top: 120px !important;
+  }
+}
