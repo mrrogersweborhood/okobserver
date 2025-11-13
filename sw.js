@@ -1,4 +1,3 @@
-🟢 sw.js
 // 🟢 sw.js — start of full file
 /* OkObserver Service Worker — Build 2025-11-12R1h13
    Single filename: sw.js
@@ -86,4 +85,4 @@ self.addEventListener('fetch', (event) => {
   })());
 });
 // 🔴 sw.js — end of full file
-🔴 sw.js
+
