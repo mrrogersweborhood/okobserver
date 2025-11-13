@@ -2877,3 +2877,9 @@ body > header.oo-header {
 .posts-grid .post-card a[href="#/post/382365"] + h2.title {
   margin-top: 28px !important;   /* bigger gap under the image for this card only */
 }
+/* === Extra spacing specifically for summary card: post 382365 === */
+
+/* Add more breathing room between the featured image and the title */
+.posts-grid .post-card a[href="#/post/382365"] + h2.title {
+  margin-top: 32px !important;     /* increase or decrease as needed */
+}
