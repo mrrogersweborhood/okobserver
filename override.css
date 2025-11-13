@@ -2829,3 +2829,41 @@ body > header.oo-header {
   margin: 12px 0 0 !important;  /* gap between image and title */
   padding: 0 !important;
 }
+/* === 2025-11-13R1: Hard fix to keep titles below images on summary cards === */
+
+/* Ensure card content stacks normally */
+.posts-grid .post-card {
+  position: relative !important;
+}
+
+/* Thumbnail: block image area */
+.posts-grid .post-card .thumb,
+.posts-grid .post-card .thumb img {
+  display: block !important;
+}
+
+/* FORCE the title to be a normal block BELOW the thumbnail */
+.posts-grid .post-card h2.title {
+  position: static !important;
+  display: block !important;
+  margin: 12px 0 0 !important;   /* gap between image and title */
+  padding: 0 !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+/* Make sure the link inside behaves like normal text, not an overlay */
+.posts-grid .post-card h2.title a {
+  position: static !important;
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
