@@ -2750,3 +2750,12 @@ body > header.oo-header {
   object-fit: cover !important;
   object-position: center !important;
 }
+/* === Ensure post titles never overlap featured images === */
+.post-card .thumb {
+  margin-bottom: 12px !important;  /* consistent spacing below images */
+}
+
+/* Make sure images remain block elements (prevents overlap) */
+.post-card .thumb img {
+  display: block !important;
+}
