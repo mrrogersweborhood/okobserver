@@ -1,19 +1,19 @@
 // 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-12R1h2 (stable)
+/* OkObserver Service Worker — Build 2025-11-12R1h11
    Single filename: sw.js
    Scope: /okobserver/
    HTML: network-first; static assets: cache-first
    Deduped precache to avoid "duplicate requests" errors.
 */
-const SW_BUILD   = '2025-11-12R1h2';
+const SW_BUILD   = '2025-11-12R1h11';
 const CACHE_NAME = 'okobserver-thiscache-' + SW_BUILD;
 
 // Keep paths explicit for GitHub Pages subpath
 const PRECACHE = [
   '/okobserver/',
-  '/okobserver/index.html?v=2025-11-12H2',
-  '/okobserver/override.css?v=2025-11-07SR1',
-  '/okobserver/main.js?v=2025-11-12R1h4',
+  '/okobserver/index.html?v=2025-11-12H3',
+  '/okobserver/override.css?v=2025-11-07SR4',
+  '/okobserver/main.js?v=2025-11-12R1h11',
   '/okobserver/PostDetail.js?v=2025-11-10R6',
   '/okobserver/logo.png',
   '/okobserver/favicon.ico'
@@ -41,6 +41,7 @@ self.addEventListener('activate', (event) => {
     const keys = await caches.keys();
     await Promise.all(keys.map(k => (k === CACHE_NAME ? null : caches.delete(k))));
     await self.clients.claim();
+    console.log('[OkObserver SW] active', SW_BUILD);
   })());
 });
 
@@ -62,7 +63,7 @@ self.addEventListener('fetch', (event) => {
       } catch {
         const cache = await caches.open(CACHE_NAME);
         return (await cache.match(req, { ignoreSearch:true })) ||
-               (await cache.match('/okobserver/index.html?v=2025-11-12H2')) ||
+               (await cache.match('/okobserver/index.html?v=2025-11-12H3')) ||
                new Response('<h1>Offline</h1>', { headers:{'Content-Type':'text/html'} });
       }
     })());
