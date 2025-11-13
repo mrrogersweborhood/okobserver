@@ -2759,3 +2759,19 @@ body > header.oo-header {
 .post-card .thumb img {
   display: block !important;
 }
+/* === Force a visible gap between featured image and post title === */
+
+/* Make sure thumbnail is a block so margin flow works */
+.post-card .thumb {
+  display: block !important;
+}
+
+/* Ensure the image is a block element too */
+.post-card .thumb img {
+  display: block !important;
+}
+
+/* Add a fixed gap before the title on every card */
+.post-card .title {
+  margin-top: 12px !important;   /* adjust bigger/smaller if you like */
+}
