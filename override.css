@@ -2775,3 +2775,26 @@ body > header.oo-header {
 .post-card .title {
   margin-top: 12px !important;   /* adjust bigger/smaller if you like */
 }
+/* === Strong fix: keep post titles below featured images on summary === */
+
+/* Make sure the thumbnail behaves like a normal block in the flow */
+.posts-grid .post-card .thumb {
+  display: block !important;
+}
+
+/* Ensure the image itself is a block and defines its own area */
+.posts-grid .post-card .thumb img {
+  display: block !important;
+}
+
+/* Force the title to sit below the image, never over it */
+.posts-grid .post-card h2.title {
+  position: static !important;      /* cancel any absolute positioning */
+  margin-top: 14px !important;      /* fixed gap above the title */
+  padding-top: 0 !important;
+}
+
+/* Keep the title link behaving like normal text */
+.posts-grid .post-card h2.title a {
+  display: inline !important;
+}
