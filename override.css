@@ -2958,3 +2958,32 @@ body > header.oo-header {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
+/* === 2025-11-13R6: Masonry-style layout for post summary === */
+
+/* Turn the posts grid into multi-column masonry instead of row-aligned grid */
+#app .posts-grid {
+  display: block !important;          /* override grid/flex */
+  column-count: 4;                    /* desktop: 4 columns */
+  column-gap: 24px;                   /* space between columns */
+}
+
+/* Tablet: 3 columns */
+@media (max-width: 1024px) {
+  #app .posts-grid {
+    column-count: 3;
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 768px) {
+  #app .posts-grid {
+    column-count: 1;
+  }
+}
+
+/* Cards must avoid breaking across columns and get vertical spacing */
+#app .posts-grid .post-card {
+  break-inside: avoid;
+  margin-bottom: 24px;
+  width: 100%;
+}
