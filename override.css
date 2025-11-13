@@ -2889,3 +2889,31 @@ body > header.oo-header {
 .posts-grid .post-card a[href="#/post/382365"] + h2.title {
   margin-top: 40px !important;
 }
+/* === Summary card title spacing === */
+
+/* Default gap for all cards */
+.posts-grid .post-card h2.title {
+  margin-top: 16px;
+}
+
+/* Extra spacing specifically for post 382365 (A World-Class Ignoramus) */
+.posts-grid .post-card a[href="#/post/382365"] + h2.title {
+  margin-top: 40px;
+}
+/* === 2025-11-13R2: Summary card heroes use object-fit: contain === */
+
+/* Thumbnail container stays in normal flow */
+.posts-grid .post-card .thumb {
+  display: block !important;
+  overflow: hidden;              /* keeps things tidy if any weirdness */
+}
+
+/* Hero image on summary cards: show full image, don't crop */
+.posts-grid .post-card .thumb img {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;   /* key change: was effectively "cover" */
+  object-position: center center !important;
+  background-color: #f5f5f5;        /* light backdrop if there are side bars */
+}
