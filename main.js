@@ -1,9 +1,9 @@
-// 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-13R1-perf1
+// 🟢 main.js
+// OkObserver Main JS — Build 2025-11-13R1-perf2
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-13R1-perf1';
+  const BUILD = '2025-11-13R1-perf2';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -55,7 +55,9 @@
       <a class="thumb" href="#/post/${post.id}" aria-label="${escapeHtmlAttr(title)}">
         ${img ? `<img src="${img}?cb=${post.id}" alt="" loading="lazy" decoding="async">` : ''}
       </a>
-      <h2 class="title"><a href="#/post/${post.id}">${title}</a></h2>
+      <h2 class="title" style="position: static !important; margin-top: 12px !important;">
+        <a href="#/post/${post.id}">${title}</a>
+      </h2>
       <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
       <p class="excerpt">${excerptHTML}</p>
     `;
@@ -499,4 +501,4 @@
 })();
 /* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
-// 🔴 main.js — end of full file
+// 🔴 main.js

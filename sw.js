@@ -1,14 +1,13 @@
-// 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-13R1-perf1
+// 🟢 sw.js
+/* OkObserver Service Worker — Build 2025-11-13R1-perf2
    Scope: /okobserver/
    Strategy:
    - HTML (navigation): network-first, offline fallback to cached index.
    - Static assets (CSS/JS/images): cache-first with network fill.
 */
-const SW_BUILD   = '2025-11-13R1-perf1';
+const SW_BUILD   = '2025-11-13R1-perf2';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
-// Explicit precache list
 const PRECACHE = [
   '/okobserver/',
   '/okobserver/index.html',
@@ -91,4 +90,4 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-// 🔴 sw.js — end of full file
+// 🔴 sw.js
