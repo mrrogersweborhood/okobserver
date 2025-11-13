@@ -2945,3 +2945,16 @@ body > header.oo-header {
 .posts-grid .post-card .thumb {
   margin-bottom: 14px !important;   /* adjust this number to taste: 12–20px */
 }
+/* === 2025-11-13R5: normalize spacing between thumbnail and title on summary === */
+
+/* Make every thumbnail block have the same bottom gap before the title */
+.posts-grid .post-card .thumb {
+  display: block !important;
+  margin-bottom: 14px !important;   /* this is the white space under the image */
+}
+
+/* Ensure titles start right after that gap, not with their own random top margin */
+.posts-grid .post-card h2.title {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
