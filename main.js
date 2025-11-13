@@ -1,24 +1,28 @@
 // 🟢 main.js — start of full file
-// 🟢 main.js — OkObserver Build 2025-11-12R1h10
+// 🟢 main.js — OkObserver Build 2025-11-12R1h11
 /* Full-file replacement (no truncation).
    Key update:
-   - For Facebook videos: we DO NOT render an iframe nor a separate video box.
-     Instead we turn the featured image (hero) into a clickable overlay with a
-     centered “Watch on Facebook” button. This removes the gray gap and matches
-     the desired look (“featured image with play button”).
+   - Consolidated hamburger controller into a single, stable block, removing
+     previous stacked patches that could cause jitter / unreliable taps.
+   - Added an injected CSS patch to guarantee the motto never behaves like a
+     link (no underline, no pointer cursor, no click target), while keeping
+     the logo/brand link itself working.
+
    Other preserved behavior:
    - Vimeo/YouTube: responsive iframe embed + optional CTA link.
+   - For Facebook videos: we DO NOT render an iframe nor a separate video box.
+     Instead we turn the featured image (hero) into a clickable overlay with a
+     centered “Watch on Facebook” button.
    - Preserve <a> links in excerpts; unwrap other tags.
    - Scrub Gutenberg/embed wrappers that caused leading white gap.
    - Reveal detail after media/body ready to avoid flashes.
    - Bold byline under image; hard fallback for post 381733 (Vimeo id 1126193884).
-   - Hamburger overlay controller (ESC / click-out / resize-close).
    - Strict cartoon filter & duplicate guard on home (4/3/1 grid via CSS).
 */
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-12R1h10';
+  const BUILD = '2025-11-12R1h11';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -380,193 +384,132 @@
   }
 })();
 
-/* 🟢 main.js (APPEND) — Hamburger controller v2025-11-12H2 */
+/* 🟢 main.js — Hamburger controller v2025-11-12H3 */
 (function () {
-  function init() {
+  function initHamburger() {
     const btn = document.querySelector('[data-oo="hamburger"]') || document.querySelector('.oo-hamburger');
     const menu = document.querySelector('[data-oo="menu"]')      || document.querySelector('.oo-menu');
-    const overlay = document.querySelector('[data-oo="overlay"]')|| document.querySelector('.oo-overlay'); // optional
+    const overlay = document.querySelector('[data-oo="overlay"]')|| document.querySelector('.oo-overlay');
 
-    if (!btn || !menu) { console.warn('[OkObserver] hamburger elements missing'); return; }
+    if (!btn || !menu) {
+      console.warn('[OkObserver] hamburger elements missing');
+      return;
+    }
 
     const root = document.documentElement;
-    const isOpen = ()=>root.classList.contains('is-menu-open');
-    const openMenu = ()=>{ root.classList.add('is-menu-open'); menu.hidden=false; btn.setAttribute('aria-expanded','true'); if(overlay) overlay.hidden=false; };
-    const closeMenu= ()=>{ root.classList.remove('is-menu-open'); menu.hidden=true;  btn.setAttribute('aria-expanded','false'); if(overlay) overlay.hidden=true; };
-    const toggle   = ()=>{ isOpen()? closeMenu(): openMenu(); };
+    const isOpen = () => root.classList.contains('is-menu-open');
 
-    btn.addEventListener('click', e=>{ e.stopPropagation(); toggle(); });
-    document.addEventListener('click', e=>{ if(!isOpen()) return; if(menu.contains(e.target) || btn.contains(e.target)) return; closeMenu(); }, { passive:true });
-    document.addEventListener('keydown', e=>{ if(e.key==='Escape' && isOpen()) closeMenu(); });
+    const openMenu = () => {
+      root.classList.add('is-menu-open');
+      menu.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      if (overlay) overlay.hidden = false;
+    };
+
+    const closeMenu = () => {
+      root.classList.remove('is-menu-open');
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      if (overlay) overlay.hidden = true;
+    };
+
+    const toggleMenu = (ev) => {
+      if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      if (isOpen()) closeMenu();
+      else openMenu();
+    };
+
+    // Button click / keyboard
+    btn.addEventListener('click', toggleMenu);
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        toggleMenu(e);
+      }
+    });
+
+    // Overlay click closes
+    if (overlay) {
+      overlay.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeMenu();
+      });
+    }
+
+    // Click outside menu closes
+    document.addEventListener('click', (e) => {
+      if (!isOpen()) return;
+      if (menu.contains(e.target) || btn.contains(e.target)) return;
+      closeMenu();
+    });
+
+    // ESC closes
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) {
+        closeMenu();
+      }
+    });
+
+    // Route change / resize close
     window.addEventListener('hashchange', closeMenu);
-    window.addEventListener('resize', ()=>{ if(innerWidth>=900) closeMenu(); });
-    menu.addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) closeMenu(); });
+    window.addEventListener('resize', () => {
+      if (isOpen() && window.innerWidth >= 900) {
+        closeMenu();
+      }
+    });
 
-    console.log('[OkObserver] hamburger ready');
+    // Menu link click closes
+    menu.addEventListener('click', (e) => {
+      const a = e.target.closest('a');
+      if (a) {
+        closeMenu();
+      }
+    });
+
+    // Basic ARIA
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('aria-expanded', 'false');
+    if (!btn.hasAttribute('tabindex')) btn.setAttribute('tabindex', '0');
+
+    console.log('[OkObserver] hamburger ready (single controller)');
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
-  else init();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHamburger, { once:true });
+  } else {
+    initHamburger();
+  }
 })();
- /* 🔴 main.js (APPEND) — END */
+/* 🔴 main.js — Hamburger controller v2025-11-12H3 */
+
+/* 🟢 main.js — Motto CSS hardening (never a link) */
+(function () {
+  try {
+    const css = `
+      .oo-brand,
+      .oo-brand:link,
+      .oo-brand:visited,
+      .oo-brand:hover,
+      .oo-brand:focus,
+      .oo-brand:active {
+        text-decoration: none !important;
+      }
+      .oo-motto {
+        text-decoration: none !important;
+        pointer-events: none !important;
+        cursor: default !important;
+      }
+    `;
+    const style = document.createElement('style');
+    style.setAttribute('data-oo', 'motto-link-kill');
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  } catch (err) {
+    console.warn('[OkObserver] motto CSS hardening failed:', err);
+  }
+})();
+/* 🔴 main.js — Motto CSS hardening (never a link) */
 
 // 🔴 main.js — end of full file
-// 🟢 main.js — start of patch (hamburger mobile jump/jitter fix)
-(() => {
-  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
-  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
-  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
-
-  if (!ham || !menu) return;
-
-  // If the hamburger is an anchor that points to '#', neutralize default nav
-  if (ham.tagName === 'A') {
-    const href = (ham.getAttribute('href') || '').trim();
-    if (href === '#' || href === '#!') ham.setAttribute('href', 'javascript:void(0)');
-  }
-
-  const open  = () => { menu.hidden = false; document.documentElement.classList.add('is-menu-open'); if (ovl) ovl.hidden = false; };
-  const close = () => { menu.hidden = true;  document.documentElement.classList.remove('is-menu-open'); if (ovl) ovl.hidden = true; };
-  const toggle = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } (menu.hidden ? open : close)(); };
-
-  // Make taps immediate and consistent across mobile browsers
-  ['pointerup','click','touchend'].forEach(evt =>
-    ham.addEventListener(evt, toggle, { passive: false })
-  );
-
-  // Close on click outside, ESC, or resize
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  window.addEventListener('resize', close);
-})();
-// 🔴 main.js — end of patch
-// 🟢 main.js — start of tiny patch to prevent focus/scroll jitter
-(() => {
-  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
-  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
-  if (!ham || !menu) return;
-
-  // Neutralize anchor navigation if it's an <a href="#">
-  if (ham.tagName === 'A') {
-    const href = (ham.getAttribute('href') || '').trim();
-    if (href === '#' || href === '#!') ham.setAttribute('href', 'javascript:void(0)');
-  }
-
-  const open  = () => { menu.hidden = false; document.documentElement.classList.add('is-menu-open'); };
-  const close = () => { menu.hidden = true;  document.documentElement.classList.remove('is-menu-open'); };
-
-  const toggle = (e) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    (menu.hidden ? open : close)();
-    // Drop focus to avoid underline/focus styles on the brand/motto
-    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
-  };
-
-  ['pointerup','click','touchend'].forEach(evt =>
-    ham.addEventListener(evt, toggle, { passive: false })
-  );
-
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  window.addEventListener('resize', close);
-})();
-// 🔴 main.js — end of tiny patch
-// 🟢 main.js — start of tiny mobile-tap fix
-(() => {
-  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
-  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
-  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
-  if (!ham || !menu) return;
-
-  // If the hamburger is an anchor to "#" etc., neutralize it
-  if (ham.tagName === 'A') {
-    const href = (ham.getAttribute('href') || '').trim();
-    if (href === '' || href === '#' || href === '#!' || href === '/')
-      ham.setAttribute('href', 'javascript:void(0)');
-  }
-
-  const open  = () => { menu.hidden = false; if (ovl) ovl.hidden = false; document.documentElement.classList.add('is-menu-open'); };
-  const close = () => { menu.hidden = true;  if (ovl) ovl.hidden = true; document.documentElement.classList.remove('is-menu-open'); };
-  const toggle = (e) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    (menu.hidden ? open : close)();
-    // drop focus so no underline styles appear on brand/motto
-    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
-  };
-
-  // Capture as EARLY as possible on mobile
-  ['pointerdown','touchstart'].forEach(evt =>
-    ham.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false })
-  );
-  // Actual toggle on release/click
-  ['pointerup','touchend','click'].forEach(evt =>
-    ham.addEventListener(evt, toggle, { passive: false })
-  );
-
-  // Close menu on outside click / ESC / resize
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
-  }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  window.addEventListener('resize', close);
-})();
-// 🔴 main.js — end of tiny mobile-tap fix
-// 🟢 main.js — start of mobile hamburger tap hardening
-(() => {
-  const ham  = document.querySelector('[data-oo="hamburger"], .oo-hamburger');
-  const menu = document.querySelector('[data-oo="menu"], .oo-menu');
-  const ovl  = document.querySelector('[data-oo="overlay"], .oo-overlay');
-  if (!ham || !menu) return;
-
-  // Make the control ARIA/keyboard friendly (idempotent)
-  ham.setAttribute('role','button');
-  ham.setAttribute('aria-expanded', String(!menu.hidden));
-  if (!ham.hasAttribute('tabindex')) ham.setAttribute('tabindex','0');
-
-  // If it's an <a href="#">, neutralize default navigation that causes jitter
-  if (ham.tagName === 'A') {
-    const href = (ham.getAttribute('href') || '').trim();
-    if (href === '' || href === '#' || href === '#!' || href === '/')
-      ham.setAttribute('href', 'javascript:void(0)');
-  }
-
-  const open  = () => { menu.hidden = false; ovl && (ovl.hidden = false);
-                        document.documentElement.classList.add('is-menu-open');
-                        ham.setAttribute('aria-expanded','true'); };
-  const close = () => { menu.hidden = true;  ovl && (ovl.hidden = true);
-                        document.documentElement.classList.remove('is-menu-open');
-                        ham.setAttribute('aria-expanded','false'); };
-
-  const toggle = (e) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    (menu.hidden ? open : close)();
-    // drop focus so brand/motto never shows underline focus styles
-    requestAnimationFrame(() => { try { ham.blur(); } catch(_){} });
-  };
-
-  // Capture early so no parent/brand link can swallow the tap
-  ['pointerdown','touchstart'].forEach(evt =>
-    ham.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive:false, capture:true })
-  );
-
-  // Actual toggle on release/click
-  ['pointerup','touchend','click'].forEach(evt =>
-    ham.addEventListener(evt, toggle, { passive:false })
-  );
-
-  // Keyboard support
-  ham.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e); }
-  });
-
-  // Close on outside click / ESC / resize
-  document.addEventListener('click', (e) => {
-    if (!menu.hidden && !menu.contains(e.target) && e.target !== ham) close();
-  }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  window.addEventListener('resize', close);
-})();
-// 🔴 main.js — end of mobile hamburger tap hardening

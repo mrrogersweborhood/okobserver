@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#1E90FF" />
   <!-- Preserve stable CSS version -->
   <link rel="preload" href="override.css?v=2025-11-07SR4" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-this" />
+  <link rel="stylesheet" href="override.css?v=2025-11-07SR4" />
 </head>
 <body>
   <!-- Sticky Header: centered logo + motto, always-hamburger -->
@@ -40,7 +40,7 @@
 
   <!-- MutationObserver grid enforcer (must remain) -->
   <script>
-  // 🟢 index.html — start of full file
+  // 🟢 index.html — start of full file (grid enforcer snippet)
   (function(){
     function enforceGrid(){
       const grid = document.querySelector('#app .posts-grid');
@@ -54,11 +54,11 @@
     document.addEventListener('okobs:route', enforceGrid);
     setInterval(enforceGrid, 1500);
   })();
-  // 🔴 index.html — end of full file
+  // 🔴 index.html — end of full file (grid enforcer snippet)
   </script>
 
   <!-- Core scripts (plain JS only, stable versions) -->
-  <script defer src="main.js?v=2025-11-this-12R1h12"></script>
+  <script defer src="main.js?v=2025-11-12R1h11"></script>
   <script defer src="PostDetail.js?v=2025-11-10R6"></script>
 
   <!-- Service Worker: single stable name + absolute scope -->
