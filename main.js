@@ -296,6 +296,7 @@
     const statusEl = app.querySelector('.search-status');
     const resultsGrid = app.querySelector('.search-results');
 
+    setTimeout(() => input && input.focus(), 0);
     if (!form || !input || !resultsGrid || !statusEl) return;
 
     form.addEventListener('submit', function (e) {
