@@ -3068,3 +3068,40 @@ body > header.oo-header {
   object-position: center center !important;
   display: block !important;
 }
+/* 🟢 OkObserver 2025-11-16 – Grid layout override (4/3/1)
+   This switches the summary layout from masonry columns to a normal grid.
+   To revert to masonry, delete or comment out this entire block.
+*/
+
+#app .posts-grid {
+  /* Turn off masonry columns and use CSS grid instead */
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-count: initial;
+  -moz-column-count: initial;
+  column-gap: 0;
+  row-gap: 24px;
+  gap: 24px; /* standard gap for both rows/columns */
+}
+
+#app .posts-grid .post-card {
+  /* Masonry-specific props become irrelevant in grid; keep spacing clean */
+  break-inside: auto;
+  margin-bottom: 0;
+}
+
+/* Tablet: 3 columns */
+@media (max-width: 1024px) {
+  #app .posts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 700px) {
+  #app .posts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 🔴 OkObserver 2025-11-16 – end grid layout override */
