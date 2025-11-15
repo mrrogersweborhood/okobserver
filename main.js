@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-16R2-rememberHome
+// OkObserver Main JS — Build 2025-11-16R2-rememberHome+381733BodyHide
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-16R2-rememberHome';
+  const BUILD = '2025-11-16R2-rememberHome+381733BodyHide';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -407,6 +407,11 @@
           }
         }
 
+        // Special-case: hide empty post body ONLY for post 381733
+        if (post.id === 381733) {
+          collapseIfEmptyBody(bodyEl);
+        }
+
         requestAnimationFrame(function () {
           detailEl.style.visibility = 'visible';
           detailEl.style.minHeight = '';
@@ -622,6 +627,18 @@
     if (node.querySelector('img,iframe,video,svg,picture')) return false;
     const text = (node.textContent || '').replace(/\u00a0/g, ' ').trim();
     return text.length === 0;
+  }
+
+  // Hide an empty post-body container (used only for 381733)
+  function collapseIfEmptyBody(bodyEl) {
+    if (!bodyEl) return;
+    const hasMedia = bodyEl.querySelector('img, iframe, video, svg, picture');
+    const text = (bodyEl.textContent || '')
+      .replace(/\u00a0/g, ' ')
+      .trim();
+    if (!hasMedia && !text) {
+      bodyEl.style.display = 'none';
+    }
   }
 
   function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
