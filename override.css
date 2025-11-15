@@ -3068,3 +3068,23 @@ body > header.oo-header {
   object-position: center center !important;
   display: block !important;
 }
+/* 🟢 2025-11-16 – Post detail tag pills */
+.post-detail .detail-tags-row {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.post-detail .detail-tag-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(30, 144, 255, 0.08); /* soft OkObserver blue tint */
+  border: 1px solid #1E90FF;
+  color: #1E90FF;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+/* 🔴 2025-11-16 – end post detail tag pills */

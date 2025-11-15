@@ -398,6 +398,15 @@
           }
         }
 
+        // Insert tags row (pill chips) before the Back button, if tags exist
+        const tagsRow = buildTagsRow(post);
+        if (tagsRow) {
+          const backRow = app.querySelector('.back-row');
+          if (backRow && backRow.parentNode) {
+            backRow.parentNode.insertBefore(tagsRow, backRow);
+          }
+        }
+
         requestAnimationFrame(function () {
           detailEl.style.visibility = 'visible';
           detailEl.style.minHeight = '';
@@ -434,6 +443,44 @@
         year: 'numeric',
       })
     );
+  }
+
+  // Build a tag row element from post._embedded['wp:term'] (post_tag only)
+  function buildTagsRow(post) {
+    if (
+      !post ||
+      !post._embedded ||
+      !post._embedded['wp:term'] ||
+      !Array.isArray(post._embedded['wp:term'])
+    ) {
+      return null;
+    }
+
+    const groups = post._embedded['wp:term'];
+    const tags = [];
+
+    groups.forEach(function (group) {
+      if (!Array.isArray(group)) return;
+      group.forEach(function (term) {
+        if (term && term.taxonomy === 'post_tag') {
+          tags.push(term);
+        }
+      });
+    });
+
+    if (!tags.length) return null;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-tags-row';
+
+    tags.forEach(function (tag) {
+      const chip = document.createElement('span');
+      chip.className = 'detail-tag-pill';
+      chip.textContent = tag.name || tag.slug || '';
+      wrap.appendChild(chip);
+    });
+
+    return wrap;
   }
 
   // ---- helpers ----
