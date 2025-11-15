@@ -3046,3 +3046,25 @@ body > header.oo-header {
   object-fit: cover !important;
   object-position: center center;
 }
+/* === 2025-11-13R8: Summary hero thumbnails: 4:3 aspect ratio + cover === */
+
+/* Thumbnail container on post-summary cards */
+#app .posts-grid .post-card .thumb {
+  position: relative !important;
+  width: 100% !important;
+  aspect-ratio: 4 / 3 !important;      /* Final choice: 4:3 ratio */
+  overflow: hidden !important;
+  margin-bottom: 14px !important;      /* consistent spacing under hero */
+  display: block !important;
+}
+
+/* Image fills the box with center-crop behavior */
+#app .posts-grid .post-card .thumb img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;        /* crops edges, not centers */
+  object-position: center center !important;
+  display: block !important;
+}
