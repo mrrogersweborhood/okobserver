@@ -5,7 +5,7 @@
    - HTML (navigation): network-first, offline fallback to cached index.
    - Static assets (CSS/JS/images): cache-first with network fill.
 */
-const SW_BUILD   = '2025-11-16R7-searchMenuVisible';
+const SW_BUILD   = '2025-11-16R8-cssPreloadFix';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list
