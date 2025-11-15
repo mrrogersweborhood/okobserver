@@ -230,7 +230,6 @@
   // Capture current home grid + scroll so we can restore later
   function saveHomeState() {
     try {
-      if (!isHome()) return;
       const grid = document.querySelector('#app .posts-grid');
       if (!grid) {
         homeState.hasState = false;
