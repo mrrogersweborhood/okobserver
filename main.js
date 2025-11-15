@@ -58,6 +58,8 @@
   const paging = { page: 1, busy: false, done: false };
   const seenIds = new Set();
   let DISABLE_CARTOON_FILTER = false;
+  // Scroll throttle flag for onScroll → loadMore
+  let scrollTicking = false;
 
   window.__ok_disableCartoonFilter = function (on) {
     if (on === void 0) on = true;
@@ -163,10 +165,17 @@
   }
 
   function onScroll() {
-    if (paging.busy || paging.done || !isHome()) return;
-    const nearBottom =
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000;
-    if (nearBottom) loadMore();
+    // Throttle scroll handling to animation frames
+    if (scrollTicking) return;
+    scrollTicking = true;
+
+    window.requestAnimationFrame(function () {
+      scrollTicking = false;
+      if (paging.busy || paging.done || !isHome()) return;
+      const nearBottom =
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000;
+      if (nearBottom) loadMore();
+    });
   }
 
   function isCartoonSlugList(cats) {
@@ -195,6 +204,8 @@
         const grid =
           document.querySelector('#app .posts-grid') || getOrMountGrid();
         let rendered = 0;
+        // Batch DOM updates in a DocumentFragment for smoother appends
+        const frag = document.createDocumentFragment();
 
         arr.forEach(function (p) {
           const id = String(p.id);
@@ -210,12 +221,19 @@
 
           const card = makeCard(p);
           if (!isHome()) return;
-          (document.querySelector('#app .posts-grid') || grid).appendChild(
-            card
-          );
+          frag.appendChild(card);
           seenIds.add(id);
           rendered++;
         });
+
+        if (!isHome()) {
+          paging.busy = false;
+          return;
+        }
+
+        if (rendered > 0) {
+          (document.querySelector('#app .posts-grid') || grid).appendChild(frag);
+        }
 
         paging.page += 1;
         paging.busy = false;
