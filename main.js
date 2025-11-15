@@ -1,13 +1,15 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-13R1-perf4
+// OkObserver Main JS — Build 2025-11-16R1-perfB
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-13R1-perf4';
+  const BUILD = '2025-11-16R1-perfB';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   let app = document.getElementById('app');
+  let gridRef = null; // cache for the masonry grid element
+  const decodeEl = document.createElement('textarea'); // reused decoder to avoid reallocating
 
   // ---------- Router ----------
   window.addEventListener('hashchange', route);
@@ -30,13 +32,15 @@
 
   function getOrMountGrid(){
     if (!app) app = document.getElementById('app');
-    let grid = app && app.querySelector('.posts-grid');
+    // Reuse an existing grid element if it's still attached; otherwise query or create.
+    let grid = (gridRef && gridRef.isConnected) ? gridRef : (app && app.querySelector('.posts-grid'));
     if (!grid){
       grid = document.createElement('section');
       grid.className = 'posts-grid';
       app.innerHTML = '';
       app.appendChild(grid);
     }
+    gridRef = grid;
     return grid;
   }
 
@@ -63,7 +67,7 @@
       </h2>
       <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
       <p class="excerpt">${excerptHTML}</p>
-    `;
+    ";
 
     // Extra spacing ONLY for post 382365 on the summary grid
     if (post.id === 382365) {
@@ -103,7 +107,8 @@
       .then(r=>{ if(!r.ok){ if(r.status===400||r.status===404) paging.done=true; throw new Error('no more'); } return r.json(); })
       .then(arr=>{
         if (!isHome()) { paging.busy=false; return; }
-        const grid = document.querySelector('#app .posts-grid') || getOrMountGrid();
+        const grid = getOrMountGrid();
+        const frag = document.createDocumentFragment();
         let rendered=0;
 
         arr.forEach(p=>{
@@ -116,9 +121,13 @@
 
           const card = makeCard(p);
           if (!isHome()) return;
-          (document.querySelector('#app .posts-grid') || grid).appendChild(card);
+          frag.appendChild(card);
           seenIds.add(id); rendered++;
         });
+
+        if (rendered > 0) {
+          grid.appendChild(frag);
+        }
 
         paging.page += 1; paging.busy=false;
         if (arr.length===0 || rendered===0) paging.done=true;
@@ -153,27 +162,38 @@
 
     fetch(`${API}/posts/${id}?_embed`).then(r=>r.json()).then(post=>{
       const detailEl = app.querySelector('.post-detail');
-      const heroWrap = app.querySelector('.hero-wrap');
-      const hero = app.querySelector('.hero');
-      const titleEl = app.querySelector('.detail-title');
-      const bylineEl = app.querySelector('.detail-byline');
-      const bodyEl = app.querySelector('.post-body');
+      const heroWrap = detailEl ? detailEl.querySelector('.hero-wrap') : null;
+      const hero = detailEl ? detailEl.querySelector('.hero') : null;
+      const titleEl = detailEl ? detailEl.querySelector('.detail-title') : null;
+      const bylineEl = detailEl ? detailEl.querySelector('.detail-byline') : null;
+      const bodyEl = detailEl ? detailEl.querySelector('.post-body') : null;
 
       const title = decodeHtml(post.title && post.title.rendered || '');
       document.title = `${title} – The Oklahoma Observer`;
 
-      titleEl.textContent = title;
-      bylineEl.textContent = buildByline(post);
+      if (titleEl) {
+        titleEl.textContent = title;
+      }
+      if (bylineEl) {
+        bylineEl.textContent = buildByline(post);
+      }
 
       const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
-      if (img){ hero.src = img + `?cb=${post.id}`; hero.style.display='block'; hero.alt = title; }
+      if (img && hero){
+        hero.src = img + `?cb=${post.id}`;
+        hero.loading = 'lazy';
+        hero.decoding = 'async';
+        hero.style.display='block';
+        hero.alt = title;
+      }
 
       let bodyHTML = (post.content && post.content.rendered) || '';
       bodyHTML = decodeHtml(bodyHTML);
-      bodyEl.innerHTML = bodyHTML;
-
-      // scrub empty/ratio wrappers that create leading white gap
-      tidyArticleSpacing(bodyEl);
+      if (bodyEl) {
+        bodyEl.innerHTML = bodyHTML;
+        // scrub empty/ratio wrappers that create leading white gap
+        tidyArticleSpacing(bodyEl);
+      }
 
       const videoSlot = app.querySelector('.video-slot');
       const candidate = findVideoUrl(bodyHTML);
@@ -201,25 +221,45 @@
           });
           heroWrap.appendChild(btn);
         }
-        scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        if (bodyEl) {
+          scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        }
       } else {
         const embed = buildEmbed(candidate, post.id);
-        if (embed){
+        if (embed && videoSlot){
           videoSlot.style.display='none';
           videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
           const iframe = videoSlot.querySelector('iframe');
           let shown=false;
-          const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
-          const giveUp  = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
+          const showNow = ()=>{
+            if(shown) return;
+            shown=true;
+            videoSlot.style.display='block';
+            if (bodyEl) {
+              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+            }
+          };
+          const giveUp  = ()=>{
+            if(shown) return;
+            shown=true;
+            videoSlot.style.display='block';
+            if (bodyEl) {
+              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+            }
+          };
           iframe && iframe.addEventListener('load', showNow, { once:true });
           setTimeout(showNow, 600);
           setTimeout(giveUp, 4000);
-        } else {
+        } else if (bodyEl) {
           scrubLeadingEmbedPlaceholders(bodyEl, candidate);
         }
       }
 
-      requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
+      requestAnimationFrame(()=>{
+        if (!detailEl) return;
+        detailEl.style.visibility='visible';
+        detailEl.style.minHeight='';
+      });
     }).catch(()=>{
       document.title='Post – The Oklahoma Observer';
       const b = app.querySelector('.post-body'); if (b) b.textContent='Post not found.';
@@ -234,7 +274,7 @@
   }
 
   // ---- helpers ----
-  function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
+  function decodeHtml(s=''){ decodeEl.innerHTML = s; return decodeEl.value; }
   function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
 
   function sanitizeExcerptKeepAnchors(html=''){
