@@ -3026,3 +3026,23 @@ body > header.oo-header {
   display: block !important;
   margin-bottom: 14px !important;   /* consistent gap under image */
 }
+/* === 2025-11-13R7: Summary hero thumbnails use fixed aspect ratio + cover === */
+
+/* Hero container on post summary cards */
+#app .posts-grid .post-card .thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;              /* adjust if you prefer 16/9 */
+  overflow: hidden;
+  margin-bottom: 14px !important;   /* space between image and title */
+}
+
+/* Image fills the box, center-cropped */
+#app .posts-grid .post-card .thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center;
+}
