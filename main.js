@@ -1,50 +1,46 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-16R1-perfBfix1
+// OkObserver Main JS — Build 2025-11-13R1-perf4
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-16R1-perfBfix1';
+  const BUILD = '2025-11-13R1-perf4';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   let app = document.getElementById('app');
-  let gridRef = null; // cache for the masonry grid element
-  const decodeEl = document.createElement('textarea'); // reused decoder to avoid reallocating
 
   // ---------- Router ----------
   window.addEventListener('hashchange', route);
   window.addEventListener('load', route);
-  function isHome() { return (location.hash || '#/') === '#/'; }
+  function isHome(){ return (location.hash || '#/') === '#/'; }
   function route() {
     const hash = location.hash || '#/';
     if (hash.startsWith('#/post/')) renderDetail(+hash.split('/')[2]);
     else if (hash.startsWith('#/about')) renderAbout();
     else renderHome();
-    document.dispatchEvent(new CustomEvent('okobs:route', { detail: { hash } }));
+    document.dispatchEvent(new CustomEvent('okobs:route', { detail:{hash} }));
   }
-  window.__ok_route = h => { if (h) location.hash = h; route(); };
+  window.__ok_route = h => { if (h) location.hash=h; route(); };
 
   // ---------- Home ----------
-  const paging = { page: 1, busy: false, done: false };
+  const paging = { page:1, busy:false, done:false };
   const seenIds = new Set();
   let DISABLE_CARTOON_FILTER = false;
-  window.__ok_disableCartoonFilter = (on = true) => { DISABLE_CARTOON_FILTER = !!on; location.hash = '#/'; route(); };
+  window.__ok_disableCartoonFilter = (on=true)=>{ DISABLE_CARTOON_FILTER=!!on; location.hash='#/'; route(); };
 
-  function getOrMountGrid() {
+  function getOrMountGrid(){
     if (!app) app = document.getElementById('app');
-    // Reuse an existing grid element if it's still attached; otherwise query or create.
-    let grid = (gridRef && gridRef.isConnected) ? gridRef : (app && app.querySelector('.posts-grid'));
-    if (!grid) {
+    let grid = app && app.querySelector('.posts-grid');
+    if (!grid){
       grid = document.createElement('section');
       grid.className = 'posts-grid';
       app.innerHTML = '';
       app.appendChild(grid);
     }
-    gridRef = grid;
     return grid;
   }
 
-  function makeCard(post) {
+  function makeCard(post){
     const el = document.createElement('article');
     el.className = 'post-card';
 
@@ -65,7 +61,7 @@
       <h2 class="title">
         <a href="#/post/${post.id}">${title}</a>
       </h2>
-      <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+      <div class="meta">${byline} — ${date.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}</div>
       <p class="excerpt">${excerptHTML}</p>
     `;
 
@@ -80,44 +76,37 @@
     return el;
   }
 
-  function renderHome() {
+  function renderHome(){
     document.title = 'The Oklahoma Observer';
     const grid = getOrMountGrid();
     window.__OKOBS_DUP_GUARD_ENABLED__ = true;
 
-    paging.page = 1; paging.busy = false; paging.done = false;
-    seenIds.clear(); grid.innerHTML = '';
+    paging.page=1; paging.busy=false; paging.done=false;
+    seenIds.clear(); grid.innerHTML='';
     loadMore();
     window.onscroll = onScroll;
   }
 
-  function onScroll() {
+  function onScroll(){
     if (paging.busy || paging.done || !isHome()) return;
     const nearBottom = (innerHeight + scrollY) >= (document.body.offsetHeight - 1000);
     if (nearBottom) loadMore();
   }
 
-  function isCartoonSlugList(cats) { return cats.some(c => (c.slug || '').toLowerCase() === 'cartoon'); }
+  function isCartoonSlugList(cats){ return cats.some(c => (c.slug||'').toLowerCase()==='cartoon'); }
 
-  function loadMore() {
+  function loadMore(){
     if (!isHome() || paging.busy || paging.done) return;
     paging.busy = true;
 
     fetch(`${API}/posts?_embed&per_page=12&page=${paging.page}`)
-      .then(r => {
-        if (!r.ok) {
-          if (r.status === 400 || r.status === 404) paging.done = true;
-          throw new Error('no more');
-        }
-        return r.json();
-      })
-      .then(arr => {
-        if (!isHome()) { paging.busy = false; return; }
-        const grid = getOrMountGrid();
-        const frag = document.createDocumentFragment();
-        let rendered = 0;
+      .then(r=>{ if(!r.ok){ if(r.status===400||r.status===404) paging.done=true; throw new Error('no more'); } return r.json(); })
+      .then(arr=>{
+        if (!isHome()) { paging.busy=false; return; }
+        const grid = document.querySelector('#app .posts-grid') || getOrMountGrid();
+        let rendered=0;
 
-        arr.forEach(p => {
+        arr.forEach(p=>{
           const id = String(p.id);
           if (seenIds.has(id)) return;
 
@@ -127,30 +116,26 @@
 
           const card = makeCard(p);
           if (!isHome()) return;
-          frag.appendChild(card);
+          (document.querySelector('#app .posts-grid') || grid).appendChild(card);
           seenIds.add(id); rendered++;
         });
 
-        if (rendered > 0) {
-          grid.appendChild(frag);
-        }
-
-        paging.page += 1; paging.busy = false;
-        if (arr.length === 0 || rendered === 0) paging.done = true;
+        paging.page += 1; paging.busy=false;
+        if (arr.length===0 || rendered===0) paging.done=true;
       })
-      .catch(() => { paging.busy = false; paging.done = true; });
+      .catch(()=>{ paging.busy=false; paging.done=true; });
   }
 
   // ---------- About ----------
-  function renderAbout() {
-    window.onscroll = null; paging.done = true; paging.busy = false;
+  function renderAbout(){
+    window.onscroll = null; paging.done=true; paging.busy=false;
     app.innerHTML = '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer…</p></div>';
     document.title = 'About – The Oklahoma Observer';
   }
 
   // ---------- Detail ----------
-  function renderDetail(id) {
-    window.onscroll = null; paging.done = true; paging.busy = false;
+  function renderDetail(id){
+    window.onscroll = null; paging.done=true; paging.busy=false;
 
     // Hide until media/body ready to avoid a flash
     app.innerHTML = `
@@ -166,40 +151,29 @@
       </article>
     `;
 
-    fetch(`${API}/posts/${id}?_embed`).then(r => r.json()).then(post => {
+    fetch(`${API}/posts/${id}?_embed`).then(r=>r.json()).then(post=>{
       const detailEl = app.querySelector('.post-detail');
-      const heroWrap = detailEl ? detailEl.querySelector('.hero-wrap') : null;
-      const hero = detailEl ? detailEl.querySelector('.hero') : null;
-      const titleEl = detailEl ? detailEl.querySelector('.detail-title') : null;
-      const bylineEl = detailEl ? detailEl.querySelector('.detail-byline') : null;
-      const bodyEl = detailEl ? detailEl.querySelector('.post-body') : null;
+      const heroWrap = app.querySelector('.hero-wrap');
+      const hero = app.querySelector('.hero');
+      const titleEl = app.querySelector('.detail-title');
+      const bylineEl = app.querySelector('.detail-byline');
+      const bodyEl = app.querySelector('.post-body');
 
       const title = decodeHtml(post.title && post.title.rendered || '');
       document.title = `${title} – The Oklahoma Observer`;
 
-      if (titleEl) {
-        titleEl.textContent = title;
-      }
-      if (bylineEl) {
-        bylineEl.textContent = buildByline(post);
-      }
+      titleEl.textContent = title;
+      bylineEl.textContent = buildByline(post);
 
       const img = (post._embedded && post._embedded['wp:featuredmedia'] && post._embedded['wp:featuredmedia'][0] && post._embedded['wp:featuredmedia'][0].source_url) || '';
-      if (img && hero) {
-        hero.src = img + `?cb=${post.id}`;
-        hero.loading = 'lazy';
-        hero.decoding = 'async';
-        hero.style.display = 'block';
-        hero.alt = title;
-      }
+      if (img){ hero.src = img + `?cb=${post.id}`; hero.style.display='block'; hero.alt = title; }
 
       let bodyHTML = (post.content && post.content.rendered) || '';
       bodyHTML = decodeHtml(bodyHTML);
-      if (bodyEl) {
-        bodyEl.innerHTML = bodyHTML;
-        // scrub empty/ratio wrappers that create leading white gap
-        tidyArticleSpacing(bodyEl);
-      }
+      bodyEl.innerHTML = bodyHTML;
+
+      // scrub empty/ratio wrappers that create leading white gap
+      tidyArticleSpacing(bodyEl);
 
       const videoSlot = app.querySelector('.video-slot');
       const candidate = findVideoUrl(bodyHTML);
@@ -207,106 +181,85 @@
 
       if (isFB) {
         // Turn HERO into a “watch on Facebook” overlay (no separate video box)
-        if (heroWrap && hero) {
+        if (heroWrap && hero){
           heroWrap.style.borderRadius = '12px';
           heroWrap.style.overflow = 'hidden';
           heroWrap.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
-          hero.style.display = 'block';
-          hero.style.width = '100%';
-          hero.style.height = 'auto';
+          hero.style.display='block';
+          hero.style.width='100%';
+          hero.style.height='auto';
           const btn = document.createElement('a');
           btn.href = candidate;
           btn.target = '_blank';
           btn.rel = 'noopener';
           btn.textContent = 'Watch on Facebook ↗';
-          btn.setAttribute('aria-label', 'Watch on Facebook');
+          btn.setAttribute('aria-label','Watch on Facebook');
           Object.assign(btn.style, {
-            position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)',
-            background: '#1E90FF', color: '#fff', padding: '12px 18px', borderRadius: '999px',
-            textDecoration: 'none', fontWeight: '700', boxShadow: '0 2px 10px rgba(0,0,0,.25)'
+            position:'absolute', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
+            background:'#1E90FF', color:'#fff', padding:'12px 18px', borderRadius:'999px',
+            textDecoration:'none', fontWeight:'700', boxShadow:'0 2px 10px rgba(0,0,0,.25)'
           });
           heroWrap.appendChild(btn);
         }
-        if (bodyEl) {
-          scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-        }
+        scrubLeadingEmbedPlaceholders(bodyEl, candidate);
       } else {
         const embed = buildEmbed(candidate, post.id);
-        if (embed && videoSlot) {
-          videoSlot.style.display = 'none';
+        if (embed){
+          videoSlot.style.display='none';
           videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
           const iframe = videoSlot.querySelector('iframe');
-          let shown = false;
-          const showNow = () => {
-            if (shown) return;
-            shown = true;
-            videoSlot.style.display = 'block';
-            if (bodyEl) {
-              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-            }
-          };
-          const giveUp = () => {
-            if (shown) return;
-            shown = true;
-            videoSlot.style.display = 'block';
-            if (bodyEl) {
-              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-            }
-          };
-          iframe && iframe.addEventListener('load', showNow, { once: true });
+          let shown=false;
+          const showNow = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
+          const giveUp  = ()=>{ if(shown) return; shown=true; videoSlot.style.display='block'; scrubLeadingEmbedPlaceholders(bodyEl, candidate); };
+          iframe && iframe.addEventListener('load', showNow, { once:true });
           setTimeout(showNow, 600);
           setTimeout(giveUp, 4000);
-        } else if (bodyEl) {
+        } else {
           scrubLeadingEmbedPlaceholders(bodyEl, candidate);
         }
       }
 
-      requestAnimationFrame(() => {
-        if (!detailEl) return;
-        detailEl.style.visibility = 'visible';
-        detailEl.style.minHeight = '';
-      });
-    }).catch(() => {
-      document.title = 'Post – The Oklahoma Observer';
-      const b = app.querySelector('.post-body'); if (b) b.textContent = 'Post not found.';
-      requestAnimationFrame(() => { const d = app.querySelector('.post-detail'); if (d) { d.style.visibility = 'visible'; d.style.minHeight = ''; } });
+      requestAnimationFrame(()=>{ detailEl.style.visibility='visible'; detailEl.style.minHeight=''; });
+    }).catch(()=>{
+      document.title='Post – The Oklahoma Observer';
+      const b = app.querySelector('.post-body'); if (b) b.textContent='Post not found.';
+      requestAnimationFrame(()=>{ const d=app.querySelector('.post-detail'); if(d){d.style.visibility='visible'; d.style.minHeight='';} });
     });
   }
 
-  function buildByline(post) {
+  function buildByline(post){
     const by = (post._embedded && post._embedded.author && post._embedded.author[0] && post._embedded.author[0].name) || 'Oklahoma Observer';
     const dt = new Date(post.date);
-    return `${by} — ${dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    return `${by} — ${dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}`;
   }
 
   // ---- helpers ----
-  function decodeHtml(s = '') { decodeEl.innerHTML = s; return decodeEl.value; }
-  function escapeHtmlAttr(s = '') { return (s + '').replace(/"/g, '&quot;'); }
+  function decodeHtml(s=''){ const el = document.createElement('textarea'); el.innerHTML = s; return el.value; }
+  function escapeHtmlAttr(s=''){ return (s+'').replace(/"/g,'&quot;'); }
 
-  function sanitizeExcerptKeepAnchors(html = '') {
+  function sanitizeExcerptKeepAnchors(html=''){
     const root = document.createElement('div');
     root.innerHTML = html;
-    root.querySelectorAll('script,style,noscript').forEach(n => n.remove());
+    root.querySelectorAll('script,style,noscript').forEach(n=>n.remove());
     const out = [];
-    (function collect(node) {
-      node.childNodes.forEach(n => {
+    (function collect(node){
+      node.childNodes.forEach(n=>{
         if (n.nodeType === 3) out.push(n.textContent);
-        else if (n.nodeType === 1) {
-          if (n.tagName === 'A') {
+        else if (n.nodeType === 1){
+          if (n.tagName === 'A'){
             const a = n.cloneNode(true);
             a.removeAttribute('onclick');
-            a.setAttribute('target', '_
-blank');
-            a.setAttribute('rel', 'noopener');
+            a.setAttribute('target','_blank');
+            a.setAttribute('rel','noopener');
             out.push(a.outerHTML);
           } else collect(n);
         }
       });
     })(root);
-    return out.join('').replace(/\s+\n/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    return out.join('').replace(/\s+\n/g,' ').replace(/\s{2,}/g,' ').trim();
   }
 
-  function findVideoUrl(html) {
+  function findVideoUrl(html){
     if (!html) return null;
     let m = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/); if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/); if (m) return m[0];
@@ -316,7 +269,7 @@ blank');
     return null;
   }
 
-  function buildExternalCTA(url) {
+  function buildExternalCTA(url){
     if (!url) return '';
     if (/facebook\.com/i.test(url)) return '';
     const isYT = /youtu(?:\.be|be\.com)/i.test(url);
@@ -332,10 +285,10 @@ blank');
       </div>`;
   }
 
-  function buildEmbed(url, postId) {
+  function buildEmbed(url, postId){
     if (!url) return '';
     let m = url.match(/vimeo\.com\/(\d+)/);
-    if (m) {
+    if (m){
       const vid = m[1];
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
@@ -344,7 +297,7 @@ blank');
               </div>`;
     }
     m = url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
-    if (m) {
+    if (m){
       const vid = m[1];
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
@@ -354,7 +307,7 @@ blank');
               </div>`;
     }
     m = url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
-    if (m) {
+    if (m){
       const vid = m[1];
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://www.youtube.com/embed/${vid}?rel=0" title="YouTube video"
@@ -363,8 +316,8 @@ blank');
                   loading="lazy" allowfullscreen></iframe>
               </div>`;
     }
-    if (postId === 381733) {
-      const vid = '1126193884';
+    if (postId === 381733){
+      const vid='1126193884';
       return `<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">
                 <iframe src="https://player.vimeo.com/video/${vid}" title="Vimeo video"
                   allow="autoplay; fullscreen; picture-in-picture"
@@ -375,41 +328,41 @@ blank');
     return '';
   }
 
-  function tidyArticleSpacing(container) {
+  function tidyArticleSpacing(container){
     const blocks = container.querySelectorAll('.wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3');
-    blocks.forEach(b => {
+    blocks.forEach(b=>{
       if (!b.querySelector('iframe, video')) b.remove();
     });
-    while (container.firstElementChild && looksEmpty(container.firstElementChild)) {
+    while (container.firstElementChild && looksEmpty(container.firstElementChild)){
       container.firstElementChild.remove();
     }
   }
-  function looksEmpty(node) {
+  function looksEmpty(node){
     if (!node) return false;
     if (node.querySelector('img,iframe,video,svg,picture')) return false;
-    const text = (node.textContent || '').replace(/\u00a0/g, ' ').trim();
-    return text.length === 0;
+    const text = (node.textContent || '').replace(/\u00a0/g,' ').trim();
+    return text.length===0;
   }
 
-  function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
-    let changed = false;
-    while (container.firstElementChild) {
+  function scrubLeadingEmbedPlaceholders(container, urlCandidate){
+    let changed=false;
+    while (container.firstElementChild){
       const el = container.firstElementChild;
-      const cls = (el.className || '') + '';
-      const html = el.innerHTML || '';
+      const cls = (el.className||'')+'';
+      const html = el.innerHTML||'';
       const hasIframe = !!el.querySelector('iframe, video');
       const isWpEmbed = /\bwp-block-embed\b/.test(cls) || /\bwp-block-video\b/.test(cls) || /\bwp-embed-aspect\b/.test(cls);
       const isVideoLinkPara = el.tagName === 'P' &&
-        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\//i.test((el.textContent || '')) && !hasIframe;
+        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\//i.test((el.textContent||'')) && !hasIframe;
       const style = el.getAttribute('style') || '';
       const looksLikeRatio = /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
-      const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent || '').includes(urlCandidate));
-      if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected) { el.remove(); changed = true; continue; }
+      const matchesDetected = urlCandidate && (html.includes(urlCandidate) || (el.textContent||'').includes(urlCandidate));
+      if (isWpEmbed || isVideoLinkPara || looksLikeRatio || matchesDetected){ el.remove(); changed=true; continue; }
       break;
     }
-    if (changed) {
+    if (changed){
       const fc = container.firstElementChild;
-      if (fc) fc.style.marginTop = '0';
+      if (fc) fc.style.marginTop='0';
     }
   }
 })();
@@ -500,7 +453,7 @@ blank');
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initHamburger, { once: true });
+    document.addEventListener('DOMContentLoaded', initHamburger, { once:true });
   } else {
     initHamburger();
   }
@@ -553,7 +506,7 @@ blank');
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
+    document.addEventListener('DOMContentLoaded', init, { once:true });
   } else {
     init();
   }
