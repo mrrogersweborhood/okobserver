@@ -2987,3 +2987,42 @@ body > header.oo-header {
   margin-bottom: 24px;
   width: 100%;
 }
+/* === 2025-11-13R6 — Masonry-style layout for Post Summary === */
+
+/* Turn the summary grid into Pinterest-style stacked columns */
+#app .posts-grid {
+  display: block !important;       /* override flex/grid */
+  column-count: 4;                 /* desktop */
+  column-gap: 24px;                /* space between columns */
+  width: 100%;
+}
+
+/* Tablet: 3 columns */
+@media (max-width: 1024px) {
+  #app .posts-grid {
+    column-count: 3;
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 768px) {
+  #app .posts-grid {
+    column-count: 1;
+  }
+}
+
+/* Cards must stay intact & stack vertically */
+#app .posts-grid .post-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 24px !important;   /* vertical spacing between posts */
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Thumbnail styling still applies correctly inside masonry */
+#app .posts-grid .post-card .thumb {
+  width: 100%;
+  display: block !important;
+  margin-bottom: 14px !important;   /* consistent gap under image */
+}
