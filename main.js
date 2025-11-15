@@ -648,29 +648,44 @@
       const cls = (el.className || '') + '';
       const html = el.innerHTML || '';
       const hasIframe = !!el.querySelector('iframe, video');
+      const textContent = el.textContent || '';
+
       const isWpEmbed =
         /\bwp-block-embed\b/.test(cls) ||
         /\bwp-block-video\b/.test(cls) ||
         /\bwp-embed-aspect\b/.test(cls);
+
+      // Paragraph that looks like "just a video URL"
       const isVideoLinkPara =
         el.tagName === 'P' &&
         /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\//i.test(
-          el.textContent || ''
+          textContent
         ) &&
         !hasIframe;
+
       const style = el.getAttribute('style') || '';
       const looksLikeRatio =
         /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
-      const matchesDetected =
-        urlCandidate &&
-        (html.indexOf(urlCandidate) !== -1 ||
-          (el.textContent || '').indexOf(urlCandidate) !== -1);
-      if (
+
+      let matchesDetected = false;
+      if (urlCandidate) {
+        if (html.indexOf(urlCandidate) !== -1 || textContent.indexOf(urlCandidate) !== -1) {
+          matchesDetected = true;
+        }
+      }
+
+      // Helper: is this node's text basically just URLs + whitespace?
+      const urlRegex = /https?:\/\/[^\s]+/gi;
+      const stripped = textContent.replace(urlRegex, '').replace(/\u00a0/g, ' ').trim();
+      const onlyUrlText = stripped.length === 0;
+
+      const removeAsPlaceholder =
         isWpEmbed ||
-        isVideoLinkPara ||
         looksLikeRatio ||
-        matchesDetected
-      ) {
+        (isVideoLinkPara && onlyUrlText) ||
+        (matchesDetected && !hasIframe && onlyUrlText);
+
+      if (removeAsPlaceholder) {
         el.remove();
         changed = true;
         continue;
