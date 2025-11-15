@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-16R2-rememberHome+381733BodyHide
+// OkObserver Main JS — Build 2025-11-16R4-searchView+bodyScrubFix
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-16R2-rememberHome+381733BodyHide';
+  const BUILD = '2025-11-16R4-searchView+bodyScrubFix';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -42,6 +42,8 @@
       renderDetail(+hash.split('/')[2]);
     } else if (hash.startsWith('#/about')) {
       renderAbout();
+    } else if (hash.startsWith('#/search')) {
+      renderSearch();
     } else {
       renderHome();
     }
@@ -263,6 +265,105 @@
       console.warn('[OkObserver] saveHomeState failed:', e);
       homeState.hasState = false;
     }
+  }
+
+  // ---------- Search ----------
+  function renderSearch() {
+    document.title = 'Search – The Oklahoma Observer';
+    window.onscroll = null;
+    paging.done = true;
+    paging.busy = false;
+
+    if (!app) app = document.getElementById('app');
+
+    app.innerHTML = `
+      <section class="search-page">
+        <h1 class="search-title">Search</h1>
+        <form class="search-form">
+          <label class="search-label">
+            <span class="visually-hidden">Search posts</span>
+            <input type="search" name="q" class="search-input" placeholder="Search posts…" autocomplete="off">
+          </label>
+          <button type="submit" class="search-button">Search</button>
+        </form>
+        <div class="search-status" aria-live="polite"></div>
+        <section class="posts-grid search-results"></section>
+      </section>
+    `;
+
+    const form = app.querySelector('.search-form');
+    const input = app.querySelector('.search-input');
+    const statusEl = app.querySelector('.search-status');
+    const resultsGrid = app.querySelector('.search-results');
+
+    if (!form || !input || !resultsGrid || !statusEl) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const term = input.value.trim();
+      if (!term) {
+        statusEl.textContent = 'Enter a search term to get started.';
+        resultsGrid.innerHTML = '';
+        return;
+      }
+      doSearch(term, statusEl, resultsGrid);
+    });
+  }
+
+  function doSearch(term, statusEl, resultsGrid) {
+    statusEl.textContent = 'Searching…';
+    resultsGrid.innerHTML = '';
+
+    const url =
+      API +
+      '/posts?_embed&per_page=20&search=' +
+      encodeURIComponent(term);
+
+    fetch(url)
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (arr) {
+        if (!Array.isArray(arr) || arr.length === 0) {
+          statusEl.textContent = 'No posts found for “' + term + '”.';
+          return;
+        }
+
+        const frag = document.createDocumentFragment();
+        let count = 0;
+
+        arr.forEach(function (p) {
+          const cats =
+            (p._embedded &&
+              p._embedded['wp:term'] &&
+              p._embedded['wp:term'][0]) ||
+            [];
+          if (!DISABLE_CARTOON_FILTER && isCartoonSlugList(cats)) return;
+
+          const card = makeCard(p);
+          frag.appendChild(card);
+          count++;
+        });
+
+        if (count === 0) {
+          statusEl.textContent = 'No posts found for “' + term + '”.';
+          return;
+        }
+
+        statusEl.textContent =
+          'Showing ' +
+          count +
+          ' result' +
+          (count === 1 ? '' : 's') +
+          ' for “' +
+          term +
+          '”.';
+        resultsGrid.appendChild(frag);
+      })
+      .catch(function () {
+        statusEl.textContent =
+          'Error searching posts. Please try again.';
+      });
   }
 
   // ---------- About ----------
