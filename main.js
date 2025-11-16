@@ -307,12 +307,17 @@
         resultsGrid.innerHTML = '';
         return;
       }
+
+      // Make "Searching…" visually obvious immediately
+      statusEl.innerHTML = '🔍 <span class="searching-label">Searching…</span>';
+      resultsGrid.innerHTML = '';
+
       doSearch(term, statusEl, resultsGrid);
     });
   }
 
   function doSearch(term, statusEl, resultsGrid) {
-    statusEl.textContent = 'Searching…';
+    statusEl.innerHTML = '🔍 <span class="searching-label">Searching…</span>';
     resultsGrid.innerHTML = '';
 
     const url =
