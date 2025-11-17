@@ -504,7 +504,9 @@
             setTimeout(showNow, 600);
             setTimeout(giveUp, 4000);
           } else {
-            scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+            // No custom embed built; only scrub generic empty wrappers,
+            // but keep any working WP/video embed that might be present.
+            scrubLeadingEmbedPlaceholders(bodyEl, null);
           }
         }
 
