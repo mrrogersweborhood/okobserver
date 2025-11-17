@@ -3,7 +3,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-16R4-searchView+bodyScrubFix';
+  const BUILD = '2025-11-17R7-videoScrubFix2';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
