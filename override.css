@@ -3156,3 +3156,33 @@ body > header.oo-header {
   border: 0;
 }
 /* 🔴 override.css — search page styles (append only) */
+/* 🟢 override.css — search spinner styles (append only) */
+.search-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.search-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #1E90FF;
+  border-top-color: transparent;
+  animation: search-spin 0.8s linear infinite;
+}
+
+.searching-label {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 🔴 override.css — search spinner styles (append only) */

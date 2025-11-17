@@ -308,8 +308,8 @@
         return;
       }
 
-      // Make "Searching…" visually obvious immediately
-      statusEl.innerHTML = '🔍 <span class="searching-label">Searching…</span>';
+      // Make "Searching…" visually obvious immediately with spinner
+      statusEl.innerHTML = '<span class="search-spinner" aria-hidden="true"></span><span class="searching-label">Searching…</span>';
       resultsGrid.innerHTML = '';
 
       doSearch(term, statusEl, resultsGrid);
@@ -317,7 +317,8 @@
   }
 
   function doSearch(term, statusEl, resultsGrid) {
-    statusEl.innerHTML = '🔍 <span class="searching-label">Searching…</span>';
+    // Spinner while the network request is in flight
+    statusEl.innerHTML = '<span class="search-spinner" aria-hidden="true"></span><span class="searching-label">Searching…</span>';
     resultsGrid.innerHTML = '';
 
     const url =
