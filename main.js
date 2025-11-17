@@ -72,7 +72,9 @@
 
   function getOrMountGrid() {
     if (!app) app = document.getElementById('app');
-    let grid = app && app.querySelector('.posts-grid');
+    // Only reuse a home posts-grid, never the search results grid
+    let grid =
+      app && app.querySelector('.posts-grid:not(.search-results)');
     if (!grid) {
       grid = document.createElement('section');
       grid.className = 'posts-grid';
@@ -775,10 +777,13 @@
       const looksLikeRatio =
         /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) && !hasIframe;
 
-      let matchesDetected = false;
+      let containsCandidate = false;
       if (urlCandidate) {
-        if (html.indexOf(urlCandidate) !== -1 || textContent.indexOf(urlCandidate) !== -1) {
-          matchesDetected = true;
+        if (
+          html.indexOf(urlCandidate) !== -1 ||
+          textContent.indexOf(urlCandidate) !== -1
+        ) {
+          containsCandidate = true;
         }
       }
 
@@ -788,10 +793,15 @@
       const onlyUrlText = stripped.length === 0;
 
       const removeAsPlaceholder =
+        // Generic embed/ratio wrappers at the top
         isWpEmbed ||
         looksLikeRatio ||
+        // Bare "just a video URL" paragraph
         (isVideoLinkPara && onlyUrlText) ||
-        (matchesDetected && !hasIframe && onlyUrlText);
+        // Original Gutenberg embed (or its wrapper) that contains the same video URL
+        (containsCandidate && hasIframe) ||
+        // A top node that's basically just that URL repeated
+        (containsCandidate && !hasIframe && onlyUrlText);
 
       if (removeAsPlaceholder) {
         el.remove();
