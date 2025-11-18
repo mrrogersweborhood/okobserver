@@ -989,3 +989,35 @@
 /* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
 // 🔴 main.js — end of full file
+// 🟢 main.js — empty video box scrubber (append-only v2025-11-18R1)
+(function () {
+  function removeEmptyVideoBoxes() {
+    const body = document.querySelector('.post-detail .post-body');
+    if (!body) return;
+
+    const candidates = body.querySelectorAll(
+      '.video-embed, .wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
+    );
+
+    candidates.forEach(function (el) {
+      // If there is any real media, leave it alone
+      const hasMedia = el.querySelector('iframe, video, audio, img, picture, svg');
+      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
+
+      if (!hasMedia && !text) {
+        // Pure empty ratio box → remove it
+        el.remove();
+      }
+    });
+  }
+
+  // Run after each route change to a post detail page
+  document.addEventListener('okobs:route', function (ev) {
+    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    if (hash.startsWith('#/post/')) {
+      // Give renderDetail time to finish, then clean up
+      setTimeout(removeEmptyVideoBoxes, 1500);
+    }
+  });
+})();
+// 🔴 main.js — empty video box scrubber (append-only v2025-11-18R1)
