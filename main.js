@@ -1021,3 +1021,37 @@
   });
 })();
 // 🔴 main.js — empty video box scrubber (append-only v2025-11-18R1)
+// 🟢 main.js — global empty video box scrubber (failsafe v2025-11-18R2)
+(function () {
+  function removeGlobalEmptyVideoBoxes() {
+    const detail = document.querySelector('.post-detail');
+    if (!detail) return;
+
+    const candidates = detail.querySelectorAll(
+      '.video-embed, .wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
+    );
+
+    candidates.forEach(function (el) {
+      const hasMedia = el.querySelector('iframe, video, audio, img, picture, svg');
+      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
+
+      // Only go after truly empty big boxes, not tiny layout wrappers
+      const style = window.getComputedStyle(el);
+      const h = parseFloat(style.height) || 0;
+
+      if (!hasMedia && !text && h > 100) {
+        el.remove();
+      }
+    });
+  }
+
+  // Run after each post-detail route; do two passes so we catch late layout
+  document.addEventListener('okobs:route', function (ev) {
+    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    if (!hash.startsWith('#/post/')) return;
+
+    setTimeout(removeGlobalEmptyVideoBoxes, 600);
+    setTimeout(removeGlobalEmptyVideoBoxes, 2200);
+  });
+})();
+// 🔴 main.js — global empty video box scrubber (failsafe v2025-11-18R2)
