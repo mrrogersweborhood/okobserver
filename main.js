@@ -1,10 +1,9 @@
-🟢 main.js
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-17R8-videoScrubFix3
+// OkObserver Main JS — Build 2025-11-17R9-videoScrubFix3
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-17R8-videoScrubFix3';
+  const BUILD = '2025-11-17R9-videoScrubFix3';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -505,9 +504,9 @@
             setTimeout(showNow, 600);
             setTimeout(giveUp, 4000);
           } else {
-            // No custom embed built; leave WP’s own embed in place.
-            // tidyArticleSpacing has already removed empty junk, so
-            // we skip extra scrubbing here to avoid nuking a working player.
+            // No custom embed built; leave WP’s own embed (player) in place.
+            // tidyArticleSpacing has already removed empty junk, so we skip
+            // extra scrubbing here to avoid nuking a working player.
           }
         }
 
@@ -967,4 +966,3 @@
 /* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
 // 🔴 main.js — end of full file
-🔴 main.js
