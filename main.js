@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-17R9-videoScrubFix3
+// OkObserver Main JS — Build 2025-11-17R10-videoScrubFix4
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-17R9-videoScrubFix3';
+  const BUILD = '2025-11-17R10-videoScrubFix4';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -755,6 +755,8 @@
 
   function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
     let changed = false;
+
+    // 1) Original "from the top" cleanup
     while (container.firstElementChild) {
       const el = container.firstElementChild;
       const cls = (el.className || '') + '';
@@ -812,6 +814,27 @@
       }
       break;
     }
+
+    // 2) NEW: deeper cleanup — remove ANY Gutenberg embed wrapper
+    // that references the same video URL, even if it's not the first child.
+    if (urlCandidate) {
+      const extra = container.querySelectorAll(
+        '.wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
+      );
+      extra.forEach(function (node) {
+        const html2 = node.innerHTML || '';
+        const text2 = node.textContent || '';
+        if (
+          html2.indexOf(urlCandidate) !== -1 ||
+          text2.indexOf(urlCandidate) !== -1
+        ) {
+          node.remove();
+          changed = true;
+        }
+      });
+    }
+
+    // 3) If anything changed, tighten up the top margin of the new first child
     if (changed) {
       const fc = container.firstElementChild;
       if (fc) fc.style.marginTop = '0';
