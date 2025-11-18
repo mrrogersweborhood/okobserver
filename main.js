@@ -1055,3 +1055,47 @@
   });
 })();
 // 🔴 main.js — global empty video box scrubber (failsafe v2025-11-18R2)
+// 🟢 main.js — nuclear empty-block cleaner (v2025-11-18R3)
+(function () {
+  function nukeBigEmptyBlocks() {
+    const detail = document.querySelector('.post-detail');
+    if (!detail) return;
+
+    // Only look at direct children of .post-detail
+    const kids = detail.querySelectorAll(':scope > *');
+
+    kids.forEach(function (el) {
+      // Don’t touch the header area or obvious content containers
+      if (
+        el.classList.contains('hero-wrap') ||
+        el.classList.contains('video-slot') ||
+        el.classList.contains('detail-title') ||
+        el.classList.contains('detail-byline') ||
+        el.classList.contains('post-body') ||
+        el.classList.contains('detail-tags-row') ||
+        el.classList.contains('back-row')
+      ) {
+        return;
+      }
+
+      const hasMedia = el.querySelector('img, iframe, video, audio, picture, svg');
+      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
+      const rect = el.getBoundingClientRect();
+      const height = rect ? rect.height : 0;
+
+      // Giant, empty, in-between card → kill it.
+      if (!hasMedia && !text && height > 120) {
+        el.remove();
+      }
+    });
+  }
+
+  document.addEventListener('okobs:route', function (ev) {
+    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    if (!hash.startsWith('#/post/')) return;
+
+    // Run once after layout settles
+    setTimeout(nukeBigEmptyBlocks, 800);
+  });
+})();
+// 🔴 main.js — nuclear empty-block cleaner (v2025-11-18R3)
