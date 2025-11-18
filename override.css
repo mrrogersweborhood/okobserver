@@ -3186,3 +3186,14 @@ body > header.oo-header {
   }
 }
 /* 🔴 override.css — search spinner styles (append only) */
+/* 🟢 override.css — scrub leftover WP video wrappers (failsafe 2025-11-18R1) */
+/* We use our own .video-embed player now, so WordPress embed wrappers can be hidden. */
+.post-detail .wp-block-embed,
+.post-detail .wp-block-embed__wrapper,
+.post-detail .wp-embed-aspect-16-9,
+.post-detail .wp-embed-aspect-4-3,
+.post-detail .wp-block-video {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
