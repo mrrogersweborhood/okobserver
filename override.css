@@ -3197,3 +3197,9 @@ body > header.oo-header {
   margin: 0 !important;
   padding: 0 !important;
 }
+/* 🟢 override.css — hide WP lazyload iframe paragraph in post body (2025-11-19R1) */
+.post-detail .post-body p:has(> iframe.lazyload) {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
