@@ -1,12 +1,14 @@
 /* 🟢 PostDetail.js — start of full file */
-/* OkObserver Build 2025-11-19R3-lazyFix2
-   Left intact to avoid regressions; works in tandem with main.js spacing scrub + CSS white-gap fix.
-   Video: detect existing iframes; if none, derive embeddable src; hard fallback for /post/381733.
+/* OkObserver Build 2025-11-19R4-lazyDebug1
+   Video handling:
+   - Normalize existing iframes (including lazyload placeholders).
+   - If none, derive an embed URL from links/text.
+   - Special Vimeo fallback for /post/381733.
 */
 (function(){
   'use strict';
 
-    var BUILD = '2025-11-19R3-lazyFix2';
+  var BUILD = '2025-11-19R4-lazyDebug1';
   console.log('[OkObserver] PostDetail Build', BUILD);
 
   function qs(s, r){ return (r||document).querySelector(s); }
@@ -16,14 +18,30 @@
   function normalizeIframe(ifr){
     if (!ifr) return;
 
+    var lazySrc = '';
+    var currentSrc = '';
+    var isPlaceholderSrc = false;
+    var hasLazyClass = false;
+
+    try {
+      lazySrc = (ifr.getAttribute('data-src') || ifr.getAttribute('data-lazy-src') || '').trim();
+      currentSrc = (ifr.getAttribute('src') || '').trim();
+      isPlaceholderSrc = /^data:image\/svg\+xml/i.test(currentSrc);
+      hasLazyClass = !!(ifr.classList && (ifr.classList.contains('lazyload') || ifr.classList.contains('lazyloaded')));
+    } catch(e) {
+      console.warn('[OkObserver] normalizeIframe pre-inspect error', e);
+    }
+
+    console.log('[OkObserver] normalizeIframe entry', {
+      currentSrc: currentSrc,
+      lazySrc: lazySrc,
+      isPlaceholderSrc: isPlaceholderSrc,
+      hasLazyClass: hasLazyClass
+    });
+
     // If this is a lazyload placeholder / SVG shim with data-src (e.g. Vimeo),
     // promote it to a real embed so we don't get a big white box.
     try {
-      var lazySrc = (ifr.getAttribute('data-src') || ifr.getAttribute('data-lazy-src') || '').trim();
-      var currentSrc = (ifr.getAttribute('src') || '').trim();
-      var isPlaceholderSrc = /^data:image\/svg\+xml/i.test(currentSrc);
-      var hasLazyClass = !!(ifr.classList && (ifr.classList.contains('lazyload') || ifr.classList.contains('lazyloaded')));
-
       if (lazySrc && /^https?:\/\//i.test(lazySrc) && (isPlaceholderSrc || hasLazyClass)) {
         ifr.setAttribute('src', lazySrc);
         ifr.removeAttribute('data-src');
@@ -39,14 +57,19 @@
       console.warn('[OkObserver] normalizeIframe lazyload fix error', e);
     }
 
-    ifr.style.display = 'block';
-    if (!ifr.style.minHeight) ifr.style.minHeight = '360px';
-    ifr.setAttribute('allow','autoplay; encrypted-media; picture-in-picture');
-    ifr.setAttribute('allowfullscreen','true');
-    ifr.style.width = '100%';
-    ifr.style.maxWidth = '100%';
-    ifr.style.border = '0';
-    ifr.style.margin = '12px auto';
+    // Final styling/attributes so it actually shows
+    try {
+      ifr.style.display = 'block';
+      if (!ifr.style.minHeight) ifr.style.minHeight = '360px';
+      ifr.setAttribute('allow','autoplay; encrypted-media; picture-in-picture');
+      ifr.setAttribute('allowfullscreen','true');
+      ifr.style.width = '100%';
+      ifr.style.maxWidth = '100%';
+      ifr.style.border = '0';
+      ifr.style.margin = '12px auto';
+    } catch(e) {
+      console.warn('[OkObserver] normalizeIframe style error', e);
+    }
   }
 
   function ensureEmbedsVisible(){
@@ -76,9 +99,9 @@
     if (ifr) {
       var src = (ifr.getAttribute('src') || '').trim();
       var dataSrc = (ifr.getAttribute('data-src') || '').trim();
-
-      // If it's a lazyload placeholder, prefer data-src
       var candidate = dataSrc || src;
+      console.log('[OkObserver] deriveEmbed iframe candidate', { src: src, dataSrc: dataSrc, candidate: candidate });
+
       if (candidate) {
         var normalized = normalizeUrl(candidate);
         if (normalized) return normalized;
@@ -90,13 +113,22 @@
     for (var i=0;i<anchors.length;i++){
       var href = (anchors[i].getAttribute('href') || '').trim();
       var norm = normalizeUrl(href);
-      if (norm) return norm;
+      if (norm) {
+        console.log('[OkObserver] deriveEmbed from anchor', href, '→', norm);
+        return norm;
+      }
     }
 
     // Finally, just look for any URL-ish text that matches video providers
     var text = body.innerText || '';
     var m = text.match(/https?:\/\/[^\s]+/);
-    if (m && m[0]) return normalizeUrl(m[0]);
+    if (m && m[0]) {
+      var n2 = normalizeUrl(m[0]);
+      if (n2) {
+        console.log('[OkObserver] deriveEmbed from text', m[0], '→', n2);
+        return n2;
+      }
+    }
 
     return null;
   }
@@ -123,6 +155,7 @@
     var ifr = document.createElement('iframe');
     ifr.src = src;
     body.appendChild(ifr);
+    console.log('[OkObserver] injectIframe new iframe', src);
     return ifr;
   }
 
@@ -130,21 +163,25 @@
     ensureEmbedsVisible();
 
     var body = qs('.post-body');
-    if (!body) return;
+    if (!body) {
+      console.log('[OkObserver] enhanceDetail: no .post-body found');
+      return;
+    }
 
-    // already present?
     var exist = qsa('iframe, .fb-video, .fb-post', body);
+    console.log('[OkObserver] enhanceDetail: existing embeds count', exist.length);
     exist.forEach(normalizeIframe);
     if (exist.length) return;
 
-    // try to derive
     var src = deriveEmbed(body);
-    if (src) { normalizeIframe(injectIframe(body, src)); return; }
+    if (src) {
+      normalizeIframe(injectIframe(body, src));
+      return;
+    }
 
     // Hard fallback for /post/381733
     var hash = location.hash || '';
     if (/^#\/post\/381733$/.test(hash)) {
-      // if still nothing, synthesize a Vimeo iframe using the known id
       var mm = (body.innerText || '').match(/vimeo\.com\/(\d{6,12})/i);
       if (mm && mm[1]) {
         normalizeIframe(injectIframe(body, 'https://player.vimeo.com/video/' + mm[1]));
@@ -154,8 +191,12 @@
   }
 
   // run after main.js puts the content in place
-  document.addEventListener('DOMContentLoaded', () => setTimeout(enhanceDetail, 50));
-  window.addEventListener('hashchange', () => setTimeout(enhanceDetail, 100));
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(enhanceDetail, 50);
+  });
+  window.addEventListener('hashchange', function(){
+    setTimeout(enhanceDetail, 100);
+  });
 
 })();
  /* 🔴 PostDetail.js — end of full file */
