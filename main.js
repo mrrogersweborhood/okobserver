@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-17R10-videoScrubFix4
+// OkObserver Main JS — Build 2025-11-19R2-videoPlayerFix
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-17R10-videoScrubFix4';
+  const BUILD = '2025-11-19R2-videoPlayerFix';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -445,7 +445,21 @@
         tidyArticleSpacing(bodyEl);
 
         const videoSlot = app.querySelector('.video-slot');
-        const candidate = findVideoUrl(bodyHTML);
+
+        // Try to find a video URL in the raw HTML string first
+        let candidate = findVideoUrl(bodyHTML);
+
+        // Fallback: if not found, look for a WP lazyload iframe inside the post body
+        if (!candidate && bodyEl) {
+          const lazy = bodyEl.querySelector('iframe.lazyload');
+          if (lazy) {
+            candidate =
+              lazy.getAttribute('src') ||
+              lazy.getAttribute('data-src') ||
+              '';
+          }
+        }
+
         const isFB = candidate && /facebook\.com/i.test(candidate);
 
         if (isFB) {
@@ -755,8 +769,6 @@
 
   function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
     let changed = false;
-
-    // 1) Original "from the top" cleanup
     while (container.firstElementChild) {
       const el = container.firstElementChild;
       const cls = (el.className || '') + '';
@@ -814,27 +826,6 @@
       }
       break;
     }
-
-    // 2) NEW: deeper cleanup — remove ANY Gutenberg embed wrapper
-    // that references the same video URL, even if it's not the first child.
-    if (urlCandidate) {
-      const extra = container.querySelectorAll(
-        '.wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
-      );
-      extra.forEach(function (node) {
-        const html2 = node.innerHTML || '';
-        const text2 = node.textContent || '';
-        if (
-          html2.indexOf(urlCandidate) !== -1 ||
-          text2.indexOf(urlCandidate) !== -1
-        ) {
-          node.remove();
-          changed = true;
-        }
-      });
-    }
-
-    // 3) If anything changed, tighten up the top margin of the new first child
     if (changed) {
       const fc = container.firstElementChild;
       if (fc) fc.style.marginTop = '0';
@@ -989,141 +980,3 @@
 /* 🔴 main.js — Motto CSS + click-guard (motto not a link) */
 
 // 🔴 main.js — end of full file
-// 🟢 main.js — empty video box scrubber (append-only v2025-11-18R1)
-(function () {
-  function removeEmptyVideoBoxes() {
-    const body = document.querySelector('.post-detail .post-body');
-    if (!body) return;
-
-    const candidates = body.querySelectorAll(
-      '.video-embed, .wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
-    );
-
-    candidates.forEach(function (el) {
-      // If there is any real media, leave it alone
-      const hasMedia = el.querySelector('iframe, video, audio, img, picture, svg');
-      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
-
-      if (!hasMedia && !text) {
-        // Pure empty ratio box → remove it
-        el.remove();
-      }
-    });
-  }
-
-  // Run after each route change to a post detail page
-  document.addEventListener('okobs:route', function (ev) {
-    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
-    if (hash.startsWith('#/post/')) {
-      // Give renderDetail time to finish, then clean up
-      setTimeout(removeEmptyVideoBoxes, 1500);
-    }
-  });
-})();
-// 🔴 main.js — empty video box scrubber (append-only v2025-11-18R1)
-// 🟢 main.js — global empty video box scrubber (failsafe v2025-11-18R2)
-(function () {
-  function removeGlobalEmptyVideoBoxes() {
-    const detail = document.querySelector('.post-detail');
-    if (!detail) return;
-
-    const candidates = detail.querySelectorAll(
-      '.video-embed, .wp-block-embed, .wp-block-video, .wp-embed-aspect-16-9, .wp-embed-aspect-4-3'
-    );
-
-    candidates.forEach(function (el) {
-      const hasMedia = el.querySelector('iframe, video, audio, img, picture, svg');
-      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
-
-      // Only go after truly empty big boxes, not tiny layout wrappers
-      const style = window.getComputedStyle(el);
-      const h = parseFloat(style.height) || 0;
-
-      if (!hasMedia && !text && h > 100) {
-        el.remove();
-      }
-    });
-  }
-
-  // Run after each post-detail route; do two passes so we catch late layout
-  document.addEventListener('okobs:route', function (ev) {
-    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
-    if (!hash.startsWith('#/post/')) return;
-
-    setTimeout(removeGlobalEmptyVideoBoxes, 600);
-    setTimeout(removeGlobalEmptyVideoBoxes, 2200);
-  });
-})();
-// 🔴 main.js — global empty video box scrubber (failsafe v2025-11-18R2)
-// 🟢 main.js — nuclear empty-block cleaner (v2025-11-18R3)
-(function () {
-  function nukeBigEmptyBlocks() {
-    const detail = document.querySelector('.post-detail');
-    if (!detail) return;
-
-    // Only look at direct children of .post-detail
-    const kids = detail.querySelectorAll(':scope > *');
-
-    kids.forEach(function (el) {
-      // Don’t touch the header area or obvious content containers
-      if (
-        el.classList.contains('hero-wrap') ||
-        el.classList.contains('video-slot') ||
-        el.classList.contains('detail-title') ||
-        el.classList.contains('detail-byline') ||
-        el.classList.contains('post-body') ||
-        el.classList.contains('detail-tags-row') ||
-        el.classList.contains('back-row')
-      ) {
-        return;
-      }
-
-      const hasMedia = el.querySelector('img, iframe, video, audio, picture, svg');
-      const text = (el.textContent || '').replace(/\u00a0/g, ' ').trim();
-      const rect = el.getBoundingClientRect();
-      const height = rect ? rect.height : 0;
-
-      // Giant, empty, in-between card → kill it.
-      if (!hasMedia && !text && height > 120) {
-        el.remove();
-      }
-    });
-  }
-
-  document.addEventListener('okobs:route', function (ev) {
-    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
-    if (!hash.startsWith('#/post/')) return;
-
-    // Run once after layout settles
-    setTimeout(nukeBigEmptyBlocks, 800);
-  });
-})();
-// 🔴 main.js — nuclear empty-block cleaner (v2025-11-18R3)
-// 🟢 main.js — remove WP lazyload iframes in post body (v2025-11-19R1)
-(function () {
-  function removeLazyloadEmbeds() {
-    var detail = document.querySelector('.post-detail');
-    if (!detail) return;
-    var body = detail.querySelector('.post-body');
-    if (!body) return;
-
-    var iframes = body.querySelectorAll('iframe.lazyload');
-    iframes.forEach(function (ifr) {
-      var parent = ifr.parentElement;
-      // Common case: <p><iframe class="lazyload"></iframe></p>
-      if (parent && parent.tagName === 'P' && parent.childElementCount === 1) {
-        parent.remove();
-      } else {
-        ifr.remove();
-      }
-    });
-  }
-
-  document.addEventListener('okobs:route', function (ev) {
-    var hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
-    if (!hash.startsWith('#/post/')) return;
-    // Run after renderDetail has injected the body HTML
-    setTimeout(removeLazyloadEmbeds, 800);
-  });
-})();
-// 🔴 main.js — remove WP lazyload iframes in post body (v2025-11-19R1)
