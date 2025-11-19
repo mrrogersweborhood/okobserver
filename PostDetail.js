@@ -1,14 +1,14 @@
 /* 🟢 PostDetail.js — start of full file */
-/* OkObserver Build 2025-11-19R4-lazyDebug1
+/* OkObserver Build 2025-11-19R5-lazyFallback383136
    Video handling:
    - Normalize existing iframes (including lazyload placeholders).
    - If none, derive an embed URL from links/text.
-   - Special Vimeo fallback for /post/381733.
+   - Special Vimeo fallbacks for /post/381733 and /post/383136.
 */
 (function(){
   'use strict';
 
-  var BUILD = '2025-11-19R4-lazyDebug1';
+  var BUILD = '2025-11-19R5-lazyFallback383136';
   console.log('[OkObserver] PostDetail Build', BUILD);
 
   function qs(s, r){ return (r||document).querySelector(s); }
@@ -179,14 +179,24 @@
       return;
     }
 
-    // Hard fallback for /post/381733
+    // Hard fallbacks for posts we *know* are Vimeo-only and currently sanitized
     var hash = location.hash || '';
+
+    // Old special case: video post 381733 (fallback to Vimeo 1126193884 if needed)
     if (/^#\/post\/381733$/.test(hash)) {
       var mm = (body.innerText || '').match(/vimeo\.com\/(\d{6,12})/i);
-      if (mm && mm[1]) {
-        normalizeIframe(injectIframe(body, 'https://player.vimeo.com/video/' + mm[1]));
-        console.log('[OkObserver] Forced Vimeo iframe for /post/381733');
-      }
+      var vid = (mm && mm[1]) ? mm[1] : '1126193884';
+      normalizeIframe(injectIframe(body, 'https://player.vimeo.com/video/' + vid));
+      console.log('[OkObserver] Forced Vimeo iframe for /post/381733 (' + vid + ')');
+      return;
+    }
+
+    // New special case: Nov ’25 Newsmakers (post 383136, Vimeo 1137098361)
+    if (/^#\/post\/383136$/.test(hash)) {
+      var forcedSrc = 'https://player.vimeo.com/video/1137098361';
+      normalizeIframe(injectIframe(body, forcedSrc));
+      console.log('[OkObserver] Forced Vimeo iframe for /post/383136 (1137098361)');
+      return;
     }
   }
 
