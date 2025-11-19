@@ -1,12 +1,12 @@
 /* 🟢 PostDetail.js — start of full file */
-/* OkObserver Build 2025-11-19R2-lazyFix1
+/* OkObserver Build 2025-11-19R3-lazyFix2
    Left intact to avoid regressions; works in tandem with main.js spacing scrub + CSS white-gap fix.
    Video: detect existing iframes; if none, derive embeddable src; hard fallback for /post/381733.
 */
 (function(){
   'use strict';
 
-    var BUILD = '2025-11-19R2-lazyFix1';
+    var BUILD = '2025-11-19R3-lazyFix2';
   console.log('[OkObserver] PostDetail Build', BUILD);
 
   function qs(s, r){ return (r||document).querySelector(s); }
@@ -16,16 +16,23 @@
   function normalizeIframe(ifr){
     if (!ifr) return;
 
-    // If this is a lazyload placeholder with data-src (e.g. Vimeo),
+    // If this is a lazyload placeholder / SVG shim with data-src (e.g. Vimeo),
     // promote it to a real embed so we don't get a big white box.
     try {
-      if (ifr.classList && ifr.classList.contains('lazyload')) {
-        var lazySrc = (ifr.getAttribute('data-src') || '').trim();
-        if (lazySrc && /^https?:\/\//i.test(lazySrc)) {
-          ifr.setAttribute('src', lazySrc);
-          ifr.removeAttribute('data-src');
+      var lazySrc = (ifr.getAttribute('data-src') || ifr.getAttribute('data-lazy-src') || '').trim();
+      var currentSrc = (ifr.getAttribute('src') || '').trim();
+      var isPlaceholderSrc = /^data:image\/svg\+xml/i.test(currentSrc);
+      var hasLazyClass = !!(ifr.classList && (ifr.classList.contains('lazyload') || ifr.classList.contains('lazyloaded')));
+
+      if (lazySrc && /^https?:\/\//i.test(lazySrc) && (isPlaceholderSrc || hasLazyClass)) {
+        ifr.setAttribute('src', lazySrc);
+        ifr.removeAttribute('data-src');
+        ifr.removeAttribute('data-lazy-src');
+        if (ifr.classList) {
           ifr.classList.remove('lazyload');
+          ifr.classList.remove('lazyloaded');
         }
+        console.log('[OkObserver] normalizeIframe promoted lazy iframe', lazySrc);
       }
     } catch (e) {
       // fail-safe: never break the page if this throws
@@ -64,21 +71,29 @@
   function deriveEmbed(body){
     if (!body) return null;
 
-    // 1) Native Gutenberg/WordPress wrappers
-    var wrap = qs('[data-oembed-url]', body);
-    if (wrap) {
-      var u = wrap.getAttribute('data-oembed-url');
-      if (u) return normalizeUrl(u);
+    // First, see if there's an iframe already that looks like Vimeo/YT/FB
+    var ifr = qs('iframe', body);
+    if (ifr) {
+      var src = (ifr.getAttribute('src') || '').trim();
+      var dataSrc = (ifr.getAttribute('data-src') || '').trim();
+
+      // If it's a lazyload placeholder, prefer data-src
+      var candidate = dataSrc || src;
+      if (candidate) {
+        var normalized = normalizeUrl(candidate);
+        if (normalized) return normalized;
+      }
     }
 
-    // 2) obvious anchors
-    var a = qs('a[href*="vimeo.com/"], a[href*="youtube.com/watch"], a[href*="youtu.be/"], a[href*="facebook.com/"]', body);
-    if (a) {
-      var href = a.getAttribute('href');
-      if (href) return normalizeUrl(href);
+    // Next, scan for obvious links
+    var anchors = qsa('a[href]', body);
+    for (var i=0;i<anchors.length;i++){
+      var href = (anchors[i].getAttribute('href') || '').trim();
+      var norm = normalizeUrl(href);
+      if (norm) return norm;
     }
 
-    // 3) fallback: scan raw text for a URL
+    // Finally, just look for any URL-ish text that matches video providers
     var text = body.innerText || '';
     var m = text.match(/https?:\/\/[^\s]+/);
     if (m && m[0]) return normalizeUrl(m[0]);
@@ -129,7 +144,7 @@
     // Hard fallback for /post/381733
     var hash = location.hash || '';
     if (/^#\/post\/381733$/.test(hash)) {
-      // if still nothing, synthesize a Vimeo embed from the text, if possible
+      // if still nothing, synthesize a Vimeo iframe using the known id
       var mm = (body.innerText || '').match(/vimeo\.com\/(\d{6,12})/i);
       if (mm && mm[1]) {
         normalizeIframe(injectIframe(body, 'https://player.vimeo.com/video/' + mm[1]));
