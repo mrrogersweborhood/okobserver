@@ -1099,3 +1099,31 @@
   });
 })();
 // 🔴 main.js — nuclear empty-block cleaner (v2025-11-18R3)
+// 🟢 main.js — remove WP lazyload iframes in post body (v2025-11-19R1)
+(function () {
+  function removeLazyloadEmbeds() {
+    var detail = document.querySelector('.post-detail');
+    if (!detail) return;
+    var body = detail.querySelector('.post-body');
+    if (!body) return;
+
+    var iframes = body.querySelectorAll('iframe.lazyload');
+    iframes.forEach(function (ifr) {
+      var parent = ifr.parentElement;
+      // Common case: <p><iframe class="lazyload"></iframe></p>
+      if (parent && parent.tagName === 'P' && parent.childElementCount === 1) {
+        parent.remove();
+      } else {
+        ifr.remove();
+      }
+    });
+  }
+
+  document.addEventListener('okobs:route', function (ev) {
+    var hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    if (!hash.startsWith('#/post/')) return;
+    // Run after renderDetail has injected the body HTML
+    setTimeout(removeLazyloadEmbeds, 800);
+  });
+})();
+// 🔴 main.js — remove WP lazyload iframes in post body (v2025-11-19R1)
