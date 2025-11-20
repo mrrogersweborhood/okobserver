@@ -3203,3 +3203,30 @@ body > header.oo-header {
   margin: 0 !important;
   padding: 0 !important;
 }
+/* Option A – 4:3 lazy thumbnail wrapper (append-only)
+   Append this block to the very end of override.css.
+   This assumes the summary card HTML wraps the image in:
+   <a class="thumb"><div class="thumb-inner"><img ...></div></a>
+*/
+
+.post-card .thumb {
+  width: 100%;
+  display: block;
+  border: 0;
+  height: auto; /* override any earlier fixed height */
+}
+
+.post-card .thumb-inner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;  /* lock layout to 4:3 to avoid jumps */
+  overflow: hidden;
+}
+
+.post-card .thumb-inner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;         /* safe crop for masonry */
+  object-position: center;
+}
