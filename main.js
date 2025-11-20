@@ -197,7 +197,7 @@
     }
     const date = post.date_gmt || post.date || null;
     const niceDate = date
-      ? new Date(date).new Date(date).toLocaleDateString(undefined, {
+      ? new Date(date).toLocaleDateString(undefined, {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
@@ -235,14 +235,6 @@
     globalSeenIds.add(id);
 
     const title = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
-    const date = post.date_gmt || post.date || null;
-    const niceDate = date
-      ? new Date(date).toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        })
-      : '';
 
     let img = '';
     if (
@@ -317,33 +309,8 @@
     let grid = app.querySelector('.posts-grid');
     if (!grid) {
       app.innerHTML =
-        '<section class="home-view">' +
-        '<div class="home-header-row">' +
-        '<h1 class="home-title">Latest News</h1>' +
-        '<button class="home-search-toggle" type="button" aria-label="Toggle search">' +
-        '<span class="home-search-toggle-icon">🔍</span>' +
-        '<span class="home-search-toggle-label">Search</span>' +
-        '</button>' +
-        '</div>' +
-        '<div class="home-search-panel" data-open="false">' +
-        '<form id="search-form" class="search-form" autocomplete="off">' +
-        '<label class="search-label" for="search-input">Search</label>' +
-        '<div class="search-input-row">' +
-        '<input id="search-input" type="search" name="q" placeholder="Search posts..." />' +
-        '<button id="search-button" type="submit" class="search-submit">Go</button>' +
-        '</div>' +
-        '<p class="search-hint">Search is instant on submit; results show below.</p>' +
-        '</form>' +
-        '</div>' +
-        '<div class="posts-grid" aria-live="polite"></div>' +
-        '<div id="loading-indicator" class="loading-indicator" aria-hidden="true">' +
-        '<div class="spinner"></div>' +
-        '<span class="loading-text">Loading more posts…</span>' +
-        '</div>' +
-        '<div id="sentinel" aria-hidden="true"></div>' +
-        '</section>';
+        '<section class="home-view"><div class="posts-grid" aria-live="polite"></div><div id="loading-indicator" class="loading-indicator" aria-hidden="true"><div class="spinner"></div><span class="loading-text">Loading more posts…</span></div><div id="sentinel" aria-hidden="true"></div></section>';
       grid = app.querySelector('.posts-grid');
-      attachHomeHandlers();
     }
     return grid;
   }
@@ -419,7 +386,8 @@
       setLoadingVisible(true);
       const url = buildPostsURL({ page: 1, per_page: 12 });
       const posts = await fetchJSON(url);
-      renderPostsPage(posts, new Set());
+      const seenSet = new Set();
+      renderPostsPage(posts, seenSet);
       homeState.hasState = true;
       homeState.gridHTML = grid.innerHTML;
       homeState.scrollY = 0;
@@ -463,7 +431,8 @@
       const posts = await fetchJSON(url);
 
       if (Array.isArray(posts) && posts.length > 0) {
-        renderPostsPage(posts, new Set());
+        const seenSet = new Set();
+        renderPostsPage(posts, seenSet);
         paging.page = nextPage;
         const grid = app.querySelector('.posts-grid');
         if (grid) {
@@ -892,4 +861,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file
+// 🔴 main.js — end of full file (includes remove WP lazyload iframes helper v2025-11-19R1)
