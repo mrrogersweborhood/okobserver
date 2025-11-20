@@ -161,7 +161,7 @@
   }
 
   /**
-   * Sanitize excerpt but keep anchors, making them open in new tab.
+   * Utility: sanitize excerpt but keep anchors, making them open in new tab.
    */
   function sanitizeExcerptKeepAnchors(html) {
     if (!html) return '';
@@ -197,7 +197,7 @@
     }
     const date = post.date_gmt || post.date || null;
     const niceDate = date
-      ? new Date(date).toLocaleDateString(undefined, {
+      ? new Date(date).new Date(date).toLocaleDateString(undefined, {
           year: 'numeric',
           month: 'short',
           day: 'numeric'
@@ -329,8 +329,8 @@
         '<form id="search-form" class="search-form" autocomplete="off">' +
         '<label class="search-label" for="search-input">Search</label>' +
         '<div class="search-input-row">' +
-        '<input id="search-input" type="search" name="q" placeholder="Search OkObserver" />' +
-        '<button type="submit" class="search-submit">Go</button>' +
+        '<input id="search-input" type="search" name="q" placeholder="Search posts..." />' +
+        '<button id="search-button" type="submit" class="search-submit">Go</button>' +
         '</div>' +
         '<p class="search-hint">Search is instant on submit; results show below.</p>' +
         '</form>' +
@@ -381,7 +381,6 @@
 
     const observer = new MutationObserver(function () {
       grid.classList.remove('grid-refresh');
-      // force reflow
       // eslint-disable-next-line no-unused-expressions
       grid.offsetHeight;
       grid.classList.add('grid-refresh');
@@ -391,6 +390,8 @@
   }
 
   // ---------- Paging / Home Loading ----------
+  const paging = homeState.paging;
+
   async function loadHomeInitial() {
     document.title = 'The Oklahoma Observer';
     const grid = getOrMountGrid();
@@ -408,7 +409,6 @@
     homeState.hasState = false;
     homeState.gridHTML = '';
     homeState.scrollY = 0;
-    seenIds = new Set();
     paging.page = 1;
     paging.totalPages = null;
     paging.isLoading = false;
@@ -419,7 +419,7 @@
       setLoadingVisible(true);
       const url = buildPostsURL({ page: 1, per_page: 12 });
       const posts = await fetchJSON(url);
-      renderPostsPage(posts, seenIds);
+      renderPostsPage(posts, new Set());
       homeState.hasState = true;
       homeState.gridHTML = grid.innerHTML;
       homeState.scrollY = 0;
@@ -463,7 +463,7 @@
       const posts = await fetchJSON(url);
 
       if (Array.isArray(posts) && posts.length > 0) {
-        renderPostsPage(posts, seenIds);
+        renderPostsPage(posts, new Set());
         paging.page = nextPage;
         const grid = app.querySelector('.posts-grid');
         if (grid) {
@@ -510,7 +510,7 @@
       '<input id="search-input" type="search" name="q" placeholder="Search OkObserver" value="' +
       q.replace(/"/g, '&quot;') +
       '" />' +
-      '<button type="submit" class="search-submit">Go</button>' +
+      '<button id="search-button" type="submit" class="search-submit">Go</button>' +
       '</div>' +
       '<p class="search-hint">Searching for "' +
       q.replace(/</g, '&lt;') +
@@ -548,7 +548,348 @@
         '<p>Sorry, that post could not be found.</p>' +
         '<button class="back-button">Back to Posts</button>' +
         '</section>';
-    ...
-    // (rest of file unchanged from your baseline)
+      attachDetailHandlers();
+      return;
+    }
+
+    const title = (post.title && post.title.rendered) || '(Untitled)';
+    const contentHTML = post.content && post.content.rendered ? post.content.rendered : '';
+
+    const date = post.date_gmt || post.date || null;
+    const niceDate = date
+      ? new Date(date).toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
+      : '';
+
+    const authorName =
+      post._embedded &&
+      post._embedded.author &&
+      post._embedded.author[0] &&
+      post._embedded.author[0].name
+        ? post._embedded.author[0].name
+        : '';
+
+    let featuredImageHTML = '';
+    if (
+      post._embedded &&
+      post._embedded['wp:featuredmedia'] &&
+      post._embedded['wp:featuredmedia'][0] &&
+      post._embedded['wp:featuredmedia'][0].source_url
+    ) {
+      const src = post._embedded['wp:featuredmedia'][0].source_url + '?cb=' + post.id;
+      const alt =
+        post._embedded['wp:featuredmedia'][0].alt_text ||
+        title.replace(/"/g, '&quot;');
+      featuredImageHTML =
+        '<figure class="hero-wrap">' +
+        '<img class="hero" src="' +
+        src +
+        '" alt="' +
+        alt +
+        '">' +
+        '</figure>';
+    }
+
+    // Extract video info from content, with special fallback for 381733
+    let videoInfo = extractVideoFromContent(post);
+    videoInfo = applySpecialVideoFallback(post, videoInfo);
+
+    let videoHTML = '';
+    if (videoInfo) {
+      if (videoInfo.type === 'vimeo') {
+        videoHTML =
+          '<div class="video-embed video-embed--click-to-play" data-video-type="vimeo" data-video-id="' +
+          videoInfo.id +
+          '">' +
+          '<button class="video-embed__play" type="button" aria-label="Play video">' +
+          '<span class="video-embed__play-icon">▶</span>' +
+          '<span class="video-embed__play-label">Play Video</span>' +
+          '</button>' +
+          '</div>';
+      } else if (videoInfo.type === 'youtube') {
+        videoHTML =
+          '<div class="video-embed video-embed--click-to-play" data-video-type="youtube" data-video-id="' +
+          videoInfo.id +
+          '">' +
+          '<button class="video-embed__play" type="button" aria-label="Play video">' +
+          '<span class="video-embed__play-icon">▶</span>' +
+          '<span class="video-embed__play-label">Play Video</span>' +
+          '</button>' +
+          '</div>';
+      } else if (videoInfo.type === 'facebook') {
+        videoHTML =
+          '<div class="video-embed video-embed--click-to-play" data-video-type="facebook" data-video-href="' +
+          encodeURIComponent(videoInfo.href) +
+          '">' +
+          '<button class="video-embed__play" type="button" aria-label="Play video">' +
+          '<span class="video-embed__play-icon">▶</span>' +
+          '<span class="video-embed__play-label">Play Video</span>' +
+          '</button>' +
+          '</div>';
+      }
+    }
+
+    app.innerHTML =
+      '<article class="post-detail">' +
+      featuredImageHTML +
+      (videoHTML ? '<div class="post-video-block">' + videoHTML + '</div>' : '') +
+      '<header class="post-header">' +
+      '<h1 class="post-title">' +
+      title +
+      '</h1>' +
+      '<div class="post-meta">' +
+      (authorName ? '<span class="post-author"><strong>' + authorName + '</strong></span>' : '') +
+      (niceDate ? '<span class="post-date">' + niceDate + '</span>' : '') +
+      '</div>' +
+      '</header>' +
+      '<div class="post-content">' +
+      contentHTML +
+      '</div>' +
+      '<div class="post-footer">' +
+      '<button class="back-button" type="button">Back to Posts</button>' +
+      '</div>' +
+      '</article>';
+
+    attachDetailHandlers();
+  }
+
+  function attachDetailHandlers() {
+    const backBtn = app.querySelector('.back-button');
+    if (backBtn) {
+      backBtn.addEventListener('click', function () {
+        window.history.back();
+      });
+    }
+
+    const videoBlocks = app.querySelectorAll('.video-embed--click-to-play');
+    videoBlocks.forEach(function (block) {
+      const btn = block.querySelector('.video-embed__play');
+      if (!btn) return;
+
+      btn.addEventListener('click', function () {
+        const type = block.getAttribute('data-video-type');
+        if (!type) return;
+
+        if (type === 'vimeo') {
+          const vid = block.getAttribute('data-video-id');
+          if (!vid) return;
+          const iframe = document.createElement('iframe');
+          iframe.src =
+            'https://player.vimeo.com/video/' +
+            vid +
+            '?autoplay=1&title=0&byline=0&portrait=0';
+          iframe.title = 'Vimeo video';
+          iframe.allow =
+            'autoplay; fullscreen; picture-in-picture; encrypted-media';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('frameborder', '0');
+          block.innerHTML = '';
+          block.appendChild(iframe);
+        } else if (type === 'youtube') {
+          const vid = block.getAttribute('data-video-id');
+          if (!vid) return;
+          const iframe = document.createElement('iframe');
+          iframe.src =
+            'https://www.youtube.com/embed/' + vid + '?autoplay=1&rel=0';
+          iframe.title = 'YouTube video';
+          iframe.allow =
+            'autoplay; fullscreen; picture-in-picture; encrypted-media';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('frameborder', '0');
+          block.innerHTML = '';
+          block.appendChild(iframe);
+        } else if (type === 'facebook') {
+          const href = block.getAttribute('data-video-href');
+          if (!href) return;
+          const iframe = document.createElement('iframe');
+          iframe.src =
+            'https://www.facebook.com/plugins/video.php?href=' +
+            href +
+            '&show_text=0&autoplay=1';
+          iframe.title = 'Facebook video';
+          iframe.allow =
+            'autoplay; fullscreen; picture-in-picture; encrypted-media';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('frameborder', '0');
+          block.innerHTML = '';
+          block.appendChild(iframe);
+        }
+      });
+    });
+  }
+
+  async function loadPostDetail(id) {
+    if (!id) {
+      renderPostDetail(null);
+      return;
+    }
+
+    if (detailCache.has(id)) {
+      renderPostDetail(detailCache.get(id));
+      return;
+    }
+
+    try {
+      const url = buildSinglePostURL(id);
+      const post = await fetchJSON(url);
+      detailCache.set(id, post);
+      renderPostDetail(post);
+    } catch (err) {
+      console.error('[OkObserver] Error loading post detail:', err);
+      renderPostDetail(null);
+    }
+  }
+
+  // ---------- Home Handlers ----------
+  function attachHomeHandlers() {
+    const searchToggle = app.querySelector('.home-search-toggle');
+    const searchPanel = app.querySelector('.home-search-panel');
+    const searchForm = app.querySelector('#search-form');
+    const searchInput = app.querySelector('#search-input');
+    const searchButton = app.querySelector('#search-button');
+
+    if (searchToggle && searchPanel) {
+      searchToggle.addEventListener('click', function () {
+        const isOpen = searchPanel.getAttribute('data-open') === 'true';
+        searchPanel.setAttribute('data-open', isOpen ? 'false' : 'true');
+      });
+    }
+
+    if (searchForm && searchInput) {
+      searchForm.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        const q = searchInput.value.trim();
+        if (!q) return;
+        setRoute('#/search/' + encodeURIComponent(q));
+      });
+    }
+
+    if (searchButton && searchInput) {
+      searchButton.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        const q = searchInput.value.trim();
+        if (!q) return;
+        setRoute('#/search/' + encodeURIComponent(q));
+      });
+    }
+  }
+
+  // ---------- Router ----------
+  function handleRouteChange() {
+    const route = parseHash(location.hash || '#/');
+    if (route.view === 'home') {
+      loadHomeInitial();
+    } else if (route.view === 'search') {
+      loadSearchView(route.params.q || '');
+    } else if (route.view === 'post') {
+      loadPostDetail(route.params.id);
+    } else {
+      setRoute('#/');
+    }
+  }
+
+  /**
+   * Handle logo / nav clicks for SPA routing.
+   * Motto must never be clickable or underlined.
+   */
+  function attachHeaderNavHandlers() {
+    const logoLink = document.querySelector('.site-logo-link');
+    if (logoLink) {
+      logoLink.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        setRoute('#/');
+      });
+    }
+
+    const motto = document.querySelector('.site-motto');
+    if (motto) {
+      motto.style.pointerEvents = 'none';
+    }
+
+    const menuToggle = document.querySelector('.hamburger-button');
+    const menuPanel = document.querySelector('.site-menu');
+    const menuBackdrop = document.querySelector('.site-menu-backdrop');
+
+    function closeMenu() {
+      if (!menuPanel || !menuBackdrop || !menuToggle) return;
+      menuPanel.setAttribute('data-open', 'false');
+      menuBackdrop.setAttribute('data-open', 'false');
+      menuToggle.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('menu-open');
+    }
+
+    function openMenu() {
+      if (!menuPanel || !menuBackdrop || !menuToggle) return;
+      menuPanel.setAttribute('data-open', 'true');
+      menuBackdrop.setAttribute('data-open', 'true');
+      menuToggle.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('menu-open');
+    }
+
+    if (menuToggle && menuPanel && menuBackdrop) {
+      menuToggle.addEventListener('click', function () {
+        const isOpen = menuPanel.getAttribute('data-open') === 'true';
+        if (isOpen) {
+          closeMenu();
+        } else {
+          openMenu();
+        }
+      });
+
+      menuBackdrop.addEventListener('click', function () {
+        closeMenu();
+      });
+
+      menuPanel.addEventListener('click', function (ev) {
+        if (ev.target.matches('.site-menu a')) {
+          closeMenu();
+        }
+      });
+    }
+  }
+
+  // Optional helper: remove WP "lazyload" attributes from iframes/images
+  // to avoid conflicts with our own lazy/JS logic (esp. for video embeds).
+  function removeLazyloadEmbeds() {
+    const lazyIframes = document.querySelectorAll('iframe[data-lazy-src]');
+    lazyIframes.forEach(function (iframe) {
+      if (iframe.dataset.lazySrc) {
+        iframe.src = iframe.dataset.lazySrc;
+        iframe.removeAttribute('data-lazy-src');
+      }
+    });
+
+    const lazyImgs = document.querySelectorAll('img[data-lazy-src]');
+    lazyImgs.forEach(function (img) {
+      if (img.dataset.lazySrc) {
+        img.src = img.dataset.lazySrc;
+        img.removeAttribute('data-lazy-src');
+      }
+    });
+  }
+
+  window.addEventListener('hashchange', handleRouteChange);
+  window.addEventListener('DOMContentLoaded', function () {
+    attachHeaderNavHandlers();
+    handleRouteChange();
+
+    setTimeout(function () {
+      const grid = app.querySelector('.posts-grid');
+      if (grid) {
+        grid.classList.remove('grid-refresh');
+        // eslint-disable-next-line no-unused-expressions
+        grid.offsetHeight;
+        grid.classList.add('grid-refresh');
+      }
+      applyGridObserver();
+    }, 0);
+  });
+
+  window.addEventListener('load', function () {
+    setTimeout(removeLazyloadEmbeds, 800);
+  });
 })();
 // 🔴 main.js — end of full file
