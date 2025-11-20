@@ -14,88 +14,52 @@
     hasState: false,
     scrollY: 0,
     gridHTML: '',
-    paging: {
-      page: 1,
-      totalPages: null,
-      isLoading: false,
-      searchQuery: '',
-      isSearchMode: false
-    }
+    paging: null,
   };
 
-  // Global seenIds for infinite scroll (guard duplicates across home sessions)
-  const globalSeenIds = new Set();
+  const paging = {
+    page: 1,
+    busy: false,
+    done: false,
+  };
 
-  // Simple route cache for detail pages to avoid refetch on back/forward
-  const detailCache = new Map();
+  let seenIds = new Set();
+  window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
-  // Paging + observer
-  let pagingObserver = null;
-
-  // Utility: parse hash route
-  function parseHash(hash) {
-    if (!hash || hash === '#') return { view: 'home', params: {} };
-    if (hash.indexOf('#/') !== 0) return { view: 'home', params: {} };
-
-    const parts = hash.slice(2).split('/');
-    const view = parts[0] || 'home';
-    const params = {};
-
-    if (view === 'post' && parts[1]) {
-      params.id = parts[1];
-    } else if (view === 'search' && parts[1]) {
-      params.q = decodeURIComponent(parts.slice(1).join('/'));
-    } else if (view === 'category' && parts[1]) {
-      params.slug = parts[1];
-    }
-
-    return { view, params };
+  // --------- Utilities ---------
+  function decodeHtml(html) {
+    if (!html) return '';
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    return textarea.value;
   }
 
-  // Utility: set hash route
-  function setRoute(route) {
-    location.hash = route;
-  }
-
-  /**
-   * Basic fetch wrapper with error handling.
-   */
-  async function fetchJson(url) {
+  function fetchJson(url) {
     console.log('[OkObserver] fetchJson:', url);
-    const res = await fetch(url, { credentials: 'omit' });
-    if (!res.ok) {
-      throw new Error('Network error: ' + res.status);
-    }
-    return res.json();
+    return fetch(url, { credentials: 'omit' }).then(function (res) {
+      if (!res.ok) {
+        throw new Error('Network error: ' + res.status);
+      }
+      return res.json();
+    });
   }
 
-  /**
-   * Build WP API URLs with the proxy base.
-   */
-  function buildPostsURL({ page = 1, per_page = 12, search = '', categories = '' } = {}) {
+  function buildPostsURL(page) {
     const params = new URLSearchParams();
     params.set('_embed', '1');
     params.set('page', page);
-    params.set('per_page', per_page);
-    if (search) params.set('search', search);
-    if (categories) params.set('categories', categories);
+    params.set('per_page', 12);
     return API + '/posts?' + params.toString();
   }
 
-  function buildSinglePostURL(id) {
+  function buildSearchURL(q) {
     const params = new URLSearchParams();
     params.set('_embed', '1');
-    return API + '/posts/' + id + '?' + params.toString();
+    params.set('per_page', 20);
+    params.set('search', q);
+    return API + '/posts?' + params.toString();
   }
 
-  function buildCategoriesURL() {
-    return API + '/categories?per_page=100';
-  }
-
-  /**
-   * Helper: check if a post is a cartoon (by category slug).
-   * Cartoon must be the ONLY category we filter.
-   */
   function isCartoonPost(post) {
     if (!post || !post._embedded || !post._embedded['wp:term']) return false;
     const termGroups = post._embedded['wp:term'];
@@ -112,19 +76,6 @@
     return false;
   }
 
-  /**
-   * Decode HTML entities.
-   */
-  function decodeHtml(html) {
-    if (!html) return '';
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = html;
-    return textarea.value;
-  }
-
-  /**
-   * Utility: sanitize excerpt but keep anchors, making them open in new tab.
-   */
   function sanitizeExcerptKeepAnchors(html) {
     if (!html) return '';
     const wrapper = document.createElement('div');
@@ -144,9 +95,6 @@
     return wrapper.innerHTML;
   }
 
-  /**
-   * Build byline (author + date).
-   */
   function buildByline(post) {
     let authorName = '';
     if (
@@ -162,7 +110,7 @@
       ? new Date(date).toLocaleDateString(undefined, {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         })
       : '';
     if (authorName && niceDate) return authorName + ' — ' + niceDate;
@@ -171,26 +119,21 @@
     return '';
   }
 
-  /**
-   * Render a single post card into the grid.
-   */
-  function renderPostCard(grid, post, seenSet) {
-    if (!post || !post.id) return;
-
-    // Filter out cartoon category ONLY
+  // --------- Home grid rendering ---------
+  function makeCard(post) {
+    if (!post || !post.id) return null;
     if (isCartoonPost(post)) {
       console.log('[OkObserver] Skipping cartoon post', post.id);
-      return;
+      return null;
     }
 
-    const id = post.id;
-    if (seenSet.has(id) || globalSeenIds.has(id)) {
-      console.log('[OkObserver] Skipping duplicate post', id);
-      return;
+    if (seenIds.has(post.id) || window.__OKOBS_DUP_GUARD_ENABLED__) {
+      if (seenIds.has(post.id)) {
+        console.log('[OkObserver] Skipping duplicate post', post.id);
+        return null;
+      }
     }
-
-    seenSet.add(id);
-    globalSeenIds.add(id);
+    seenIds.add(post.id);
 
     const title = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
 
@@ -213,13 +156,13 @@
     card.className = 'post-card';
     card.innerHTML =
       '<a class="thumb" href="#/post/' +
-      id +
+      post.id +
       '">' +
       (img
         ? '<img src="' +
           img +
           '?cb=' +
-          id +
+          post.id +
           '" alt="' +
           title.replace(/"/g, '&quot;') +
           '">'
@@ -227,7 +170,7 @@
       '</a>' +
       '<div class="pad">' +
       '<h3><a href="#/post/' +
-      id +
+      post.id +
       '">' +
       title +
       '</a></h3>' +
@@ -246,33 +189,68 @@
       }
     }
 
-    grid.appendChild(card);
+    return card;
   }
 
-  /**
-   * Render a page of posts into the grid.
-   */
-  function renderPostsPage(posts, seenSet) {
-    const grid = getOrMountGrid();
-    if (!grid) return;
-
-    if (!Array.isArray(posts)) return;
-    for (let i = 0; i < posts.length; i++) {
-      renderPostCard(grid, posts[i], seenSet);
+  function getOrCreateGrid() {
+    let grid = app.querySelector('.posts-grid');
+    if (!grid) {
+      app.innerHTML =
+        '<section class="home-view">' +
+        '<div class="home-header-row">' +
+        '<h1 class="home-title">Latest News</h1>' +
+        '<button class="home-search-toggle" type="button" aria-label="Toggle search">' +
+        '<span class="home-search-toggle-icon">🔍</span>' +
+        '<span class="home-search-toggle-label">Search</span>' +
+        '</button>' +
+        '</div>' +
+        '<div class="home-search-panel" data-open="false">' +
+        '<form id="search-form" class="search-form" autocomplete="off">' +
+        '<label class="search-label" for="search-input">Search</label>' +
+        '<div class="search-input-row">' +
+        '<input id="search-input" type="search" name="q" placeholder="Search posts..." />' +
+        '<button id="search-button" type="submit" class="search-submit">Go</button>' +
+        '</div>' +
+        '<p class="search-hint">Search is instant on submit; results show below.</p>' +
+        '</form>' +
+        '</div>' +
+        '<div class="posts-grid" aria-live="polite"></div>' +
+        '<div id="loading-indicator" class="loading-indicator" aria-hidden="true">' +
+        '<div class="spinner"></div>' +
+        '<span class="loading-text">Loading more posts…</span>' +
+        '</div>' +
+        '<div id="sentinel" aria-hidden="true"></div>' +
+        '</section>';
+      grid = app.querySelector('.posts-grid');
+      attachHomeHandlers();
     }
+    return grid;
+  }
+
+  function renderPostsPage(posts) {
+    const grid = getOrCreateGrid();
+    if (!grid) return;
+    if (!Array.isArray(posts)) return;
+
+    posts.forEach(function (post) {
+      const card = makeCard(post);
+      if (card) {
+        grid.appendChild(card);
+      }
+    });
 
     document.body.classList.add('home-has-grid');
   }
 
-  // ---------- Grid / Layout Helpers ----------
-  function getOrMountGrid() {
-    let grid = app.querySelector('.posts-grid');
-    if (!grid) {
-      app.innerHTML =
-        '<section class="home-view"><div class="posts-grid" aria-live="polite"></div><div id="loading-indicator" class="loading-indicator" aria-hidden="true"><div class="spinner"></div><span class="loading-text">Loading more posts…</span></div><div id="sentinel" aria-hidden="true"></div></section>';
-      grid = app.querySelector('.posts-grid');
+  function setLoadingVisible(visible) {
+    const el = document.getElementById('loading-indicator');
+    if (!el) return;
+    el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    if (visible) {
+      el.classList.add('is-visible');
+    } else {
+      el.classList.remove('is-visible');
     }
-    return grid;
   }
 
   function applyGridObserver() {
@@ -280,11 +258,11 @@
     const sentinel = document.getElementById('sentinel');
     if (!grid || !sentinel) return;
 
-    if (pagingObserver) {
-      pagingObserver.disconnect();
+    if (paging.observer) {
+      paging.observer.disconnect();
     }
 
-    pagingObserver = new IntersectionObserver(
+    paging.observer = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
           if (entry.isIntersecting) {
@@ -295,11 +273,11 @@
       {
         root: null,
         rootMargin: '0px 0px 400px 0px',
-        threshold: 0.1
+        threshold: 0.1,
       }
     );
 
-    pagingObserver.observe(sentinel);
+    paging.observer.observe(sentinel);
   }
 
   function applyGridEnforcer() {
@@ -316,112 +294,109 @@
     observer.observe(grid, { childList: true, subtree: true });
   }
 
-  // ---------- Paging / Home Loading ----------
-  const paging = homeState.paging;
+  // --------- Paging / Home loading ---------
+  function resetHomeState() {
+    homeState.hasState = false;
+    homeState.scrollY = 0;
+    homeState.gridHTML = '';
+    homeState.paging = null;
+  }
 
-  async function loadHomeInitial() {
+  function saveHomeState() {
+    const grid = app.querySelector('.posts-grid');
+    if (!grid) return;
+    homeState.hasState = true;
+    homeState.gridHTML = grid.innerHTML;
+    homeState.scrollY = window.scrollY || 0;
+    homeState.paging = {
+      page: paging.page,
+      busy: paging.busy,
+      done: paging.done,
+    };
+  }
+
+  function restoreHomeState() {
+    const grid = getOrCreateGrid();
+    if (!homeState.hasState || !homeState.gridHTML) return false;
+    grid.innerHTML = homeState.gridHTML;
+    if (homeState.paging) {
+      paging.page = homeState.paging.page;
+      paging.busy = homeState.paging.busy;
+      paging.done = homeState.paging.done;
+    }
+    window.scrollTo(0, homeState.scrollY || 0);
+    applyGridEnforcer();
+    applyGridObserver();
+    return true;
+  }
+
+  function loadHomeInitial() {
     document.title = 'The Oklahoma Observer';
-    const grid = getOrMountGrid();
     window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+    const grid = getOrCreateGrid();
+    seenIds = new Set();
+    paging.page = 1;
+    paging.busy = false;
+    paging.done = false;
 
-    if (homeState.hasState && homeState.gridHTML) {
-      grid.innerHTML = homeState.gridHTML;
-      Object.assign(paging, homeState.paging);
-      window.scrollTo(0, homeState.scrollY || 0);
-      applyGridEnforcer();
-      applyGridObserver();
+    if (restoreHomeState()) {
       return;
     }
 
-    homeState.hasState = false;
-    homeState.gridHTML = '';
-    homeState.scrollY = 0;
-    paging.page = 1;
-    paging.totalPages = null;
-    paging.isLoading = false;
-    paging.isSearchMode = false;
-    paging.searchQuery = '';
-
-    try {
-      setLoadingVisible(true);
-      const url = buildPostsURL({ page: 1, per_page: 12 });
-      const posts = await fetchJson(url);
-      const seenSet = new Set();
-      renderPostsPage(posts, seenSet);
-      homeState.hasState = true;
-      homeState.gridHTML = grid.innerHTML;
-      homeState.scrollY = 0;
-      homeState.paging = Object.assign({}, paging);
-      applyGridEnforcer();
-      applyGridObserver();
-    } catch (err) {
-      console.error('[OkObserver] Error loading home posts:', err);
-      app.innerHTML =
-        '<section class="home-view error">' +
-        '<h1>Latest News</h1>' +
-        '<p>Sorry, there was a problem loading posts. Please try again later.</p>' +
-        '</section>';
-    } finally {
-      setLoadingVisible(false);
-    }
+    setLoadingVisible(true);
+    fetchJson(buildPostsURL(1))
+      .then(function (posts) {
+        renderPostsPage(posts);
+        applyGridEnforcer();
+        applyGridObserver();
+        saveHomeState();
+      })
+      .catch(function (err) {
+        console.error('[OkObserver] Error loading home posts:', err);
+        app.innerHTML =
+          '<section class="home-view error">' +
+          '<h1>Latest News</h1>' +
+          '<p>Sorry, there was a problem loading posts. Please try again later.</p>' +
+          '</section>';
+      })
+      .finally(function () {
+        setLoadingVisible(false);
+      });
   }
 
-  function setLoadingVisible(visible) {
-    const el = document.getElementById('loading-indicator');
-    if (!el) return;
-    el.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    if (visible) {
-      el.classList.add('is-visible');
-    } else {
-      el.classList.remove('is-visible');
-    }
-  }
-
-  async function loadNextPage() {
-    if (paging.isLoading) return;
-    if (paging.totalPages && paging.page >= paging.totalPages) return;
-    if (paging.isSearchMode) return;
-
-    paging.isLoading = true;
+  function loadNextPage() {
+    if (paging.busy || paging.done) return;
+    paging.busy = true;
     setLoadingVisible(true);
 
-    try {
-      const nextPage = paging.page + 1;
-      const url = buildPostsURL({ page: nextPage, per_page: 12 });
-      const posts = await fetchJson(url);
-
-      if (Array.isArray(posts) && posts.length > 0) {
-        const seenSet = new Set();
-        renderPostsPage(posts, seenSet);
-        paging.page = nextPage;
-        const grid = app.querySelector('.posts-grid');
-        if (grid) {
-          homeState.gridHTML = grid.innerHTML;
-          homeState.scrollY = window.scrollY || 0;
-          homeState.paging = Object.assign({}, paging);
+    const nextPage = paging.page + 1;
+    fetchJson(buildPostsURL(nextPage))
+      .then(function (posts) {
+        if (!Array.isArray(posts) || !posts.length) {
+          paging.done = true;
+          return;
         }
-      } else {
-        paging.totalPages = paging.page;
-      }
-    } catch (err) {
-      console.error('[OkObserver] Error loading next page:', err);
-    } finally {
-      paging.isLoading = false;
-      setLoadingVisible(false);
-    }
+        renderPostsPage(posts);
+        paging.page = nextPage;
+        saveHomeState();
+      })
+      .catch(function (err) {
+        console.error('[OkObserver] Error loading next page:', err);
+      })
+      .finally(function () {
+        paging.busy = false;
+        setLoadingVisible(false);
+      });
   }
 
-  // ---------- Search ----------
-  async function loadSearchView(q) {
+  // --------- Search view ---------
+  function loadSearchView(q) {
     if (!q) {
-      setRoute('#/');
+      location.hash = '#/';
       return;
     }
 
-    paging.isSearchMode = true;
-    paging.searchQuery = q;
-    paging.page = 1;
-    paging.totalPages = null;
+    resetHomeState();
 
     app.innerHTML =
       '<section class="home-view search-view">' +
@@ -454,23 +429,23 @@
     const grid = app.querySelector('.posts-grid');
     if (!grid) return;
 
-    try {
-      setLoadingVisible(true);
-      const url = buildPostsURL({ page: 1, per_page: 20, search: q });
-      const posts = await fetchJson(url);
-      const localSeen = new Set();
-      renderPostsPage(posts, localSeen);
-    } catch (err) {
-      console.error('[OkObserver] Error loading search results:', err);
-      grid.innerHTML =
-        '<p>Sorry, there was an error loading search results. Please try again later.</p>';
-    } finally {
-      setLoadingVisible(false);
-    }
+    setLoadingVisible(true);
+    fetchJson(buildSearchURL(q))
+      .then(function (posts) {
+        seenIds = new Set();
+        renderPostsPage(posts);
+      })
+      .catch(function (err) {
+        console.error('[OkObserver] Error loading search results:', err);
+        grid.innerHTML =
+          '<p>Sorry, there was an error loading search results. Please try again later.</p>';
+      })
+      .finally(function () {
+        setLoadingVisible(false);
+      });
   }
 
-  // ---------- Tidy helpers for post detail ----------
-
+  // --------- Detail helpers (video + layout) ---------
   function tidyArticleSpacing(bodyEl) {
     if (!bodyEl) return;
     const wrappers = bodyEl.querySelectorAll(
@@ -486,19 +461,16 @@
   function findVideoUrl(html) {
     if (!html) return null;
 
-    // Vimeo
     let m =
       html.match(/https?:\/\/player\.vimeo\.com\/video\/(\d+)/i) ||
       html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
     if (m && m[0]) return m[0];
 
-    // YouTube
     m =
       html.match(/https?:\/\/www\.youtube\.com\/embed\/[a-zA-Z0-9_-]+/i) ||
       html.match(/https?:\/\/youtu\.be\/[a-zA-Z0-9_-]+/i);
     if (m && m[0]) return m[0];
 
-    // Facebook
     m = html.match(/https?:\/\/www\.facebook\.com\/[^"'<>\s]+/i);
     if (m && m[0]) return m[0];
 
@@ -555,13 +527,11 @@
     return row;
   }
 
-  // ---------- Detail ----------
   function renderDetail(id) {
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
 
-    // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <div class="hero-wrap" style="position:relative;">
@@ -582,17 +552,11 @@
     const bylineEl = app.querySelector('.detail-byline');
     const bodyEl = app.querySelector('.post-body');
 
-    if (!detailEl || !heroWrap || !hero || !titleEl || !bylineEl || !bodyEl)
-      return;
+    if (!detailEl || !heroWrap || !hero || !titleEl || !bylineEl || !bodyEl) return;
 
     const postId = parseInt(id, 10);
 
-    fetchJson(
-      API +
-        '/posts/' +
-        postId +
-        '?_embed=1'
-    )
+    fetchJson(API + '/posts/' + postId + '?_embed=1')
       .then(function (post) {
         if (!post || !post.id) throw new Error('Post not found');
 
@@ -618,13 +582,11 @@
         bodyHTML = decodeHtml(bodyHTML);
         bodyEl.innerHTML = bodyHTML;
 
-        // scrub empty/ratio wrappers that create leading white gap
         tidyArticleSpacing(bodyEl);
 
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
-        // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
           var m383136 = bodyHTML.match(
             /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
@@ -639,7 +601,6 @@
         const isFB = candidate && /facebook\.com/i.test(candidate);
 
         if (isFB) {
-          // Turn HERO into a “watch on Facebook” overlay (no separate video box)
           if (heroWrap && hero) {
             heroWrap.style.position = 'relative';
             heroWrap.style.cursor = 'pointer';
@@ -695,17 +656,11 @@
           iframe.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
 
           videoSlot.appendChild(iframe);
-
-          // Reveal once iframe has loaded or after a short timeout
           videoSlot.style.display = 'block';
 
-          // Scrub the original embed block so we don't get double players
           scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-        } else {
-          // No custom embed built; leave WP’s own embed (player) in place.
         }
 
-        // Insert tags row (pill chips) before the Back button, if tags exist
         const tagsRow = buildTagsRow(post);
         if (tagsRow) {
           const backRow = app.querySelector('.back-row');
@@ -723,7 +678,7 @@
       });
   }
 
-  // ---------- Home Handlers ----------
+  // --------- Home handlers ---------
   function attachHomeHandlers() {
     const searchToggle = app.querySelector('.home-search-toggle');
     const searchPanel = app.querySelector('.home-search-panel');
@@ -743,7 +698,7 @@
         ev.preventDefault();
         const q = searchInput.value.trim();
         if (!q) return;
-        setRoute('#/search/' + encodeURIComponent(q));
+        location.hash = '#/search/' + encodeURIComponent(q);
       });
     }
 
@@ -752,35 +707,40 @@
         ev.preventDefault();
         const q = searchInput.value.trim();
         if (!q) return;
-        setRoute('#/search/' + encodeURIComponent(q));
+        location.hash = '#/search/' + encodeURIComponent(q);
       });
     }
   }
 
-  // ---------- Router ----------
+  // --------- Routing ---------
   function handleRouteChange() {
-    const route = parseHash(location.hash || '#/');
-    if (route.view === 'home') {
+    const hash = location.hash || '#/';
+    if (hash === '#/' || hash === '#') {
       loadHomeInitial();
-    } else if (route.view === 'search') {
-      loadSearchView(route.params.q || '');
-    } else if (route.view === 'post') {
-      renderDetail(route.params.id);
-    } else {
-      setRoute('#/');
+      return;
     }
+
+    if (hash.startsWith('#/search/')) {
+      const q = decodeURIComponent(hash.slice('#/search/'.length));
+      loadSearchView(q);
+      return;
+    }
+
+    if (hash.startsWith('#/post/')) {
+      const id = hash.slice('#/post/'.length);
+      renderDetail(id);
+      return;
+    }
+
+    location.hash = '#/';
   }
 
-  /**
-   * Handle logo / nav clicks for SPA routing.
-   * Motto must never be clickable or underlined.
-   */
   function attachHeaderNavHandlers() {
     const logoLink = document.querySelector('.site-logo-link');
     if (logoLink) {
       logoLink.addEventListener('click', function (ev) {
         ev.preventDefault();
-        setRoute('#/');
+        location.hash = '#/';
       });
     }
 
@@ -831,8 +791,6 @@
     }
   }
 
-  // Optional helper: remove WP "lazyload" attributes from iframes/images
-  // to avoid conflicts with our own lazy/JS logic (esp. for video embeds).
   function removeLazyloadEmbeds() {
     const lazyIframes = document.querySelectorAll('iframe[data-lazy-src]');
     lazyIframes.forEach(function (iframe) {
