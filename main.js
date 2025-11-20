@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-20R1-OptionA-4x3Lazy
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-20R1-OptionA-4x3Lazy';
+  const BUILD = '2025-11-19R8-mainVideo383136';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -60,8 +60,8 @@
   /**
    * Basic fetch wrapper with error handling.
    */
-  async function fetchJSON(url) {
-    console.log('[OkObserver] Fetch JSON:', url);
+  async function fetchJson(url) {
+    console.log('[OkObserver] fetchJson:', url);
     const res = await fetch(url, { credentials: 'omit' });
     if (!res.ok) {
       throw new Error('Network error: ' + res.status);
@@ -79,7 +79,6 @@
     params.set('per_page', per_page);
     if (search) params.set('search', search);
     if (categories) params.set('categories', categories);
-    // Explicitly avoid cartoon category via exclude (if needed, but we filter client-side too)
     return API + '/posts?' + params.toString();
   }
 
@@ -114,50 +113,13 @@
   }
 
   /**
-   * Extracts Vimeo/YouTube/Facebook video info from post content.
-   * Video logic stays in main.js only; PostDetail.js will remain a no-op for embeds.
+   * Decode HTML entities.
    */
-  function extractVideoFromContent(post) {
-    if (!post || !post.content || !post.content.rendered) return null;
-    const html = post.content.rendered;
-
-    // Vimeo iframe
-    const vimeoMatch =
-      html.match(/player\.vimeo\.com\/video\/(\d+)/) ||
-      html.match(/vimeo\.com\/(\d+)/);
-    if (vimeoMatch && vimeoMatch[1]) {
-      return { type: 'vimeo', id: vimeoMatch[1] };
-    }
-
-    // YouTube iframe or short URL
-    const ytMatch =
-      html.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{6,})/) ||
-      html.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-    if (ytMatch && ytMatch[1]) {
-      return { type: 'youtube', id: ytMatch[1] };
-    }
-
-    // Facebook video iframe
-    const fbMatch = html.match(/facebook\.com\/plugins\/video\.php\?href=([^"&]+)/);
-    if (fbMatch && fbMatch[1]) {
-      return { type: 'facebook', href: decodeURIComponent(fbMatch[1]) };
-    }
-
-    return null;
-  }
-
-  /**
-   * Special-case fallback for post 381733 (Newsmakers video).
-   * We make sure it always uses Vimeo ID 1126193884 if nothing else is found.
-   */
-  function applySpecialVideoFallback(post, existingVideoInfo) {
-    if (!post || !post.id) return existingVideoInfo;
-    if (post.id === 381733) {
-      if (!existingVideoInfo || existingVideoInfo.type !== 'vimeo') {
-        return { type: 'vimeo', id: '1126193884' };
-      }
-    }
-    return existingVideoInfo;
+  function decodeHtml(html) {
+    if (!html) return '';
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = html;
+    return textarea.value;
   }
 
   /**
@@ -172,7 +134,7 @@
       a.removeAttribute('onclick');
       a.removeAttribute('onmouseover');
       a.removeAttribute('onmouseout');
-      a.setAttribute('target', '_blank');
+      a.setAttribute('target', 'blank');
       a.setAttribute('rel', 'noopener');
     });
     const scripts = wrapper.querySelectorAll('script');
@@ -203,18 +165,14 @@
           day: 'numeric'
         })
       : '';
-    if (authorName && niceDate) return '<strong>' + authorName + '</strong> • ' + niceDate;
-    if (authorName) return '<strong>' + authorName + '</strong>';
+    if (authorName && niceDate) return authorName + ' — ' + niceDate;
+    if (authorName) return authorName;
     if (niceDate) return niceDate;
     return '';
   }
 
   /**
    * Render a single post card into the grid.
-   * Includes:
-   * - cartoon category filter
-   * - global + local seenIds duplicate guard
-   * - summary image (now lazy-loaded, 4:3 aspect ratio via CSS)
    */
   function renderPostCard(grid, post, seenSet) {
     if (!post || !post.id) return;
@@ -258,22 +216,22 @@
       id +
       '">' +
       (img
-        ? '<div class="thumb-inner"><img loading="lazy" src="' +
+        ? '<img src="' +
           img +
           '?cb=' +
           id +
           '" alt="' +
           title.replace(/"/g, '&quot;') +
-          '"></div>'
+          '">'
         : '') +
       '</a>' +
-      '<div class="card-body">' +
-      '<h2 class="title"><a href="#/post/' +
+      '<div class="pad">' +
+      '<h3><a href="#/post/' +
       id +
       '">' +
       title +
-      '</a></h2>' +
-      '<div class="meta">' +
+      '</a></h3>' +
+      '<div class="byline">' +
       byline +
       '</div>' +
       '<div class="excerpt">' +
@@ -282,9 +240,9 @@
       '</div>';
 
     if (post.id === 382365) {
-      const titleEl = card.querySelector('h2.title');
-      if (titleEl) {
-        titleEl.style.marginTop = '40px';
+      const h = card.querySelector('h3');
+      if (h) {
+        h.style.marginTop = '40px';
       }
     }
 
@@ -302,6 +260,8 @@
     for (let i = 0; i < posts.length; i++) {
       renderPostCard(grid, posts[i], seenSet);
     }
+
+    document.body.classList.add('home-has-grid');
   }
 
   // ---------- Grid / Layout Helpers ----------
@@ -385,7 +345,7 @@
     try {
       setLoadingVisible(true);
       const url = buildPostsURL({ page: 1, per_page: 12 });
-      const posts = await fetchJSON(url);
+      const posts = await fetchJson(url);
       const seenSet = new Set();
       renderPostsPage(posts, seenSet);
       homeState.hasState = true;
@@ -428,7 +388,7 @@
     try {
       const nextPage = paging.page + 1;
       const url = buildPostsURL({ page: nextPage, per_page: 12 });
-      const posts = await fetchJSON(url);
+      const posts = await fetchJson(url);
 
       if (Array.isArray(posts) && posts.length > 0) {
         const seenSet = new Set();
@@ -497,7 +457,7 @@
     try {
       setLoadingVisible(true);
       const url = buildPostsURL({ page: 1, per_page: 20, search: q });
-      const posts = await fetchJSON(url);
+      const posts = await fetchJson(url);
       const localSeen = new Set();
       renderPostsPage(posts, localSeen);
     } catch (err) {
@@ -509,207 +469,258 @@
     }
   }
 
-  // ---------- Detail View ----------
-  function renderPostDetail(post) {
-    if (!post) {
-      app.innerHTML =
-        '<section class="post-detail">' +
-        '<p>Sorry, that post could not be found.</p>' +
-        '<button class="back-button">Back to Posts</button>' +
-        '</section>';
-      attachDetailHandlers();
-      return;
-    }
+  // ---------- Tidy helpers for post detail ----------
 
-    const title = (post.title && post.title.rendered) || '(Untitled)';
-    const contentHTML = post.content && post.content.rendered ? post.content.rendered : '';
-
-    const date = post.date_gmt || post.date || null;
-    const niceDate = date
-      ? new Date(date).toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        })
-      : '';
-
-    const authorName =
-      post._embedded &&
-      post._embedded.author &&
-      post._embedded.author[0] &&
-      post._embedded.author[0].name
-        ? post._embedded.author[0].name
-        : '';
-
-    let featuredImageHTML = '';
-    if (
-      post._embedded &&
-      post._embedded['wp:featuredmedia'] &&
-      post._embedded['wp:featuredmedia'][0] &&
-      post._embedded['wp:featuredmedia'][0].source_url
-    ) {
-      const src = post._embedded['wp:featuredmedia'][0].source_url + '?cb=' + post.id;
-      const alt =
-        post._embedded['wp:featuredmedia'][0].alt_text ||
-        title.replace(/"/g, '&quot;');
-      featuredImageHTML =
-        '<figure class="hero-wrap">' +
-        '<img class="hero" src="' +
-        src +
-        '" alt="' +
-        alt +
-        '">' +
-        '</figure>';
-    }
-
-    // Extract video info from content, with special fallback for 381733
-    let videoInfo = extractVideoFromContent(post);
-    videoInfo = applySpecialVideoFallback(post, videoInfo);
-
-    let videoHTML = '';
-    if (videoInfo) {
-      if (videoInfo.type === 'vimeo') {
-        videoHTML =
-          '<div class="video-embed video-embed--click-to-play" data-video-type="vimeo" data-video-id="' +
-          videoInfo.id +
-          '">' +
-          '<button class="video-embed__play" type="button" aria-label="Play video">' +
-          '<span class="video-embed__play-icon">▶</span>' +
-          '<span class="video-embed__play-label">Play Video</span>' +
-          '</button>' +
-          '</div>';
-      } else if (videoInfo.type === 'youtube') {
-        videoHTML =
-          '<div class="video-embed video-embed--click-to-play" data-video-type="youtube" data-video-id="' +
-          videoInfo.id +
-          '">' +
-          '<button class="video-embed__play" type="button" aria-label="Play video">' +
-          '<span class="video-embed__play-icon">▶</span>' +
-          '<span class="video-embed__play-label">Play Video</span>' +
-          '</button>' +
-          '</div>';
-      } else if (videoInfo.type === 'facebook') {
-        videoHTML =
-          '<div class="video-embed video-embed--click-to-play" data-video-type="facebook" data-video-href="' +
-          encodeURIComponent(videoInfo.href) +
-          '">' +
-          '<button class="video-embed__play" type="button" aria-label="Play video">' +
-          '<span class="video-embed__play-icon">▶</span>' +
-          '<span class="video-embed__play-label">Play Video</span>' +
-          '</button>' +
-          '</div>';
+  function tidyArticleSpacing(bodyEl) {
+    if (!bodyEl) return;
+    const wrappers = bodyEl.querySelectorAll(
+      '.wp-block-group, .wp-block-cover, .wp-block-spacer'
+    );
+    wrappers.forEach(function (w) {
+      if (!w.textContent.trim() && !w.querySelector('iframe, video, img')) {
+        w.remove();
       }
-    }
-
-    app.innerHTML =
-      '<article class="post-detail">' +
-      featuredImageHTML +
-      (videoHTML ? '<div class="post-video-block">' + videoHTML + '</div>' : '') +
-      '<header class="post-header">' +
-      '<h1 class="post-title">' +
-      title +
-      '</h1>' +
-      '<div class="post-meta">' +
-      (authorName ? '<span class="post-author"><strong>' + authorName + '</strong></span>' : '') +
-      (niceDate ? '<span class="post-date">' + niceDate + '</span>' : '') +
-      '</div>' +
-      '</header>' +
-      '<div class="post-content">' +
-      contentHTML +
-      '</div>' +
-      '<div class="post-footer">' +
-      '<button class="back-button" type="button">Back to Posts</button>' +
-      '</div>' +
-      '</article>';
-
-    attachDetailHandlers();
-  }
-
-  function attachDetailHandlers() {
-    const backBtn = app.querySelector('.back-button');
-    if (backBtn) {
-      backBtn.addEventListener('click', function () {
-        window.history.back();
-      });
-    }
-
-    const videoBlocks = app.querySelectorAll('.video-embed--click-to-play');
-    videoBlocks.forEach(function (block) {
-      const btn = block.querySelector('.video-embed__play');
-      if (!btn) return;
-
-      btn.addEventListener('click', function () {
-        const type = block.getAttribute('data-video-type');
-        if (!type) return;
-
-        if (type === 'vimeo') {
-          const vid = block.getAttribute('data-video-id');
-          if (!vid) return;
-          const iframe = document.createElement('iframe');
-          iframe.src =
-            'https://player.vimeo.com/video/' +
-            vid +
-            '?autoplay=1&title=0&byline=0&portrait=0';
-          iframe.title = 'Vimeo video';
-          iframe.allow =
-            'autoplay; fullscreen; picture-in-picture; encrypted-media';
-          iframe.allowFullscreen = true;
-          iframe.setAttribute('frameborder', '0');
-          block.innerHTML = '';
-          block.appendChild(iframe);
-        } else if (type === 'youtube') {
-          const vid = block.getAttribute('data-video-id');
-          if (!vid) return;
-          const iframe = document.createElement('iframe');
-          iframe.src =
-            'https://www.youtube.com/embed/' + vid + '?autoplay=1&rel=0';
-          iframe.title = 'YouTube video';
-          iframe.allow =
-            'autoplay; fullscreen; picture-in-picture; encrypted-media';
-          iframe.allowFullscreen = true;
-          iframe.setAttribute('frameborder', '0');
-          block.innerHTML = '';
-          block.appendChild(iframe);
-        } else if (type === 'facebook') {
-          const href = block.getAttribute('data-video-href');
-          if (!href) return;
-          const iframe = document.createElement('iframe');
-          iframe.src =
-            'https://www.facebook.com/plugins/video.php?href=' +
-            href +
-            '&show_text=0&autoplay=1';
-          iframe.title = 'Facebook video';
-          iframe.allow =
-            'autoplay; fullscreen; picture-in-picture; encrypted-media';
-          iframe.allowFullscreen = true;
-          iframe.setAttribute('frameborder', '0');
-          block.innerHTML = '';
-          block.appendChild(iframe);
-        }
-      });
     });
   }
 
-  async function loadPostDetail(id) {
-    if (!id) {
-      renderPostDetail(null);
-      return;
+  function findVideoUrl(html) {
+    if (!html) return null;
+
+    // Vimeo
+    let m =
+      html.match(/https?:\/\/player\.vimeo\.com\/video\/(\d+)/i) ||
+      html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
+    if (m && m[0]) return m[0];
+
+    // YouTube
+    m =
+      html.match(/https?:\/\/www\.youtube\.com\/embed\/[a-zA-Z0-9_-]+/i) ||
+      html.match(/https?:\/\/youtu\.be\/[a-zA-Z0-9_-]+/i);
+    if (m && m[0]) return m[0];
+
+    // Facebook
+    m = html.match(/https?:\/\/www\.facebook\.com\/[^"'<>\s]+/i);
+    if (m && m[0]) return m[0];
+
+    return null;
+  }
+
+  function scrubLeadingEmbedPlaceholders(bodyEl, candidateUrl) {
+    if (!bodyEl || !candidateUrl) return;
+    const maybeEmbeds = bodyEl.querySelectorAll('figure, .wp-block-embed, .wp-block-video');
+
+    for (let i = 0; i < maybeEmbeds.length; i++) {
+      const node = maybeEmbeds[i];
+      const html = node.innerHTML || '';
+      if (html.indexOf(candidateUrl) !== -1) {
+        const prev = node.previousElementSibling;
+        if (prev && !prev.textContent.trim() && !prev.querySelector('img, iframe, video')) {
+          prev.remove();
+        }
+        node.remove();
+        break;
+      }
+    }
+  }
+
+  function buildTagsRow(post) {
+    if (!post || !post._embedded || !post._embedded['wp:term']) return null;
+    const termGroups = post._embedded['wp:term'];
+    let tags = [];
+
+    for (let i = 0; i < termGroups.length; i++) {
+      const group = termGroups[i];
+      if (!Array.isArray(group)) continue;
+      group.forEach(function (term) {
+        if (term && term.taxonomy === 'post_tag') {
+          tags.push(term.name);
+        }
+      });
     }
 
-    if (detailCache.has(id)) {
-      renderPostDetail(detailCache.get(id));
-      return;
-    }
+    if (!tags.length) return null;
 
-    try {
-      const url = buildSinglePostURL(id);
-      const post = await fetchJSON(url);
-      detailCache.set(id, post);
-      renderPostDetail(post);
-    } catch (err) {
-      console.error('[OkObserver] Error loading post detail:', err);
-      renderPostDetail(null);
-    }
+    const row = document.createElement('div');
+    row.className = 'tags-row';
+    row.innerHTML =
+      '<h2 class="tags-title">Tags</h2>' +
+      '<div class="tags-list">' +
+      tags
+        .map(function (t) {
+          return '<span class="tag-pill">' + t + '</span>';
+        })
+        .join('') +
+      '</div>';
+
+    return row;
+  }
+
+  // ---------- Detail ----------
+  function renderDetail(id) {
+    window.onscroll = null;
+    paging.done = true;
+    paging.busy = false;
+
+    // Hide until media/body ready to avoid a flash
+    app.innerHTML = `
+      <article class="post-detail" style="visibility:hidden; min-height:40vh">
+        <div class="hero-wrap" style="position:relative;">
+          <img class="hero" alt="" style="display:none" />
+        </div>
+        <div class="video-slot" style="display:none"></div>
+        <h1 class="detail-title"></h1>
+        <div class="detail-byline" style="font-weight:700;"></div>
+        <div class="post-body"></div>
+        <div class="back-row"><a class="back" href="#/">&larr; Back to Posts</a></div>
+      </article>
+    `;
+
+    const detailEl = app.querySelector('.post-detail');
+    const heroWrap = app.querySelector('.hero-wrap');
+    const hero = app.querySelector('.hero');
+    const titleEl = app.querySelector('.detail-title');
+    const bylineEl = app.querySelector('.detail-byline');
+    const bodyEl = app.querySelector('.post-body');
+
+    if (!detailEl || !heroWrap || !hero || !titleEl || !bylineEl || !bodyEl)
+      return;
+
+    const postId = parseInt(id, 10);
+
+    fetchJson(
+      API +
+        '/posts/' +
+        postId +
+        '?_embed=1'
+    )
+      .then(function (post) {
+        if (!post || !post.id) throw new Error('Post not found');
+
+        const title = decodeHtml((post.title && post.title.rendered) || '');
+        titleEl.textContent = title;
+        document.title = title + ' – The Oklahoma Observer';
+
+        bylineEl.textContent = buildByline(post);
+
+        let img =
+          (post._embedded &&
+            post._embedded['wp:featuredmedia'] &&
+            post._embedded['wp:featuredmedia'][0] &&
+            post._embedded['wp:featuredmedia'][0].source_url) ||
+          '';
+        if (img) {
+          hero.src = img + '?cb=' + post.id;
+          hero.style.display = 'block';
+          hero.alt = title;
+        }
+
+        let bodyHTML = (post.content && post.content.rendered) || '';
+        bodyHTML = decodeHtml(bodyHTML);
+        bodyEl.innerHTML = bodyHTML;
+
+        // scrub empty/ratio wrappers that create leading white gap
+        tidyArticleSpacing(bodyEl);
+
+        const videoSlot = app.querySelector('.video-slot');
+        let candidate = findVideoUrl(bodyHTML);
+
+        // Special case: post 383136 — ensure we use the correct Vimeo URL
+        if (post.id === 383136) {
+          var m383136 = bodyHTML.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
+          );
+          if (m383136 && m383136[0]) {
+            candidate = m383136[0];
+          } else if (!candidate) {
+            candidate = 'https://vimeo.com/1137090361';
+          }
+        }
+
+        const isFB = candidate && /facebook\.com/i.test(candidate);
+
+        if (isFB) {
+          // Turn HERO into a “watch on Facebook” overlay (no separate video box)
+          if (heroWrap && hero) {
+            heroWrap.style.position = 'relative';
+            heroWrap.style.cursor = 'pointer';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'fb-watch-overlay';
+            overlay.innerHTML = `
+              <div class="fb-watch-gradient"></div>
+              <button class="fb-watch-btn" type="button">
+                <span class="icon">▶</span>
+                <span class="label">Watch on Facebook</span>
+              </button>
+            `;
+            heroWrap.appendChild(overlay);
+
+            const openFB = function () {
+              window.open(candidate, '_blank', 'noopener');
+            };
+
+            overlay.addEventListener('click', openFB);
+            heroWrap.addEventListener('click', openFB);
+          }
+        } else if (candidate && videoSlot) {
+          const isVimeo = /vimeo\.com/i.test(candidate);
+          const isYT = /youtube\.com|youtu\.be/i.test(candidate);
+
+          let iframeSrc = candidate;
+
+          if (isVimeo) {
+            const m = candidate.match(/vimeo\.com\/(\d+)/);
+            const id = m && m[1] ? m[1] : '';
+            iframeSrc = 'https://player.vimeo.com/video/' + id + '?title=0&byline=0&portrait=0';
+          } else if (isYT) {
+            const m =
+              candidate.match(/embed\/([a-zA-Z0-9_-]+)/) ||
+              candidate.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+            const id = m && m[1] ? m[1] : '';
+            iframeSrc = 'https://www.youtube.com/embed/' + id + '?rel=0';
+          }
+
+          videoSlot.innerHTML = '';
+          const iframe = document.createElement('iframe');
+          iframe.src = iframeSrc;
+          iframe.width = '640';
+          iframe.height = '360';
+          iframe.allow =
+            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('frameborder', '0');
+          iframe.style.display = 'block';
+          iframe.style.margin = '0 auto';
+          iframe.style.borderRadius = '14px';
+          iframe.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
+
+          videoSlot.appendChild(iframe);
+
+          // Reveal once iframe has loaded or after a short timeout
+          videoSlot.style.display = 'block';
+
+          // Scrub the original embed block so we don't get double players
+          scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        } else {
+          // No custom embed built; leave WP’s own embed (player) in place.
+        }
+
+        // Insert tags row (pill chips) before the Back button, if tags exist
+        const tagsRow = buildTagsRow(post);
+        if (tagsRow) {
+          const backRow = app.querySelector('.back-row');
+          if (backRow && backRow.parentNode) {
+            backRow.parentNode.insertBefore(tagsRow, backRow);
+          }
+        }
+
+        detailEl.style.visibility = 'visible';
+      })
+      .catch(function (err) {
+        console.error('[OkObserver] Error loading post detail:', err);
+        app.innerHTML =
+          '<section class="post-detail error"><p>Sorry, that post could not be found.</p><a class="back" href="#/">&larr; Back to Posts</a></section>';
+      });
   }
 
   // ---------- Home Handlers ----------
@@ -754,7 +765,7 @@
     } else if (route.view === 'search') {
       loadSearchView(route.params.q || '');
     } else if (route.view === 'post') {
-      loadPostDetail(route.params.id);
+      renderDetail(route.params.id);
     } else {
       setRoute('#/');
     }
@@ -858,6 +869,17 @@
   });
 
   window.addEventListener('load', function () {
+    setTimeout(removeLazyloadEmbeds, 800);
+  });
+
+  window.addEventListener('hashchange', function () {
+    setTimeout(removeLazyloadEmbeds, 800);
+  });
+
+  document.addEventListener('okobs:detail-rendered', function (ev) {
+    const hash =
+      (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    if (!hash.startsWith('#/post/')) return;
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
