@@ -1,14 +1,14 @@
 /* 🟢 PostDetail.js — start of full file */
-/* OkObserver Build 2025-11-19R5-lazyFallback383136
+/* OkObserver Build 2025-11-19R6-vimeoIdFix383136
    Video handling:
    - Normalize existing iframes (including lazyload placeholders).
-   - If none, derive an embed URL from links/text.
+   - If none (or if on special posts), derive an embed URL from links/text.
    - Special Vimeo fallbacks for /post/381733 and /post/383136.
 */
 (function(){
   'use strict';
 
-  var BUILD = '2025-11-19R5-lazyFallback383136';
+  var BUILD = '2025-11-19R6-vimeoIdFix383136';
   console.log('[OkObserver] PostDetail Build', BUILD);
 
   function qs(s, r){ return (r||document).querySelector(s); }
@@ -168,19 +168,27 @@
       return;
     }
 
+    var hash = location.hash || '';
+
     var exist = qsa('iframe, .fb-video, .fb-post', body);
     console.log('[OkObserver] enhanceDetail: existing embeds count', exist.length);
     exist.forEach(normalizeIframe);
-    if (exist.length) return;
 
+    // Normally, if WP already gave us embeds, respect them and stop.
+    // But for 381733 and 383136 we WANT to override legacy/broken markup.
+    if (exist.length && !/^#\/post\/(381733|383136)$/.test(hash)) {
+      return;
+    }
+
+    // Try to derive a clean embed URL from the content
     var src = deriveEmbed(body);
     if (src) {
       normalizeIframe(injectIframe(body, src));
       return;
     }
 
-    // Hard fallbacks for posts we *know* are Vimeo-only and currently sanitized
-    var hash = location.hash || '';
+    // Hard fallbacks for posts we *know* are Vimeo-only and may be sanitized
+    // or carry bad legacy IDs in their iframes.
 
     // Old special case: video post 381733 (fallback to Vimeo 1126193884 if needed)
     if (/^#\/post\/381733$/.test(hash)) {
@@ -191,11 +199,13 @@
       return;
     }
 
-    // New special case: Nov ’25 Newsmakers (post 383136, Vimeo 1137098361)
+    // New special case: Nov ’25 Newsmakers (post 383136, Vimeo 1137090361)
+    // Prefer to pull the correct ID from the post content itself.
     if (/^#\/post\/383136$/.test(hash)) {
-      var forcedSrc = 'https://player.vimeo.com/video/1137098361';
-      normalizeIframe(injectIframe(body, forcedSrc));
-      console.log('[OkObserver] Forced Vimeo iframe for /post/383136 (1137098361)');
+      var mm2 = (body.innerText || '').match(/vimeo\.com\/(\d{6,12})/i);
+      var vid2 = (mm2 && mm2[1]) ? mm2[1] : '1137090361';
+      normalizeIframe(injectIframe(body, 'https://player.vimeo.com/video/' + vid2));
+      console.log('[OkObserver] Forced Vimeo iframe for /post/383136 (' + vid2 + ')');
       return;
     }
   }
@@ -209,4 +219,4 @@
   });
 
 })();
- /* 🔴 PostDetail.js — end of full file */
+/* 🔴 PostDetail.js — end of full file */
