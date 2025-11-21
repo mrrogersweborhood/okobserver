@@ -578,7 +578,7 @@
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
-        // Special case: post 383136 — ensure we use the correct Vimeo URL
+                // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
           var m383136 = bodyHTML.match(
             /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
@@ -590,7 +590,13 @@
           }
         }
 
+        // Special case: post 381733 — fallback Vimeo ID 1126193884 if nothing else is detected
+        if (post.id === 381733 && !candidate) {
+          candidate = 'https://vimeo.com/1126193884';
+        }
+
         const isFB = candidate && /facebook\.com/i.test(candidate);
+
 
         if (isFB) {
           // Turn HERO into a “watch on Facebook” overlay (no separate video box)
