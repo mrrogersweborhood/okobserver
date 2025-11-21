@@ -8,6 +8,7 @@
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   let app = document.getElementById('app');
+  let headerNavInitialized = false; // header/hamburger init guard
 
   // Home view state cache (for return-to-summary)
   const homeState = {
@@ -578,15 +579,18 @@
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
-// Special case: post 381733 — ensure we use the correct Vimeo URL
-    if (post.id === 381733) {
-      var m381733 = bodyHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/);
-      if (m381733 && m381733[0]) {
-        candidate = m381733[0];
-      } else if (!candidate) {
-        candidate = 'https://vimeo.com/1126193804';
-      }
-    }
+        // Special case: post 381733 — ensure we use the correct Vimeo URL
+        if (post.id === 381733) {
+          var m381733 = bodyHTML.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/
+          );
+          if (m381733 && m381733[0]) {
+            candidate = m381733[0];
+          } else if (!candidate) {
+            candidate = 'https://vimeo.com/1126193804';
+          }
+        }
+
         // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
           var m383136 = bodyHTML.match(
@@ -637,8 +641,7 @@
           const embed = buildEmbed(candidate, post.id);
           if (embed) {
             videoSlot.style.display = 'none';
-            videoSlot.innerHTML =
-              embed + (buildExternalCTA(candidate) || '');
+            videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
             const iframe = videoSlot.querySelector('iframe');
             let shown = false;
             const showNow = function () {
@@ -897,6 +900,64 @@
     return row;
   }
 
+  // ---------- Header / Hamburger ----------
+  function initHeaderNav() {
+    if (headerNavInitialized) return;
+    headerNavInitialized = true;
+
+    var hamburger = document.querySelector('[data-oo="hamburger"]');
+    var overlay = document.querySelector('[data-oo="overlay"]');
+    var menu = document.querySelector('[data-oo="menu"]');
+
+    if (!hamburger || !overlay || !menu) return;
+
+    function openMenu() {
+      overlay.hidden = false;
+      menu.hidden = false;
+      document.body.classList.add('oo-menu-open');
+      hamburger.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMenu() {
+      overlay.hidden = true;
+      menu.hidden = true;
+      document.body.classList.remove('oo-menu-open');
+      hamburger.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMenu() {
+      var isOpen = !overlay.hidden;
+      if (isOpen) closeMenu();
+      else openMenu();
+    }
+
+    hamburger.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenu();
+    });
+
+    overlay.addEventListener('click', function (e) {
+      e.preventDefault();
+      closeMenu();
+    });
+
+    menu.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'A') {
+        closeMenu();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeMenu();
+      }
+    });
+
+    window.addEventListener('hashchange', closeMenu);
+  }
+
   // ---------- Router ----------
   function handleHashChange() {
     const hash = window.location.hash || '#/';
@@ -942,6 +1003,7 @@
   );
 
   // ---------- Init ----------
+  initHeaderNav();
   handleHashChange();
 
   // ---------- WP lazyload iframe scrubber ----------
