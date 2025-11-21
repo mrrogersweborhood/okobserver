@@ -958,6 +958,67 @@
     window.addEventListener('hashchange', closeMenu);
   }
 
+  // ---------- Header / Hamburger ----------
+  function initHeaderNav() {
+    var hamburger = document.querySelector('[data-oo="hamburger"]');
+    var overlay = document.querySelector('[data-oo="overlay"]');
+    var menu = document.querySelector('[data-oo="menu"]');
+
+    if (!hamburger || !overlay || !menu) return;
+
+    function openMenu() {
+      overlay.hidden = false;
+      menu.hidden = false;
+      document.body.classList.add('is-menu-open');
+      hamburger.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeMenu() {
+      overlay.hidden = true;
+      menu.hidden = true;
+      document.body.classList.remove('is-menu-open');
+      hamburger.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleMenu() {
+      var isOpen = !overlay.hidden;
+      if (isOpen) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    }
+
+    hamburger.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMenu();
+    });
+
+    overlay.addEventListener('click', function (e) {
+      e.preventDefault();
+      closeMenu();
+    });
+
+    menu.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'A') {
+        closeMenu();
+      }
+    });
+
+    window.addEventListener('hashchange', function () {
+      closeMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeMenu();
+      }
+    });
+  }
+
+
   // ---------- Router ----------
   function handleHashChange() {
     const hash = window.location.hash || '#/';
