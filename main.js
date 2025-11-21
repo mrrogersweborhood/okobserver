@@ -578,6 +578,15 @@
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
+// Special case: post 381733 — ensure we use the correct Vimeo URL
+    if (post.id === 381733) {
+      var m381733 = bodyHTML.match(/https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/);
+      if (m381733 && m381733[0]) {
+        candidate = m381733[0];
+      } else if (!candidate) {
+        candidate = 'https://vimeo.com/1126193804';
+      }
+    }
         // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
           var m383136 = bodyHTML.match(
