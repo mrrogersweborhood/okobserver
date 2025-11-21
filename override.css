@@ -3220,3 +3220,17 @@ body > header.oo-header {
 }
 
 /* 🔴 override.css — end of search-hiding patch */
+/* 🟢 override.css — motto should never be a link (2025-11-21R2) */
+.site-motto,
+.site-motto a {
+  pointer-events: none !important;
+  text-decoration: none !important;
+  cursor: default !important;
+}
+
+.site-motto:hover,
+.site-motto a:hover {
+  text-decoration: none !important;
+}
+
+/* 🔴 override.css — end motto patch */
