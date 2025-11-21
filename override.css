@@ -3203,3 +3203,100 @@ body > header.oo-header {
   margin: 0 !important;
   padding: 0 !important;
 }
+/* 🟢 override.css — search view SPA styling (2025-11-21R6) */
+.search-view {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+}
+
+.search-view .search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.search-view .search-bar input[type="text"],
+.search-view .search-bar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #ccd3e0;
+  font-size: 0.95rem;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+
+.search-view .search-bar input[type="text"]:focus-visible,
+.search-view .search-bar input[type="search"]:focus-visible {
+  outline: 2px solid var(--oko-blue);
+  outline-offset: 2px;
+  border-color: var(--oko-blue);
+}
+
+.search-view .search-bar button,
+.search-view .search-bar #search-button {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 0;
+  background: var(--oko-blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  white-space: nowrap;
+}
+
+.search-view .search-bar button:hover,
+.search-view .search-bar #search-button:hover {
+  filter: brightness(1.05);
+}
+
+.search-view .search-bar button:focus-visible,
+.search-view .search-bar #search-button:focus-visible {
+  outline: 3px solid var(--oko-blue);
+  outline-offset: 2px;
+}
+
+#search-status {
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  color: #555;
+}
+
+.search-view .posts-grid.search-grid {
+  column-gap: var(--oko-gap);
+}
+
+.search-view .posts-grid.search-grid .post-card {
+  break-inside: avoid;
+  margin: 0 0 var(--oko-gap);
+}
+
+.searching-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #555;
+}
+
+.searching-indicator .spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--oko-blue);
+  border-top-color: transparent;
+  animation: search-spin 0.8s linear infinite;
+}
+
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 🔴 End search view SPA styling (2025-11-21R6) */
