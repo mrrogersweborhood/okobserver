@@ -1,5 +1,7 @@
-// 🟢 main.js — start of full file
+// 🟢 main.js — start of full file (OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + header/search handler fix)
+
 // OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
+// NOTE: Restored baseline with safer header/search handlers; do not change filename.
 
 (function () {
   'use strict';
@@ -41,7 +43,7 @@
     return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 
@@ -692,10 +694,23 @@
     const searchInput = app.querySelector('#search-input');
     const searchButton = app.querySelector('#search-button');
 
+    function updateSearchPanelVisibility() {
+      if (!searchPanel) return;
+      const isOpen = searchPanel.getAttribute('data-open') === 'true';
+      searchPanel.style.display = isOpen ? 'block' : 'none';
+    }
+
     if (searchToggle && searchPanel) {
+      // Ensure it starts hidden on the Latest News view
+      if (!searchPanel.hasAttribute('data-open')) {
+        searchPanel.setAttribute('data-open', 'false');
+      }
+      updateSearchPanelVisibility();
+
       searchToggle.addEventListener('click', function () {
         const isOpen = searchPanel.getAttribute('data-open') === 'true';
         searchPanel.setAttribute('data-open', isOpen ? 'false' : 'true');
+        updateSearchPanelVisibility();
       });
     }
 
@@ -755,42 +770,69 @@
       motto.style.pointerEvents = 'none';
     }
 
-    const menuToggle = document.querySelector('.hamburger-button');
-    const menuPanel = document.querySelector('.site-menu');
-    const menuBackdrop = document.querySelector('.site-menu-backdrop');
+    // Be flexible about the hamburger button and menu elements so we
+    // don't break when class names shift slightly.
+    const menuToggle =
+      document.querySelector('.hamburger-button') ||
+      document.querySelector('.menu-toggle') ||
+      document.querySelector('.hamburger') ||
+      document.querySelector('.nav-toggle');
+
+    const menuPanel =
+      document.querySelector('.site-menu') ||
+      document.querySelector('.site-nav') ||
+      document.querySelector('.menu-panel');
+
+    const menuBackdrop =
+      document.querySelector('.site-menu-backdrop') ||
+      document.querySelector('.menu-backdrop');
 
     function closeMenu() {
-      if (!menuPanel || !menuBackdrop || !menuToggle) return;
-      menuPanel.setAttribute('data-open', 'false');
-      menuBackdrop.setAttribute('data-open', 'false');
-      menuToggle.setAttribute('aria-expanded', 'false');
       document.body.classList.remove('menu-open');
+      if (menuPanel) {
+        menuPanel.setAttribute('data-open', 'false');
+      }
+      if (menuBackdrop) {
+        menuBackdrop.setAttribute('data-open', 'false');
+      }
+      if (menuToggle) {
+        menuToggle.setAttribute('aria-expanded', 'false');
+      }
     }
 
     function openMenu() {
-      if (!menuPanel || !menuBackdrop || !menuToggle) return;
-      menuPanel.setAttribute('data-open', 'true');
-      menuBackdrop.setAttribute('data-open', 'true');
-      menuToggle.setAttribute('aria-expanded', 'true');
       document.body.classList.add('menu-open');
+      if (menuPanel) {
+        menuPanel.setAttribute('data-open', 'true');
+      }
+      if (menuBackdrop) {
+        menuBackdrop.setAttribute('data-open', 'true');
+      }
+      if (menuToggle) {
+        menuToggle.setAttribute('aria-expanded', 'true');
+      }
     }
 
-    if (menuToggle && menuPanel && menuBackdrop) {
+    if (menuToggle) {
       menuToggle.addEventListener('click', function () {
-        const isOpen = menuPanel.getAttribute('data-open') === 'true';
+        const isOpen = document.body.classList.contains('menu-open');
         if (isOpen) {
           closeMenu();
         } else {
           openMenu();
         }
       });
+    }
 
+    if (menuBackdrop) {
       menuBackdrop.addEventListener('click', function () {
         closeMenu();
       });
+    }
 
+    if (menuPanel) {
       menuPanel.addEventListener('click', function (ev) {
-        if (ev.target.matches('.site-menu a')) {
+        if (ev.target.matches('.site-menu a, .menu-panel a, nav a')) {
           closeMenu();
         }
       });
@@ -841,10 +883,10 @@
   });
 
   document.addEventListener('okobs:detail-rendered', function (ev) {
-    const hash =
-      (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
     if (!hash.startsWith('#/post/')) return;
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes remove WP lazyload iframes helper v2025-11-19R1)
+
+// 🔴 main.js — end of full file (OkObserver baseline restored; header/search handlers made more robust)
