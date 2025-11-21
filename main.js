@@ -1,7 +1,5 @@
-// 🟢 main.js — start of full file (OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + header/search handler fix)
-
+// 🟢 main.js — start of full file
 // OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
-// NOTE: Restored baseline with safer header/search handlers; do not change filename.
 
 (function () {
   'use strict';
@@ -41,108 +39,161 @@
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
-      day: 'numeric',
+      day: '2-digit',
+      year: 'numeric',
     });
   }
 
   function fetchJson(url) {
-    console.log('[OkObserver] fetchJson:', url);
-    return fetch(url, { credentials: 'omit' }).then(function (res) {
-      if (!res.ok) {
-        throw new Error('Network error: ' + res.status);
-      }
-      return res.json();
+    return fetch(url, { credentials: 'omit' }).then(function (r) {
+      if (!r.ok) throw new Error('Network response was not ok');
+      return r.json();
     });
   }
 
-  function buildPostsURL(page) {
-    const params = new URLSearchParams();
-    params.set('_embed', '1');
-    params.set('page', page);
-    params.set('per_page', 12);
-    return API + '/posts?' + params.toString();
+  function createEl(tag, className, html) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (html != null) el.innerHTML = html;
+    return el;
   }
 
-  function buildSearchURL(q) {
-    const params = new URLSearchParams();
-    params.set('_embed', '1');
-    params.set('per_page', 20);
-    params.set('search', q);
-    return API + '/posts?' + params.toString();
+  // ---------- Grid / Layout Helpers ----------
+  function getOrMountGrid() {
+    let grid = app.querySelector('.posts-grid');
+    if (!grid) {
+      app.innerHTML =
+        '<section class="home-view"><div class="posts-grid" aria-live="polite"></div><div id="sentinel" aria-hidden="true"></div></section>';
+      grid = app.querySelector('.posts-grid');
+    }
+    return grid;
   }
 
-  function isCartoonPost(post) {
+  function applyGridObserver() {
+    const grid = app.querySelector('.posts-grid');
+    const sentinel = document.getElementById('sentinel');
+    if (!grid || !sentinel) return;
+
+    if (pagingObserver) {
+      pagingObserver.disconnect();
+    }
+
+    pagingObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            loadMorePosts();
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px 400px 0px',
+        threshold: 0.1,
+      }
+    );
+    pagingObserver.observe(sentinel);
+  }
+
+  // Observe changes in the grid to enforce 4/3/1 columns
+  function enforceGridLayout() {
+    const grid = app.querySelector('.posts-grid');
+    if (!grid) return;
+
+    const applyLayout = function () {
+      grid.style.columnCount = '';
+      const width = window.innerWidth;
+      if (width >= 1200) {
+        grid.style.columnCount = '4';
+      } else if (width >= 768) {
+        grid.style.columnCount = '3';
+      } else {
+        grid.style.columnCount = '1';
+      }
+    };
+
+    applyLayout();
+    window.addEventListener('resize', applyLayout);
+
+    const mo = new MutationObserver(function () {
+      applyLayout();
+    });
+    mo.observe(grid, { childList: true, subtree: true });
+  }
+
+  // ---------- Make Card ----------
+  function sanitizeExcerptKeepAnchors(html) {
+    if (html === void 0) html = '';
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    root.querySelectorAll('script,style,noscript').forEach(function (n) {
+      n.remove();
+    });
+    const out = [];
+    (function collect(node) {
+      node.childNodes.forEach(function (n) {
+        if (n.nodeType === 3) out.push(n.textContent);
+        else if (n.nodeType === 1) {
+          if (n.tagName === 'A') {
+            const a = n.cloneNode(true);
+            a.removeAttribute('onclick');
+            a.removeAttribute('onmouseover');
+            a.removeAttribute('onmouseout');
+            a.setAttribute('target', '_blank');
+            a.setAttribute('rel', 'noopener');
+            out.push(a.outerHTML);
+          } else {
+            collect(n);
+          }
+        }
+      });
+    })(root);
+    return out.join('');
+  }
+
+  function isCartoon(post) {
     if (!post || !post._embedded || !post._embedded['wp:term']) return false;
-    const termGroups = post._embedded['wp:term'];
-    for (let i = 0; i < termGroups.length; i++) {
-      const group = termGroups[i];
-      if (!Array.isArray(group)) continue;
+    const termsArr = post._embedded['wp:term'];
+    for (let i = 0; i < termsArr.length; i++) {
+      const group = termsArr[i];
+      if (!group) continue;
       for (let j = 0; j < group.length; j++) {
         const term = group[j];
-        if (term && term.slug === 'cartoon') {
-          return true;
-        }
+        if (term && term.slug === 'cartoon') return true;
       }
     }
     return false;
   }
 
-  function sanitizeExcerptKeepAnchors(html) {
-    if (!html) return '';
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = html;
-    const anchors = wrapper.querySelectorAll('a');
-    anchors.forEach(function (a) {
-      a.removeAttribute('onclick');
-      a.removeAttribute('onmouseover');
-      a.removeAttribute('onmouseout');
-      a.setAttribute('target', 'blank');
-      a.setAttribute('rel', 'noopener');
-    });
-    const scripts = wrapper.querySelectorAll('script');
-    scripts.forEach(function (s) {
-      s.remove();
-    });
-    return wrapper.innerHTML;
-  }
-
   function buildByline(post) {
-    let authorName = '';
-    if (
-      post._embedded &&
-      post._embedded.author &&
-      post._embedded.author[0] &&
-      post._embedded.author[0].name
-    ) {
-      authorName = post._embedded.author[0].name;
-    }
-    const date = post.date_gmt || post.date || null;
-    const niceDate = formatDate(date);
-    if (authorName && niceDate) return authorName + ' — ' + niceDate;
-    if (authorName) return authorName;
-    if (niceDate) return niceDate;
+    const by =
+      (post._embedded &&
+        post._embedded.author &&
+        post._embedded.author[0] &&
+        post._embedded.author[0].name) ||
+      'Oklahoma Observer';
+    const dateStr = formatDate(post.date);
+    if (by && dateStr) return by + ' — ' + dateStr;
+    if (by) return by;
+    if (dateStr) return dateStr;
     return '';
   }
 
-  // --------- Home grid rendering ---------
   function makeCard(post) {
-    if (!post || !post.id) return null;
-    if (isCartoonPost(post)) {
-      console.log('[OkObserver] Skipping cartoon post', post.id);
-      return null;
-    }
+    const id = post.id;
+    if (seenIds.has(id)) return null;
 
-    if (seenIds.has(post.id) || window.__OKOBS_DUP_GUARD_ENABLED__) {
-      if (seenIds.has(post.id)) {
-        console.log('[OkObserver] Skipping duplicate post', post.id);
-        return null;
-      }
-    }
-    seenIds.add(post.id);
+    if (isCartoon(post)) return null;
 
-    const title = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+    seenIds.add(id);
+
+    const title = decodeHtml((post.title && post.title.rendered) || '');
+    const excerptHtml =
+      (post.excerpt && post.excerpt.rendered) || post.content.rendered || '';
+    const safeExcerpt = sanitizeExcerptKeepAnchors(excerptHtml);
+
+    const byline = buildByline(post);
 
     let img = '';
     if (
@@ -154,34 +205,29 @@
       img = post._embedded['wp:featuredmedia'][0].source_url;
     }
 
-    const excerptHtml =
-      (post.excerpt && post.excerpt.rendered) || (post.content && post.content.rendered) || '';
-    const safeExcerpt = sanitizeExcerptKeepAnchors(excerptHtml);
-    const byline = buildByline(post);
-
     const card = document.createElement('article');
     card.className = 'post-card';
     card.innerHTML =
       '<a class="thumb" href="#/post/' +
-      post.id +
+      id +
       '">' +
       (img
-        ? '<img src="' +
+        ? '<div class="thumb-inner"><img src="' +
           img +
           '?cb=' +
-          post.id +
+          id +
           '" alt="' +
           title.replace(/"/g, '&quot;') +
-          '">'
+          '"></div>'
         : '') +
       '</a>' +
-      '<div class="pad">' +
-      '<h3><a href="#/post/' +
-      post.id +
+      '<div class="card-body">' +
+      '<h2 class="title"><a href="#/post/' +
+      id +
       '">' +
       title +
-      '</a></h3>' +
-      '<div class="byline">' +
+      '</a></h2>' +
+      '<div class="meta">' +
       byline +
       '</div>' +
       '<div class="excerpt">' +
@@ -190,90 +236,257 @@
       '</div>';
 
     if (post.id === 382365) {
-      const h = card.querySelector('h3');
-      if (h) {
-        h.style.marginTop = '40px';
+      const titleEl = card.querySelector('h2.title');
+      if (titleEl) {
+        titleEl.style.marginTop = '40px';
       }
     }
 
     return card;
   }
 
-  function getOrCreateGrid() {
-    let grid = app.querySelector('.posts-grid');
-    if (!grid) {
-      app.innerHTML =
-        '<section class="home-view">' +
-        '<div class="home-header-row">' +
-        '<h1 class="home-title">Latest News</h1>' +
-        '<button class="home-search-toggle" type="button" aria-label="Toggle search">' +
-        '<span class="home-search-toggle-icon">🔍</span>' +
-        '<span class="home-search-toggle-label">Search</span>' +
-        '</button>' +
-        '</div>' +
-        '<div class="home-search-panel" data-open="false">' +
-        '<form id="search-form" class="search-form" autocomplete="off">' +
-        '<label class="search-label" for="search-input">Search</label>' +
-        '<div class="search-input-row">' +
-        '<input id="search-input" type="search" name="q" placeholder="Search posts..." />' +
-        '<button id="search-button" type="submit" class="search-submit">Go</button>' +
-        '</div>' +
-        '<p class="search-hint">Search is instant on submit; results show below.</p>' +
-        '</form>' +
-        '</div>' +
-        '<div class="posts-grid" aria-live="polite"></div>' +
-        '<div id="loading-indicator" class="loading-indicator" aria-hidden="true">' +
-        '<div class="spinner"></div>' +
-        '<span class="loading-text">Loading more posts…</span>' +
-        '</div>' +
-        '<div id="sentinel" aria-hidden="true"></div>' +
-        '</section>';
-      grid = app.querySelector('.posts-grid');
-      attachHomeHandlers();
+  // ------------ Home Renderer ------------
+  function renderHome() {
+    document.title = 'The Oklahoma Observer';
+    const grid = getOrMountGrid();
+    window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+
+    if (homeState.hasState && homeState.gridHTML) {
+      grid.innerHTML = homeState.gridHTML;
+      Object.assign(paging, homeState.paging || {});
+      applyGridObserver();
+      enforceGridLayout();
+      requestAnimationFrame(function () {
+        window.scrollTo(0, homeState.scrollY || 0);
+      });
+      return;
     }
-    return grid;
+
+    grid.innerHTML = '';
+    paging.page = 1;
+    paging.busy = false;
+    paging.done = false;
+    seenIds = new Set();
+
+    loadMorePosts(true);
   }
 
-  function renderPostsPage(posts) {
-    const grid = getOrCreateGrid();
-    if (!grid) return;
-    if (!Array.isArray(posts)) return;
+  let pagingObserver = null;
 
-    posts.forEach(function (post) {
-      const card = makeCard(post);
-      if (card) {
-        grid.appendChild(card);
+  function loadMorePosts(isFirst) {
+    if (paging.busy || paging.done) return;
+    paging.busy = true;
+
+    const url =
+      API +
+      '/posts?per_page=12&page=' +
+      paging.page +
+      '&_embed=1&orderby=date&order=desc';
+
+    fetchJson(url)
+      .then(function (posts) {
+        if (!Array.isArray(posts) || posts.length === 0) {
+          paging.done = true;
+          paging.busy = false;
+          return;
+        }
+
+        const grid = getOrMountGrid();
+        const frag = document.createDocumentFragment();
+        let added = 0;
+
+        for (let i = 0; i < posts.length; i++) {
+          const post = posts[i];
+          if (isCartoon(post)) continue;
+          if (seenIds.has(post.id)) continue;
+          const card = makeCard(post);
+          if (card) {
+            frag.appendChild(card);
+            added++;
+          }
+        }
+
+        if (!added) {
+          paging.page++;
+          paging.busy = false;
+          if (!paging.done) {
+            loadMorePosts();
+          }
+          return;
+        }
+
+        grid.appendChild(frag);
+
+        paging.page++;
+        paging.busy = false;
+
+        applyGridObserver();
+        enforceGridLayout();
+      })
+      .catch(function (err) {
+        console.error('Error loading posts:', err);
+        paging.busy = false;
+      });
+  }
+
+  // ---------- Search ----------
+  let searchAbortController = null;
+  let lastSearchQuery = '';
+  let lastSearchPage = 1;
+  let lastSearchDone = false;
+  let searchBusy = false;
+
+  function renderSearchView() {
+    window.onscroll = null;
+    paging.done = true;
+    paging.busy = false;
+
+    app.innerHTML = `
+      <section class="search-view">
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search posts..." />
+          <button id="search-button" type="button">Search</button>
+        </div>
+        <div id="search-status"></div>
+        <div class="posts-grid search-grid"></div>
+        <div id="search-sentinel" aria-hidden="true"></div>
+      </section>
+    `;
+
+    const input = document.getElementById('search-input');
+    const button = document.getElementById('search-button');
+    const status = document.getElementById('search-status');
+    const grid = app.querySelector('.search-grid');
+    const sentinel = document.getElementById('search-sentinel');
+
+    if (input) input.focus();
+
+    lastSearchQuery = '';
+    lastSearchPage = 1;
+    lastSearchDone = false;
+    searchBusy = false;
+
+    function setStatus(text, isSearching) {
+      status.innerHTML = text;
+      if (isSearching) {
+        status.innerHTML =
+          '<div class="searching-indicator">' +
+          '<div class="spinner"></div>' +
+          '<span>Searching…</span>' +
+          '</div>';
+      }
+    }
+
+    function doSearch(resetPage) {
+      const q = (input.value || '').trim();
+      if (!q) {
+        grid.innerHTML = '';
+        setStatus('', false);
+        return;
+      }
+
+      if (resetPage) {
+        grid.innerHTML = '';
+        lastSearchPage = 1;
+        lastSearchDone = false;
+      }
+
+      if (searchBusy || lastSearchDone) return;
+
+      if (searchAbortController) {
+        searchAbortController.abort();
+      }
+      searchAbortController = new AbortController();
+      const signal = searchAbortController.signal;
+
+      searchBusy = true;
+      setStatus('', true);
+
+      const url =
+        API +
+        '/posts?search=' +
+        encodeURIComponent(q) +
+        '&per_page=15&page=' +
+        lastSearchPage +
+        '&_embed=1&orderby=date&order=desc';
+
+      fetch(url, { signal })
+        .then(function (r) {
+          if (!r.ok) {
+            if (r.status === 400) {
+              lastSearchDone = true;
+              return [];
+            }
+            throw new Error('Search failed');
+          }
+          const total = r.headers.get('X-WP-Total');
+          if (total === '0') {
+            lastSearchDone = true;
+          }
+          return r.json();
+        })
+        .then(function (posts) {
+          if (!Array.isArray(posts) || posts.length === 0) {
+            if (lastSearchPage === 1) {
+              setStatus('No results found.', false);
+            } else {
+              setStatus('No more results.', false);
+            }
+            lastSearchDone = true;
+            return;
+          }
+
+          const frag = document.createDocumentFragment();
+          let added = 0;
+
+          posts.forEach(function (post) {
+            if (isCartoon(post)) return;
+            const card = makeCard(post);
+            if (card) {
+              frag.appendChild(card);
+              added++;
+            }
+          });
+
+          if (!added && !grid.children.length) {
+            setStatus('No results found.', false);
+            lastSearchDone = true;
+            return;
+          }
+
+          grid.appendChild(frag);
+          setStatus('', false);
+          lastSearchPage++;
+        })
+        .catch(function (err) {
+          if (err.name === 'AbortError') return;
+          console.error('Search error:', err);
+          setStatus('Error searching posts.', false);
+        })
+        .finally(function () {
+          searchBusy = false;
+          if (searchObserver && !lastSearchDone) {
+            searchObserver.observe(sentinel);
+          }
+        });
+    }
+
+    button.addEventListener('click', function () {
+      doSearch(true);
+    });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        doSearch(true);
       }
     });
 
-    document.body.classList.add('home-has-grid');
-  }
-
-  function setLoadingVisible(visible) {
-    const el = document.getElementById('loading-indicator');
-    if (!el) return;
-    el.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    if (visible) {
-      el.classList.add('is-visible');
-    } else {
-      el.classList.remove('is-visible');
-    }
-  }
-
-  function applyGridObserver() {
-    const grid = app.querySelector('.posts-grid');
-    const sentinel = document.getElementById('sentinel');
-    if (!grid || !sentinel) return;
-
-    if (paging.observer) {
-      paging.observer.disconnect();
-    }
-
-    paging.observer = new IntersectionObserver(
+    let searchObserver = null;
+    searchObserver = new IntersectionObserver(
       function (entries) {
         entries.forEach(function (entry) {
           if (entry.isIntersecting) {
-            loadNextPage();
+            doSearch(false);
           }
         });
       },
@@ -283,262 +496,26 @@
         threshold: 0.1,
       }
     );
-
-    paging.observer.observe(sentinel);
+    searchObserver.observe(sentinel);
   }
 
-  function applyGridEnforcer() {
-    const grid = app.querySelector('.posts-grid');
-    if (!grid) return;
-
-    const observer = new MutationObserver(function () {
-      grid.classList.remove('grid-refresh');
-      // eslint-disable-next-line no-unused-expressions
-      grid.offsetHeight;
-      grid.classList.add('grid-refresh');
-    });
-
-    observer.observe(grid, { childList: true, subtree: true });
-  }
-
-  // --------- Paging / Home loading ---------
-  function resetHomeState() {
-    homeState.hasState = false;
-    homeState.scrollY = 0;
-    homeState.gridHTML = '';
-    homeState.paging = null;
-  }
-
-  function saveHomeState() {
-    const grid = app.querySelector('.posts-grid');
-    if (!grid) return;
-    homeState.hasState = true;
-    homeState.gridHTML = grid.innerHTML;
-    homeState.scrollY = window.scrollY || 0;
-    homeState.paging = {
-      page: paging.page,
-      busy: paging.busy,
-      done: paging.done,
-    };
-  }
-
-  function restoreHomeState() {
-    const grid = getOrCreateGrid();
-    if (!homeState.hasState || !homeState.gridHTML) return false;
-    grid.innerHTML = homeState.gridHTML;
-    if (homeState.paging) {
-      paging.page = homeState.paging.page;
-      paging.busy = homeState.paging.busy;
-      paging.done = homeState.paging.done;
-    }
-    window.scrollTo(0, homeState.scrollY || 0);
-    applyGridEnforcer();
-    applyGridObserver();
-    return true;
-  }
-
-  function loadHomeInitial() {
-    document.title = 'The Oklahoma Observer';
-    window.__OKOBS_DUP_GUARD_ENABLED__ = true;
-    const grid = getOrCreateGrid();
-    seenIds = new Set();
-    paging.page = 1;
+  // ---------- About ----------
+  function renderAbout() {
+    window.onscroll = null;
+    paging.done = true;
     paging.busy = false;
-    paging.done = false;
-
-    if (restoreHomeState()) {
-      return;
-    }
-
-    setLoadingVisible(true);
-    fetchJson(buildPostsURL(1))
-      .then(function (posts) {
-        renderPostsPage(posts);
-        applyGridEnforcer();
-        applyGridObserver();
-        saveHomeState();
-      })
-      .catch(function (err) {
-        console.error('[OkObserver] Error loading home posts:', err);
-        app.innerHTML =
-          '<section class="home-view error">' +
-          '<h1>Latest News</h1>' +
-          '<p>Sorry, there was a problem loading posts. Please try again later.</p>' +
-          '</section>';
-      })
-      .finally(function () {
-        setLoadingVisible(false);
-      });
-  }
-
-  function loadNextPage() {
-    if (paging.busy || paging.done) return;
-    paging.busy = true;
-    setLoadingVisible(true);
-
-    const nextPage = paging.page + 1;
-    fetchJson(buildPostsURL(nextPage))
-      .then(function (posts) {
-        if (!Array.isArray(posts) || !posts.length) {
-          paging.done = true;
-          return;
-        }
-        renderPostsPage(posts);
-        paging.page = nextPage;
-        saveHomeState();
-      })
-      .catch(function (err) {
-        console.error('[OkObserver] Error loading next page:', err);
-      })
-      .finally(function () {
-        paging.busy = false;
-        setLoadingVisible(false);
-      });
-  }
-
-  // --------- Search view ---------
-  function loadSearchView(q) {
-    if (!q) {
-      location.hash = '#/';
-      return;
-    }
-
-    resetHomeState();
-
     app.innerHTML =
-      '<section class="home-view search-view">' +
-      '<div class="home-header-row">' +
-      '<h1 class="home-title">Search Results</h1>' +
-      '<button class="home-search-toggle" type="button" aria-label="Toggle search">' +
-      '<span class="home-search-toggle-icon">🔍</span>' +
-      '<span class="home-search-toggle-label">Search</span>' +
-      '</button>' +
-      '</div>' +
-      '<div class="home-search-panel" data-open="true">' +
-      '<form id="search-form" class="search-form" autocomplete="off">' +
-      '<label class="search-label" for="search-input">Search</label>' +
-      '<div class="search-input-row">' +
-      '<input id="search-input" type="search" name="q" placeholder="Search OkObserver" value="' +
-      q.replace(/"/g, '&quot;') +
-      '" />' +
-      '<button id="search-button" type="submit" class="search-submit">Go</button>' +
-      '</div>' +
-      '<p class="search-hint">Searching for "' +
-      q.replace(/</g, '&lt;') +
-      '".</p>' +
-      '</form>' +
-      '</div>' +
-      '<div class="posts-grid" id="posts-grid"></div>' +
-      '</section>';
-
-    attachHomeHandlers();
-
-    const grid = app.querySelector('.posts-grid');
-    if (!grid) return;
-
-    setLoadingVisible(true);
-    fetchJson(buildSearchURL(q))
-      .then(function (posts) {
-        seenIds = new Set();
-        renderPostsPage(posts);
-      })
-      .catch(function (err) {
-        console.error('[OkObserver] Error loading search results:', err);
-        grid.innerHTML =
-          '<p>Sorry, there was an error loading search results. Please try again later.</p>';
-      })
-      .finally(function () {
-        setLoadingVisible(false);
-      });
+      '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer is a fiercely independent journal of commentary, reporting, analysis, and advocacy devoted to progressive values, transparency, and fairness in Oklahoma politics and public life.</p></div>';
+    document.title = 'About – The Oklahoma Observer';
   }
 
-  // --------- Detail helpers (video + layout) ---------
-  function tidyArticleSpacing(bodyEl) {
-    if (!bodyEl) return;
-    const wrappers = bodyEl.querySelectorAll(
-      '.wp-block-group, .wp-block-cover, .wp-block-spacer'
-    );
-    wrappers.forEach(function (w) {
-      if (!w.textContent.trim() && !w.querySelector('iframe, video, img')) {
-        w.remove();
-      }
-    });
-  }
-
-  function findVideoUrl(html) {
-    if (!html) return null;
-
-    let m =
-      html.match(/https?:\/\/player\.vimeo\.com\/video\/(\d+)/i) ||
-      html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/i);
-    if (m && m[0]) return m[0];
-
-    m =
-      html.match(/https?:\/\/www\.youtube\.com\/embed\/[a-zA-Z0-9_-]+/i) ||
-      html.match(/https?:\/\/youtu\.be\/[a-zA-Z0-9_-]+/i);
-    if (m && m[0]) return m[0];
-
-    m = html.match(/https?:\/\/www\.facebook\.com\/[^"'<>\s]+/i);
-    if (m && m[0]) return m[0];
-
-    return null;
-  }
-
-  function scrubLeadingEmbedPlaceholders(bodyEl, candidateUrl) {
-    if (!bodyEl || !candidateUrl) return;
-    const maybeEmbeds = bodyEl.querySelectorAll('figure, .wp-block-embed, .wp-block-video');
-
-    for (let i = 0; i < maybeEmbeds.length; i++) {
-      const node = maybeEmbeds[i];
-      const html = node.innerHTML || '';
-      if (html.indexOf(candidateUrl) !== -1) {
-        const prev = node.previousElementSibling;
-        if (prev && !prev.textContent.trim() && !prev.querySelector('img, iframe, video')) {
-          prev.remove();
-        }
-        node.remove();
-        break;
-      }
-    }
-  }
-
-  function buildTagsRow(post) {
-    if (!post || !post._embedded || !post._embedded['wp:term']) return null;
-    const termGroups = post._embedded['wp:term'];
-    let tags = [];
-
-    for (let i = 0; i < termGroups.length; i++) {
-      const group = termGroups[i];
-      if (!Array.isArray(group)) continue;
-      group.forEach(function (term) {
-        if (term && term.taxonomy === 'post_tag') {
-          tags.push(term.name);
-        }
-      });
-    }
-
-    if (!tags.length) return null;
-
-    const row = document.createElement('div');
-    row.className = 'tags-row';
-    row.innerHTML =
-      '<h2 class="tags-title">Tags</h2>' +
-      '<div class="tags-list">' +
-      tags
-        .map(function (t) {
-          return '<span class="tag-pill">' + t + '</span>';
-        })
-        .join('') +
-      '</div>';
-
-    return row;
-  }
-
+  // ---------- Detail ----------
   function renderDetail(id) {
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
 
+    // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <div class="hero-wrap" style="position:relative;">
@@ -559,11 +536,17 @@
     const bylineEl = app.querySelector('.detail-byline');
     const bodyEl = app.querySelector('.post-body');
 
-    if (!detailEl || !heroWrap || !hero || !titleEl || !bylineEl || !bodyEl) return;
+    if (!detailEl || !heroWrap || !hero || !titleEl || !bylineEl || !bodyEl)
+      return;
 
     const postId = parseInt(id, 10);
 
-    fetchJson(API + '/posts/' + postId + '?_embed=1')
+    fetchJson(
+      API +
+        '/posts/' +
+        postId +
+        '?_embed=1'
+    )
       .then(function (post) {
         if (!post || !post.id) throw new Error('Post not found');
 
@@ -589,6 +572,7 @@
         bodyHTML = decodeHtml(bodyHTML);
         bodyEl.innerHTML = bodyHTML;
 
+        // scrub empty/ratio wrappers that create leading white gap
         tidyArticleSpacing(bodyEl);
 
         const videoSlot = app.querySelector('.video-slot');
@@ -609,66 +593,66 @@
         const isFB = candidate && /facebook\.com/i.test(candidate);
 
         if (isFB) {
+          // Turn HERO into a “watch on Facebook” overlay (no separate video box)
           if (heroWrap && hero) {
-            heroWrap.style.position = 'relative';
-            heroWrap.style.cursor = 'pointer';
+            heroWrap.style.borderRadius = '12px';
+            heroWrap.style.overflow = 'hidden';
+            heroWrap.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
+            hero.style.display = 'block';
+            hero.style.width = '100%';
+            hero.style.height = 'auto';
 
-            const overlay = document.createElement('div');
-            overlay.className = 'fb-watch-overlay';
-            overlay.innerHTML = `
-              <div class="fb-watch-gradient"></div>
-              <button class="fb-watch-btn" type="button">
-                <span class="icon">▶</span>
-                <span class="label">Watch on Facebook</span>
-              </button>
-            `;
-            heroWrap.appendChild(overlay);
-
-            const openFB = function () {
-              window.open(candidate, '_blank', 'noopener');
-            };
-
-            overlay.addEventListener('click', openFB);
-            heroWrap.addEventListener('click', openFB);
+            const btn = document.createElement('a');
+            btn.href = candidate;
+            btn.target = '_blank';
+            btn.rel = 'noopener';
+            btn.textContent = 'Watch on Facebook ↗';
+            btn.setAttribute('aria-label', 'Watch on Facebook');
+            Object.assign(btn.style, {
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%,-50%)',
+              background: '#1E90FF',
+              color: '#fff',
+              padding: '12px 18px',
+              borderRadius: '999px',
+              textDecoration: 'none',
+              fontWeight: '700',
+              boxShadow: '0 2px 10px rgba(0,0,0,.25)',
+            });
+            heroWrap.appendChild(btn);
           }
-        } else if (candidate && videoSlot) {
-          const isVimeo = /vimeo\.com/i.test(candidate);
-          const isYT = /youtube\.com|youtu\.be/i.test(candidate);
-
-          let iframeSrc = candidate;
-
-          if (isVimeo) {
-            const m = candidate.match(/vimeo\.com\/(\d+)/);
-            const vid = m && m[1] ? m[1] : '';
-            iframeSrc = 'https://player.vimeo.com/video/' + vid + '?title=0&byline=0&portrait=0';
-          } else if (isYT) {
-            const m =
-              candidate.match(/embed\/([a-zA-Z0-9_-]+)/) ||
-              candidate.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-            const vid = m && m[1] ? m[1] : '';
-            iframeSrc = 'https://www.youtube.com/embed/' + vid + '?rel=0';
-          }
-
-          videoSlot.innerHTML = '';
-          const iframe = document.createElement('iframe');
-          iframe.src = iframeSrc;
-          iframe.width = '640';
-          iframe.height = '360';
-          iframe.allow =
-            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-          iframe.allowFullscreen = true;
-          iframe.setAttribute('frameborder', '0');
-          iframe.style.display = 'block';
-          iframe.style.margin = '0 auto';
-          iframe.style.borderRadius = '14px';
-          iframe.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
-
-          videoSlot.appendChild(iframe);
-          videoSlot.style.display = 'block';
-
           scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        } else {
+          const embed = buildEmbed(candidate, post.id);
+          if (embed) {
+            videoSlot.style.display = 'none';
+            videoSlot.innerHTML =
+              embed + (buildExternalCTA(candidate) || '');
+            const iframe = videoSlot.querySelector('iframe');
+            let shown = false;
+            const showNow = function () {
+              if (shown) return;
+              shown = true;
+              videoSlot.style.display = 'block';
+              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+            };
+            const giveUp = function () {
+              if (shown) return;
+            };
+            iframe &&
+              iframe.addEventListener('load', showNow, { once: true });
+            setTimeout(showNow, 600);
+            setTimeout(giveUp, 4000);
+          } else {
+            // No custom embed built; leave WP’s own embed (player) in place.
+            // tidyArticleSpacing has already removed empty junk, so we skip
+            // extra scrubbing here to avoid nuking a working player.
+          }
         }
 
+        // Insert tags row (pill chips) before the Back button, if tags exist
         const tagsRow = buildTagsRow(post);
         if (tagsRow) {
           const backRow = app.querySelector('.back-row');
@@ -677,204 +661,303 @@
           }
         }
 
-        detailEl.style.visibility = 'visible';
+        requestAnimationFrame(function () {
+          detailEl.style.visibility = 'visible';
+          detailEl.style.minHeight = '';
+        });
       })
-      .catch(function (err) {
-        console.error('[OkObserver] Error loading post detail:', err);
-        app.innerHTML =
-          '<section class="post-detail error"><p>Sorry, that post could not be found.</p><a class="back" href="#/">&larr; Back to Posts</a></section>';
+      .catch(function () {
+        document.title = 'Post – The Oklahoma Observer';
+        const b = app.querySelector('.post-body');
+        if (b) b.textContent = 'Post not found.';
+        requestAnimationFrame(function () {
+          const d = app.querySelector('.post-detail');
+          if (d) {
+            d.style.visibility = 'visible';
+            d.style.minHeight = '';
+          }
+        });
       });
   }
 
-  // --------- Home handlers ---------
-  function attachHomeHandlers() {
-    const searchToggle = app.querySelector('.home-search-toggle');
-    const searchPanel = app.querySelector('.home-search-panel');
-    const searchForm = app.querySelector('#search-form');
-    const searchInput = app.querySelector('#search-input');
-    const searchButton = app.querySelector('#search-button');
+  // ---------- Video Helpers ----------
+  function findVideoUrl(html) {
+    if (!html) return null;
+    let m = html.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+    if (m) return m[0];
+    m = html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/);
+    if (m) return m[0];
+    m = html.match(
+      /https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/
+    );
+    if (m) return m[0];
+    m = html.match(
+      /https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i
+    );
+    if (m) return m[0];
+    m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+/i);
+    if (m) return m[0];
+    return null;
+  }
 
-    function updateSearchPanelVisibility() {
-      if (!searchPanel) return;
-      const isOpen = searchPanel.getAttribute('data-open') === 'true';
-      searchPanel.style.display = isOpen ? 'block' : 'none';
+  function buildEmbed(url, postId) {
+    if (!url) return '';
+    let m = url.match(/vimeo\.com\/(\d+)/);
+    if (m) {
+      const vid = m[1];
+      return (
+        '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
+        '\n              <iframe src="https://player.vimeo.com/video/' +
+        vid +
+        '" title="Vimeo video"\n                  allow="autoplay; fullscreen; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+      );
     }
-
-    if (searchToggle && searchPanel) {
-      // Ensure it starts hidden on the Latest News view
-      if (!searchPanel.hasAttribute('data-open')) {
-        searchPanel.setAttribute('data-open', 'false');
-      }
-      updateSearchPanelVisibility();
-
-      searchToggle.addEventListener('click', function () {
-        const isOpen = searchPanel.getAttribute('data-open') === 'true';
-        searchPanel.setAttribute('data-open', isOpen ? 'false' : 'true');
-        updateSearchPanelVisibility();
-      });
+    m = url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
+    if (m) {
+      const vid2 = m[1];
+      return (
+        '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
+        '\n              <iframe src="https://www.youtube.com/embed/' +
+        vid2 +
+        '?rel=0" title="YouTube video"\n                  allow="autoplay; encrypted-media; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+      );
     }
-
-    if (searchForm && searchInput) {
-      searchForm.addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        const q = searchInput.value.trim();
-        if (!q) return;
-        location.hash = '#/search/' + encodeURIComponent(q);
-      });
+    m = url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+    if (m) {
+      const vid3 = m[1];
+      return (
+        '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
+        '\n              <iframe src="https://www.youtube.com/embed/' +
+        vid3 +
+        '?rel=0" title="YouTube video"\n                  allow="autoplay; encrypted-media; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+      );
     }
+    m = url.match(/facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
+    if (m) {
+      return '';
+    }
+    return '';
+  }
 
-    if (searchButton && searchInput) {
-      searchButton.addEventListener('click', function (ev) {
-        ev.preventDefault();
-        const q = searchInput.value.trim();
-        if (!q) return;
-        location.hash = '#/search/' + encodeURIComponent(q);
-      });
+  function buildExternalCTA(url) {
+    if (!url) return '';
+    if (/facebook\.com/i.test(url)) return '';
+    const isYT = /youtu(?:\.be|be\.com)/i.test(url);
+    const isVM = /vimeo\.com/i.test(url);
+    const label = isYT
+      ? 'Watch on YouTube'
+      : isVM
+      ? 'Watch on Vimeo'
+      : 'Open Video';
+    return (
+      '\n      <div class="ext-cta" style="margin-top:12px">\n        <a href="' +
+      url +
+      '" target="_blank" rel="noopener"\n           style="display:inline-block;background:#1E90FF;color:#fff;padding:10px 16px;border-radius:999px;text-decoration:none;font-weight:600;">' +
+      label +
+      ' ↗</a>\n      </div>'
+    );
+  }
+
+  function tidyArticleSpacing(container) {
+    if (!container) return;
+    const kids = Array.prototype.slice.call(container.children || []);
+    while (kids.length && isTrimmableBlock(kids[0])) {
+      container.removeChild(kids.shift());
     }
   }
 
-  // --------- Routing ---------
-  function handleRouteChange() {
-    const hash = location.hash || '#/';
-    if (hash === '#/' || hash === '#') {
-      loadHomeInitial();
-      return;
-    }
+  function isTrimmableBlock(el) {
+    if (!el || el.nodeType !== 1) return false;
+    const tag = el.tagName;
+    if (
+      tag === 'P' ||
+      tag === 'DIV' ||
+      tag === 'FIGURE' ||
+      tag === 'SPAN' ||
+      tag === 'SECTION'
+    ) {
+      const text = (el.textContent || '').trim();
+      const hasIframe = !!el.querySelector('iframe, video');
+      const style = (el.getAttribute('style') || '').toLowerCase();
+      const looksLikeAspect =
+        /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) &&
+        !hasIframe;
 
-    if (hash.startsWith('#/search/')) {
-      const q = decodeURIComponent(hash.slice('#/search/'.length));
-      loadSearchView(q);
-      return;
+      if (!text && looksLikeAspect) {
+        return true;
+      }
+      if (!text && !hasIframe) {
+        return true;
+      }
     }
-
-    if (hash.startsWith('#/post/')) {
-      const id = hash.slice('#/post/'.length);
-      renderDetail(id);
-      return;
-    }
-
-    location.hash = '#/';
+    return false;
   }
 
-  function attachHeaderNavHandlers() {
-    const logoLink = document.querySelector('.site-logo-link');
-    if (logoLink) {
-      logoLink.addEventListener('click', function (ev) {
-        ev.preventDefault();
-        location.hash = '#/';
-      });
+  // Remove leading embed placeholders in the body that correspond to our candidate URL
+  function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
+    let changed = false;
+
+    while (container.firstElementChild) {
+      const el = container.firstElementChild;
+      const cls = (el.className || '') + '';
+      const html = el.innerHTML || '';
+      const hasIframe = !!el.querySelector('iframe, video');
+      const textContent = el.textContent || '';
+
+      const isWpEmbed =
+        /\bwp-block-embed\b/.test(cls) ||
+        /\bwp-block-video\b/.test(cls) ||
+        /\bwp-embed-aspect\b/.test(cls);
+
+      const isVideoLinkPara =
+        el.tagName === 'P' &&
+        /https?:\/\/(www\.)?(vimeo\.com|youtu\.be|youtube\.com|facebook\.com)\//i.test(
+          textContent
+        );
+
+      let containsCandidate = false;
+      if (urlCandidate) {
+        if (
+          html.indexOf(urlCandidate) !== -1 ||
+          textContent.indexOf(urlCandidate) !== -1
+        ) {
+          containsCandidate = true;
+        }
+      }
+
+      const urlRegex = /https?:\/\/[^\s]+/gi;
+      const stripped = textContent.replace(urlRegex, '').trim();
+      const onlyUrls = !stripped && urlRegex.test(textContent);
+
+      const style = (el.getAttribute('style') || '').toLowerCase();
+      const looksLikeAspect =
+        /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) &&
+        !hasIframe;
+
+      if (
+        isWpEmbed ||
+        isVideoLinkPara ||
+        onlyUrls ||
+        (looksLikeAspect && containsCandidate)
+      ) {
+        container.removeChild(el);
+        changed = true;
+        continue;
+      }
+
+      break;
     }
 
-    const motto = document.querySelector('.site-motto');
-    if (motto) {
-      motto.style.pointerEvents = 'none';
-    }
-
-    // Be flexible about the hamburger button and menu elements so we
-    // don't break when class names shift slightly.
-    const menuToggle =
-      document.querySelector('.hamburger-button') ||
-      document.querySelector('.menu-toggle') ||
-      document.querySelector('.hamburger') ||
-      document.querySelector('.nav-toggle');
-
-    const menuPanel =
-      document.querySelector('.site-menu') ||
-      document.querySelector('.site-nav') ||
-      document.querySelector('.menu-panel');
-
-    const menuBackdrop =
-      document.querySelector('.site-menu-backdrop') ||
-      document.querySelector('.menu-backdrop');
-
-    function closeMenu() {
-      document.body.classList.remove('menu-open');
-      if (menuPanel) {
-        menuPanel.setAttribute('data-open', 'false');
-      }
-      if (menuBackdrop) {
-        menuBackdrop.setAttribute('data-open', 'false');
-      }
-      if (menuToggle) {
-        menuToggle.setAttribute('aria-expanded', 'false');
+    if (changed) {
+      const kids = Array.prototype.slice.call(container.children || []);
+      while (kids.length && isTrimmableBlock(kids[0])) {
+        container.removeChild(kids.shift());
       }
     }
+  }
 
-    function openMenu() {
-      document.body.classList.add('menu-open');
-      if (menuPanel) {
-        menuPanel.setAttribute('data-open', 'true');
-      }
-      if (menuBackdrop) {
-        menuBackdrop.setAttribute('data-open', 'true');
-      }
-      if (menuToggle) {
-        menuToggle.setAttribute('aria-expanded', 'true');
-      }
-    }
+  // Build tags row (pill chips)
+  function buildTagsRow(post) {
+    if (!post || !post._embedded || !post._embedded['wp:term']) return null;
+    const termGroups = post._embedded['wp:term'];
+    let tags = [];
 
-    if (menuToggle) {
-      menuToggle.addEventListener('click', function () {
-        const isOpen = document.body.classList.contains('menu-open');
-        if (isOpen) {
-          closeMenu();
-        } else {
-          openMenu();
+    for (let i = 0; i < termGroups.length; i++) {
+      const group = termGroups[i];
+      if (!Array.isArray(group)) continue;
+      group.forEach(function (term) {
+        if (term && term.taxonomy === 'post_tag') {
+          tags.push(term);
         }
       });
     }
 
-    if (menuBackdrop) {
-      menuBackdrop.addEventListener('click', function () {
-        closeMenu();
-      });
-    }
+    if (!tags.length) return null;
 
-    if (menuPanel) {
-      menuPanel.addEventListener('click', function (ev) {
-        if (ev.target.matches('.site-menu a, .menu-panel a, nav a')) {
-          closeMenu();
-        }
-      });
-    }
-  }
+    const row = document.createElement('div');
+    row.className = 'tags-row';
+    row.setAttribute('aria-label', 'Post tags');
 
-  function removeLazyloadEmbeds() {
-    const lazyIframes = document.querySelectorAll('iframe[data-lazy-src]');
-    lazyIframes.forEach(function (iframe) {
-      if (iframe.dataset.lazySrc) {
-        iframe.src = iframe.dataset.lazySrc;
-        iframe.removeAttribute('data-lazy-src');
-      }
+    tags.forEach(function (tag) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = tag.name;
+      row.appendChild(chip);
     });
 
-    const lazyImgs = document.querySelectorAll('img[data-lazy-src]');
-    lazyImgs.forEach(function (img) {
-      if (img.dataset.lazySrc) {
-        img.src = img.dataset.lazySrc;
-        img.removeAttribute('data-lazy-src');
-      }
-    });
+    return row;
   }
 
-  window.addEventListener('hashchange', handleRouteChange);
-  window.addEventListener('DOMContentLoaded', function () {
-    attachHeaderNavHandlers();
-    handleRouteChange();
-
-    setTimeout(function () {
+  // ---------- Router ----------
+  function handleHashChange() {
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '') {
+      homeState.hasState = true;
       const grid = app.querySelector('.posts-grid');
       if (grid) {
-        grid.classList.remove('grid-refresh');
-        // eslint-disable-next-line no-unused-expressions
-        grid.offsetHeight;
-        grid.classList.add('grid-refresh');
+        homeState.gridHTML = grid.innerHTML;
+        homeState.paging = {
+          page: paging.page,
+          busy: paging.busy,
+          done: paging.done,
+        };
       }
-      applyGridObserver();
-    }, 0);
-  });
+      homeState.scrollY = window.scrollY || 0;
+      renderHome();
+    } else if (hash === '#/about') {
+      renderAbout();
+    } else if (hash === '#/search') {
+      renderSearchView();
+    } else if (hash.indexOf('#/post/') === 0) {
+      const id = hash.replace('#/post/', '');
+      renderDetail(id);
+    } else {
+      renderHome();
+    }
+  }
 
-  window.addEventListener('load', function () {
+  window.addEventListener('hashchange', handleHashChange);
+
+  // ---------- Motto Click Guard ----------
+  document.addEventListener(
+    'click',
+    function (e) {
+      const motto = document.querySelector('.oo-motto');
+      if (!motto) return;
+      if (motto.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true
+  );
+
+  // ---------- Init ----------
+  handleHashChange();
+
+  // ---------- WP lazyload iframe scrubber ----------
+  function removeLazyloadEmbeds() {
+    const body = document.querySelector('.post-detail .post-body');
+    if (!body) return;
+
+    const lazyIframes = body.querySelectorAll('iframe.lazyload, iframe[data-src]');
+    lazyIframes.forEach(function (ifr) {
+      const ds = ifr.getAttribute('data-src') || '';
+      if (!ds) {
+        ifr.parentNode && ifr.parentNode.removeChild(ifr);
+        return;
+      }
+      if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com/i.test(ds)) {
+        ifr.setAttribute('src', ds);
+        ifr.removeAttribute('data-src');
+        ifr.classList.remove('lazyload');
+      } else {
+        ifr.parentNode && ifr.parentNode.removeChild(ifr);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
     setTimeout(removeLazyloadEmbeds, 800);
   });
 
@@ -883,10 +966,10 @@
   });
 
   document.addEventListener('okobs:detail-rendered', function (ev) {
-    const hash = (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
+    const hash =
+      (ev && ev.detail && ev.detail.hash) || (location.hash || '#/');
     if (!hash.startsWith('#/post/')) return;
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-
-// 🔴 main.js — end of full file (OkObserver baseline restored; header/search handlers made more robust)
+// 🔴 main.js — end of full file (includes remove WP lazyload iframes helper v2025-11-19R1)
