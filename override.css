@@ -3300,3 +3300,16 @@ body > header.oo-header {
   }
 }
 /* 🔴 End search view SPA styling (2025-11-21R6) */
+/* 🟢 override.css — search layout tweak (2025-11-21R7) */
+/* Make search results grid use the same width feel as the home grid */
+.search-view {
+  max-width: 1200px;   /* match #app */
+  padding-left: 0;     /* let #app padding handle the left/right spacing */
+  padding-right: 0;
+}
+
+/* Add a bit of top margin so the grid doesn't crowd the bar */
+.search-view .posts-grid.search-grid {
+  margin-top: 0.75rem;
+}
+/* 🔴 end search layout tweak (2025-11-21R7) */
