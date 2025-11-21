@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-20R1-381733VideoFix
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-20R1-381733VideoFix';
+  const BUILD = '2025-11-19R8-mainVideo383136';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -29,9 +29,20 @@
   // --------- Utilities ---------
   function decodeHtml(html) {
     if (!html) return '';
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = html;
-    return textarea.value;
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   }
 
   function fetchJson(url) {
@@ -106,13 +117,7 @@
       authorName = post._embedded.author[0].name;
     }
     const date = post.date_gmt || post.date || null;
-    const niceDate = date
-      ? new Date(date).toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })
-      : '';
+    const niceDate = formatDate(date);
     if (authorName && niceDate) return authorName + ' — ' + niceDate;
     if (authorName) return authorName;
     if (niceDate) return niceDate;
@@ -587,7 +592,7 @@
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
-        // Special case: post 383136 — ensure we use the correct Vimeo URL 1137090361
+        // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
           var m383136 = bodyHTML.match(
             /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
@@ -596,18 +601,6 @@
             candidate = m383136[0];
           } else if (!candidate) {
             candidate = 'https://vimeo.com/1137090361';
-          }
-        }
-
-        // Special case: post 381733 — ensure we use the correct Vimeo URL 1126193804
-        if (post.id === 381733) {
-          var m381733 = bodyHTML.match(
-            /https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/
-          );
-          if (m381733 && m381733[0]) {
-            candidate = m381733[0];
-          } else if (!candidate) {
-            candidate = 'https://vimeo.com/1126193804';
           }
         }
 
@@ -854,4 +847,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (381733 Vimeo ID corrected to 1126193804)
+// 🔴 main.js — end of full file (includes remove WP lazyload iframes helper v2025-11-19R1)
