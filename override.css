@@ -3211,3 +3211,12 @@ body > header.oo-header {
   display: none !important;
 }
 /* 🔴 override.css — end of search-hiding patch */
+/* 🟢 override.css — hide legacy inline search on home view (2025-11-21R1) */
+/* This only hides the old home-page search pill + panel. */
+
+.home-view .home-header-row .home-search-toggle,
+.home-view .home-search-panel {
+  display: none !important;
+}
+
+/* 🔴 override.css — end of search-hiding patch */
