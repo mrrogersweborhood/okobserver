@@ -28,6 +28,13 @@
   window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
   // --------- Utilities ---------
+
+  // Loader overlay hide helper
+  function hideLoadingOverlay() {
+    const overlay = document.getElementById('okobs-loading-overlay');
+    if (overlay) overlay.classList.add('okobs-hidden');
+  }
+
   function decodeHtml(html) {
     if (!html) return '';
     const txt = document.createElement('textarea');
@@ -344,6 +351,7 @@ return finalizeCard();
 
         applyGridObserver();
         enforceGridLayout();
+        if (isFirst) hideLoadingOverlay();
       })
       .catch(function (err) {
         console.error('Error loading posts:', err);

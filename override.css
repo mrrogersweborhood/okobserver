@@ -3335,3 +3335,26 @@ body > header.oo-header {
   line-height: 1.2;
   white-space: nowrap;
 }
+/* OkObserver loading overlay – Spinning O */
+#okobs-loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  z-index: 9999;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+#okobs-loading-overlay.okobs-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#okobs-loading-video {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 50%;
+}
