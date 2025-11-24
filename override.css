@@ -3313,3 +3313,25 @@ body > header.oo-header {
   margin-top: 0.75rem;
 }
 /* 🔴 end search layout tweak (2025-11-21R7) */
+/* 🟢 override.css — tag pill reinforcement */
+
+/* Tag row just above the Back button on detail pages */
+.tags-row {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Individual tag “pills” */
+.tag-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: #e6f2ff;
+  color: #1E90FF;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
