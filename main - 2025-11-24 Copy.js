@@ -1,9 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
+// OkObserver Main JS — Build 2025-11-21R8-observerMicro1
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-19R8-mainVideo383136';
+  const BUILD = '2025-11-21R8-observerMicro1';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -71,32 +71,6 @@
     return grid;
   }
 
-  function applyGridObserver() {
-    const grid = app.querySelector('.posts-grid');
-    const sentinel = document.getElementById('sentinel');
-    if (!grid || !sentinel) return;
-
-    if (pagingObserver) {
-      pagingObserver.disconnect();
-    }
-
-    pagingObserver = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            loadMorePosts();
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: '0px 0px 400px 0px',
-        threshold: 0.1,
-      }
-    );
-    pagingObserver.observe(sentinel);
-  }
-
   // Observe changes in the grid to enforce 4/3/1 columns
   function enforceGridLayout() {
     const grid = app.querySelector('.posts-grid');
@@ -121,6 +95,34 @@
       applyLayout();
     });
     mo.observe(grid, { childList: true, subtree: true });
+  }
+
+  let pagingObserver = null;
+
+  function applyGridObserver() {
+    const grid = app.querySelector('.posts-grid');
+    const sentinel = document.getElementById('sentinel');
+    if (!grid || !sentinel) return;
+
+    if (pagingObserver) {
+      pagingObserver.disconnect();
+    }
+
+    pagingObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            loadMorePosts();
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px 400px 0px',
+        threshold: 0.1,
+      }
+    );
+    pagingObserver.observe(sentinel);
   }
 
   // ---------- Make Card ----------
@@ -243,28 +245,7 @@
       }
     }
 
-    /* 🟩 BEGIN FALLBACK SNIPPET — REPLACES final `return card;` */
-
-/* Wrap the existing return logic */
-function finalizeCard() {
-  card.innerHTML = card.innerHTML; // placeholder, user will replace with actual content
-  return card;
-}
-
-/* Try API fallback only if no embedded image but featured_media exists */
-if (!img && post.featured_media) {
-  return fetchJson(API + '/media/' + post.featured_media)
-    .then(media => {
-      if (media?.source_url) img = media.source_url;
-      return finalizeCard();
-    })
-    .catch(() => finalizeCard());
-}
-
-/* Default behavior */
-return finalizeCard();
-
-/* 🟥 END FALLBACK SNIPPET */
+    return card;
   }
 
   // ------------ Home Renderer ------------
@@ -290,10 +271,13 @@ return finalizeCard();
     paging.done = false;
     seenIds = new Set();
 
+    // For a fresh home session, set up infinite scroll + layout once,
+    // then let loadMorePosts handle page-by-page appends.
+    applyGridObserver();
+    enforceGridLayout();
+
     loadMorePosts(true);
   }
-
-  let pagingObserver = null;
 
   function loadMorePosts(isFirst) {
     if (paging.busy || paging.done) return;
@@ -342,7 +326,8 @@ return finalizeCard();
         paging.page++;
         paging.busy = false;
 
-        applyGridObserver();
+        // Observer setup now happens once per home session in renderHome().
+        // We still enforce layout after each batch of posts.
         enforceGridLayout();
       })
       .catch(function (err) {
@@ -1038,7 +1023,6 @@ return finalizeCard();
       }
     });
   }
-
 
   // ---------- Router ----------
   function handleHashChange() {
