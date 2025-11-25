@@ -1,15 +1,12 @@
-/* 🟢 sw.js — start of full file
-   OkObserver Service Worker — Full safe update with cache guard
-   Fixes: "Partial response is unsupported" error
+// 🟢 sw.js — start of full file
+/* OkObserver Service Worker — Build 2025-11-25-SWfix1
+   Scope: /okobserver/
+   Strategy:
+   - HTML (navigation): network-first, offline fallback to cached index.
+   - Static assets (CSS/JS/images): cache-first with guarded network fill.
 */
 
- /* OkObserver Service Worker — Build 2025-11-24-loader1
-    Scope: /okobserver/
-    Strategy:
-    - HTML (navigation): network-first, offline fallback to cached index.
-    - Static assets (CSS/JS/images): cache-first with network fill.
- */
-const SW_BUILD   = '2025-11-25-SR2'; // Will bump after deploy
+const SW_BUILD   = '2025-11-25-SWfix1';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list
@@ -57,16 +54,10 @@ function isHTML(req) {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // HTML navigation requests → network-first
+  // HTML navigation → pure network-first, no dynamic caching
   if (isHTML(req)) {
     event.respondWith(
-      fetch(req).then((resp) => {
-        // Only cache if response is fully valid
-        if (resp && resp.ok && resp.status === 200 && resp.type !== 'opaque') {
-          caches.open(CACHE_NAME).then((c) => c.put(req, resp.clone()));
-        }
-        return resp;
-      }).catch(async () => {
+      fetch(req).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
         const match =
           (await cache.match(req, { ignoreSearch: true })) ||
@@ -82,23 +73,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Other assets → cache-first
+  // Other assets → cache-first with guarded network fill
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(req);
       if (cached) return cached;
       try {
         const fresh = await fetch(req);
-        // Guard before caching
         if (fresh && fresh.ok && fresh.status === 200 && fresh.type !== 'opaque') {
           cache.put(req, fresh.clone());
         }
         return fresh;
       } catch (err) {
+        // If we had a cached version, we already returned it above.
         return new Response('', { status: 504 });
       }
     })
   );
 });
-
 // 🔴 sw.js — end of full file
