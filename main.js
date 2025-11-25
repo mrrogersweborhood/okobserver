@@ -24,11 +24,10 @@
     done: false,
   };
 
-  // 🟢 main.js — router state helper for scroll restoration
-  let lastHash = window.location.hash || '#/';
-
   let seenIds = new Set();
   window.__OKOBS_DUP_GUARD_ENABLED__ = false;
+
+  let lastHash = window.location.hash || '#/';
 
   // --------- Utilities ---------
 
@@ -253,30 +252,7 @@
       }
     }
 
-    /* 🟩 BEGIN FALLBACK SNIPPET — REPLACES final `return card;` */
-
-    /* Wrap the existing return logic */
-    function finalizeCard() {
-      card.innerHTML = card.innerHTML; // placeholder, user will replace with actual content
-      return card;
-    }
-
-    /* Try API fallback only if no embedded image but featured_media exists */
-    if (!img && post.featured_media) {
-      return fetchJson(API + '/media/' + post.featured_media)
-        .then(function (media) {
-          if (media && media.source_url) img = media.source_url;
-          return finalizeCard();
-        })
-        .catch(function () {
-          return finalizeCard();
-        });
-    }
-
-    /* Default behavior */
-    return finalizeCard();
-
-    /* 🟥 END FALLBACK SNIPPET */
+    return card;
   }
 
   // ------------ Home Renderer ------------
@@ -583,7 +559,7 @@
         '?_embed=1'
     )
       .then(function (post) {
-        if (!post or !post.id) throw new Error('Post not found');
+        if (!post || !post.id) throw new Error('Post not found');
 
         const title = decodeHtml((post.title && post.title.rendered) || '');
         titleEl.textContent = title;
@@ -733,13 +709,9 @@
     if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (m) return m[0];
-    m = html.match(
-      /https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/
-    );
+    m = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/);
     if (m) return m[0];
-    m = html.match(
-      /https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i
-    );
+    m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
     if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+/i);
     if (m) return m[0];
@@ -790,11 +762,8 @@
     if (/facebook\.com/i.test(url)) return '';
     const isYT = /youtu(?:\.be|be\.com)/i.test(url);
     const isVM = /vimeo\.com/i.test(url);
-    const label = isYT
-      ? 'Watch on YouTube'
-      : isVM
-      ? 'Watch on Vimeo'
-      : 'Open Video';
+    const label =
+      isYT ? 'Watch on YouTube' : isVM ? 'Watch on Vimeo' : 'Open Video';
     return (
       '\n      <div class="ext-cta" style="margin-top:12px">\n        <a href="' +
       url +
@@ -992,91 +961,26 @@
     window.addEventListener('hashchange', closeMenu);
   }
 
-  // ---------- Header / Hamburger ----------
-  function initHeaderNav() {
-    var hamburger = document.querySelector('[data-oo="hamburger"]');
-    var overlay = document.querySelector('[data-oo="overlay"]');
-    var menu = document.querySelector('[data-oo="menu"]');
-
-    if (!hamburger || !overlay || !menu) return;
-
-    function openMenu() {
-      overlay.hidden = false;
-      menu.hidden = false;
-      document.body.classList.add('is-menu-open');
-      hamburger.setAttribute('aria-expanded', 'true');
-    }
-
-    function closeMenu() {
-      overlay.hidden = true;
-      menu.hidden = true;
-      document.body.classList.remove('is-menu-open');
-      hamburger.setAttribute('aria-expanded', 'false');
-    }
-
-    function toggleMenu() {
-      var isOpen = !overlay.hidden;
-      if (isOpen) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
-    }
-
-    hamburger.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleMenu();
-    });
-
-    overlay.addEventListener('click', function (e) {
-      e.preventDefault();
-      closeMenu();
-    });
-
-    menu.addEventListener('click', function (e) {
-      var t = e.target;
-      if (t && t.tagName === 'A') {
-        closeMenu();
-      }
-    });
-
-    window.addEventListener('hashchange', function () {
-      closeMenu();
-    });
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' || e.key === 'Esc') {
-        closeMenu();
-      }
-    });
-  }
-
-  // ---------- Router scroll snapshot helper ----------
-  function snapshotHomeState() {
-    var grid = app.querySelector('.posts-grid');
-    if (!grid) return;
-
-    homeState.hasState = true;
-    homeState.gridHTML = grid.innerHTML;
-    homeState.paging = {
-      page: paging.page,
-      busy: paging.busy,
-      done: paging.done,
-    };
-    homeState.scrollY = window.scrollY || 0;
-  }
-
   // ---------- Router ----------
   function handleHashChange() {
-    var hash = window.location.hash || '#/';
-    var previous = lastHash || '#/';
-    var wasHome = previous === '#/' || previous === '';
-    var goingHome = hash === '#/' || hash === '';
+    const hash = window.location.hash || '#/';
+    const previous = lastHash || '#/';
+    const wasHome = previous === '#/' || previous === '';
+    const goingHome = hash === '#/' || hash === '';
 
-    // When navigating away from home, capture the grid + scroll state
+    // If we are leaving home, capture the home grid + scroll state
     if (wasHome && !goingHome) {
-      snapshotHomeState();
+      const grid = app.querySelector('.posts-grid');
+      if (grid) {
+        homeState.hasState = true;
+        homeState.gridHTML = grid.innerHTML;
+        homeState.paging = {
+          page: paging.page,
+          busy: paging.busy,
+          done: paging.done,
+        };
+        homeState.scrollY = window.scrollY || 0;
+      }
     }
 
     if (goingHome) {
@@ -1086,7 +990,7 @@
     } else if (hash === '#/search') {
       renderSearchView();
     } else if (hash.indexOf('#/post/') === 0) {
-      var id = hash.replace('#/post/', '');
+      const id = hash.replace('#/post/', '');
       renderDetail(id);
     } else {
       renderHome();
