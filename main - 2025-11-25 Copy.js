@@ -24,9 +24,6 @@
     done: false,
   };
 
-  // 🟢 main.js — router state helper for scroll restoration
-  let lastHash = window.location.hash || '#/';
-
   let seenIds = new Set();
   window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
@@ -255,28 +252,26 @@
 
     /* 🟩 BEGIN FALLBACK SNIPPET — REPLACES final `return card;` */
 
-    /* Wrap the existing return logic */
-    function finalizeCard() {
-      card.innerHTML = card.innerHTML; // placeholder, user will replace with actual content
-      return card;
-    }
+/* Wrap the existing return logic */
+function finalizeCard() {
+  card.innerHTML = card.innerHTML; // placeholder, user will replace with actual content
+  return card;
+}
 
-    /* Try API fallback only if no embedded image but featured_media exists */
-    if (!img && post.featured_media) {
-      return fetchJson(API + '/media/' + post.featured_media)
-        .then(function (media) {
-          if (media && media.source_url) img = media.source_url;
-          return finalizeCard();
-        })
-        .catch(function () {
-          return finalizeCard();
-        });
-    }
+/* Try API fallback only if no embedded image but featured_media exists */
+if (!img && post.featured_media) {
+  return fetchJson(API + '/media/' + post.featured_media)
+    .then(media => {
+      if (media?.source_url) img = media.source_url;
+      return finalizeCard();
+    })
+    .catch(() => finalizeCard());
+}
 
-    /* Default behavior */
-    return finalizeCard();
+/* Default behavior */
+return finalizeCard();
 
-    /* 🟥 END FALLBACK SNIPPET */
+/* 🟥 END FALLBACK SNIPPET */
   }
 
   // ------------ Home Renderer ------------
@@ -583,7 +578,7 @@
         '?_embed=1'
     )
       .then(function (post) {
-        if (!post or !post.id) throw new Error('Post not found');
+        if (!post || !post.id) throw new Error('Post not found');
 
         const title = decodeHtml((post.title && post.title.rendered) || '');
         titleEl.textContent = title;
@@ -1052,47 +1047,33 @@
     });
   }
 
-  // ---------- Router scroll snapshot helper ----------
-  function snapshotHomeState() {
-    var grid = app.querySelector('.posts-grid');
-    if (!grid) return;
-
-    homeState.hasState = true;
-    homeState.gridHTML = grid.innerHTML;
-    homeState.paging = {
-      page: paging.page,
-      busy: paging.busy,
-      done: paging.done,
-    };
-    homeState.scrollY = window.scrollY || 0;
-  }
 
   // ---------- Router ----------
   function handleHashChange() {
-    var hash = window.location.hash || '#/';
-    var previous = lastHash || '#/';
-    var wasHome = previous === '#/' || previous === '';
-    var goingHome = hash === '#/' || hash === '';
-
-    // When navigating away from home, capture the grid + scroll state
-    if (wasHome && !goingHome) {
-      snapshotHomeState();
-    }
-
-    if (goingHome) {
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '') {
+      homeState.hasState = true;
+      const grid = app.querySelector('.posts-grid');
+      if (grid) {
+        homeState.gridHTML = grid.innerHTML;
+        homeState.paging = {
+          page: paging.page,
+          busy: paging.busy,
+          done: paging.done,
+        };
+      }
+      homeState.scrollY = window.scrollY || 0;
       renderHome();
     } else if (hash === '#/about') {
       renderAbout();
     } else if (hash === '#/search') {
       renderSearchView();
     } else if (hash.indexOf('#/post/') === 0) {
-      var id = hash.replace('#/post/', '');
+      const id = hash.replace('#/post/', '');
       renderDetail(id);
     } else {
       renderHome();
     }
-
-    lastHash = hash;
   }
 
   window.addEventListener('hashchange', handleHashChange);
