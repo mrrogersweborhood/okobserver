@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1-spanButton+mobileSafeguards
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS-mobile1 + loaderSafe1
 
 (function () {
   'use strict';
@@ -285,6 +285,8 @@
       requestAnimationFrame(function () {
         window.scrollTo(0, homeState.scrollY || 0);
       });
+      // Ensure overlay is hidden when restoring cached home view
+      hideLoadingOverlay();
       return;
     }
 
@@ -314,6 +316,10 @@
         if (!Array.isArray(posts) || posts.length === 0) {
           paging.done = true;
           paging.busy = false;
+          if (isFirst) {
+            // No posts (or error-like response) on first load → hide overlay
+            hideLoadingOverlay();
+          }
           return;
         }
 
@@ -338,6 +344,9 @@
           if (!paging.done) {
             loadMorePosts();
           }
+          if (isFirst) {
+            hideLoadingOverlay();
+          }
           return;
         }
 
@@ -353,6 +362,9 @@
       .catch(function (err) {
         console.error('Error loading posts:', err);
         paging.busy = false;
+        paging.done = true;
+        // On error, don't trap the user behind the spinner
+        hideLoadingOverlay();
       });
   }
 
@@ -1184,4 +1196,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes TTS mobile safeguards v2025-11-25-TTS-mobile1)
+// 🔴 main.js — end of full file (includes loaderSafe1 + TTS mobile safeguards)
