@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1-spanButton
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1-spanButton+mobileSafeguards
 
 (function () {
   'use strict';
@@ -556,6 +556,8 @@
     btn.style.padding = '0';
     btn.style.color = '#1E90FF'; // OkObserver blue everywhere
     btn.style.display = 'inline-block';
+    // Kill orange tap highlight on mobile browsers
+    btn.style.webkitTapHighlightColor = 'rgba(0,0,0,0)';
 
     const row = document.createElement('div');
     row.className = 'listen-row';
@@ -585,8 +587,14 @@
         if (b) textParts.push(b + '.');
         if (bodyText) textParts.push(bodyText);
 
-        const fullText = textParts.join(' ');
+        let fullText = textParts.join(' ');
         if (!fullText) return;
+
+        // Mobile safety: cap length so very long posts don't break TTS
+        var MAX_TTS_LEN = 8000;
+        if (fullText.length > MAX_TTS_LEN) {
+          fullText = fullText.slice(0, MAX_TTS_LEN);
+        }
 
         stopTTS();
 
@@ -1176,4 +1184,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes TTS listen button span v2025-11-25-TTS-span)
+// 🔴 main.js — end of full file (includes TTS mobile safeguards v2025-11-25-TTS-mobile1)
