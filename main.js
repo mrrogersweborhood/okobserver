@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS-mobile1 + loaderSafe1
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2
 
 (function () {
   'use strict';
@@ -295,6 +295,12 @@
     paging.busy = false;
     paging.done = false;
     seenIds = new Set();
+
+    // Failsafe: if something goes wrong with the first load,
+    // make sure the overlay doesn’t stay stuck forever.
+    setTimeout(function () {
+      hideLoadingOverlay();
+    }, 12000);
 
     loadMorePosts(true);
   }
@@ -1196,4 +1202,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes loaderSafe1 + TTS mobile safeguards)
+// 🔴 main.js — end of full file (includes loaderSafe2 + TTS mobile safeguards)
