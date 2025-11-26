@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1 (listen button)
 
 (function () {
   'use strict';
@@ -28,6 +28,22 @@
   window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
   let lastHash = window.location.hash || '#/';
+
+  // --- Text-to-Speech (TTS) state ---
+  let ttsCurrentUtterance = null;
+  let ttsIsPaused = false;
+
+  function stopTTS() {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {
+        // ignore
+      }
+    }
+    ttsCurrentUtterance = null;
+    ttsIsPaused = false;
+  }
 
   // --------- Utilities ---------
 
@@ -520,11 +536,96 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
+  // --- TTS helper: build & attach the listen button ---
+  function setupListenButton(titleEl, bylineEl, bodyEl) {
+    if (!titleEl || !bylineEl || !bodyEl) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'listen-btn';
+    btn.innerHTML = '🔊';
+    btn.setAttribute('aria-label', 'Listen to this article');
+
+    // Minimal styling inline to avoid CSS file changes
+    btn.style.background = 'none';
+    btn.style.border = 'none';
+    btn.style.cursor = 'pointer';
+    btn.style.fontSize = '1.4rem';
+    btn.style.margin = '8px 0 4px 0';
+    btn.style.padding = '0';
+
+    const row = document.createElement('div');
+    row.className = 'listen-row';
+    row.appendChild(btn);
+
+    bylineEl.insertAdjacentElement('afterend', row);
+
+    const supported = 'speechSynthesis' in window;
+    if (!supported) {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+      btn.title = 'Listening is not supported in this browser.';
+      return;
+    }
+
+    btn.addEventListener('click', function () {
+      if (!('speechSynthesis' in window)) return;
+
+      // Start fresh if nothing is currently queued
+      if (!ttsCurrentUtterance) {
+        const textParts = [];
+        const t = (titleEl.textContent || '').trim();
+        const b = (bylineEl.textContent || '').trim();
+        const bodyText = (bodyEl.textContent || '').trim();
+
+        if (t) textParts.push(t + '.');
+        if (b) textParts.push(b + '.');
+        if (bodyText) textParts.push(bodyText);
+
+        const fullText = textParts.join(' ');
+        if (!fullText) return;
+
+        stopTTS();
+
+        const utterance = new SpeechSynthesisUtterance(fullText);
+        ttsCurrentUtterance = utterance;
+        ttsIsPaused = false;
+        btn.innerHTML = '⏸';
+
+        utterance.onend = function () {
+          ttsCurrentUtterance = null;
+          ttsIsPaused = false;
+          btn.innerHTML = '🔊';
+        };
+        utterance.onerror = function () {
+          ttsCurrentUtterance = null;
+          ttsIsPaused = false;
+          btn.innerHTML = '🔊';
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } else if (!ttsIsPaused) {
+        // Currently speaking → pause
+        window.speechSynthesis.pause();
+        ttsIsPaused = true;
+        btn.innerHTML = '▶️';
+      } else {
+        // Currently paused → resume
+        window.speechSynthesis.resume();
+        ttsIsPaused = false;
+        btn.innerHTML = '⏸';
+      }
+    });
+  }
+
   // ---------- Detail ----------
   function renderDetail(id) {
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
+
+    stopTTS();
 
     // Hide until media/body ready to avoid a flash
     app.innerHTML = `
@@ -682,6 +783,9 @@
             backRow.parentNode.insertBefore(tagsRow, backRow);
           }
         }
+
+        // Attach the listen (TTS) button just under the byline
+        setupListenButton(titleEl, bylineEl, bodyEl);
 
         requestAnimationFrame(function () {
           detailEl.style.visibility = 'visible';
@@ -996,6 +1100,11 @@
 
   window.addEventListener('hashchange', handleHashChange);
 
+  // Stop TTS when navigating away from a detail view
+  window.addEventListener('hashchange', function () {
+    stopTTS();
+  });
+
   // ---------- Motto Click Guard ----------
   document.addEventListener(
     'click',
@@ -1051,4 +1160,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes remove WP lazyload iframes helper v2025-11-19R1)
+// 🔴 main.js — end of full file (includes TTS listen button v2025-11-25-TTS1)
