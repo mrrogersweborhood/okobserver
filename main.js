@@ -917,14 +917,14 @@
     function openMenu() {
       overlay.hidden = false;
       menu.hidden = false;
-      document.body.classList.add('oo-menu-open');
+      document.body.classList.add('oo-menu-open', 'is-menu-open');
       hamburger.setAttribute('aria-expanded', 'true');
     }
 
     function closeMenu() {
       overlay.hidden = true;
       menu.hidden = true;
-      document.body.classList.remove('oo-menu-open');
+      document.body.classList.remove('oo-menu-open', 'is-menu-open');
       hamburger.setAttribute('aria-expanded', 'false');
     }
 
