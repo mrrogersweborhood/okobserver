@@ -553,6 +553,7 @@
     btn.style.fontSize = '1.4rem';
     btn.style.margin = '8px 0 4px 0';
     btn.style.padding = '0';
+    btn.style.color = '#1E90FF'; // Force OkObserver blue on mobile & desktop
 
     const row = document.createElement('div');
     row.className = 'listen-row';
@@ -1160,4 +1161,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes TTS listen button v2025-11-25-TTS1)
+// 🔴 main.js — end of full file (includes TTS listen button v2025-11-25-TTS1+color)
