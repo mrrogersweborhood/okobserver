@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2 + scrollRestoreFix1
 
 (function () {
   'use strict';
@@ -277,6 +277,7 @@
     const grid = getOrMountGrid();
     window.__OKOBS_DUP_GUARD_ENABLED__ = true;
 
+    // Restore from cached home state (grid + paging + scroll)
     if (homeState.hasState && homeState.gridHTML) {
       grid.innerHTML = homeState.gridHTML;
       Object.assign(paging, homeState.paging || {});
@@ -290,6 +291,7 @@
       return;
     }
 
+    // Fresh load path
     grid.innerHTML = '';
     paging.page = 1;
     paging.busy = false;
@@ -1110,34 +1112,43 @@
     window.addEventListener('hashchange', closeMenu);
   }
 
-  // ---------- Router ----------
+  // ---------- Router with correct scroll/grid snapshot ----------
   function handleHashChange() {
-    const hash = window.location.hash || '#/';
-    if (hash === '#/' || hash === '') {
-      homeState.hasState = true;
+    const newHash = window.location.hash || '#/';
+    const prevHash = lastHash || '#/';
+
+    // If we are leaving the home view (#/) to any other route,
+    // snapshot the current grid + paging + scroll so we can restore it later.
+    const prevWasHome = prevHash === '#/' || prevHash === '';
+    const nextIsHome = newHash === '#/' || newHash === '';
+    if (prevWasHome && !nextIsHome) {
       const grid = app.querySelector('.posts-grid');
       if (grid) {
+        homeState.hasState = true;
         homeState.gridHTML = grid.innerHTML;
         homeState.paging = {
           page: paging.page,
           busy: paging.busy,
           done: paging.done,
         };
+        homeState.scrollY = window.scrollY || 0;
       }
-      homeState.scrollY = window.scrollY || 0;
+    }
+
+    if (nextIsHome) {
       renderHome();
-    } else if (hash === '#/about') {
+    } else if (newHash === '#/about') {
       renderAbout();
-    } else if (hash === '#/search') {
+    } else if (newHash === '#/search') {
       renderSearchView();
-    } else if (hash.indexOf('#/post/') === 0) {
-      const id = hash.replace('#/post/', '');
+    } else if (newHash.indexOf('#/post/') === 0) {
+      const id = newHash.replace('#/post/', '');
       renderDetail(id);
     } else {
       renderHome();
     }
 
-    lastHash = hash;
+    lastHash = newHash;
   }
 
   window.addEventListener('hashchange', handleHashChange);
@@ -1202,4 +1213,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes loaderSafe2 + TTS mobile safeguards)
+// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1)
