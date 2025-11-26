@@ -930,8 +930,11 @@
 
     function toggleMenu() {
       var isOpen = !overlay.hidden;
-      if (isOpen) closeMenu();
-      else openMenu();
+      if (isOpen) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
     }
 
     hamburger.addEventListener('click', function (e) {
@@ -964,26 +967,18 @@
   // ---------- Router ----------
   function handleHashChange() {
     const hash = window.location.hash || '#/';
-    const previous = lastHash || '#/';
-    const wasHome = previous === '#/' || previous === '';
-    const goingHome = hash === '#/' || hash === '';
-
-    // If we are leaving home, capture the home grid + scroll state
-    if (wasHome && !goingHome) {
+    if (hash === '#/' || hash === '') {
+      homeState.hasState = true;
       const grid = app.querySelector('.posts-grid');
       if (grid) {
-        homeState.hasState = true;
         homeState.gridHTML = grid.innerHTML;
         homeState.paging = {
           page: paging.page,
           busy: paging.busy,
           done: paging.done,
         };
-        homeState.scrollY = window.scrollY || 0;
       }
-    }
-
-    if (goingHome) {
+      homeState.scrollY = window.scrollY || 0;
       renderHome();
     } else if (hash === '#/about') {
       renderAbout();
