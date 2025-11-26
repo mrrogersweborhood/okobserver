@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1 (listen button)
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS1-spanButton
 
 (function () {
   'use strict';
@@ -540,10 +540,11 @@
   function setupListenButton(titleEl, bylineEl, bodyEl) {
     if (!titleEl || !bylineEl || !bodyEl) return;
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const btn = document.createElement('span');
     btn.className = 'listen-btn';
     btn.innerHTML = '🔊';
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
     btn.setAttribute('aria-label', 'Listen to this article');
 
     // Minimal styling inline to avoid CSS file changes
@@ -553,7 +554,8 @@
     btn.style.fontSize = '1.4rem';
     btn.style.margin = '8px 0 4px 0';
     btn.style.padding = '0';
-    btn.style.color = '#1E90FF'; // Force OkObserver blue on mobile & desktop
+    btn.style.color = '#1E90FF'; // OkObserver blue everywhere
+    btn.style.display = 'inline-block';
 
     const row = document.createElement('div');
     row.className = 'listen-row';
@@ -563,14 +565,13 @@
 
     const supported = 'speechSynthesis' in window;
     if (!supported) {
-      btn.disabled = true;
       btn.style.opacity = '0.5';
       btn.style.cursor = 'not-allowed';
       btn.title = 'Listening is not supported in this browser.';
       return;
     }
 
-    btn.addEventListener('click', function () {
+    function handleActivate() {
       if (!('speechSynthesis' in window)) return;
 
       // Start fresh if nothing is currently queued
@@ -616,6 +617,20 @@
         window.speechSynthesis.resume();
         ttsIsPaused = false;
         btn.innerHTML = '⏸';
+      }
+    }
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleActivate();
+    });
+
+    btn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleActivate();
       }
     });
   }
@@ -1161,4 +1176,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (includes TTS listen button v2025-11-25-TTS1+color)
+// 🔴 main.js — end of full file (includes TTS listen button span v2025-11-25-TTS-span)
