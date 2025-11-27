@@ -1,5 +1,9 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2 + scrollRestoreFix1 + ttsIconFix1
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
+// + TTS mobile
+// + loaderSafe2
+// + scrollRestoreFix1
+// + ttsIconFix2 (larger tap target + more robust state)
 
 (function () {
   'use strict';
@@ -567,17 +571,21 @@
     btn.setAttribute('tabindex', '0');
     btn.setAttribute('aria-label', 'Listen to this article');
 
-    // Minimal styling inline to avoid CSS file changes
+    // Touch-friendly styling inline to avoid CSS file changes
     btn.style.background = 'none';
     btn.style.border = 'none';
     btn.style.cursor = 'pointer';
-    btn.style.fontSize = '1.4rem';
-    btn.style.margin = '8px 0 4px 0';
-    btn.style.padding = '0';
+    btn.style.fontSize = '1.6rem';
+    btn.style.margin = '10px 0 6px 0';
+    btn.style.padding = '6px 10px';
+    btn.style.borderRadius = '999px';
     btn.style.color = '#1E90FF'; // OkObserver blue everywhere
     btn.style.display = 'inline-block';
-    // Kill orange tap highlight on mobile browsers
+    btn.style.lineHeight = '1.2';
+    btn.style.touchAction = 'manipulation';
+    // Kill orange tap highlight on some mobile browsers
     btn.style.webkitTapHighlightColor = 'rgba(0,0,0,0)';
+    btn.style.opacity = '1';
 
     const row = document.createElement('div');
     row.className = 'listen-row';
@@ -595,6 +603,16 @@
 
     function handleActivate() {
       if (!('speechSynthesis' in window)) return;
+
+      // If the browser thinks nothing is speaking and we *do* have an
+      // internal utterance, clear it so the next tap always starts fresh.
+      if (
+        ttsCurrentUtterance &&
+        !window.speechSynthesis.speaking &&
+        !ttsIsPaused
+      ) {
+        ttsCurrentUtterance = null;
+      }
 
       // Start fresh if nothing is currently queued
       if (!ttsCurrentUtterance) {
@@ -621,28 +639,33 @@
         const utterance = new SpeechSynthesisUtterance(fullText);
         ttsCurrentUtterance = utterance;
         ttsIsPaused = false;
+        btn.style.opacity = '1';
 
-        // NOTE: we keep the visual icon as 🔊 at all times to avoid
-        // platform-specific colored play/pause emoji (orange on Android).
+        // We keep the visual icon as 🔊 at all times to avoid
+        // platform-specific colored play/pause emoji.
 
         utterance.onend = function () {
           ttsCurrentUtterance = null;
           ttsIsPaused = false;
+          btn.style.opacity = '1';
         };
         utterance.onerror = function () {
           ttsCurrentUtterance = null;
           ttsIsPaused = false;
+          btn.style.opacity = '1';
         };
 
         window.speechSynthesis.speak(utterance);
       } else if (!ttsIsPaused) {
-        // Currently speaking → pause (icon stays the same)
+        // Currently speaking → pause (slight dim for feedback)
         window.speechSynthesis.pause();
         ttsIsPaused = true;
+        btn.style.opacity = '0.6';
       } else {
-        // Currently paused → resume (icon stays the same)
+        // Currently paused → resume
         window.speechSynthesis.resume();
         ttsIsPaused = false;
+        btn.style.opacity = '1';
       }
     }
 
@@ -1211,4 +1234,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix1)
+// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2)
