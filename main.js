@@ -3,7 +3,8 @@
 // + TTS mobile
 // + loaderSafe2
 // + scrollRestoreFix1
-// + ttsIconFix2 (larger tap target + more robust state)
+// + ttsIconFix2
+// + pagingUX1 (earlier trigger + blue "Loading more…" pill)
 
 (function () {
   'use strict';
@@ -119,7 +120,8 @@
       },
       {
         root: null,
-        rootMargin: '0px 0px 400px 0px',
+        // Earlier trigger so mobile has time to fetch before you hit bottom
+        rootMargin: '0px 0px 900px 0px',
         threshold: 0.1,
       }
     );
@@ -150,6 +152,39 @@
       applyLayout();
     });
     mo.observe(grid, { childList: true, subtree: true });
+  }
+
+  // --- Paging status helper: blue "Loading more…" pill ---
+  function showPagingStatus() {
+    const grid = app.querySelector('.home-view .posts-grid');
+    if (!grid) return;
+    let status = document.getElementById('okobs-paging-status');
+    if (!status) {
+      status = document.createElement('div');
+      status.id = 'okobs-paging-status';
+      status.textContent = 'Loading more…';
+      status.setAttribute('aria-live', 'polite');
+      status.style.display = 'inline-block';
+      status.style.margin = '16px auto 8px auto';
+      status.style.padding = '8px 16px';
+      status.style.borderRadius = '999px';
+      status.style.background = '#1E90FF'; // OkObserver blue
+      status.style.color = '#ffffff';
+      status.style.fontWeight = '600';
+      status.style.fontSize = '0.95rem';
+      status.style.textAlign = 'center';
+      status.style.boxShadow = '0 2px 8px rgba(0,0,0,.18)';
+      status.style.userSelect = 'none';
+    }
+    status.hidden = false;
+    if (!status.parentNode) {
+      grid.insertAdjacentElement('afterend', status);
+    }
+  }
+
+  function hidePagingStatus() {
+    const status = document.getElementById('okobs-paging-status');
+    if (status) status.hidden = true;
   }
 
   // ---------- Make Card ----------
@@ -292,6 +327,7 @@
       });
       // Ensure overlay is hidden when restoring cached home view
       hideLoadingOverlay();
+      hidePagingStatus();
       return;
     }
 
@@ -301,6 +337,7 @@
     paging.busy = false;
     paging.done = false;
     seenIds = new Set();
+    hidePagingStatus();
 
     // Failsafe: if something goes wrong with the first load,
     // make sure the overlay doesn’t stay stuck forever.
@@ -316,6 +353,7 @@
   function loadMorePosts(isFirst) {
     if (paging.busy || paging.done) return;
     paging.busy = true;
+    showPagingStatus();
 
     const url =
       API +
@@ -328,6 +366,7 @@
         if (!Array.isArray(posts) || posts.length === 0) {
           paging.done = true;
           paging.busy = false;
+          hidePagingStatus();
           if (isFirst) {
             // No posts (or error-like response) on first load → hide overlay
             hideLoadingOverlay();
@@ -353,6 +392,7 @@
         if (!added) {
           paging.page++;
           paging.busy = false;
+          hidePagingStatus();
           if (!paging.done) {
             loadMorePosts();
           }
@@ -366,6 +406,7 @@
 
         paging.page++;
         paging.busy = false;
+        hidePagingStatus();
 
         applyGridObserver();
         enforceGridLayout();
@@ -375,6 +416,7 @@
         console.error('Error loading posts:', err);
         paging.busy = false;
         paging.done = true;
+        hidePagingStatus();
         // On error, don't trap the user behind the spinner
         hideLoadingOverlay();
       });
@@ -391,6 +433,7 @@
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
+    hidePagingStatus();
 
     app.innerHTML = `
       <section class="search-view">
@@ -555,6 +598,7 @@
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
+    hidePagingStatus();
     app.innerHTML =
       '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer is a fiercely independent journal of commentary, reporting, analysis, and advocacy devoted to progressive values, transparency, and fairness in Oklahoma politics and public life.</p></div>';
     document.title = 'About – The Oklahoma Observer';
@@ -689,6 +733,7 @@
     window.onscroll = null;
     paging.done = true;
     paging.busy = false;
+    hidePagingStatus();
 
     stopTTS();
 
@@ -1234,4 +1279,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2)
+// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2 + pagingUX1)
