@@ -1,5 +1,5 @@
 // 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2 + scrollRestoreFix1
+// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136 + TTS mobile + loaderSafe2 + scrollRestoreFix1 + ttsIconFix1
 
 (function () {
   'use strict';
@@ -621,30 +621,28 @@
         const utterance = new SpeechSynthesisUtterance(fullText);
         ttsCurrentUtterance = utterance;
         ttsIsPaused = false;
-        btn.innerHTML = '⏸';
+
+        // NOTE: we keep the visual icon as 🔊 at all times to avoid
+        // platform-specific colored play/pause emoji (orange on Android).
 
         utterance.onend = function () {
           ttsCurrentUtterance = null;
           ttsIsPaused = false;
-          btn.innerHTML = '🔊';
         };
         utterance.onerror = function () {
           ttsCurrentUtterance = null;
           ttsIsPaused = false;
-          btn.innerHTML = '🔊';
         };
 
         window.speechSynthesis.speak(utterance);
       } else if (!ttsIsPaused) {
-        // Currently speaking → pause
+        // Currently speaking → pause (icon stays the same)
         window.speechSynthesis.pause();
         ttsIsPaused = true;
-        btn.innerHTML = '▶️';
       } else {
-        // Currently paused → resume
+        // Currently paused → resume (icon stays the same)
         window.speechSynthesis.resume();
         ttsIsPaused = false;
-        btn.innerHTML = '⏸';
       }
     }
 
@@ -1213,4 +1211,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1)
+// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix1)
