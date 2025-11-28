@@ -3358,3 +3358,46 @@ body > header.oo-header {
   max-height: 200px;
   border-radius: 50%;
 }
+/* === About Page Layout Styles (2025-11-28) === */
+/* All styles scoped to .about-page so nothing else gets touched */
+
+.about-page {
+  padding: 12px;
+}
+
+.about-page .about-grid {
+  display: grid;
+  gap: 16px;
+}
+
+/* Mobile (default = stacked cards) */
+.about-page .about-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  padding: 16px;
+}
+
+/* Images inside cards */
+.about-page .about-image-wrap img,
+.about-page .about-logo-wrap img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+  margin: 8px 0;
+}
+
+/* Titles use existing h1 style but ensure spacing */
+.about-page h1 {
+  margin-top: 0;
+  font-weight: 700;
+  color: #1E90FF; /* OkObserver Blue */
+}
+
+/* Desktop breakpoint */
+@media (min-width: 768px) {
+  .about-page .about-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

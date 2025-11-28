@@ -579,49 +579,14 @@
 
   // ---------- About ----------
   function renderAbout() {
-  window.onscroll = null;
-  paging.done = true;
-  paging.busy = false;
-  hidePagingStatus();
-  if (typeof stopTTS === 'function') {
-    stopTTS();
+    window.onscroll = null;
+    paging.done = true;
+    paging.busy = false;
+    hidePagingStatus();
+    app.innerHTML =
+      '<div class="post-detail"><h1>About</h1><p>The Oklahoma Observer is a fiercely independent journal of commentary, reporting, analysis, and advocacy devoted to progressive values, transparency, and fairness in Oklahoma politics and public life.</p></div>';
+    document.title = 'About – The Oklahoma Observer';
   }
-  app.innerHTML = `
-    <article class="post-detail about-page">
-      <div class="about-grid">
-        <section class="about-card about-contact">
-          <h1>Contact Us</h1>
-          <p>Have a question, story tip, or subscription issue? Email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we’ll respond during normal business hours.</p>
-          <div class="about-image-wrap">
-            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2022/07/Contact-Us-600x375.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Contact us key on a computer keyboard">
-          </div>
-        </section>
-        <section class="about-card about-mission">
-          <div class="about-logo-wrap">
-            <img src="logo.png" alt="The Oklahoma Observer logo" class="about-logo">
-          </div>
-          <h1>About The Oklahoma Observer</h1>
-          <div class="about-image-wrap">
-            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2008/11/Frosty-Arnold-300x172.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Frosty Troy and Arnold Hamilton at the Oklahoma Capitol">
-          </div>
-          <p>For more than half a century, The Oklahoma Observer has provided independent reporting, commentary, and analysis for readers who want more than the state’s usual media coverage. Our mission is to comfort people who are hurting and challenge those who hold power.</p>
-          <p>We focus on Oklahoma government, politics, and public life, with special attention to public education, health and human services, civil liberties, and the separation of church and state. The Observer is often described as a conscience for Oklahoma because we shine light on hypocrisy and corruption wherever it appears.</p>
-          <p>The Observer began under Father John Joyce, then was transformed into an award-winning independent journal under Frosty and Helen Troy. Since 2006, Arnold and Beverly Hamilton have carried the work forward into the magazine’s second century, publishing the Observer each month in print and online.</p>
-        </section>
-        <section class="about-card about-editor">
-          <h1>Arnold Hamilton, Editor</h1>
-          <div class="about-image-wrap">
-            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2018/01/Arnold-Dec17-1000x-191x300.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Arnold Hamilton, editor of The Oklahoma Observer">
-          </div>
-          <p>Arnold Hamilton has led The Oklahoma Observer as editor since 2006. Before joining the Observer, he spent more than three decades in daily newspapers, reporting for outlets including the Dallas Morning News, San Jose Mercury News, Dallas Times Herald, Tulsa Tribune, and Oklahoma Journal.</p>
-          <p>His work has focused on politics and government at the state Capitols of Oklahoma, Texas, and California, as well as national campaigns and party conventions. Hamilton’s reporting has earned multiple honors, including awards for his coverage of the Oklahoma City bombing, major college sports scandals, and civil liberties issues. He is a member of the Oklahoma Journalism Hall of Fame.</p>
-        </section>
-      </div>
-    </article>
-  `;
-  document.title = 'About – The Oklahoma Observer';
-}
-
 
   // --- TTS helper: build & attach the listen button ---
   function setupListenButton(titleEl, bylineEl, bodyEl) {
