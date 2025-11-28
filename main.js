@@ -4,7 +4,8 @@
 // + loaderSafe2
 // + scrollRestoreFix1
 // + ttsIconFix2
-// + pagingUX1 (earlier trigger + blue "Loading more…" pill)
+// + pagingUX1
+// + ttsMobileLongPostFix1 (shorter text + whitespace normalize)
 
 (function () {
   'use strict';
@@ -502,7 +503,7 @@
         encodeURIComponent(q) +
         '&per_page=15&page=' +
         lastSearchPage +
-        '&_embed=1&orderby=date&order=desc';
+        '&_embed=1&orderby=date&order=desc`;
 
       fetch(url, { signal })
         .then(function (r) {
@@ -672,8 +673,12 @@
         let fullText = textParts.join(' ');
         if (!fullText) return;
 
-        // Mobile safety: cap length so very long posts don't break TTS
-        var MAX_TTS_LEN = 8000;
+        // Normalize whitespace to keep the string compact for mobile TTS
+        fullText = fullText.replace(/\s+/g, ' ').trim();
+
+        // Mobile safety: cap length so very long posts don't break TTS.
+        // (This is tightened from 8000 → 3500 to handle long posts like 381804.)
+        var MAX_TTS_LEN = 3500;
         if (fullText.length > MAX_TTS_LEN) {
           fullText = fullText.slice(0, MAX_TTS_LEN);
         }
@@ -1279,4 +1284,4 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2 + pagingUX1)
+// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2 + pagingUX1 + ttsMobileLongPostFix1)
