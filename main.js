@@ -1,11 +1,10 @@
-// 🟢 main.js — start of full file
-// OkObserver Main JS — Build 2025-11-19R8-mainVideo383136
-// + TTS mobile
+// 🟢 main.js — OkObserver Main JS
+// Build 2025-11-19R8-mainVideo383136
 // + loaderSafe2
 // + scrollRestoreFix1
-// + ttsIconFix2
-// + pagingUX1
-// + ttsMobileLongPostFix1 (shorter text + whitespace normalize)
+// + TTS mobile (ttsIconFix2 + ttsMobileLongPostFix1)
+// + pagingUX1 (blue "Loading more…" pill)
+// NOTE: 🟢/🔴 markers are comments only per project rules.
 
 (function () {
   'use strict';
@@ -14,7 +13,7 @@
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
   let app = document.getElementById('app');
-  let headerNavInitialized = false; // header/hamburger init guard
+  let headerNavInitialized = false;
 
   // Home view state cache (for return-to-summary)
   const homeState = {
@@ -53,7 +52,6 @@
 
   // --------- Utilities ---------
 
-  // Loader overlay hide helper
   function hideLoadingOverlay() {
     const overlay = document.getElementById('okobs-loading-overlay');
     if (overlay) overlay.classList.add('okobs-hidden');
@@ -102,6 +100,8 @@
     return grid;
   }
 
+  let pagingObserver = null;
+
   function applyGridObserver() {
     const grid = app.querySelector('.posts-grid');
     const sentinel = document.getElementById('sentinel');
@@ -129,7 +129,6 @@
     pagingObserver.observe(sentinel);
   }
 
-  // Observe changes in the grid to enforce 4/3/1 columns
   function enforceGridLayout() {
     const grid = app.querySelector('.posts-grid');
     if (!grid) return;
@@ -249,7 +248,6 @@
   function makeCard(post) {
     const id = post.id;
     if (seenIds.has(id)) return null;
-
     if (isCartoon(post)) return null;
 
     seenIds.add(id);
@@ -258,7 +256,6 @@
     const excerptHtml =
       (post.excerpt && post.excerpt.rendered) || post.content.rendered || '';
     const safeExcerpt = sanitizeExcerptKeepAnchors(excerptHtml);
-
     const byline = buildByline(post);
 
     let img = '';
@@ -326,7 +323,6 @@
       requestAnimationFrame(function () {
         window.scrollTo(0, homeState.scrollY || 0);
       });
-      // Ensure overlay is hidden when restoring cached home view
       hideLoadingOverlay();
       hidePagingStatus();
       return;
@@ -349,8 +345,6 @@
     loadMorePosts(true);
   }
 
-  let pagingObserver = null;
-
   function loadMorePosts(isFirst) {
     if (paging.busy || paging.done) return;
     paging.busy = true;
@@ -368,10 +362,7 @@
           paging.done = true;
           paging.busy = false;
           hidePagingStatus();
-          if (isFirst) {
-            // No posts (or error-like response) on first load → hide overlay
-            hideLoadingOverlay();
-          }
+          if (isFirst) hideLoadingOverlay();
           return;
         }
 
@@ -394,12 +385,8 @@
           paging.page++;
           paging.busy = false;
           hidePagingStatus();
-          if (!paging.done) {
-            loadMorePosts();
-          }
-          if (isFirst) {
-            hideLoadingOverlay();
-          }
+          if (!paging.done) loadMorePosts();
+          if (isFirst) hideLoadingOverlay();
           return;
         }
 
@@ -418,7 +405,6 @@
         paging.busy = false;
         paging.done = true;
         hidePagingStatus();
-        // On error, don't trap the user behind the spinner
         hideLoadingOverlay();
       });
   }
@@ -465,10 +451,7 @@
       status.innerHTML = text;
       if (isSearching) {
         status.innerHTML =
-          '<div class="searching-indicator">' +
-          '<div class="spinner"></div>' +
-          '<span>Searching…</span>' +
-          '</div>';
+          '<div class="searching-indicator"><div class="spinner"></div><span>Searching…</span></div>';
       }
     }
 
@@ -503,7 +486,7 @@
         encodeURIComponent(q) +
         '&per_page=15&page=' +
         lastSearchPage +
-        '&_embed=1&orderby=date&order=desc`;
+        '&_embed=1&orderby=date&order=desc'; // <-- fixed closing quote
 
       fetch(url, { signal })
         .then(function (r) {
@@ -616,7 +599,7 @@
     btn.setAttribute('tabindex', '0');
     btn.setAttribute('aria-label', 'Listen to this article');
 
-    // Touch-friendly styling inline to avoid CSS file changes
+    // Touch-friendly styling inline to avoid CSS changes
     btn.style.background = 'none';
     btn.style.border = 'none';
     btn.style.cursor = 'pointer';
@@ -624,18 +607,16 @@
     btn.style.margin = '10px 0 6px 0';
     btn.style.padding = '6px 10px';
     btn.style.borderRadius = '999px';
-    btn.style.color = '#1E90FF'; // OkObserver blue everywhere
+    btn.style.color = '#1E90FF';
     btn.style.display = 'inline-block';
     btn.style.lineHeight = '1.2';
     btn.style.touchAction = 'manipulation';
-    // Kill orange tap highlight on some mobile browsers
     btn.style.webkitTapHighlightColor = 'rgba(0,0,0,0)';
     btn.style.opacity = '1';
 
     const row = document.createElement('div');
     row.className = 'listen-row';
     row.appendChild(btn);
-
     bylineEl.insertAdjacentElement('afterend', row);
 
     const supported = 'speechSynthesis' in window;
@@ -649,8 +630,6 @@
     function handleActivate() {
       if (!('speechSynthesis' in window)) return;
 
-      // If the browser thinks nothing is speaking and we *do* have an
-      // internal utterance, clear it so the next tap always starts fresh.
       if (
         ttsCurrentUtterance &&
         !window.speechSynthesis.speaking &&
@@ -659,7 +638,6 @@
         ttsCurrentUtterance = null;
       }
 
-      // Start fresh if nothing is currently queued
       if (!ttsCurrentUtterance) {
         const textParts = [];
         const t = (titleEl.textContent || '').trim();
@@ -673,11 +651,8 @@
         let fullText = textParts.join(' ');
         if (!fullText) return;
 
-        // Normalize whitespace to keep the string compact for mobile TTS
+        // Normalize whitespace & cap length for mobile TTS
         fullText = fullText.replace(/\s+/g, ' ').trim();
-
-        // Mobile safety: cap length so very long posts don't break TTS.
-        // (This is tightened from 8000 → 3500 to handle long posts like 381804.)
         var MAX_TTS_LEN = 3500;
         if (fullText.length > MAX_TTS_LEN) {
           fullText = fullText.slice(0, MAX_TTS_LEN);
@@ -689,9 +664,6 @@
         ttsCurrentUtterance = utterance;
         ttsIsPaused = false;
         btn.style.opacity = '1';
-
-        // We keep the visual icon as 🔊 at all times to avoid
-        // platform-specific colored play/pause emoji.
 
         utterance.onend = function () {
           ttsCurrentUtterance = null;
@@ -706,12 +678,10 @@
 
         window.speechSynthesis.speak(utterance);
       } else if (!ttsIsPaused) {
-        // Currently speaking → pause (slight dim for feedback)
         window.speechSynthesis.pause();
         ttsIsPaused = true;
         btn.style.opacity = '0.6';
       } else {
-        // Currently paused → resume
         window.speechSynthesis.resume();
         ttsIsPaused = false;
         btn.style.opacity = '1';
@@ -739,10 +709,8 @@
     paging.done = true;
     paging.busy = false;
     hidePagingStatus();
-
     stopTTS();
 
-    // Hide until media/body ready to avoid a flash
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
         <div class="hero-wrap" style="position:relative;">
@@ -768,12 +736,7 @@
 
     const postId = parseInt(id, 10);
 
-    fetchJson(
-      API +
-        '/posts/' +
-        postId +
-        '?_embed=1'
-    )
+    fetchJson(API + '/posts/' + postId + '?_embed=1')
       .then(function (post) {
         if (!post || !post.id) throw new Error('Post not found');
 
@@ -799,15 +762,14 @@
         bodyHTML = decodeHtml(bodyHTML);
         bodyEl.innerHTML = bodyHTML;
 
-        // scrub empty/ratio wrappers that create leading white gap
         tidyArticleSpacing(bodyEl);
 
         const videoSlot = app.querySelector('.video-slot');
         let candidate = findVideoUrl(bodyHTML);
 
-        // Special case: post 381733 — ensure we use the correct Vimeo URL
+        // Special Vimeo overrides
         if (post.id === 381733) {
-          var m381733 = bodyHTML.match(
+          const m381733 = bodyHTML.match(
             /https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/
           );
           if (m381733 && m381733[0]) {
@@ -817,9 +779,8 @@
           }
         }
 
-        // Special case: post 383136 — ensure we use the correct Vimeo URL
         if (post.id === 383136) {
-          var m383136 = bodyHTML.match(
+          const m383136 = bodyHTML.match(
             /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
           );
           if (m383136 && m383136[0]) {
@@ -832,7 +793,6 @@
         const isFB = candidate && /facebook\.com/i.test(candidate);
 
         if (isFB) {
-          // Turn HERO into a “watch on Facebook” overlay (no separate video box)
           if (heroWrap && hero) {
             heroWrap.style.borderRadius = '12px';
             heroWrap.style.overflow = 'hidden';
@@ -879,18 +839,12 @@
             const giveUp = function () {
               if (shown) return;
             };
-            iframe &&
-              iframe.addEventListener('load', showNow, { once: true });
+            iframe && iframe.addEventListener('load', showNow, { once: true });
             setTimeout(showNow, 600);
             setTimeout(giveUp, 4000);
-          } else {
-            // No custom embed built; leave WP’s own embed (player) in place.
-            // tidyArticleSpacing has already removed empty junk, so we skip
-            // extra scrubbing here to avoid nuking a working player.
           }
         }
 
-        // Insert tags row (pill chips) before the Back button, if tags exist
         const tagsRow = buildTagsRow(post);
         if (tagsRow) {
           const backRow = app.querySelector('.back-row');
@@ -899,7 +853,6 @@
           }
         }
 
-        // Attach the listen (TTS) button just under the byline
         setupListenButton(titleEl, bylineEl, bodyEl);
 
         requestAnimationFrame(function () {
@@ -928,25 +881,30 @@
     if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{6,})/);
     if (m) return m[0];
-    m = html.match(/https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/);
+    m = html.match(
+      /https?:\/\/(?:www\.)?youtube\.com\/watch\?[^"']*v=([A-Za-z0-9_-]{6,})/
+    );
     if (m) return m[0];
-    m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
+    m = html.match(
+      /https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+\/videos\/(\d+)/i
+    );
     if (m) return m[0];
     m = html.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+/i);
     if (m) return m[0];
     return null;
   }
 
-  function buildEmbed(url, postId) {
+  function buildEmbed(url /*, postId */) {
     if (!url) return '';
     let m = url.match(/vimeo\.com\/(\d+)/);
     if (m) {
       const vid = m[1];
       return (
         '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
-        '\n              <iframe src="https://player.vimeo.com/video/' +
+        '<iframe src="https://player.vimeo.com/video/' +
         vid +
-        '" title="Vimeo video"\n                  allow="autoplay; fullscreen; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+        '" title="Vimeo video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>' +
+        '</div>'
       );
     }
     m = url.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);
@@ -954,9 +912,10 @@
       const vid2 = m[1];
       return (
         '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
-        '\n              <iframe src="https://www.youtube.com/embed/' +
+        '<iframe src="https://www.youtube.com/embed/' +
         vid2 +
-        '?rel=0" title="YouTube video"\n                  allow="autoplay; encrypted-media; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+        '?rel=0" title="YouTube video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>' +
+        '</div>'
       );
     }
     m = url.match(/[?&]v=([A-Za-z0-9_-]{6,})/);
@@ -964,9 +923,10 @@
       const vid3 = m[1];
       return (
         '<div class="video-embed" style="position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;box-shadow:0 8px 22px rgba(0,0,0,.15)">' +
-        '\n              <iframe src="https://www.youtube.com/embed/' +
+        '<iframe src="https://www.youtube.com/embed/' +
         vid3 +
-        '?rel=0" title="YouTube video"\n                  allow="autoplay; encrypted-media; picture-in-picture"\n                  allowfullscreen\n                  style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>\n              </div>'
+        '?rel=0" title="YouTube video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" loading="lazy"></iframe>' +
+        '</div>'
       );
     }
     m = url.match(/facebook\.com\/[^"'\s]+\/videos\/(\d+)/i);
@@ -984,11 +944,12 @@
     const label =
       isYT ? 'Watch on YouTube' : isVM ? 'Watch on Vimeo' : 'Open Video';
     return (
-      '\n      <div class="ext-cta" style="margin-top:12px">\n        <a href="' +
+      '<div class="ext-cta" style="margin-top:12px">' +
+      '<a href="' +
       url +
-      '" target="_blank" rel="noopener"\n           style="display:inline-block;background:#1E90FF;color:#fff;padding:10px 16px;border-radius:999px;text-decoration:none;font-weight:600;">' +
+      '" target="_blank" rel="noopener" style="display:inline-block;background:#1E90FF;color:#fff;padding:10px 16px;border-radius:999px;text-decoration:none;font-weight:600;">' +
       label +
-      ' ↗</a>\n      </div>'
+      ' ↗</a></div>'
     );
   }
 
@@ -1017,17 +978,12 @@
         /padding-top:\s*(?:56\.25%|75%|62\.5%|[3-8]\d%)/i.test(style) &&
         !hasIframe;
 
-      if (!text && looksLikeAspect) {
-        return true;
-      }
-      if (!text && !hasIframe) {
-        return true;
-      }
+      if (!text && looksLikeAspect) return true;
+      if (!text && !hasIframe) return true;
     }
     return false;
   }
 
-  // Remove leading embed placeholders in the body that correspond to our candidate URL
   function scrubLeadingEmbedPlaceholders(container, urlCandidate) {
     let changed = false;
 
@@ -1090,19 +1046,16 @@
     }
   }
 
-  // Build tags row (pill chips)
   function buildTagsRow(post) {
     if (!post || !post._embedded || !post._embedded['wp:term']) return null;
     const termGroups = post._embedded['wp:term'];
-    let tags = [];
+    const tags = [];
 
     for (let i = 0; i < termGroups.length; i++) {
       const group = termGroups[i];
       if (!Array.isArray(group)) continue;
       group.forEach(function (term) {
-        if (term && term.taxonomy === 'post_tag') {
-          tags.push(term);
-        }
+        if (term && term.taxonomy === 'post_tag') tags.push(term);
       });
     }
 
@@ -1127,9 +1080,9 @@
     if (headerNavInitialized) return;
     headerNavInitialized = true;
 
-    var hamburger = document.querySelector('[data-oo="hamburger"]');
-    var overlay = document.querySelector('[data-oo="overlay"]');
-    var menu = document.querySelector('[data-oo="menu"]');
+    const hamburger = document.querySelector('[data-oo="hamburger"]');
+    const overlay = document.querySelector('[data-oo="overlay"]');
+    const menu = document.querySelector('[data-oo="menu"]');
 
     if (!hamburger || !overlay || !menu) return;
 
@@ -1148,12 +1101,9 @@
     }
 
     function toggleMenu() {
-      var isOpen = !overlay.hidden;
-      if (isOpen) {
-        closeMenu();
-      } else {
-        openMenu();
-      }
+      const isOpen = !overlay.hidden;
+      if (isOpen) closeMenu();
+      else openMenu();
     }
 
     hamburger.addEventListener('click', function (e) {
@@ -1168,7 +1118,7 @@
     });
 
     menu.addEventListener('click', function (e) {
-      var t = e.target;
+      const t = e.target;
       if (t && t.tagName === 'A') {
         closeMenu();
       }
@@ -1183,13 +1133,11 @@
     window.addEventListener('hashchange', closeMenu);
   }
 
-  // ---------- Router with correct scroll/grid snapshot ----------
+  // ---------- Router + scroll snapshot ----------
   function handleHashChange() {
     const newHash = window.location.hash || '#/';
     const prevHash = lastHash || '#/';
 
-    // If we are leaving the home view (#/) to any other route,
-    // snapshot the current grid + paging + scroll so we can restore it later.
     const prevWasHome = prevHash === '#/' || prevHash === '';
     const nextIsHome = newHash === '#/' || newHash === '';
     if (prevWasHome && !nextIsHome) {
@@ -1224,7 +1172,6 @@
 
   window.addEventListener('hashchange', handleHashChange);
 
-  // Stop TTS when navigating away from a detail view
   window.addEventListener('hashchange', function () {
     stopTTS();
   });
@@ -1252,19 +1199,21 @@
     const body = document.querySelector('.post-detail .post-body');
     if (!body) return;
 
-    const lazyIframes = body.querySelectorAll('iframe.lazyload, iframe[data-src]');
+    const lazyIframes = body.querySelectorAll(
+      'iframe.lazyload, iframe[data-src]'
+    );
     lazyIframes.forEach(function (ifr) {
       const ds = ifr.getAttribute('data-src') || '';
       if (!ds) {
-        ifr.parentNode && ifr.parentNode.removeChild(ifr);
+        if (ifr.parentNode) ifr.parentNode.removeChild(ifr);
         return;
       }
       if (/vimeo\.com|youtube\.com|youtu\.be|facebook\.com/i.test(ds)) {
         ifr.setAttribute('src', ds);
         ifr.removeAttribute('data-src');
         ifr.classList.remove('lazyload');
-      } else {
-        ifr.parentNode && ifr.parentNode.removeChild(ifr);
+      } else if (ifr.parentNode) {
+        ifr.parentNode.removeChild(ifr);
       }
     });
   }
@@ -1284,4 +1233,5 @@
     setTimeout(removeLazyloadEmbeds, 800);
   });
 })();
-// 🔴 main.js — end of full file (loaderSafe2 + TTS mobile + scrollRestoreFix1 + ttsIconFix2 + pagingUX1 + ttsMobileLongPostFix1)
+
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS mobile + pagingUX1)
