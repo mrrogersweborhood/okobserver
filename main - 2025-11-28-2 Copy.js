@@ -1,16 +1,14 @@
-// 🟢 main.js — start of file
-// OkObserver Main JS
-// Build 2025-11-19R8-mainVideo383136-perf1
+// 🟢 main.js — OkObserver Main JS
+// Build 2025-11-19R8-mainVideo383136
 // + loaderSafe2
 // + scrollRestoreFix1
 // + TTS mobile (ttsIconFix2 + ttsMobileLongPostFix1)
 // + pagingUX1 (blue "Loading more…" pill)
-// + perf1 (detail view postCache)
 // NOTE: 🟢/🔴 markers are comments only per project rules.
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-19R8-mainVideo383136-perf1';
+  const BUILD = '2025-11-19R8-mainVideo383136';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -35,9 +33,6 @@
   window.__OKOBS_DUP_GUARD_ENABLED__ = false;
 
   let lastHash = window.location.hash || '#/';
-
-  // In-memory cache of posts for faster detail view re-entry (perf1)
-  const postCache = new Map();
 
   // --- Text-to-Speech (TTS) state ---
   let ttsCurrentUtterance = null;
@@ -378,8 +373,6 @@
         for (let i = 0; i < posts.length; i++) {
           const post = posts[i];
           if (isCartoon(post)) continue;
-          // Cache post for faster detail view later (perf1)
-          postCache.set(post.id, post);
           if (seenIds.has(post.id)) continue;
           const card = makeCard(post);
           if (card) {
@@ -526,8 +519,6 @@
 
           posts.forEach(function (post) {
             if (isCartoon(post)) return;
-            // Cache search results for detail view reuse (perf1)
-            postCache.set(post.id, post);
             const card = makeCard(post);
             if (card) {
               frag.appendChild(card);
@@ -564,7 +555,6 @@
 
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
-        e.preventDefault();
         doSearch(true);
       }
     });
@@ -589,48 +579,49 @@
 
   // ---------- About ----------
   function renderAbout() {
-    window.onscroll = null;
-    paging.done = true;
-    paging.busy = false;
-    hidePagingStatus();
-    if (typeof stopTTS === 'function') {
-      stopTTS();
-    }
-    app.innerHTML = `
-      <article class="post-detail about-page">
-        <div class="about-grid">
-          <section class="about-card about-contact">
-            <h1>Contact Us</h1>
-            <p>Have a question, story tip, or subscription issue? Email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we’ll respond during normal business hours.</p>
-            <div class="about-image-wrap">
-              <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2022/07/Contact-Us-600x375.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Contact us key on a computer keyboard">
-            </div>
-          </section>
-          <section class="about-card about-mission">
-            <div class="about-logo-wrap">
-              <img src="logo.png" alt="The Oklahoma Observer logo" class="about-logo">
-            </div>
-            <h1>About The Oklahoma Observer</h1>
-            <div class="about-image-wrap">
-              <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2008/11/Frosty-Arnold-300x172.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Frosty Troy and Arnold Hamilton at the Oklahoma Capitol">
-            </div>
-            <p>For more than half a century, The Oklahoma Observer has provided independent reporting, commentary, and analysis for readers who want more than the state’s usual media coverage. Our mission is to comfort people who are hurting and challenge those who hold power.</p>
-            <p>We focus on Oklahoma government, politics, and public life, with special attention to public education, health and human services, civil liberties, and the separation of church and state. The Observer is often described as a conscience for Oklahoma because we shine light on hypocrisy and corruption wherever it appears.</p>
-            <p>The Observer began under Father John Joyce, then was transformed into an award-winning independent journal under Frosty and Helen Troy. Since 2006, Arnold and Beverly Hamilton have carried the work forward into the magazine’s second century, publishing the Observer each month in print and online.</p>
-          </section>
-          <section class="about-card about-editor">
-            <h1>Arnold Hamilton, Editor</h1>
-            <div class="about-image-wrap">
-              <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2018/01/Arnold-Dec17-1000x-191x300.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Arnold Hamilton, editor of The Oklahoma Observer">
-            </div>
-            <p>Arnold Hamilton has led The Oklahoma Observer as editor since 2006. Before joining the Observer, he spent more than three decades in daily newspapers, reporting for outlets including the Dallas Morning News, San Jose Mercury News, Dallas Times Herald, Tulsa Tribune, and Oklahoma Journal.</p>
-            <p>His work has focused on politics and government at the state Capitols of Oklahoma, Texas, and California, as well as national campaigns and party conventions. Hamilton’s reporting has earned multiple honors, including awards for his coverage of the Oklahoma City bombing, major college sports scandals, and civil liberties issues. He is a member of the Oklahoma Journalism Hall of Fame.</p>
-          </section>
-        </div>
-      </article>
-    `;
-    document.title = 'About – The Oklahoma Observer';
+  window.onscroll = null;
+  paging.done = true;
+  paging.busy = false;
+  hidePagingStatus();
+  if (typeof stopTTS === 'function') {
+    stopTTS();
   }
+  app.innerHTML = `
+    <article class="post-detail about-page">
+      <div class="about-grid">
+        <section class="about-card about-contact">
+          <h1>Contact Us</h1>
+          <p>Have a question, story tip, or subscription issue? Email us at <a href="mailto:info@okobserver.net">info@okobserver.net</a> and we’ll respond during normal business hours.</p>
+          <div class="about-image-wrap">
+            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2022/07/Contact-Us-600x375.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Contact us key on a computer keyboard">
+          </div>
+        </section>
+        <section class="about-card about-mission">
+          <div class="about-logo-wrap">
+            <img src="logo.png" alt="The Oklahoma Observer logo" class="about-logo">
+          </div>
+          <h1>About The Oklahoma Observer</h1>
+          <div class="about-image-wrap">
+            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2008/11/Frosty-Arnold-300x172.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Frosty Troy and Arnold Hamilton at the Oklahoma Capitol">
+          </div>
+          <p>For more than half a century, The Oklahoma Observer has provided independent reporting, commentary, and analysis for readers who want more than the state’s usual media coverage. Our mission is to comfort people who are hurting and challenge those who hold power.</p>
+          <p>We focus on Oklahoma government, politics, and public life, with special attention to public education, health and human services, civil liberties, and the separation of church and state. The Observer is often described as a conscience for Oklahoma because we shine light on hypocrisy and corruption wherever it appears.</p>
+          <p>The Observer began under Father John Joyce, then was transformed into an award-winning independent journal under Frosty and Helen Troy. Since 2006, Arnold and Beverly Hamilton have carried the work forward into the magazine’s second century, publishing the Observer each month in print and online.</p>
+        </section>
+        <section class="about-card about-editor">
+          <h1>Arnold Hamilton, Editor</h1>
+          <div class="about-image-wrap">
+            <img src="https://b359822.smushcdn.com/359822/wp-content/uploads/2018/01/Arnold-Dec17-1000x-191x300.jpg?lossy=1&amp;strip=1&amp;webp=1" alt="Arnold Hamilton, editor of The Oklahoma Observer">
+          </div>
+          <p>Arnold Hamilton has led The Oklahoma Observer as editor since 2006. Before joining the Observer, he spent more than three decades in daily newspapers, reporting for outlets including the Dallas Morning News, San Jose Mercury News, Dallas Times Herald, Tulsa Tribune, and Oklahoma Journal.</p>
+          <p>His work has focused on politics and government at the state Capitols of Oklahoma, Texas, and California, as well as national campaigns and party conventions. Hamilton’s reporting has earned multiple honors, including awards for his coverage of the Oklahoma City bombing, major college sports scandals, and civil liberties issues. He is a member of the Oklahoma Journalism Hall of Fame.</p>
+        </section>
+      </div>
+    </article>
+  `;
+  document.title = 'About – The Oklahoma Observer';
+}
+
 
   // --- TTS helper: build & attach the listen button ---
   function setupListenButton(titleEl, bylineEl, bodyEl) {
@@ -780,153 +771,129 @@
 
     const postId = parseInt(id, 10);
 
-    // Helper to populate the detail view from a post object (extracted from original .then)
-    function renderPostDetail(post) {
-      if (!post || !post.id) throw new Error('Post not found');
-
-      const title = decodeHtml((post.title && post.title.rendered) || '');
-      titleEl.textContent = title;
-      document.title = title + ' – The Oklahoma Observer';
-
-      bylineEl.textContent = buildByline(post);
-
-      let img =
-        (post._embedded &&
-          post._embedded['wp:featuredmedia'] &&
-          post._embedded['wp:featuredmedia'][0] &&
-          post._embedded['wp:featuredmedia'][0].source_url) ||
-        '';
-      if (img) {
-        hero.src = img + '?cb=' + post.id;
-        hero.style.display = 'block';
-        hero.alt = title;
-      }
-
-      let bodyHTML = (post.content && post.content.rendered) || '';
-      bodyHTML = decodeHtml(bodyHTML);
-      bodyEl.innerHTML = bodyHTML;
-
-      tidyArticleSpacing(bodyEl);
-
-      const videoSlot = app.querySelector('.video-slot');
-      let candidate = findVideoUrl(bodyHTML);
-
-      // Special Vimeo overrides
-      if (post.id === 381733) {
-        const m381733 = bodyHTML.match(
-          /https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/
-        );
-        if (m381733 && m381733[0]) {
-          candidate = m381733[0];
-        } else if (!candidate) {
-          candidate = 'https://vimeo.com/1126193804';
-        }
-      }
-
-      if (post.id === 383136) {
-        const m383136 = bodyHTML.match(
-          /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
-        );
-        if (m383136 && m383136[0]) {
-          candidate = m383136[0];
-        } else if (!candidate) {
-          candidate = 'https://vimeo.com/1137090361';
-        }
-      }
-
-      const isFB = candidate && /facebook\.com/i.test(candidate);
-
-      if (isFB) {
-        if (heroWrap && hero) {
-          heroWrap.style.borderRadius = '12px';
-          heroWrap.style.overflow = 'hidden';
-          heroWrap.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
-          hero.style.display = 'block';
-          hero.style.width = '100%';
-          hero.style.height = 'auto';
-
-          const btn = document.createElement('a');
-          btn.href = candidate;
-          btn.target = '_blank';
-          btn.rel = 'noopener';
-          btn.textContent = 'Watch on Facebook ↗';
-          btn.setAttribute('aria-label', 'Watch on Facebook');
-          Object.assign(btn.style, {
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%,-50%)',
-            background: '#1E90FF',
-            color: '#fff',
-            padding: '12px 18px',
-            borderRadius: '999px',
-            textDecoration: 'none',
-            fontWeight: '700',
-            boxShadow: '0 2px 10px rgba(0,0,0,.25)',
-          });
-          heroWrap.appendChild(btn);
-        }
-        scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-      } else {
-        const embed = buildEmbed(candidate, post.id);
-        if (embed) {
-          videoSlot.style.display = 'none';
-          videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
-          const iframe = videoSlot.querySelector('iframe');
-          let shown = false;
-          const showNow = function () {
-            if (shown) return;
-            shown = true;
-            videoSlot.style.display = 'block';
-            scrubLeadingEmbedPlaceholders(bodyEl, candidate);
-          };
-          const giveUp = function () {
-            if (shown) return;
-          };
-          iframe && iframe.addEventListener('load', showNow, { once: true });
-          setTimeout(showNow, 600);
-          setTimeout(giveUp, 4000);
-        }
-      }
-
-      const tagsRow = buildTagsRow(post);
-      if (tagsRow) {
-        const backRow = app.querySelector('.back-row');
-        if (backRow && backRow.parentNode) {
-          backRow.parentNode.insertBefore(tagsRow, backRow);
-        }
-      }
-
-      setupListenButton(titleEl, bylineEl, bodyEl);
-
-      requestAnimationFrame(function () {
-        detailEl.style.visibility = 'visible';
-        detailEl.style.minHeight = '';
-      });
-    }
-
-    // Try cache first (perf1)
-    const cached = postCache.get(postId);
-    if (cached && cached.id) {
-      try {
-        renderPostDetail(cached);
-        return;
-      } catch (e) {
-        console.error(
-          '[OkObserver] Error rendering detail from cache, falling back to network',
-          e
-        );
-      }
-    }
-
-    // Fallback to network fetch
     fetchJson(API + '/posts/' + postId + '?_embed=1')
       .then(function (post) {
-        // Cache fresh detail payload for future visits
-        if (post && post.id) {
-          postCache.set(post.id, post);
+        if (!post || !post.id) throw new Error('Post not found');
+
+        const title = decodeHtml((post.title && post.title.rendered) || '');
+        titleEl.textContent = title;
+        document.title = title + ' – The Oklahoma Observer';
+
+        bylineEl.textContent = buildByline(post);
+
+        let img =
+          (post._embedded &&
+            post._embedded['wp:featuredmedia'] &&
+            post._embedded['wp:featuredmedia'][0] &&
+            post._embedded['wp:featuredmedia'][0].source_url) ||
+          '';
+        if (img) {
+          hero.src = img + '?cb=' + post.id;
+          hero.style.display = 'block';
+          hero.alt = title;
         }
-        renderPostDetail(post);
+
+        let bodyHTML = (post.content && post.content.rendered) || '';
+        bodyHTML = decodeHtml(bodyHTML);
+        bodyEl.innerHTML = bodyHTML;
+
+        tidyArticleSpacing(bodyEl);
+
+        const videoSlot = app.querySelector('.video-slot');
+        let candidate = findVideoUrl(bodyHTML);
+
+        // Special Vimeo overrides
+        if (post.id === 381733) {
+          const m381733 = bodyHTML.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/1126193804\b/
+          );
+          if (m381733 && m381733[0]) {
+            candidate = m381733[0];
+          } else if (!candidate) {
+            candidate = 'https://vimeo.com/1126193804';
+          }
+        }
+
+        if (post.id === 383136) {
+          const m383136 = bodyHTML.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/1137090361\b/
+          );
+          if (m383136 && m383136[0]) {
+            candidate = m383136[0];
+          } else if (!candidate) {
+            candidate = 'https://vimeo.com/1137090361';
+          }
+        }
+
+        const isFB = candidate && /facebook\.com/i.test(candidate);
+
+        if (isFB) {
+          if (heroWrap && hero) {
+            heroWrap.style.borderRadius = '12px';
+            heroWrap.style.overflow = 'hidden';
+            heroWrap.style.boxShadow = '0 8px 22px rgba(0,0,0,.15)';
+            hero.style.display = 'block';
+            hero.style.width = '100%';
+            hero.style.height = 'auto';
+
+            const btn = document.createElement('a');
+            btn.href = candidate;
+            btn.target = '_blank';
+            btn.rel = 'noopener';
+            btn.textContent = 'Watch on Facebook ↗';
+            btn.setAttribute('aria-label', 'Watch on Facebook');
+            Object.assign(btn.style, {
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%,-50%)',
+              background: '#1E90FF',
+              color: '#fff',
+              padding: '12px 18px',
+              borderRadius: '999px',
+              textDecoration: 'none',
+              fontWeight: '700',
+              boxShadow: '0 2px 10px rgba(0,0,0,.25)',
+            });
+            heroWrap.appendChild(btn);
+          }
+          scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+        } else {
+          const embed = buildEmbed(candidate, post.id);
+          if (embed) {
+            videoSlot.style.display = 'none';
+            videoSlot.innerHTML = embed + (buildExternalCTA(candidate) || '');
+            const iframe = videoSlot.querySelector('iframe');
+            let shown = false;
+            const showNow = function () {
+              if (shown) return;
+              shown = true;
+              videoSlot.style.display = 'block';
+              scrubLeadingEmbedPlaceholders(bodyEl, candidate);
+            };
+            const giveUp = function () {
+              if (shown) return;
+            };
+            iframe && iframe.addEventListener('load', showNow, { once: true });
+            setTimeout(showNow, 600);
+            setTimeout(giveUp, 4000);
+          }
+        }
+
+        const tagsRow = buildTagsRow(post);
+        if (tagsRow) {
+          const backRow = app.querySelector('.back-row');
+          if (backRow && backRow.parentNode) {
+            backRow.parentNode.insertBefore(tagsRow, backRow);
+          }
+        }
+
+        setupListenButton(titleEl, bylineEl, bodyEl);
+
+        requestAnimationFrame(function () {
+          detailEl.style.visibility = 'visible';
+          detailEl.style.minHeight = '';
+        });
       })
       .catch(function () {
         document.title = 'Post – The Oklahoma Observer';
@@ -1302,4 +1269,4 @@
   });
 })();
 
-// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS mobile + pagingUX1 + perf1)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS mobile + pagingUX1)
