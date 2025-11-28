@@ -3521,3 +3521,43 @@ body > header.oo-header {
   text-decoration: none;
 }
 /* 🔴 OkObserver — header controls + motto link guard */
+/* 🟢 OkObserver — revert hamburger to original position */
+
+.oo-header .oo-hamburger {
+  position: inherit !important; /* Back to previous natural/static flow */
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
+}
+
+/* If using a flex header layout, re-enable original alignment */
+.oo-header-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Maintain search icon positioning */
+.oo-header-controls {
+  position: absolute;
+  right: 16px;
+  top: calc(50% + 16px); /* nudged slightly below original hamburger level */
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oo-header .oo-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  text-decoration: none !important;
+  color: white;
+  cursor: pointer;
+}
+
+/* 🔴 OkObserver — hamburger restored, search remains */
