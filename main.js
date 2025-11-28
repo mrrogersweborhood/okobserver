@@ -1,6 +1,6 @@
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-11-19R8-mainVideo383136-perf2-ttsChunks
+// Build 2025-11-19R8-mainVideo383136-perf2-ttsChunks-hotfix1
 // + loaderSafe2
 // + scrollRestoreFix1
 // + TTS mobile (ttsIconFix2 + ttsMobileLongPostFix1)
@@ -11,7 +11,7 @@
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-19R8-mainVideo383136-perf2-ttsChunks';
+  const BUILD = '2025-11-19R8-mainVideo383136-perf2-ttsChunks-hotfix1';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -499,7 +499,7 @@
         encodeURIComponent(q) +
         '&per_page=15&page=' +
         lastSearchPage +
-        '&_embed=1&orderby=date&order=desc'; // <-- fixed closing quote
+        '&_embed=1&orderby=date&order=desc';
 
       fetch(url, { signal })
         .then(function (r) {
@@ -1282,7 +1282,7 @@
   // ---------- Router + scroll snapshot ----------
   function handleHashChange() {
     const newHash = window.location.hash || '#/';
-    the prevHash = lastHash || '#/';
+    const prevHash = lastHash || '#/';
 
     const prevWasHome = prevHash === '#/' || prevHash === '';
     const nextIsHome = newHash === '#/' || newHash === '';
@@ -1380,4 +1380,4 @@
   });
 })();
 
-// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
