@@ -13,41 +13,60 @@
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
   <!-- CSS (current version with all your tweaks) -->
-  <link rel="preload" href="override.css?v=2025-11-25-SR2" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-25-1" />
+  <!-- bump version because override.css is changing -->
+  <link rel="preload" href="override.css?v=2025-11-28-searchIcon1" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-searchIcon1" />
 </head>
 <body>
   <!-- Sticky Header: centered logo + motto, always-hamburger -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
-      <button class="oo-hamburger" data-oo="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
+      <button
+        class="oo-hamburger"
+        data-oo="hamburger"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="oo-menu"
+      >≡</button>
+
+      <!-- New: header search icon (direct link to #/search) -->
+      <a
+        href="#/search"
+        class="oo-search-trigger"
+        data-oo="search-trigger"
+        aria-label="Search"
+      >
+        <span aria-hidden="true">🔍</span>
+      </a>
+
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
         <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </a>
     </div>
   </header>
-<!-- Loading overlay: Spinning O video -->
-<div id="okobs-loading-overlay">
-  <video
-    id="okobs-loading-video"
-    autoplay
-    muted
-    loop
-    playsinline
-  >
-    <source src="newspaper mast animation.mp4" type="video/mp4" />
-    <!-- Fallback -->
-    Your browser does not support the video tag.
-  </video>
-</div>
+
+  <!-- Loading overlay: Spinning O video -->
+  <div id="okobs-loading-overlay">
+    <video
+      id="okobs-loading-video"
+      autoplay
+      muted
+      loop
+      playsinline
+    >
+      <source src="newspaper mast animation.mp4" type="video/mp4" />
+      <!-- Fallback -->
+      Your browser does not support the video tag.
+    </video>
+  </div>
 
   <!-- Overlay + Menu (hamburger) -->
   <div class="oo-overlay" data-oo="overlay" hidden></div>
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul class="oo-menu-list">
       <li><a href="#/">Posts</a></li>
-      <li><a href="#/search">Search</a></li>
+      <!-- Search removed from menu; now handled by header icon -->
       <li><a href="#/about">About</a></li>
     </ul>
   </nav>

@@ -3401,3 +3401,31 @@ body > header.oo-header {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+/* 🟢 OkObserver — header search icon (append-only, safe) */
+.oo-header .oo-search-trigger {
+  position: absolute;
+  right: 16px;          /* align with hamburger’s right edge */
+  top: calc(50% + 20px);/* nudged below the hamburger */
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.oo-header .oo-search-trigger span {
+  display: block;
+}
+
+.oo-header .oo-search-trigger:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+/* 🔴 OkObserver — header search icon */
