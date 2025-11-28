@@ -3429,3 +3429,22 @@ body > header.oo-header {
   outline-offset: 2px;
 }
 /* 🔴 OkObserver — header search icon */
+/* 🟢 OkObserver — ensure header brand/motto never show as a link */
+.oo-brand,
+.oo-brand:hover,
+.oo-brand:focus,
+.oo-brand:active {
+  text-decoration: none;
+}
+
+.oo-brand .oo-motto {
+  text-decoration: none;
+}
+
+/* If we use a header search icon link, don't underline that either */
+.oo-header .oo-search-trigger,
+.oo-header .oo-search-trigger:hover,
+.oo-header .oo-search-trigger:focus,
+.oo-header .oo-search-trigger:active {
+  text-decoration: none;
+}
