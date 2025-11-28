@@ -3448,3 +3448,76 @@ body > header.oo-header {
 .oo-header .oo-search-trigger:active {
   text-decoration: none;
 }
+/* 🟢 OkObserver — header controls (hamburger + search icon) */
+
+/* Make sure the inner header can anchor absolutely-positioned controls */
+.oo-header-inner {
+  position: relative;
+}
+
+/* Right-side vertical stack: hamburger on top, search icon under it */
+.oo-header-controls {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 2; /* keep above background but below overlay menu */
+}
+
+/* Spacer on the right is layout-only, no need to render on small screens */
+.oo-header-spacer {
+  display: none;
+}
+
+/* Search icon styling */
+.oo-header .oo-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.oo-header .oo-search-trigger span {
+  display: block;
+}
+
+/* Focus outline for keyboard users */
+.oo-header .oo-search-trigger:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* 🟢 OkObserver — ensure header brand/motto never show as a link */
+.oo-brand,
+.oo-brand:hover,
+.oo-brand:focus,
+.oo-brand:active {
+  text-decoration: none;
+}
+
+.oo-brand .oo-motto {
+  text-decoration: none;
+}
+
+/* Also keep the header search icon from getting the global underline */
+.oo-header .oo-search-trigger,
+.oo-header .oo-search-trigger:hover,
+.oo-header .oo-search-trigger:focus,
+.oo-header .oo-search-trigger:active {
+  text-decoration: none;
+}
+/* 🔴 OkObserver — header controls + motto link guard */

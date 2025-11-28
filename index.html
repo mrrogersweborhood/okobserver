@@ -13,36 +13,35 @@
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
   <!-- CSS (current version with all your tweaks) -->
-  <!-- bump version because override.css is changing -->
-  <link rel="preload" href="override.css?v=2025-11-28-searchIcon15" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28-searchIcon15" />
+  <link rel="preload" href="override.css?v=2025-11-28-searchHeaderz" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-searchHeaderz" />
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, always-hamburger -->
+  <!-- Sticky Header: centered logo + motto, always-hamburger + search icon -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
-      <button
-        class="oo-hamburger"
-        data-oo="hamburger"
-        aria-label="Menu"
-        aria-expanded="false"
-        aria-controls="oo-menu"
-      >≡</button>
-
-      <!-- New: header search icon (direct link to #/search) -->
-      <a
-        href="#/search"
-        class="oo-search-trigger"
-        data-oo="search-trigger"
-        aria-label="Search"
-      >
-        <span aria-hidden="true">🔍</span>
-      </a>
-
+      <div class="oo-header-controls">
+        <button
+          class="oo-hamburger"
+          data-oo="hamburger"
+          aria-label="Menu"
+          aria-expanded="false"
+          aria-controls="oo-menu"
+        >≡</button>
+        <a
+          href="#/search"
+          class="oo-search-trigger"
+          data-oo="search-trigger"
+          aria-label="Search"
+        >
+          <span aria-hidden="true">🔍</span>
+        </a>
+      </div>
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
         <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </a>
+      <div class="oo-header-spacer" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -66,7 +65,6 @@
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul class="oo-menu-list">
       <li><a href="#/">Posts</a></li>
-      <!-- Search removed from menu; now handled by header icon -->
       <li><a href="#/about">About</a></li>
     </ul>
   </nav>
@@ -99,7 +97,7 @@
   </script>
 
   <!-- Core scripts (plain JS only) -->
-  <script defer src="main.js?v=2025-11-25-TTS24"></script>
+  <script defer src="main.js?v=2025-11-25-TTS23"></script>
   <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
 
   <!-- Service Worker registration -->
