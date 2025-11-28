@@ -1,16 +1,17 @@
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-11-19R8-mainVideo383136-perf1
+// Build 2025-11-19R8-mainVideo383136-perf2-ttsChunks
 // + loaderSafe2
 // + scrollRestoreFix1
 // + TTS mobile (ttsIconFix2 + ttsMobileLongPostFix1)
+// + TTS chunked playback (ttsChunks1)
 // + pagingUX1 (blue "Loading more…" pill)
 // + perf1 (detail view postCache)
 // NOTE: 🟢/🔴 markers are comments only per project rules.
 
 (function () {
   'use strict';
-  const BUILD = '2025-11-19R8-mainVideo383136-perf1';
+  const BUILD = '2025-11-19R8-mainVideo383136-perf2-ttsChunks';
   console.log('[OkObserver] Main JS Build', BUILD);
 
   const API = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -42,6 +43,9 @@
   // --- Text-to-Speech (TTS) state ---
   let ttsCurrentUtterance = null;
   let ttsIsPaused = false;
+  // TTS multi-segment state (ttsChunks1)
+  let ttsSegments = null;
+  let ttsSegmentIndex = 0;
 
   function stopTTS() {
     if ('speechSynthesis' in window) {
@@ -53,6 +57,8 @@
     }
     ttsCurrentUtterance = null;
     ttsIsPaused = false;
+    ttsSegments = null;
+    ttsSegmentIndex = 0;
   }
 
   // --------- Utilities ---------
@@ -632,7 +638,7 @@
     document.title = 'About – The Oklahoma Observer';
   }
 
-  // --- TTS helper: build & attach the listen button ---
+  // --- TTS helper: build & attach the listen button (chunked playback) ---
   function setupListenButton(titleEl, bylineEl, bodyEl) {
     if (!titleEl || !bylineEl || !bodyEl) return;
 
@@ -671,9 +677,98 @@
       return;
     }
 
+    // Build an array of smaller segments from the article text
+    function buildSegments() {
+      const textParts = [];
+      const t = (titleEl.textContent || '').trim();
+      const b = (bylineEl.textContent || '').trim();
+      const bodyText = (bodyEl.textContent || '').trim();
+
+      if (t) textParts.push(t + '.');
+      if (b) textParts.push(b + '.');
+      if (bodyText) textParts.push(bodyText);
+
+      let fullText = textParts.join(' ');
+      if (!fullText) return [];
+
+      // Normalize whitespace
+      fullText = fullText.replace(/\s+/g, ' ').trim();
+
+      const segments = [];
+      const maxChunk = 1800; // keep chunks modest so mobile TTS doesn't choke
+
+      while (fullText.length > 0) {
+        if (fullText.length <= maxChunk) {
+          segments.push(fullText);
+          break;
+        }
+
+        const slice = fullText.slice(0, maxChunk);
+
+        // Prefer to break at sentence boundaries, then at last space
+        let cut = slice.lastIndexOf('. ');
+        const qIndex = slice.lastIndexOf('? ');
+        const exIndex = slice.lastIndexOf('! ');
+
+        if (qIndex > cut) cut = qIndex;
+        if (exIndex > cut) cut = exIndex;
+
+        if (cut <= 0) {
+          cut = slice.lastIndexOf(' ');
+        }
+        if (cut <= 0) {
+          cut = maxChunk;
+        }
+
+        const segment = slice.slice(0, cut + 1).trim();
+        segments.push(segment);
+        fullText = fullText.slice(cut + 1).trim();
+      }
+
+      return segments;
+    }
+
+    function speakNextSegment() {
+      if (!ttsSegments || ttsSegmentIndex >= ttsSegments.length) {
+        // Finished all segments
+        ttsCurrentUtterance = null;
+        ttsIsPaused = false;
+        ttsSegments = null;
+        ttsSegmentIndex = 0;
+        btn.style.opacity = '1';
+        return;
+      }
+
+      const text = ttsSegments[ttsSegmentIndex];
+      const utterance = new SpeechSynthesisUtterance(text);
+      ttsCurrentUtterance = utterance;
+      ttsIsPaused = false;
+      btn.style.opacity = '1';
+
+      utterance.onend = function () {
+        ttsCurrentUtterance = null;
+        if (ttsIsPaused) {
+          // User paused; don't auto-advance
+          btn.style.opacity = '0.6';
+          return;
+        }
+        ttsSegmentIndex += 1;
+        speakNextSegment();
+      };
+
+      utterance.onerror = function () {
+        ttsCurrentUtterance = null;
+        ttsIsPaused = false;
+        btn.style.opacity = '1';
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
     function handleActivate() {
       if (!('speechSynthesis' in window)) return;
 
+      // If something left a stale utterance, clear it
       if (
         ttsCurrentUtterance &&
         !window.speechSynthesis.speaking &&
@@ -682,54 +777,37 @@
         ttsCurrentUtterance = null;
       }
 
-      if (!ttsCurrentUtterance) {
-        const textParts = [];
-        const t = (titleEl.textContent || '').trim();
-        const b = (bylineEl.textContent || '').trim();
-        const bodyText = (bodyEl.textContent || '').trim();
-
-        if (t) textParts.push(t + '.');
-        if (b) textParts.push(b + '.');
-        if (bodyText) textParts.push(bodyText);
-
-        let fullText = textParts.join(' ');
-        if (!fullText) return;
-
-        // Normalize whitespace & cap length for mobile TTS
-        fullText = fullText.replace(/\s+/g, ' ').trim();
-        var MAX_TTS_LEN = 3500;
-        if (fullText.length > MAX_TTS_LEN) {
-          fullText = fullText.slice(0, MAX_TTS_LEN);
+      // Start or restart from the beginning
+      if (!ttsCurrentUtterance && !ttsIsPaused) {
+        if (!ttsSegments) {
+          ttsSegments = buildSegments();
+          ttsSegmentIndex = 0;
         }
+        if (!ttsSegments || !ttsSegments.length) return;
+        speakNextSegment();
+        return;
+      }
 
-        stopTTS();
-
-        const utterance = new SpeechSynthesisUtterance(fullText);
-        ttsCurrentUtterance = utterance;
-        ttsIsPaused = false;
-        btn.style.opacity = '1';
-
-        utterance.onend = function () {
-          ttsCurrentUtterance = null;
-          ttsIsPaused = false;
-          btn.style.opacity = '1';
-        };
-        utterance.onerror = function () {
-          ttsCurrentUtterance = null;
-          ttsIsPaused = false;
-          btn.style.opacity = '1';
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } else if (!ttsIsPaused) {
-        window.speechSynthesis.pause();
+      // Pause if currently playing
+      if (!ttsIsPaused) {
+        try {
+          window.speechSynthesis.pause();
+        } catch (e) {
+          // ignore
+        }
         ttsIsPaused = true;
         btn.style.opacity = '0.6';
-      } else {
-        window.speechSynthesis.resume();
-        ttsIsPaused = false;
-        btn.style.opacity = '1';
+        return;
       }
+
+      // Resume if paused
+      try {
+        window.speechSynthesis.resume();
+      } catch (e) {
+        // ignore
+      }
+      ttsIsPaused = false;
+      btn.style.opacity = '1';
     }
 
     btn.addEventListener('click', function (e) {
@@ -1204,7 +1282,7 @@
   // ---------- Router + scroll snapshot ----------
   function handleHashChange() {
     const newHash = window.location.hash || '#/';
-    const prevHash = lastHash || '#/';
+    the prevHash = lastHash || '#/';
 
     const prevWasHome = prevHash === '#/' || prevHash === '';
     const nextIsHome = newHash === '#/' || newHash === '';
@@ -1302,4 +1380,4 @@
   });
 })();
 
-// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS mobile + pagingUX1 + perf1)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks)
