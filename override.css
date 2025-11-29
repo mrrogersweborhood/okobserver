@@ -3810,3 +3810,42 @@ body > header.oo-header {
   }
 }
 /* 🔴 OkObserver — force-visible mobile hamburger */
+/* 🟢 OkObserver — final header layout hard override */
+/* Make the header layout deterministic: brand centered, hamburger on the right. */
+.oo-header-inner {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+/* Brand (logo + motto) in the first column, centered */
+.oo-brand {
+  grid-column: 1;
+  justify-self: center;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hamburger in the second column, right-aligned, in normal flow */
+.oo-header [data-oo="hamburger"],
+.oo-header .oo-hamburger {
+  grid-column: 2;
+  justify-self: end;
+  position: relative;
+  top: auto;
+  right: auto;
+  transform: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+/* 🔴 OkObserver — final header layout hard override */
