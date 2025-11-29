@@ -3789,3 +3789,10 @@ body > header.oo-header {
   transform: translateY(-50%);
 }
 /* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
+/* 🟢 OkObserver — restore safe hamburger positioning */
+[data-oo="hamburger"], .oo-hamburger {
+  position: relative;  /* match original tappable block */
+  top: auto;
+  transform: none;
+}
+/* 🔴 OkObserver — restore safe hamburger positioning */
