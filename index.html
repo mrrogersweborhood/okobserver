@@ -1,9 +1,12 @@
-<!-- 🟢 index.html — start of full file -->
+<!-- 🟢 index.html — start of file -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
@@ -12,19 +15,25 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (restore-safe version) -->
-  <!-- Bumped version so this restore is not cached over the old broken header -->
-  <link rel="preload" href="override.css?v=2025-11-28R2-restore1" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28R2-restore1" />
+  <!-- CSS (restore-safe) -->
+  <!-- Bump ?v whenever override.css changes -->
+  <link rel="preload" href="override.css?v=2025-11-28-headerRestore2" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-headerRestore2" />
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, always-hamburger -->
+  <!-- Sticky Header: centered logo + motto, always-hamburger on the right -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
+      <!-- Left spacer so the center column can truly center the brand -->
+      <div aria-hidden="true"></div>
+
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
-        <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div class="oo-motto">
+          To Comfort The Afflicted And Afflict The Comfortable
+        </div>
       </a>
+
       <button
         class="oo-hamburger"
         data-oo="hamburger"
@@ -46,8 +55,11 @@
       loop
       playsinline
     >
-      <!-- Use your new splash video file -->
-      <source src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1" type="video/mp4" />
+      <!-- New splash video file -->
+      <source
+        src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1"
+        type="video/mp4"
+      />
       <!-- Fallback -->
       Your browser does not support the video tag.
     </video>
@@ -129,4 +141,4 @@
   </script>
 </body>
 </html>
-<!-- 🔴 index.html — end of full file -->
+<!-- 🔴 index.html — end of file -->

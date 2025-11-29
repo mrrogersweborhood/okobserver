@@ -3701,3 +3701,78 @@ body > header.oo-header {
   text-decoration: none;
 }
 /* 🔴 OkObserver — header restore + search icon stack */
+/* 🟢 OkObserver — header restore + search icon stack */
+
+/* Force the intended 3-column grid header layout */
+.oo-header-inner {
+  display: grid !important;
+  grid-template-columns: 48px 1fr 48px !important;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 16px;
+}
+
+/* Left spacer just occupies the first column */
+.oo-header-spacer {
+  width: 48px;
+  height: 1px;
+}
+
+/* Right side: hamburger on top, search icon below */
+.oo-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* Search icon appearance */
+.oo-header .oo-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.oo-header .oo-search-trigger span {
+  display: block;
+}
+
+/* Keyboard focus outline for accessibility */
+.oo-header .oo-search-trigger:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Ensure brand/motto never look like a link */
+.oo-brand,
+.oo-brand:hover,
+.oo-brand:focus,
+.oo-brand:active {
+  text-decoration: none;
+}
+
+.oo-brand .oo-motto {
+  text-decoration: none;
+}
+
+/* Also keep the header search icon from using global link underline */
+.oo-header .oo-search-trigger,
+.oo-header .oo-search-trigger:hover,
+.oo-header .oo-search-trigger:focus,
+.oo-header .oo-search-trigger:active {
+  text-decoration: none;
+}
+/* 🔴 OkObserver — header restore + search icon stack */
