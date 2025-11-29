@@ -12,41 +12,32 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (current version with all your tweaks) -->
-  <link rel="preload" href="override.css?v=2025-11-28-headerFix8" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28-headerFix8" />
+  <!-- CSS (restore-safe version) -->
+  <!-- Bumped version so this restore is not cached over the old broken header -->
+  <link rel="preload" href="override.css?v=2025-11-28R2-restore1" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28R2-restore1" />
 </head>
 <body>
   <!-- Sticky Header: centered logo + motto, always-hamburger -->
-    <!-- Sticky Header: centered logo + motto, hamburger + search on the right -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
-      <div class="oo-header-spacer" aria-hidden="true"></div>
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
         <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </a>
-      <div class="oo-header-right">
-        <button
-          class="oo-hamburger"
-          data-oo="hamburger"
-          aria-label="Menu"
-          aria-expanded="false"
-          aria-controls="oo-menu"
-        >≡</button>
-        <a
-          href="#/search"
-          class="oo-search-trigger"
-          data-oo="search-trigger"
-          aria-label="Search"
-        >
-          <span aria-hidden="true">🔍</span>
-        </a>
-      </div>
+      <button
+        class="oo-hamburger"
+        data-oo="hamburger"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="oo-menu"
+      >
+        ≡
+      </button>
     </div>
   </header>
 
-  <!-- Loading overlay: Spinning O video -->
+  <!-- Loading overlay: splash video -->
   <div id="okobs-loading-overlay">
     <video
       id="okobs-loading-video"
@@ -55,7 +46,8 @@
       loop
       playsinline
     >
-      <source src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28-splash1" type="video/mp4" />
+      <!-- Use your new splash video file -->
+      <source src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1" type="video/mp4" />
       <!-- Fallback -->
       Your browser does not support the video tag.
     </video>
@@ -66,7 +58,7 @@
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul class="oo-menu-list">
       <li><a href="#/">Posts</a></li>
-      <!-- Search is now in the header as an icon -->
+      <li><a href="#/search">Search</a></li>
       <li><a href="#/about">About</a></li>
     </ul>
   </nav>
@@ -81,21 +73,27 @@
 
   <!-- MutationObserver grid enforcer (must remain) -->
   <script>
-  // 🟢 index.html — grid-enforcer start
-  (function(){
-    function enforceGrid(){
-      const grid = document.querySelector('#app .posts-grid');
-      if (!grid) return;
-      grid.querySelectorAll('.post-card').forEach(card => card.classList.add('post-card'));
-    }
-    const mo = new MutationObserver(enforceGrid);
-    const app = document.getElementById('app');
-    if (app) mo.observe(app, { childList:true, subtree:true });
-    window.addEventListener('hashchange', enforceGrid);
-    document.addEventListener('okobs:route', enforceGrid);
-    setInterval(enforceGrid, 1500);
-  })();
-  // 🔴 index.html — grid-enforcer end
+    // 🟢 index.html — grid-enforcer start of file
+    (function () {
+      function enforceGrid() {
+        const grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.post-card').forEach(function (card) {
+          card.classList.add('post-card');
+        });
+      }
+
+      const app = document.getElementById('app');
+      if (app) {
+        const mo = new MutationObserver(enforceGrid);
+        mo.observe(app, { childList: true, subtree: true });
+      }
+
+      window.addEventListener('hashchange', enforceGrid);
+      document.addEventListener('okobs:route', enforceGrid);
+      setInterval(enforceGrid, 1500);
+    })();
+    // 🔴 index.html — grid-enforcer end of file
   </script>
 
   <!-- Core scripts (plain JS only) -->
@@ -104,26 +102,28 @@
 
   <!-- Service Worker registration -->
   <script>
-    (function(){
+    (function () {
       if (!('serviceWorker' in navigator)) return;
-      window.addEventListener('load', function(){
+      window.addEventListener('load', function () {
         const SCRIPT = '/okobserver/sw.js';
-        const SCOPE  = '/okobserver/';
-        fetch(SCRIPT, { cache:'no-store' })
-          .then(r => {
+        const SCOPE = '/okobserver/';
+        fetch(SCRIPT, { cache: 'no-store' })
+          .then(function (r) {
             if (!r.ok) {
               console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
               return;
             }
             return navigator.serviceWorker.register(SCRIPT, {
               scope: SCOPE,
-              updateViaCache:'none'
+              updateViaCache: 'none'
             });
           })
-          .then(reg => {
+          .then(function (reg) {
             if (reg) console.log('[OkObserver] SW registered:', reg.scope);
           })
-          .catch(err => console.warn('[OkObserver] SW register error:', err));
+          .catch(function (err) {
+            console.warn('[OkObserver] SW register error:', err);
+          });
       });
     })();
   </script>
