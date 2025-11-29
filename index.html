@@ -12,20 +12,20 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS -->
-  <link rel="preload" href="override.css?v=2025-11-28-searchHeader5" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28-searchHeader5" />
+  <!-- CSS (current version with all your tweaks) -->
+  <link rel="preload" href="override.css?v=2025-11-28-headerFix8" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-headerFix8" />
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, hamburger to the right, search icon directly under hamburger -->
+  <!-- Sticky Header: centered logo + motto, always-hamburger -->
+    <!-- Sticky Header: centered logo + motto, hamburger + search on the right -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
+      <div class="oo-header-spacer" aria-hidden="true"></div>
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
         <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </a>
-
-      <!-- Right-side vertical stack: hamburger on top, search icon under it -->
       <div class="oo-header-right">
         <button
           class="oo-hamburger"
@@ -34,7 +34,6 @@
           aria-expanded="false"
           aria-controls="oo-menu"
         >≡</button>
-
         <a
           href="#/search"
           class="oo-search-trigger"
@@ -47,7 +46,7 @@
     </div>
   </header>
 
-  <!-- Loading overlay: splash video -->
+  <!-- Loading overlay: Spinning O video -->
   <div id="okobs-loading-overlay">
     <video
       id="okobs-loading-video"
@@ -87,15 +86,11 @@
     function enforceGrid(){
       const grid = document.querySelector('#app .posts-grid');
       if (!grid) return;
-      grid.querySelectorAll('.post-card').forEach(function(card){
-        card.classList.add('post-card');
-      });
+      grid.querySelectorAll('.post-card').forEach(card => card.classList.add('post-card'));
     }
+    const mo = new MutationObserver(enforceGrid);
     const app = document.getElementById('app');
-    if (app) {
-      const mo = new MutationObserver(enforceGrid);
-      mo.observe(app, { childList:true, subtree:true });
-    }
+    if (app) mo.observe(app, { childList:true, subtree:true });
     window.addEventListener('hashchange', enforceGrid);
     document.addEventListener('okobs:route', enforceGrid);
     setInterval(enforceGrid, 1500);
@@ -115,7 +110,7 @@
         const SCRIPT = '/okobserver/sw.js';
         const SCOPE  = '/okobserver/';
         fetch(SCRIPT, { cache:'no-store' })
-          .then(function(r){
+          .then(r => {
             if (!r.ok) {
               console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
               return;
@@ -125,12 +120,10 @@
               updateViaCache:'none'
             });
           })
-          .then(function(reg){
+          .then(reg => {
             if (reg) console.log('[OkObserver] SW registered:', reg.scope);
           })
-          .catch(function(err){
-            console.warn('[OkObserver] SW register error:', err);
-          });
+          .catch(err => console.warn('[OkObserver] SW register error:', err));
       });
     })();
   </script>
