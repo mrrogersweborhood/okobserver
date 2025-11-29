@@ -12,15 +12,21 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (current version with all your tweaks) -->
-  <link rel="preload" href="override.css?v=2025-11-28-searchHeaderz2" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28-searchHeaderz2" />
+  <!-- CSS -->
+  <link rel="preload" href="override.css?v=2025-11-28-searchHeader5" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-searchHeader5" />
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, always-hamburger + search icon -->
+  <!-- Sticky Header: centered logo + motto, hamburger to the right, search icon directly under hamburger -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
-      <div class="oo-header-controls">
+      <a class="oo-brand" href="#/">
+        <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
+        <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+      </a>
+
+      <!-- Right-side vertical stack: hamburger on top, search icon under it -->
+      <div class="oo-header-right">
         <button
           class="oo-hamburger"
           data-oo="hamburger"
@@ -28,6 +34,7 @@
           aria-expanded="false"
           aria-controls="oo-menu"
         >≡</button>
+
         <a
           href="#/search"
           class="oo-search-trigger"
@@ -37,15 +44,10 @@
           <span aria-hidden="true">🔍</span>
         </a>
       </div>
-      <a class="oo-brand" href="#/">
-        <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
-        <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
-      </a>
-      <div class="oo-header-spacer" aria-hidden="true"></div>
     </div>
   </header>
 
-  <!-- Loading overlay: Spinning O video -->
+  <!-- Loading overlay: splash video -->
   <div id="okobs-loading-overlay">
     <video
       id="okobs-loading-video"
@@ -54,7 +56,7 @@
       loop
       playsinline
     >
-      <source src="Animated_Logo_Into_Cell_Phone.mp4" type="video/mp4" />
+      <source src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28-splash1" type="video/mp4" />
       <!-- Fallback -->
       Your browser does not support the video tag.
     </video>
@@ -65,6 +67,7 @@
   <nav class="oo-menu" data-oo="menu" hidden>
     <ul class="oo-menu-list">
       <li><a href="#/">Posts</a></li>
+      <!-- Search is now in the header as an icon -->
       <li><a href="#/about">About</a></li>
     </ul>
   </nav>
@@ -84,11 +87,15 @@
     function enforceGrid(){
       const grid = document.querySelector('#app .posts-grid');
       if (!grid) return;
-      grid.querySelectorAll('.post-card').forEach(card => card.classList.add('post-card'));
+      grid.querySelectorAll('.post-card').forEach(function(card){
+        card.classList.add('post-card');
+      });
     }
-    const mo = new MutationObserver(enforceGrid);
     const app = document.getElementById('app');
-    if (app) mo.observe(app, { childList:true, subtree:true });
+    if (app) {
+      const mo = new MutationObserver(enforceGrid);
+      mo.observe(app, { childList:true, subtree:true });
+    }
     window.addEventListener('hashchange', enforceGrid);
     document.addEventListener('okobs:route', enforceGrid);
     setInterval(enforceGrid, 1500);
@@ -108,7 +115,7 @@
         const SCRIPT = '/okobserver/sw.js';
         const SCOPE  = '/okobserver/';
         fetch(SCRIPT, { cache:'no-store' })
-          .then(r => {
+          .then(function(r){
             if (!r.ok) {
               console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
               return;
@@ -118,10 +125,12 @@
               updateViaCache:'none'
             });
           })
-          .then(reg => {
+          .then(function(reg){
             if (reg) console.log('[OkObserver] SW registered:', reg.scope);
           })
-          .catch(err => console.warn('[OkObserver] SW register error:', err));
+          .catch(function(err){
+            console.warn('[OkObserver] SW register error:', err);
+          });
       });
     })();
   </script>
