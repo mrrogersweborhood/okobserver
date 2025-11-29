@@ -3796,3 +3796,17 @@ body > header.oo-header {
   transform: none;
 }
 /* 🔴 OkObserver — restore safe hamburger positioning */
+/* 🟢 OkObserver — force-visible mobile hamburger, without touching desktop */
+/* On small screens, pin the hamburger to the top-right so it's always visible. */
+@media (max-width: 768px) {
+  .oo-header [data-oo="hamburger"],
+  .oo-header .oo-hamburger {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    margin: 0;
+    transform: none;
+    z-index: 10050; /* stay above header background and content */
+  }
+}
+/* 🔴 OkObserver — force-visible mobile hamburger */
