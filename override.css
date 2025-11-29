@@ -3776,3 +3776,10 @@ body > header.oo-header {
   text-decoration: none;
 }
 /* 🔴 OkObserver — header restore + search icon stack */
+/* 🟢 OkObserver — mobile/desktop hamburger vertical alignment fix (append-only) */
+/* Ensure the absolutely positioned hamburger is vertically centered in the header. */
+[data-oo="hamburger"], .oo-hamburger {
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
