@@ -3783,3 +3783,9 @@ body > header.oo-header {
   transform: translateY(-50%);
 }
 /* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
+/* 🟢 OkObserver — mobile/desktop hamburger vertical alignment fix (append-only) */
+[data-oo="hamburger"], .oo-hamburger {
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
