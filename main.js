@@ -102,7 +102,7 @@
 
   // ---------- Grid / Layout Helpers ----------
   function getOrMountGrid() {
-    let grid = app.querySelector('.posts-grid');
+    let grid = app.querySelector('.home-view .posts-grid');
     if (!grid) {
       app.innerHTML =
         '<section class="home-view"><div class="posts-grid" aria-live="polite"></div><div id="sentinel" aria-hidden="true"></div></section>';
