@@ -3783,3 +3783,27 @@ body > header.oo-header {
   transform: translateY(-50%);
 }
 /* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
+/* 🔧 Mobile hamburger visibility fix — safe append only */
+@media (max-width: 768px) {
+  .oo-header-inner {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center;
+  }
+
+  .oo-hamburger {
+    display: block !important;
+    position: relative !important;
+    right: 0 !important;
+    margin-left: auto !important;
+    font-size: 1.6rem !important; /* Adjust for finger tap target */
+    line-height: 1 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure logo doesn’t get pushed off screen */
+  .oo-brand {
+    max-width: calc(100% - 50px) !important;
+  }
+}
