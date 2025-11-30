@@ -3833,3 +3833,34 @@ body > header.oo-header {
     justify-content: center;
   }
 }
+/* 🟢 OkObserver — mobile header alignment: brand truly centered, hamburger on the right */
+@media (max-width: 768px) {
+  .oo-header-inner {
+    position: relative !important;
+    display: flex !important;
+    justify-content: center !important;   /* center the brand block */
+    align-items: center !important;
+  }
+
+  .oo-header .oo-brand {
+    margin: 0 auto !important;
+    text-align: center !important;
+    max-width: 80% !important;           /* leave some room so text doesn’t hit the edges */
+    padding-right: 0 !important;         /* no artificial push left */
+  }
+
+  .oo-header .oo-hamburger,
+  .oo-header [data-oo="hamburger"] {
+    position: absolute !important;       /* take it OUT of flex layout */
+    right: 12px !important;             /* closer in so it’s not “way out there” */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
+/* 🔴 OkObserver — mobile header alignment */
