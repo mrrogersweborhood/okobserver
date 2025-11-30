@@ -3807,3 +3807,29 @@ body > header.oo-header {
     max-width: calc(100% - 50px) !important;
   }
 }
+/* 🔧 Mobile header fix: keep brand centered, hamburger to the right */
+@media (max-width: 768px) {
+  .oo-header-inner {
+    justify-content: center !important;   /* re-center logo + motto */
+  }
+
+  .oo-brand {
+    margin: 0 auto !important;
+    text-align: center !important;
+    padding-right: 60px !important;       /* reserve space for hamburger */
+  }
+
+  .oo-hamburger,
+  [data-oo="hamburger"] {
+    position: absolute !important;
+    right: 16px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin-left: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
