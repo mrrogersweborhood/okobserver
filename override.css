@@ -3908,3 +3908,11 @@ body > header.oo-header {
   }
 }
 /* 🔴 OkObserver — mobile logo true-centering override */
+/* 🟢 OkObserver — mobile logo size enhancement */
+@media (max-width: 768px) {
+  .oo-header .oo-logo {
+    height: 42px !important;         /* safely increased from 34px */
+    max-height: 45px !important;     /* cap if necessary */
+    width: auto !important;
+  }
+}
