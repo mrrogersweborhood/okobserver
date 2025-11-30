@@ -1,9 +1,12 @@
-<!-- 🟢 index.html — start of full file -->
+<!-- 🟢 index.html — start of file -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
   <title>The Oklahoma Observer</title>
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#1E90FF" />
@@ -12,107 +15,130 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (current version with all your tweaks) -->
-  <link rel="preload" href="override.css?v=2025-11-28-headerHardFinal1" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-11-28-headerHardFinal1" />
+  <!-- CSS (restore-safe) -->
+  <!-- Bump ?v whenever override.css changes -->
+  <link rel="preload" href="override.css?v=2025-11-28-headerRestore5" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-headerRestore5" />
 </head>
 <body>
+  <!-- Sticky Header: centered logo + motto, always-hamburger on the right -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
-      <button class="oo-hamburger" data-oo="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
+      <!-- Left spacer so the center column can truly center the brand -->
+      <div aria-hidden="true"></div>
+
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
-        <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
+        <div class="oo-motto">
+          To Comfort The Afflicted And Afflict The Comfortable
+        </div>
       </a>
+
+      <button
+        class="oo-hamburger"
+        data-oo="hamburger"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="oo-menu"
+      >
+        ≡
+      </button>
     </div>
   </header>
-<!-- Loading overlay: Spinning O video -->
-<div id="okobs-loading-overlay">
-  <video
-    id="okobs-loading-video"
-    autoplay
-    muted
-    loop
-    playsinline
-  >
-    <source src="newspaper mast animation.mp4" type="video/mp4" />
-    <!-- Fallback -->
-    Your browser does not support the video tag.
-  </video>
-</div>
 
-<!-- Overlay + Menu (hamburger) -->
-<div class="oo-overlay" data-oo="overlay" hidden></div>
-<nav class="oo-menu" data-oo="menu" hidden>
-  <ul class="oo-menu-list">
-    <li><a href="#/">Posts</a></li>
-    <li><a href="#/search">Search</a></li>
-    <li><a href="#/about">About</a></li>
-  </ul>
-</nav>
+  <!-- Loading overlay: splash video -->
+  <div id="okobs-loading-overlay">
+    <video
+      id="okobs-loading-video"
+      autoplay
+      muted
+      loop
+      playsinline
+    >
+      <!-- New splash video file -->
+      <source
+        src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1"
+        type="video/mp4"
+      />
+      <!-- Fallback -->
+      Your browser does not support the video tag.
+    </video>
+  </div>
 
-<!-- App Root -->
-<main id="app" role="main" aria-live="polite"></main>
+  <!-- Overlay + Menu (hamburger) -->
+  <div class="oo-overlay" data-oo="overlay" hidden></div>
+  <nav class="oo-menu" data-oo="menu" hidden>
+    <ul class="oo-menu-list">
+      <li><a href="#/">Posts</a></li>
+      <li><a href="#/search">Search</a></li>
+      <li><a href="#/about">About</a></li>
+    </ul>
+  </nav>
 
-<!-- Footer -->
-<footer class="oo-footer">
-  © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
-</footer>
+  <!-- App Root -->
+  <main id="app" role="main" aria-live="polite"></main>
 
-<!-- MutationObserver grid enforcer (must remain) -->
-<script>
-  // 🟢 index.html — grid-enforcer start of file
-  (function () {
-    function enforceGrid() {
-      const grid = document.querySelector('#app .posts-grid');
-      if (!grid) return;
-      grid.querySelectorAll('.post-card').forEach(function (card) {
-        card.classList.add('post-card');
-      });
-    }
+  <!-- Footer -->
+  <footer class="oo-footer">
+    © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
+  </footer>
 
-    const app = document.getElementById('app');
-    if (app) {
-      const mo = new MutationObserver(enforceGrid);
-      mo.observe(app, { childList: true, subtree: true });
-    }
+  <!-- MutationObserver grid enforcer (must remain) -->
+  <script>
+    // 🟢 index.html — grid-enforcer start of file
+    (function () {
+      function enforceGrid() {
+        const grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.post-card').forEach(function (card) {
+          card.classList.add('post-card');
+        });
+      }
 
-    window.addEventListener('hashchange', enforceGrid);
-    document.addEventListener('okobs:route', enforceGrid);
-    setInterval(enforceGrid, 1500);
-  })();
-  // 🔴 index.html — grid-enforcer end of file
-</script>
+      const app = document.getElementById('app');
+      if (app) {
+        const mo = new MutationObserver(enforceGrid);
+        mo.observe(app, { childList: true, subtree: true });
+      }
 
-<!-- Core scripts (plain JS only) -->
-<script defer src="main.js?v=2025-11-25-TTS23"></script>
-<script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
+      window.addEventListener('hashchange', enforceGrid);
+      document.addEventListener('okobs:route', enforceGrid);
+      setInterval(enforceGrid, 1500);
+    })();
+    // 🔴 index.html — grid-enforcer end of file
+  </script>
 
-<!-- Service Worker registration -->
-<script>
-  (function () {
-    if (!('serviceWorker' in navigator)) return;
-    window.addEventListener('load', function () {
-      const SCRIPT = '/okobserver/sw.js';
-      const SCOPE = '/okobserver/';
-      fetch(SCRIPT, { cache: 'no-store' })
-        .then(r => {
-          if (!r.ok) {
-            console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
-            return;
-          }
-          return navigator.serviceWorker.register(SCRIPT, {
-            scope: SCOPE,
-            updateViaCache:'none'
+  <!-- Core scripts (plain JS only) -->
+  <script defer src="main.js?v=2025-11-25-TTS23"></script>
+  <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
+
+  <!-- Service Worker registration -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function () {
+        const SCRIPT = '/okobserver/sw.js';
+        const SCOPE = '/okobserver/';
+        fetch(SCRIPT, { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) {
+              console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
+              return;
+            }
+            return navigator.serviceWorker.register(SCRIPT, {
+              scope: SCOPE,
+              updateViaCache: 'none'
+            });
+          })
+          .then(function (reg) {
+            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
+          })
+          .catch(function (err) {
+            console.warn('[OkObserver] SW register error:', err);
           });
-        })
-        .then(reg => {
-          if (reg) console.log('[OkObserver] SW registered:', reg.scope);
-        })
-        .catch(err => console.warn('[OkObserver] SW register error:', err));
-    });
-  })();
-</script>
+      });
+    })();
+  </script>
 </body>
 </html>
-<!-- 🔴 index.html — end of full file -->
+<!-- 🔴 index.html — end of file -->
