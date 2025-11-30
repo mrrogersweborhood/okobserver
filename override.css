@@ -3883,3 +3883,28 @@ body > header.oo-header {
   }
 }
 /* 🔴 OkObserver — mobile logo centering fix */
+/* 🟢 OkObserver — mobile logo true-centering override */
+@media (max-width: 768px) {
+  /* Make the brand block itself truly centered with symmetric padding */
+  .oo-header .oo-brand {
+    padding: 0.5rem 1rem 0.6rem 1rem !important; /* same left/right */
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  /* Force the logo to sit dead-center above the motto */
+  .oo-header .oo-logo {
+    width: auto !important;
+    max-width: 100% !important;
+    height: 34px !important;          /* keep existing header logo height */
+    margin: 0 auto !important;        /* center in the brand block */
+    display: block !important;
+  }
+
+  .oo-header .oo-motto {
+    text-align: center !important;
+  }
+}
+/* 🔴 OkObserver — mobile logo true-centering override */
