@@ -3864,3 +3864,22 @@ body > header.oo-header {
   }
 }
 /* 🔴 OkObserver — mobile header alignment */
+/* 🟢 OkObserver — mobile logo centering fix */
+@media (max-width: 768px) {
+  .oo-header .oo-brand {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;   /* center children horizontally */
+    text-align: center !important;
+  }
+
+  .oo-header .oo-logo {
+    margin: 0 auto !important;        /* force logo to sit dead center */
+    display: block !important;
+  }
+
+  .oo-header .oo-motto {
+    text-align: center !important;    /* keep current good behavior */
+  }
+}
+/* 🔴 OkObserver — mobile logo centering fix */
