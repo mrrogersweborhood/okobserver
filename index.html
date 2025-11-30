@@ -12,196 +12,107 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (bump ?v when override.css changes) -->
-  <link rel="preload" href="override.css?v=override.css?v=2025-11-28-headerHard2" as="style" />
-  <link rel="stylesheet" href="override.css?v=override.css?v=2025-11-28-headerHard2" />
-
-  <!-- Header layout hotfix: center brand + motto, hamburger on the right, desktop + mobile -->
-  <style>
-    .oo-header {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      background: #1E90FF;
-      color: #ffffff;
-      box-shadow: 0 1px 10px rgba(0,0,0,.12);
-    }
-    .oo-header-inner {
-      position: relative;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .oo-brand {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 4px;
-      color: #ffffff;
-      text-decoration: none;
-    }
-    .oo-brand:link,
-    .oo-brand:visited,
-    .oo-brand:hover,
-    .oo-brand:active {
-      text-decoration: none;
-      color: #ffffff;
-    }
-    .oo-logo {
-      height: 52px;
-      width: auto;
-      display: block;
-    }
-    .oo-motto {
-      margin-top: 4px;
-      font-size: 0.9rem;
-      line-height: 1.25;
-      text-decoration: none;
-    }
-    .oo-hamburger {
-      position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-      border: 0;
-      background: rgba(255,255,255,0.15);
-      color: #ffffff;
-      font-size: 24px;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .oo-hamburger:focus-visible {
-      outline: 3px solid #ffffff;
-      outline-offset: 2px;
-    }
-    @media (max-width: 600px) {
-      .oo-logo {
-        height: 44px;
-      }
-      .oo-motto {
-        font-size: 0.8rem;
-      }
-    }
-  </style>
+  <!-- CSS (current version with all your tweaks) -->
+  <link rel="preload" href="override.css?v=2025-11-28-headerHardFinal1" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-11-28-headerHardFinal1" />
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, always-hamburger -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
+      <button class="oo-hamburger" data-oo="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="oo-menu">≡</button>
       <a class="oo-brand" href="#/">
         <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
         <div class="oo-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       </a>
-      <button
-        class="oo-hamburger"
-        data-oo="hamburger"
-        aria-label="Menu"
-        aria-expanded="false"
-        aria-controls="oo-menu"
-      >
-        ≡
-      </button>
     </div>
   </header>
+<!-- Loading overlay: Spinning O video -->
+<div id="okobs-loading-overlay">
+  <video
+    id="okobs-loading-video"
+    autoplay
+    muted
+    loop
+    playsinline
+  >
+    <source src="newspaper mast animation.mp4" type="video/mp4" />
+    <!-- Fallback -->
+    Your browser does not support the video tag.
+  </video>
+</div>
 
-  <!-- Loading overlay: splash video -->
-  <div id="okobs-loading-overlay">
-    <video
-      id="okobs-loading-video"
-      autoplay
-      muted
-      loop
-      playsinline
-    >
-      <source src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1" type="video/mp4" />
-      <!-- Fallback -->
-      Your browser does not support the video tag.
-    </video>
-  </div>
+<!-- Overlay + Menu (hamburger) -->
+<div class="oo-overlay" data-oo="overlay" hidden></div>
+<nav class="oo-menu" data-oo="menu" hidden>
+  <ul class="oo-menu-list">
+    <li><a href="#/">Posts</a></li>
+    <li><a href="#/search">Search</a></li>
+    <li><a href="#/about">About</a></li>
+  </ul>
+</nav>
 
-  <!-- Overlay + Menu (hamburger) -->
-  <div class="oo-overlay" data-oo="overlay" hidden></div>
-  <nav class="oo-menu" data-oo="menu" hidden>
-    <ul class="oo-menu-list">
-      <li><a href="#/">Posts</a></li>
-      <li><a href="#/search">Search</a></li>
-      <li><a href="#/about">About</a></li>
-    </ul>
-  </nav>
+<!-- App Root -->
+<main id="app" role="main" aria-live="polite"></main>
 
-  <!-- App Root -->
-  <main id="app" role="main" aria-live="polite"></main>
+<!-- Footer -->
+<footer class="oo-footer">
+  © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
+</footer>
 
-  <!-- Footer -->
-  <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
-  </footer>
-
-  <!-- MutationObserver grid enforcer (must remain) -->
-  <script>
-    // 🟢 index.html — grid-enforcer start of full file
-    (function () {
-      function enforceGrid() {
-        var grid = document.querySelector('#app .posts-grid');
-        if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(function (card) {
-          card.classList.add('post-card');
-        });
-      }
-      var app = document.getElementById('app');
-      if (app) {
-        var mo = new MutationObserver(enforceGrid);
-        mo.observe(app, { childList: true, subtree: true });
-      }
-      window.addEventListener('hashchange', enforceGrid);
-      document.addEventListener('okobs:route', enforceGrid);
-      setInterval(enforceGrid, 1500);
-    })();
-    // 🔴 index.html — grid-enforcer end of full file
-  </script>
-
-  <!-- Core scripts (plain JS only) -->
-  <script defer src="main.js?v=2025-11-25-TTS23"></script>
-  <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
-
-  <!-- Service Worker registration -->
-  <script>
-    (function () {
-      if (!('serviceWorker' in navigator)) return;
-      window.addEventListener('load', function () {
-        var SCRIPT = '/okobserver/sw.js';
-        var SCOPE = '/okobserver/';
-        fetch(SCRIPT, { cache: 'no-store' })
-          .then(function (r) {
-            if (!r.ok) {
-              console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
-              return;
-            }
-            return navigator.serviceWorker.register(SCRIPT, {
-              scope: SCOPE,
-              updateViaCache: 'none'
-            });
-          })
-          .then(function (reg) {
-            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
-          })
-          .catch(function (err) {
-            console.warn('[OkObserver] SW register error:', err);
-          });
+<!-- MutationObserver grid enforcer (must remain) -->
+<script>
+  // 🟢 index.html — grid-enforcer start of file
+  (function () {
+    function enforceGrid() {
+      const grid = document.querySelector('#app .posts-grid');
+      if (!grid) return;
+      grid.querySelectorAll('.post-card').forEach(function (card) {
+        card.classList.add('post-card');
       });
-    })();
-  </script>
+    }
+
+    const app = document.getElementById('app');
+    if (app) {
+      const mo = new MutationObserver(enforceGrid);
+      mo.observe(app, { childList: true, subtree: true });
+    }
+
+    window.addEventListener('hashchange', enforceGrid);
+    document.addEventListener('okobs:route', enforceGrid);
+    setInterval(enforceGrid, 1500);
+  })();
+  // 🔴 index.html — grid-enforcer end of file
+</script>
+
+<!-- Core scripts (plain JS only) -->
+<script defer src="main.js?v=2025-11-25-TTS23"></script>
+<script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
+
+<!-- Service Worker registration -->
+<script>
+  (function () {
+    if (!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', function () {
+      const SCRIPT = '/okobserver/sw.js';
+      const SCOPE = '/okobserver/';
+      fetch(SCRIPT, { cache: 'no-store' })
+        .then(r => {
+          if (!r.ok) {
+            console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
+            return;
+          }
+          return navigator.serviceWorker.register(SCRIPT, {
+            scope: SCOPE,
+            updateViaCache:'none'
+          });
+        })
+        .then(reg => {
+          if (reg) console.log('[OkObserver] SW registered:', reg.scope);
+        })
+        .catch(err => console.warn('[OkObserver] SW register error:', err));
+    });
+  })();
+</script>
 </body>
 </html>
 <!-- 🔴 index.html — end of full file -->

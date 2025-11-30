@@ -4018,3 +4018,82 @@ body > header.oo-header {
   }
 }
 /* 🔴 OkObserver — hard header override based on current files */
+/* 🟢 OkObserver — headerHardFinal2025-11-28 */
+/* Deterministic header layout: centered brand + motto, hamburger on the right */
+.oo-header-inner {
+  position: relative;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* center brand block */
+}
+
+/* Brand: logo + motto stacked and centered */
+.oo-header .oo-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.oo-header .oo-brand:link,
+.oo-header .oo-brand:visited,
+.oo-header .oo-brand:hover,
+.oo-header .oo-brand:active {
+  text-decoration: none;
+  color: #ffffff;
+}
+
+/* Larger logo specifically in the header */
+.oo-header .oo-logo {
+  height: 56px !important;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
+}
+
+/* Motto under logo */
+.oo-header .oo-motto {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  text-align: center;
+  opacity: 0.98;
+}
+
+/* Hamburger pinned to right, vertically centered */
+.oo-header [data-oo="hamburger"],
+.oo-header .oo-hamburger {
+  position: absolute !important;
+  right: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 0;
+  background: rgba(255,255,255,0.15);
+  color: #ffffff;
+  font-size: 24px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Slightly smaller logo/motto on tighter screens */
+@media (max-width: 600px) {
+  .oo-header .oo-logo {
+    height: 48px !important;
+  }
+  .oo-header .oo-motto {
+    font-size: 0.85rem;
+  }
+}
+/* 🔴 OkObserver — headerHardFinal2025-11-28 */
