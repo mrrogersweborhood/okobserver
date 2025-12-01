@@ -602,6 +602,7 @@
     if (typeof stopTTS === 'function') {
       stopTTS();
     }
+    window.scrollTo(0, 0);
     app.innerHTML = `
       <article class="post-detail about-page">
         <div class="about-grid">
