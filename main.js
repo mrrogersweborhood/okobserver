@@ -1309,6 +1309,7 @@
     } else if (newHash.indexOf('#/post/') === 0) {
       const id = newHash.replace('#/post/', '');
       renderDetail(id);
+      window.scrollTo(0, 0);
     } else {
       renderHome();
     }
