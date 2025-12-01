@@ -832,6 +832,7 @@
     paging.busy = false;
     hidePagingStatus();
     stopTTS();
+    hideLoadingOverlay(); 
 
     app.innerHTML = `
       <article class="post-detail" style="visibility:hidden; min-height:40vh">
