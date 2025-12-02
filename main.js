@@ -1,3 +1,4 @@
+🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
 // Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
@@ -13,6 +14,8 @@
 // - Never guess or reconstruct from memory.
 // - Preserve this header and footer marker comments.
 // - Keep the routing/header/grid/service worker logic consistent with the baseline instructions.
+//
+// This is the baseline 2025-11-30R2 version WITHOUT the paging spinner changes.
 
 (function () {
   'use strict';
@@ -108,7 +111,7 @@
     onRouteChange();
   });
 
-  function onRouteChange() {
+  function onRouteChange(ev) {
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
 
@@ -567,47 +570,17 @@
     }
   }
 
-  // --- Paging spinner styles injector (CSS animation only) ---
-  function ensurePagingSpinnerStyles() {
-    if (document.getElementById('okobs-paging-spinner-style')) return;
-
-    var style = document.createElement('style');
-    style.id = 'okobs-paging-spinner-style';
-    style.textContent =
-      '.okobs-paging-spinner{' +
-      'width:16px;height:16px;border-radius:50%;' +
-      'border:2px solid rgba(255,255,255,0.4);' +
-      'border-top-color:#ffffff;' +
-      'animation:okobs-spin 0.8s linear infinite;' +
-      'display:inline-block;' +
-      '}' +
-      '@keyframes okobs-spin{' +
-      'from{transform:rotate(0deg);}' +
-      'to{transform:rotate(360deg);}' +
-      '}';
-
-    if (document.head) {
-      document.head.appendChild(style);
-    }
-  }
-
-  // --- Paging status helper: blue "Loading more…" pill + spinner ---
+  // --- Paging status helper: blue "Loading more…" pill ---
   function showPagingStatus() {
     const grid = app.querySelector('.home-view .posts-grid');
     if (!grid) return;
-
-    // Ensure spinner CSS is available
-    ensurePagingSpinnerStyles();
-
     let status = document.getElementById('okobs-paging-status');
     if (!status) {
       status = document.createElement('div');
       status.id = 'okobs-paging-status';
+      status.textContent = 'Loading more…';
       status.setAttribute('aria-live', 'polite');
-
-      status.style.display = 'inline-flex';
-      status.style.alignItems = 'center';
-      status.style.gap = '8px';
+      status.style.display = 'inline-block';
       status.style.margin = '16px auto 8px auto';
       status.style.padding = '8px 16px';
       status.style.borderRadius = '999px';
@@ -618,19 +591,7 @@
       status.style.textAlign = 'center';
       status.style.boxShadow = '0 2px 8px rgba(0,0,0,.18)';
       status.style.userSelect = 'none';
-
-      status.innerHTML =
-        '<span class="okobs-paging-spinner" aria-hidden="true"></span>' +
-        '<span class="okobs-paging-text">Loading more…</span>';
-    } else {
-      const textSpan = status.querySelector('.okobs-paging-text');
-      if (textSpan) {
-        textSpan.textContent = 'Loading more…';
-      } else {
-        status.textContent = 'Loading more…';
-      }
     }
-
     status.hidden = false;
     if (!status.parentNode) {
       grid.insertAdjacentElement('afterend', status);
@@ -1051,7 +1012,8 @@
     onRouteChange();
 
     document.addEventListener('hashchange', () => {
-      const { path } = parseHashRoute();
+      const { path } =
+      (ev && ev.detail && ev.detail.hash) || parseHashRoute();
       if (path !== '/' && !path.startsWith('/post/')) return;
       setTimeout(removeLazyloadEmbeds, 800);
     });
@@ -1063,3 +1025,4 @@
 })();
 
 // 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
+🔴 main.js

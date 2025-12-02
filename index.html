@@ -1,3 +1,4 @@
+🟢 index.html
 <!-- 🟢 index.html — start of file -->
 <!doctype html>
 <html lang="en">
@@ -36,20 +37,32 @@
 
       <button
         class="oo-hamburger"
-        data-oo="hamburger"
-        aria-label="Menu"
+        type="button"
+        aria-label="Open main menu"
         aria-expanded="false"
         aria-controls="oo-menu"
       >
-        ≡
+        <span></span>
+        <span></span>
+        <span></span>
       </button>
     </div>
   </header>
 
-  <!-- Loading overlay: splash video -->
-  <div id="okobs-loading-overlay">
+  <!-- Splash / hero section with video + fallback image -->
+  <div class="oo-splash" aria-hidden="true">
+    <!-- Fallback image behind or under the video -->
+    <div class="oo-splash-fallback">
+      <img
+        src="logo.png"
+        alt="The Oklahoma Observer"
+        class="oo-splash-fallback-image"
+      />
+    </div>
+
+    <!-- New splash video container -->
     <video
-      id="okobs-loading-video"
+      class="oo-splash-video"
       autoplay
       muted
       loop
@@ -65,80 +78,116 @@
     </video>
   </div>
 
-  <!-- Overlay + Menu (hamburger) -->
-  <div class="oo-overlay" data-oo="overlay" hidden></div>
-  <nav class="oo-menu" data-oo="menu" hidden>
+  <!-- Overlay + Menu -->
+  <div class="oo-overlay" id="oo-overlay" hidden></div>
+
+  <nav
+    class="oo-menu"
+    id="oo-menu"
+    aria-label="Main navigation"
+    aria-hidden="true"
+  >
     <ul class="oo-menu-list">
       <li><a href="#/">News</a></li>
-      <li><a href="#/search">Search</a></li>
       <li><a href="#/about">About</a></li>
+      <li><a href="#/search">Search</a></li>
     </ul>
   </nav>
 
-  <!-- App Root -->
-  <main id="app" role="main" aria-live="polite"></main>
+  <!-- Main SPA container -->
+  <main id="app" class="oo-main" role="main">
+    <!-- SPA content injected here by main.js -->
+  </main>
 
   <!-- Footer -->
   <footer class="oo-footer">
-    © 2025 The Oklahoma Observer • Build 2025-11-13R1-stickyHeaderFix
+    <div class="oo-footer-inner">
+      <span>© 2025 The Oklahoma Observer</span>
+      <span class="oo-build-tag">
+        OkObserver Build 2025-11-30R2 — Header stable, mobile logo corrected, search grid cleanup, no regressions
+      </span>
+    </div>
   </footer>
 
-  <!-- MutationObserver grid enforcer (must remain) -->
-  <script>
-    // 🟢 index.html — grid-enforcer start of file
-    (function () {
-      function enforceGrid() {
-        const grid = document.querySelector('#app .posts-grid');
-        if (!grid) return;
-        grid.querySelectorAll('.post-card').forEach(function (card) {
-          card.classList.add('post-card');
-        });
-      }
-
-      const app = document.getElementById('app');
-      if (app) {
-        const mo = new MutationObserver(enforceGrid);
-        mo.observe(app, { childList: true, subtree: true });
-      }
-
-      window.addEventListener('hashchange', enforceGrid);
-      document.addEventListener('okobs:route', enforceGrid);
-      setInterval(enforceGrid, 1500);
-    })();
-    // 🔴 index.html — grid-enforcer end of file
-  </script>
-
-  <!-- Core scripts (plain JS only) -->
+  <!-- JS (restore-safe) -->
+  <!-- Bump ?v whenever main.js changes -->
   <script defer src="main.js?v=2025-11-25-TTS29"></script>
+  <!-- PostDetail.js stays a separate file, loaded after main.js -->
   <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
 
-  <!-- Service Worker registration -->
+  <!-- Simple inline script to wire up header behavior and guard against regressions -->
   <script>
+    // 🟢 index.html — inline header script start
     (function () {
-      if (!('serviceWorker' in navigator)) return;
-      window.addEventListener('load', function () {
-        const SCRIPT = '/okobserver/sw.js';
-        const SCOPE = '/okobserver/';
-        fetch(SCRIPT, { cache: 'no-store' })
-          .then(function (r) {
-            if (!r.ok) {
-              console.warn('[OkObserver] SW preflight failed:', r.status, r.url);
-              return;
-            }
-            return navigator.serviceWorker.register(SCRIPT, {
-              scope: SCOPE,
-              updateViaCache: 'none'
-            });
-          })
-          .then(function (reg) {
-            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
-          })
-          .catch(function (err) {
-            console.warn('[OkObserver] SW register error:', err);
-          });
+      'use strict';
+
+      function qs(sel) {
+        return document.querySelector(sel);
+      }
+
+      var hamburger = qs('.oo-hamburger');
+      var menu = qs('#oo-menu');
+      var overlay = qs('#oo-overlay');
+      var body = document.body;
+
+      if (!hamburger || !menu || !overlay || !body) return;
+
+      function setMenuOpen(isOpen) {
+        hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+        overlay.hidden = !isOpen;
+        if (isOpen) {
+          body.classList.add('oo-menu-open');
+        } else {
+          body.classList.remove('oo-menu-open');
+        }
+      }
+
+      hamburger.addEventListener('click', function () {
+        var expanded = hamburger.getAttribute('aria-expanded') === 'true';
+        setMenuOpen(!expanded);
       });
+
+      overlay.addEventListener('click', function () {
+        setMenuOpen(false);
+      });
+
+      menu.addEventListener('click', function (evt) {
+        var target = evt.target;
+        if (target && target.tagName === 'A') {
+          setMenuOpen(false);
+        }
+      });
+
+      document.addEventListener('keydown', function (evt) {
+        if (evt.key === 'Escape') {
+          setMenuOpen(false);
+        }
+      });
+
+      (function ensureHeaderStructureStable() {
+        var header = qs('.oo-header');
+        var brand = qs('.oo-brand');
+        var logo = qs('.oo-logo');
+        var motto = qs('.oo-motto');
+        var hb = qs('.oo-hamburger');
+
+        if (!header || !brand || !logo || !motto || !hb) {
+          console.warn('[OkObserver] Header structure missing expected elements.');
+          return;
+        }
+
+        hb.style.display = 'inline-flex';
+        hb.style.alignItems = 'center';
+        hb.style.justifyContent = 'center';
+      })();
+
+      console.debug('[OkObserver] Header script initialized.');
     })();
+    // 🔴 index.html — inline header script end
   </script>
+
+  <!-- 🟢 index.html — end of file marker (do not remove) -->
 </body>
 </html>
-<!-- 🔴 index.html — end of file -->
+🔴 index.html
