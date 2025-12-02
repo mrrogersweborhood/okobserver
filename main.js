@@ -1025,4 +1025,4 @@
 })();
 
 // 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
-🔴 main.js
+// 🔴 main.js
