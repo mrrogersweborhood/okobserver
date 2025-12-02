@@ -3916,3 +3916,28 @@ body > header.oo-header {
     width: auto !important;
   }
 }
+/* 🟢 oo-splash size control — 2025-12-02 splashTrim1 */
+/* Shrink splash video area so it doesn't dominate the first screen */
+.oo-splash {
+  position: relative;
+  max-height: 40vh;
+  min-height: 180px;
+  overflow: hidden;
+}
+
+/* Make video and fallback image fill that strip */
+.oo-splash-video,
+.oo-splash-fallback-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* On small screens, allow a bit more height but still not full page */
+@media (max-width: 768px) {
+  .oo-splash {
+    max-height: 50vh;
+  }
+}
+/* 🔴 oo-splash size control — 2025-12-02 splashTrim1 */
