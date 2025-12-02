@@ -1,4 +1,4 @@
-🟢 main.js
+// 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
 // Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
