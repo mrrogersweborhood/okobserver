@@ -3916,28 +3916,31 @@ body > header.oo-header {
     width: auto !important;
   }
 }
-/* 🟢 oo-splash size control — 2025-12-02 splashTrim1 */
-/* Shrink splash video area so it doesn't dominate the first screen */
+/* 🟢 oo-splash size control — 2025-12-02 splashTrim2 */
+/* Make splash a shallow hero strip with full, non-zoomed logo/video */
 .oo-splash {
   position: relative;
-  max-height: 40vh;
-  min-height: 180px;
+  max-height: 260px;      /* shallow strip under header */
+  min-height: 160px;
   overflow: hidden;
+  background: #000;       /* avoids weird white gaps around video */
 }
 
-/* Make video and fallback image fill that strip */
+/* Show entire video/image without crazy zoom */
 .oo-splash-video,
 .oo-splash-fallback-image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;           /* keep aspect ratio */
+  max-height: 260px;
+  object-fit: contain;    /* show whole logo/video, not cropped */
   display: block;
+  margin: 0 auto;
 }
 
-/* On small screens, allow a bit more height but still not full page */
+/* On small screens, allow a bit more vertical room but still not giant */
 @media (max-width: 768px) {
   .oo-splash {
-    max-height: 50vh;
+    max-height: 280px;
   }
 }
-/* 🔴 oo-splash size control — 2025-12-02 splashTrim1 */
+/* 🔴 oo-splash size control — 2025-12-02 splashTrim2 */
