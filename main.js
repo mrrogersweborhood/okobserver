@@ -801,10 +801,8 @@
     }
 
     const ttsButtonHtml = `
-      <button class="tts-button" type="button" data-post-id="${post.id}">
-        🔊
-      </button>
-    `;
+  <button class="tts-button" type="button" data-post-id="${post.id}">🔊</button>
+`;
 
     app.innerHTML = `
       <div class="post-detail">

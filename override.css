@@ -4000,3 +4000,41 @@ body > header.oo-header {
   color: #1E90FF !important;
   font-weight: bold !important;
 }
+/* ================================
+   OkObserver — TTS icon-only style
+   ================================ */
+.tts-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.post-detail-tts-row {
+  margin: 1rem 0 0.75rem;
+}
+/* ================================
+   OkObserver — Byline + TTS icon
+   ================================ */
+.post-card-meta,
+.post-meta {
+  color: #1E90FF !important;
+  font-weight: bold !important;
+}
+
+.tts-button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.post-detail-tts-row {
+  margin: 1rem 0 0.75rem;
+}
