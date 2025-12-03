@@ -1,7 +1,7 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
+// Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1 + cardAuthorLinksFix1)
 // NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
 //       It must remain plain JS (no modules) for GitHub Pages compatibility.
 //
@@ -58,7 +58,7 @@
   let hasMorePages = true;
   let infiniteObserver = null;
 
-  // Root app container
+  // Root app container & loader overlay
   const app = document.getElementById('app');
   const loaderEl = document.getElementById('oo-loader');
 
@@ -84,7 +84,6 @@
     const hash = window.location.hash || '#/';
     if (!hash || hash === '#') return { path: '/', params: {} };
 
-    // Remove leading '#'
     const raw = hash.substring(1);
     const [path, queryString] = raw.split('?');
     const params = {};
@@ -99,7 +98,6 @@
 
   function navigateTo(hash) {
     if (window.location.hash === hash) {
-      // Force a re-render if needed
       onRouteChange();
     } else {
       window.location.hash = hash;
@@ -110,7 +108,7 @@
     onRouteChange();
   });
 
-  function onRouteChange(ev) {
+  function onRouteChange() {
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
 
@@ -206,7 +204,6 @@
   // ---------------------------------------------------------------------------
 
   function extractCategories(post) {
-    // When using _embed, categories may be in _embedded["wp:term"][0].
     if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
       for (const termGroup of post._embedded['wp:term']) {
         if (Array.isArray(termGroup)) {
@@ -254,6 +251,15 @@
     }
 
     return media.source_url || null;
+  }
+
+  function getAuthorName(post) {
+    if (!post || !post._embedded) return '';
+    const authors = post._embedded.author;
+    if (Array.isArray(authors) && authors.length > 0 && authors[0] && authors[0].name) {
+      return authors[0].name;
+    }
+    return '';
   }
 
   function formatDate(dateStr) {
@@ -368,10 +374,6 @@
     const card = document.createElement('article');
     card.className = 'post-card';
 
-    const link = document.createElement('a');
-    link.href = `#/post/${post.id}`;
-    link.className = 'post-card-link';
-
     const imageUrl = getFeaturedImageUrl(post);
     if (imageUrl) {
       const imgWrapper = document.createElement('div');
@@ -384,7 +386,7 @@
       img.loading = 'lazy';
 
       imgWrapper.appendChild(img);
-      link.appendChild(imgWrapper);
+      card.appendChild(imgWrapper);
     }
 
     const content = document.createElement('div');
@@ -392,12 +394,24 @@
 
     const titleEl = document.createElement('h2');
     titleEl.className = 'post-card-title';
-    titleEl.innerHTML = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+
+    const titleLink = document.createElement('a');
+    titleLink.href = `#/post/${post.id}`;
+    titleLink.className = 'post-card-title-link';
+    titleLink.innerHTML = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+
+    titleEl.appendChild(titleLink);
 
     const meta = document.createElement('div');
     meta.className = 'post-card-meta';
     const dateStr = formatDate(post.date);
-    meta.textContent = dateStr ? dateStr : '';
+    const authorName = getAuthorName(post);
+    let metaText = '';
+    if (authorName) metaText += authorName;
+    if (dateStr) {
+      metaText += (metaText ? ' • ' : '') + dateStr;
+    }
+    meta.textContent = metaText;
 
     const excerptEl = document.createElement('div');
     excerptEl.className = 'post-card-excerpt';
@@ -409,10 +423,14 @@
     content.appendChild(meta);
     content.appendChild(excerptEl);
 
-    link.appendChild(content);
-    card.appendChild(link);
+    card.appendChild(content);
 
-    link.addEventListener('click', (evt) => {
+    card.addEventListener('click', (evt) => {
+      const clickedLink = evt.target.closest('a');
+      if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
+        // Let links inside the excerpt behave like normal links.
+        return;
+      }
       evt.preventDefault();
       saveHomeScroll();
       navigateTo(`#/post/${post.id}`);
@@ -581,7 +599,6 @@
     }
   }
 
-  // --- Paging status helper: blue "Loading more…" pill ---
   function showPagingStatus() {
     const grid = app.querySelector('.home-view .posts-grid');
     if (!grid) return;
@@ -595,7 +612,7 @@
       status.style.margin = '16px auto 8px auto';
       status.style.padding = '8px 16px';
       status.style.borderRadius = '999px';
-      status.style.background = '#1E90FF'; // OkObserver blue
+      status.style.background = '#1E90FF';
       status.style.color = '#ffffff';
       status.style.fontWeight = '600';
       status.style.fontSize = '0.95rem';
@@ -1022,9 +1039,8 @@
     registerServiceWorkerIfSupported();
     onRouteChange();
 
-    document.addEventListener('hashchange', (ev) => {
-      const { path } =
-      (ev && ev.detail && ev.detail.hash) || parseHashRoute();
+    document.addEventListener('hashchange', () => {
+      const { path } = parseHashRoute();
       if (path !== '/' && !path.startsWith('/post/')) return;
       setTimeout(removeLazyloadEmbeds, 800);
     });
@@ -1035,5 +1051,5 @@
   });
 })();
 
-// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1 + cardAuthorLinksFix1)
 // 🔴 main.js
