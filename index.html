@@ -1,3 +1,4 @@
+<!-- 🟢 index.html -->
 <!-- 🟢 index.html — start of file -->
 <!doctype html>
 <html lang="en">
@@ -15,13 +16,28 @@
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
   <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
 
-  <!-- CSS (restore-safe) -->
-  <!-- Bump ?v whenever override.css changes -->
-  <link rel="preload" href="override.css?v=2025-12-02-loaderOverlayz35" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-12-02-loaderOverlayz35" />
+  <!-- CSS -->
+  <link
+    rel="preload"
+    href="override.css?v=2025-12-02-loaderOverlayR1"
+    as="style"
+  />
+  <link
+    rel="stylesheet"
+    href="override.css?v=2025-12-02-loaderOverlayR1"
+  />
+
+  <!-- Main SPA entry -->
+  <script
+    defer
+    src="main.js?v=2025-11-25-ITS29-6b"
+  ></script>
+  <script
+    defer
+    src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"
+  ></script>
 </head>
 <body>
-  <!-- Sticky Header: centered logo + motto, always-hamburger on the right -->
   <header class="oo-header" role="banner" aria-label="Site header">
     <div class="oo-header-inner">
       <!-- Left spacer so the center column can truly center the brand -->
@@ -36,41 +52,36 @@
 
       <button
         class="oo-hamburger"
-        type="button"
-        aria-label="Open main menu"
+        data-oo="hamburger"
+        aria-label="Menu"
         aria-expanded="false"
         aria-controls="oo-menu"
       >
-        <span></span>
-        <span></span>
-        <span></span>
+        ≡
       </button>
     </div>
   </header>
 
-  <!-- Loader overlay: shows while first page is loading -->
-  <div id="oo-loader" class="oo-loader" aria-hidden="true">
-    <div class="oo-loader-inner">
-      <img
-        src="logo.png"
-        alt="The Oklahoma Observer"
-        class="oo-loader-logo"
-      />
-    </div>
-  </div>
+  <!-- Overlay + Menu (hamburger) -->
+  <div class="oo-overlay" data-oo="overlay" hidden></div>
+  <nav 
+    class="oo-menu"
+    id="oo-menu"
+    data-oo="menu"
+    aria-label="Main navigation"
+  >
+    <ul class="oo-menu-list">
+      <li><a href="#/">Posts</a></li>
+      <li><a href="#/about">About</a></li>
+      <li><a href="#/search">Search</a></li>
+    </ul>
+  </nav>
 
-  <!-- Splash / hero section with video + fallback image (will be hidden via CSS) -->
+  <!-- App root -->
+  <main id="app" role="main"></main>
+
+  <!-- Splash / hero video container (can be hidden via CSS on home if desired) -->
   <div class="oo-splash" aria-hidden="true">
-    <!-- Fallback image behind or under the video -->
-    <div class="oo-splash-fallback">
-      <img
-        src="logo.png"
-        alt="The Oklahoma Observer"
-        class="oo-splash-fallback-image"
-      />
-    </div>
-
-    <!-- New splash video container -->
     <video
       class="oo-splash-video"
       autoplay
@@ -88,116 +99,127 @@
     </video>
   </div>
 
-  <!-- Overlay + Menu -->
-  <div class="oo-overlay" id="oo-overlay" hidden></div>
-
-  <nav
-    class="oo-menu"
-    id="oo-menu"
-    aria-label="Main navigation"
-    aria-hidden="true"
-  >
-    <ul class="oo-menu-list">
-      <li><a href="#/">News</a></li>
-      <li><a href="#/about">About</a></li>
-      <li><a href="#/search">Search</a></li>
-    </ul>
-  </nav>
-
-  <!-- Main SPA container -->
-  <main id="app" class="oo-main" role="main">
-    <!-- SPA content injected here by main.js -->
-  </main>
-
-  <!-- Footer -->
-  <footer class="oo-footer">
-    <div class="oo-footer-inner">
-      <span>© 2025 The Oklahoma Observer</span>
-      <span class="oo-build-tag">
-        OkObserver Build 2025-11-30R2 — Header stable, mobile logo corrected, search grid cleanup, no regressions
-      </span>
-    </div>
-  </footer>
-
-  <!-- JS (restore-safe) -->
-  <!-- Bump ?v whenever main.js changes -->
-  <script defer src="main.js?v=2025-12-02-this-better-werk-bzz"></script>
-  <!-- PostDetail.js stays a separate file, loaded after main.js -->
-  <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
-
-  <!-- Simple inline script to wire up header behavior and guard against regressions -->
+  <!-- MutationObserver grid enforcer (must remain) -->
+  
   <script>
     // 🟢 index.html — inline header script start
     (function () {
-      'use strict';
+      function initHeader() {
+        var hamburger = document.querySelector('[data-oo="hamburger"]');
+        var overlay = document.querySelector('[data-oo="overlay"]');
+        var menu = document.querySelector('[data-oo="menu"]');
 
-      function qs(sel) {
-        return document.querySelector(sel);
-      }
-
-      var hamburger = qs('.oo-hamburger');
-      var menu = qs('#oo-menu');
-      var overlay = qs('#oo-overlay');
-      var body = document.body;
-
-      if (!hamburger || !menu || !overlay || !body) return;
-
-      function setMenuOpen(isOpen) {
-        hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-        overlay.hidden = !isOpen;
-        if (isOpen) {
-          body.classList.add('oo-menu-open');
-        } else {
-          body.classList.remove('oo-menu-open');
-        }
-      }
-
-      hamburger.addEventListener('click', function () {
-        var expanded = hamburger.getAttribute('aria-expanded') === 'true';
-        setMenuOpen(!expanded);
-      });
-
-      overlay.addEventListener('click', function () {
-        setMenuOpen(false);
-      });
-
-      menu.addEventListener('click', function (evt) {
-        var target = evt.target;
-        if (target && target.tagName === 'A') {
-          setMenuOpen(false);
-        }
-      });
-
-      document.addEventListener('keydown', function (evt) {
-        if (evt.key === 'Escape') {
-          setMenuOpen(false);
-        }
-      });
-
-      (function ensureHeaderStructureStable() {
-        var header = qs('.oo-header');
-        var brand = qs('.oo-brand');
-        var logo = qs('.oo-logo');
-        var motto = qs('.oo-motto');
-        var hb = qs('.oo-hamburger');
-
-        if (!header || !brand || !logo || !motto || !hb) {
-          console.warn('[OkObserver] Header structure missing expected elements.');
+        if (!hamburger || !overlay || !menu) {
+          console.warn('[OkObserver] Header script: elements not found');
           return;
         }
 
-        hb.style.display = 'inline-flex';
-        hb.style.alignItems = 'center';
-        hb.style.justifyContent = 'center';
-      })();
+        function setOpen(isOpen) {
+          document.body.classList.toggle('is-menu-open', isOpen);
+          hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          overlay.hidden = !isOpen;
+        }
 
-      console.debug('[OkObserver] Header script initialized.');
+        hamburger.addEventListener('click', function (evt) {
+          evt.preventDefault();
+          var isOpen = !document.body.classList.contains('is-menu-open');
+          setOpen(isOpen);
+        });
+
+        overlay.addEventListener('click', function () {
+          setOpen(false);
+        });
+
+        menu.addEventListener('click', function (evt) {
+          var target = evt.target;
+          if (target && target.tagName === 'A') {
+            setOpen(false);
+          }
+        });
+
+        window.addEventListener('hashchange', function () {
+          setOpen(false);
+        });
+
+        console.log('[OkObserver] Header script initialized.');
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initHeader);
+      } else {
+        initHeader();
+      }
     })();
     // 🔴 index.html — inline header script end
   </script>
 
-  <!-- 🟢 index.html — end of file marker (do not remove) -->
-  <!-- 🔴 index.html -->
+  <script>
+    // 🟢 index.html — grid-enforcer start of file
+    (function () {
+      function enforceGrid() {
+        const grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.post-card').forEach(function (card) {
+          card.classList.add('post-card');
+        });
+      }
+
+      const app = document.getElementById('app');
+      if (app) {
+        const mo = new MutationObserver(enforceGrid);
+        mo.observe(app, { childList: true, subtree: true });
+      }
+
+      window.addEventListener('hashchange', enforceGrid);
+      document.addEventListener('okobs:route', enforceGrid);
+      setInterval(enforceGrid, 1500);
+    })();
+    // 🔴 index.html — grid-enforcer end of file
+  </script>
+
+  <!-- Service worker registration (must stay in index.html, not main.js) -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) {
+        console.log('[OkObserver] SW not supported in this browser.');
+        return;
+      }
+
+      var SW_BUILD = '2025-11-25-ITS29-1'; // bump when sw.js changes
+      var SW_URL = '/okobserver/sw.js';
+      var SCOPE = '/okobserver/';
+
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .getRegistration(SCOPE)
+          .then(function (reg) {
+            if (!reg) return;
+            if (!reg.active) return;
+            if (!reg.active.scriptURL) return;
+            if (reg.active.scriptURL.indexOf(SW_BUILD) === -1) {
+              console.log('[OkObserver] SW build mismatch, unregistering…');
+              return reg.unregister();
+            }
+          })
+          .catch(function (err) {
+            console.warn('[OkObserver] SW getRegistration error:', err);
+          })
+          .then(function () {
+            return navigator.serviceWorker.register(SW_URL + '?v=' + SW_BUILD, {
+              scope: SCOPE,
+              updateViaCache: 'none'
+            });
+          })
+          .then(function (reg) {
+            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
+          })
+          .catch(function (err) {
+            console.warn('[OkObserver] SW register error:', err);
+          });
+      });
+    })();
+  </script>
 </body>
 </html>
+<!-- 🔴 index.html — end of file -->
+<!-- 🔴 index.html -->

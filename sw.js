@@ -6,7 +6,7 @@
    - Static assets (CSS/JS/images): cache-first with guarded network fill.
 */
 
-const SW_BUILD   = '2025-11-25-SWfix1';
+const SW_BUILD   = '2025-12-03-this-better-fix-the-hamburger-menu';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list
