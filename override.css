@@ -4038,3 +4038,68 @@ body > header.oo-header {
 .post-detail-tts-row {
   margin: 1rem 0 0.75rem;
 }
+/* === About page layout — classic 3-column === */
+
+.about-view {
+  max-width: 1200px;
+  margin: 1.5rem auto 3rem;
+  padding: 0 16px;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr;              /* mobile: single column */
+  gap: 18px;
+  align-items: start;
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 720px) {
+  .about-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1024px) {
+  .about-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.about-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  padding: 16px 18px 18px;
+}
+
+.about-card h1,
+.about-card h2,
+.about-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #1E90FF;
+}
+
+.about-card p {
+  margin: 0 0 0.65rem;
+}
+
+.about-logo-wrap,
+.about-image-wrap {
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.about-logo,
+.about-image-wrap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+/* Let long “contact us” blocks span full width on big screens if desired */
+.about-contact {
+  grid-column: 1 / -1;
+}
