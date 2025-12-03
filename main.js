@@ -802,7 +802,7 @@
 
     const ttsButtonHtml = `
       <button class="tts-button" type="button" data-post-id="${post.id}">
-        🔊 Listen to this article
+        🔊
       </button>
     `;
 

@@ -3992,3 +3992,11 @@ body > header.oo-header {
 }
 
 /* 🔴 hamburger-visibility-patch — 2025-12-03R1 */
+/* ================================
+   OkObserver — Byline Color Fix
+   ================================ */
+.post-card-meta,
+.post-meta {
+  color: #1E90FF !important;
+  font-weight: bold !important;
+}
