@@ -898,15 +898,6 @@ function enhanceEmbedsInDetail(post) {
     const wrapper = document.createElement('div');
     wrapper.className = 'video-embed-wrapper';
     wrapper.innerHTML = videoEmbedHtml;
-    container.insertBefore(wrapper, container.firstChild);
-  }
-}
-
-
-  if (videoEmbedHtml) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'video-embed-wrapper';
-    wrapper.innerHTML = videoEmbedHtml;
     // Place generic video wrapper just above the article body
     detailEl.insertBefore(wrapper, contentEl);
   }
