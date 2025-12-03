@@ -14,6 +14,8 @@
 // - Never guess or reconstruct from memory.
 // - Preserve this header and footer marker comments.
 // - Keep the routing/header/grid/service worker logic consistent with the baseline instructions.
+//
+// This is the baseline 2025-11-30R2 version WITHOUT the paging spinner changes.
 
 (function () {
   'use strict';
@@ -60,7 +62,6 @@
 
   // Root app container
   const app = document.getElementById('app');
-  const loaderEl = document.getElementById('oo-loader');
 
   if (!app) {
     console.error('[OkObserver] #app container not found. Aborting.');
@@ -154,16 +155,6 @@
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
     });
-  }
-
-  function hideInitialLoader() {
-    if (!loaderEl) return;
-    loaderEl.classList.add('oo-loader--hidden');
-    setTimeout(() => {
-      if (loaderEl && loaderEl.parentNode) {
-        loaderEl.parentNode.removeChild(loaderEl);
-      }
-    }, 400);
   }
 
   // ---------------------------------------------------------------------------
@@ -566,7 +557,6 @@
 
       if (isInitialHomeLoad) {
         isInitialHomeLoad = false;
-        hideInitialLoader();
         requestAnimationFrame(() => {
           window.scrollTo(0, 0);
         });
@@ -574,7 +564,6 @@
 
     } catch (err) {
       console.error('[OkObserver] Error loading more posts:', err);
-      hideInitialLoader();
     } finally {
       isFetchingPosts = false;
       hidePagingStatus();
@@ -1022,7 +1011,7 @@
     registerServiceWorkerIfSupported();
     onRouteChange();
 
-    document.addEventListener('hashchange', (ev) => {
+    document.addEventListener('hashchange', () => {
       const { path } =
       (ev && ev.detail && ev.detail.hash) || parseHashRoute();
       if (path !== '/' && !path.startsWith('/post/')) return;

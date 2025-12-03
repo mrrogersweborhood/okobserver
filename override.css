@@ -3944,3 +3944,39 @@ body > header.oo-header {
   }
 }
 /* 🔴 oo-splash size control — 2025-12-02 splashTrim2 */
+/* Loader overlay – 2025-12-02 loaderOverlayR1 */
+.oo-loader {
+  position: fixed;
+  inset: 0;
+  background: #f4f6fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.oo-loader-inner {
+  padding: 24px 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.oo-loader-logo {
+  max-width: 260px;
+  width: 60vw;
+  height: auto;
+  display: block;
+}
+
+/* When hidden, fade out and stop intercepting clicks */
+.oo-loader--hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Kill the old splash hero entirely */
+.oo-splash {
+  display: none !important;
+}

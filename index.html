@@ -1,4 +1,3 @@
-<!-- 🟢 index.html
 <!-- 🟢 index.html — start of file -->
 <!doctype html>
 <html lang="en">
@@ -18,8 +17,8 @@
 
   <!-- CSS (restore-safe) -->
   <!-- Bump ?v whenever override.css changes -->
-  <link rel="preload" href="override.css?v=2025-12-02-splashTrimzab" as="style" />
-  <link rel="stylesheet" href="override.css?v=2025-12-02-splashTrimzab" />
+  <link rel="preload" href="override.css?v=2025-12-02-loaderOverlayR1" as="style" />
+  <link rel="stylesheet" href="override.css?v=2025-12-02-loaderOverlayR1" />
 </head>
 <body>
   <!-- Sticky Header: centered logo + motto, always-hamburger on the right -->
@@ -49,7 +48,18 @@
     </div>
   </header>
 
-  <!-- Splash / hero section with video + fallback image -->
+  <!-- Loader overlay: shows while first page is loading -->
+  <div id="oo-loader" class="oo-loader" aria-hidden="true">
+    <div class="oo-loader-inner">
+      <img
+        src="logo.png"
+        alt="The Oklahoma Observer"
+        class="oo-loader-logo"
+      />
+    </div>
+  </div>
+
+  <!-- Splash / hero section with video + fallback image (will be hidden via CSS) -->
   <div class="oo-splash" aria-hidden="true">
     <!-- Fallback image behind or under the video -->
     <div class="oo-splash-fallback">
@@ -111,7 +121,7 @@
 
   <!-- JS (restore-safe) -->
   <!-- Bump ?v whenever main.js changes -->
-  <script defer src="main.js?v=2025-12-02-mainFix1"></script>
+  <script defer src="main.js?v=2025-12-02-mainLoaderR1"></script>
   <!-- PostDetail.js stays a separate file, loaded after main.js -->
   <script defer src="PostDetail.js?v=2025-11-19R7-noopVideoHelper"></script>
 
@@ -184,9 +194,10 @@
 
       console.debug('[OkObserver] Header script initialized.');
     })();
-    
+    // 🔴 index.html — inline header script end
   </script>
 
   <!-- 🟢 index.html — end of file marker (do not remove) -->
+  <!-- 🔴 index.html -->
 </body>
 </html>
