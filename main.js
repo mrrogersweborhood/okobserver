@@ -845,62 +845,67 @@
     enhanceEmbedsInDetail(post);
   }
 
-  function enhanceEmbedsInDetail(post) {
-    const container = app.querySelector('.post-detail-content');
-    if (!container || !post) return;
+function enhanceEmbedsInDetail(post) {
+  if (!post) return;
 
-    const html = post.content && post.content.rendered ? post.content.rendered : '';
-    if (!html) return;
+  const detailEl = app.querySelector('.post-detail');
+  const contentEl = app.querySelector('.post-detail-content');
+  if (!detailEl || !contentEl) return;
 
-    const vimeoOverridePostId = 381733;
-    if (post.id === vimeoOverridePostId) {
-      const hardcodedVimeoId = '1137090361';
-      const existingIframe = container.querySelector('iframe[src*="player.vimeo.com"]');
-      if (!existingIframe) {
-        const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${hardcodedVimeoId}`;
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('frameborder', '0');
-        iframe.className = 'video-embed video-embed-vimeo';
-        container.insertBefore(iframe, container.firstChild);
-      }
-      return;
+  const html = post.content && post.content.rendered ? post.content.rendered : '';
+  if (!html) return;
+
+  const vimeoOverridePostId = 381733;
+  if (post.id === vimeoOverridePostId) {
+    const hardcodedVimeoId = '1137090361';
+    const existingIframe = detailEl.querySelector('iframe[src*="player.vimeo.com"]');
+    if (!existingIframe) {
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://player.vimeo.com/video/${hardcodedVimeoId}`;
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.setAttribute('frameborder', '0');
+      iframe.className = 'video-embed video-embed-vimeo';
+      // Place Vimeo player just above the article body
+      detailEl.insertBefore(iframe, contentEl);
     }
+    return;
+  }
 
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
 
-    let videoEmbedHtml = '';
-    const iframes = tmp.querySelectorAll('iframe');
-    if (iframes.length > 0) {
-      const firstIframe = iframes[0];
-      videoEmbedHtml = firstIframe.outerHTML;
-    } else {
-      const links = tmp.querySelectorAll('a');
-      for (const a of links) {
-        const href = a.getAttribute('href') || '';
-        if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-          videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-          break;
-        }
-        if (/vimeo\.com\/\d+/.test(href)) {
-          videoEmbedHtml = buildVimeoEmbedFromUrl(href);
-          break;
-        }
-        if (/facebook\.com\/.*\/videos\//.test(href)) {
-          videoEmbedHtml = buildFacebookEmbedFromUrl(href);
-          break;
-        }
+  let videoEmbedHtml = '';
+  const iframes = tmp.querySelectorAll('iframe');
+  if (iframes.length > 0) {
+    const firstIframe = iframes[0];
+    videoEmbedHtml = firstIframe.outerHTML;
+  } else {
+    const links = tmp.querySelectorAll('a');
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+        videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+        break;
       }
-    }
-
-    if (videoEmbedHtml) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'video-embed-wrapper';
-      wrapper.innerHTML = videoEmbedHtml;
-      container.insertBefore(wrapper, container.firstChild);
+      if (/vimeo\.com\/\d+/.test(href)) {
+        videoEmbedHtml = buildVimeoEmbedFromUrl(href);
+        break;
+      }
+      if (/facebook\.com\/.*\/videos\//.test(href)) {
+        videoEmbedHtml = buildFacebookEmbedFromUrl(href);
+        break;
+      }
     }
   }
+
+  if (videoEmbedHtml) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'video-embed-wrapper';
+    wrapper.innerHTML = videoEmbedHtml;
+    // Place generic video wrapper just above the article body
+    detailEl.insertBefore(wrapper, contentEl);
+  }
+}
 
   function buildYouTubeEmbedFromUrl(url) {
     try {
