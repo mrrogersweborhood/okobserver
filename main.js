@@ -1,7 +1,7 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1 + cardAuthorLinksFix1)
+// Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
 // NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
 //       It must remain plain JS (no modules) for GitHub Pages compatibility.
 //
@@ -253,15 +253,6 @@
     return media.source_url || null;
   }
 
-  function getAuthorName(post) {
-    if (!post || !post._embedded) return '';
-    const authors = post._embedded.author;
-    if (Array.isArray(authors) && authors.length > 0 && authors[0] && authors[0].name) {
-      return authors[0].name;
-    }
-    return '';
-  }
-
   function formatDate(dateStr) {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -271,6 +262,15 @@
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  function getAuthorName(post) {
+    if (!post || !post._embedded) return '';
+    const authors = post._embedded.author;
+    if (Array.isArray(authors) && authors.length > 0 && authors[0] && authors[0].name) {
+      return authors[0].name;
+    }
+    return '';
   }
 
   // ---------------------------------------------------------------------------
@@ -556,79 +556,50 @@
         }
 
         if (seenPostIds.has(post.id)) {
-          console.debug('[OkObserver] Skipping duplicate post ID:', post.id);
           continue;
         }
-        seenPostIds.add(post.id);
 
+        seenPostIds.add(post.id);
         const card = createPostCard(post);
         frag.appendChild(card);
         appendedCount++;
       }
 
-      if (appendedCount === 0) {
-        console.debug('[OkObserver] No new posts appended for page', currentPage);
-        currentPage++;
-        hidePagingStatus();
-        isFetchingPosts = false;
-        return;
+      if (appendedCount > 0) {
+        grid.appendChild(frag);
       }
 
-      grid.appendChild(frag);
-
-      if (posts.length < POSTS_PER_PAGE) {
-        hasMorePages = false;
-      } else {
-        currentPage++;
-      }
+      currentPage += 1;
+      hidePagingStatus();
 
       if (isInitialHomeLoad) {
         isInitialHomeLoad = false;
         hideInitialLoader();
-        requestAnimationFrame(() => {
-          window.scrollTo(0, 0);
-        });
       }
-
     } catch (err) {
       console.error('[OkObserver] Error loading more posts:', err);
-      hideInitialLoader();
+      hidePagingStatus();
     } finally {
       isFetchingPosts = false;
-      hidePagingStatus();
     }
   }
 
   function showPagingStatus() {
-    const grid = app.querySelector('.home-view .posts-grid');
-    if (!grid) return;
-    let status = document.getElementById('okobs-paging-status');
+    let status = document.querySelector('.paging-status');
     if (!status) {
       status = document.createElement('div');
-      status.id = 'okobs-paging-status';
+      status.className = 'paging-status';
       status.textContent = 'Loading more…';
-      status.setAttribute('aria-live', 'polite');
-      status.style.display = 'inline-block';
-      status.style.margin = '16px auto 8px auto';
-      status.style.padding = '8px 16px';
-      status.style.borderRadius = '999px';
-      status.style.background = '#1E90FF';
-      status.style.color = '#ffffff';
-      status.style.fontWeight = '600';
-      status.style.fontSize = '0.95rem';
-      status.style.textAlign = 'center';
-      status.style.boxShadow = '0 2px 8px rgba(0,0,0,.18)';
-      status.style.userSelect = 'none';
+      app.appendChild(status);
     }
-    status.hidden = false;
-    if (!status.parentNode) {
-      grid.insertAdjacentElement('afterend', status);
-    }
+    status.style.display = 'block';
   }
 
   function hidePagingStatus() {
-    const status = document.getElementById('okobs-paging-status');
-    if (status) status.hidden = true;
+    const status = document.querySelector('.paging-status');
+    if (status) {
+      status.style.display = 'none';
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -637,37 +608,34 @@
 
   function renderAbout() {
     stopTtsPlayback();
-
-    saveHomeScroll();
+    scrollToTop();
 
     app.innerHTML = `
-      <div class="about-view">
-        <div class="about-inner">
-          <h1>About The Oklahoma Observer</h1>
+      <article class="about-view">
+        <h1>About The Oklahoma Observer</h1>
+        <div class="about-content">
           <p>
-            Founded in 1969, <strong>The Oklahoma Observer</strong> has chronicled state and national
-            politics for more than half a century, with a mission:
-          </p>
-          <p class="about-motto">
-            <em>To Comfort The Afflicted And Afflict The Comfortable</em>.
+            <strong>The Oklahoma Observer</strong> has been “To Comfort The Afflicted And Afflict The Comfortable”
+            since 1969. This OkObserver app is an experimental, reader-friendly way to explore recent posts
+            from the publication&apos;s WordPress site.
           </p>
           <p>
-            The Observer’s fiercely independent journalism focuses on public policy, civil liberties,
-            education, health care, and the countless ways government actions impact everyday Oklahomans.
+            The app is a lightweight viewer that fetches public posts through a read-only Cloudflare Worker proxy.
+            It does not replace your subscription, paywall, or login on the main site. To access full subscriber-only
+            content, you&apos;ll still sign in at the official website.
           </p>
           <p>
-            This reader-powered digital companion is designed to make it easier to browse recent coverage,
-            read on any device, and discover stories you might have missed.
+            This project is in active development with a strong emphasis on stability:
+            keeping the header layout, grid, and navigation reliable across desktop and mobile while
+            gradually improving performance and accessibility.
           </p>
           <p>
-            For full archives, in-depth commentary, and subscription options, visit
-            <a href="https://okobserver.org" target="_blank" rel="noopener noreferrer">okobserver.org</a>.
+            Feedback and bug reports are always welcome. This app is all about making it easier
+            to read, share, and listen to Observer content while preserving the publication&apos;s spirit and independence.
           </p>
         </div>
-      </div>
+      </article>
     `;
-
-    scrollToTop();
   }
 
   // ---------------------------------------------------------------------------
@@ -676,90 +644,94 @@
 
   function renderSearch(params) {
     stopTtsPlayback();
-    saveHomeScroll();
+    scrollToTop();
 
-    const initialTerm = params && params.q ? params.q : '';
+    const initialQuery = (params && params.q) || '';
 
     app.innerHTML = `
       <div class="search-view">
-        <div class="search-bar-row">
-          <input
-            type="search"
-            class="search-input"
-            placeholder="Search recent posts…"
-            value="${escapeAttr(initialTerm)}"
-            aria-label="Search posts"
-          />
-          <button class="search-button" type="button">Search</button>
+        <h1 class="search-title">Search Posts</h1>
+        <form class="search-form" novalidate>
+          <label class="search-label">
+            <span class="search-label-text">Search term</span>
+            <input
+              class="search-input"
+              type="search"
+              name="q"
+              placeholder="Type keywords&hellip;"
+              value="${escapeAttr(initialQuery)}"
+            />
+          </label>
+          <button class="search-submit" type="submit">Search</button>
+        </form>
+        <div class="search-status" aria-live="polite"></div>
+        <div class="search-results">
+          <div class="posts-grid search-grid"></div>
         </div>
-        <div class="search-results-grid"></div>
       </div>
     `;
 
+    const form = app.querySelector('.search-form');
     const input = app.querySelector('.search-input');
-    const button = app.querySelector('.search-button');
-    const grid = app.querySelector('.search-results-grid');
-    if (!input || !button || !grid) return;
+    const statusEl = app.querySelector('.search-status');
+    const grid = app.querySelector('.search-grid');
 
-    button.addEventListener('click', () => {
-      const term = input.value.trim();
-      performSearch(term, grid);
-    });
+    if (!form || !input || !grid) return;
 
-    input.addEventListener('keydown', (evt) => {
-      if (evt.key === 'Enter') {
-        evt.preventDefault();
-        const term = input.value.trim();
-        performSearch(term, grid);
-      }
-    });
-
-    if (initialTerm) {
-      performSearch(initialTerm, grid);
-    } else {
-      scrollToTop();
+    if (initialQuery) {
+      performSearch(initialQuery, statusEl, grid);
     }
+
+    form.addEventListener('submit', (evt) => {
+      evt.preventDefault();
+      const value = input.value.trim();
+      if (!value) {
+        statusEl.textContent = 'Please enter a search term.';
+        grid.innerHTML = '';
+        navigateTo('#/search');
+        return;
+      }
+      statusEl.textContent = 'Searching…';
+      grid.innerHTML = '';
+      performSearch(value, statusEl, grid);
+      const enc = encodeURIComponent(value);
+      navigateTo(`#/search?q=${enc}`);
+    });
   }
 
-  async function performSearch(term, grid) {
-    if (!term) {
-      grid.innerHTML = '<p class="search-empty">Enter a search term to begin.</p>';
-      scrollToTop();
-      return;
-    }
-
-    grid.innerHTML = '<p class="search-loading">Searching…</p>';
-    scrollToTop();
-
+  async function performSearch(term, statusEl, grid) {
     try {
       const results = await fetchSearchResults(term);
       if (!Array.isArray(results) || results.length === 0) {
-        grid.innerHTML = '<p class="search-empty">No results found.</p>';
+        statusEl.textContent = 'No results found.';
+        grid.innerHTML = '';
         return;
       }
 
       const frag = document.createDocumentFragment();
-      let renderedCount = 0;
+      let rendered = 0;
 
-      for (const post of results) {
+      results.forEach(post => {
         if (hasExcludedCategory(post)) {
-          continue;
+          return;
         }
         const card = createPostCard(post);
         frag.appendChild(card);
-        renderedCount++;
-      }
+        rendered++;
+      });
 
-      if (renderedCount === 0) {
-        grid.innerHTML = '<p class="search-empty">No results found.</p>';
-      } else {
+      if (rendered > 0) {
         grid.innerHTML = '';
         grid.appendChild(frag);
+        statusEl.textContent = `${rendered} result${rendered === 1 ? '' : 's'} found.`;
+      } else {
+        statusEl.textContent = 'No visible results (some posts may be filtered).';
+        grid.innerHTML = '';
       }
-
     } catch (err) {
       console.error('[OkObserver] Search error:', err);
-      grid.innerHTML = '<p class="search-error">There was a problem searching. Please try again.</p>';
+      statusEl.textContent = 'An error occurred while searching.';
+      grid.innerHTML = '';
     }
   }
 
@@ -778,38 +750,20 @@
 
   async function renderPostDetail(id) {
     stopTtsPlayback();
-
-    saveHomeScroll();
+    scrollToTop();
 
     app.innerHTML = `
-      <div class="post-detail-view">
-        <div class="post-detail-inner post-detail-loading">
-          <p>Loading…</p>
-        </div>
+      <div class="post-detail-loading">
+        <p>Loading article…</p>
       </div>
     `;
-
-    scrollToTop();
 
     try {
       const post = await fetchPostById(id);
       renderPostDetailInner(post);
     } catch (err) {
       console.error('[OkObserver] Error loading post detail:', err);
-      app.innerHTML = `
-        <div class="post-detail-view">
-          <div class="post-detail-inner">
-            <p>There was a problem loading this article.</p>
-            <button class="back-button" type="button">Back to posts</button>
-          </div>
-        </div>
-      `;
-      const back = app.querySelector('.back-button');
-      if (back) {
-        back.addEventListener('click', () => {
-          navigateTo('#/');
-        });
-      }
+      renderNotFound();
     }
   }
 
@@ -819,27 +773,32 @@
       return;
     }
 
+    const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+    const titleHtml = rawTitle;
+    const contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    const metaParts = [];
+    if (authorName) metaParts.push(authorName);
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+
     let heroHtml = '';
     const featuredImageUrl = getFeaturedImageUrl(post);
     if (featuredImageUrl) {
       heroHtml = `
-        <div class="post-detail-hero-wrapper">
+        <div class="post-hero">
           <img
-            class="post-detail-hero-image"
+            class="oo-media"
             src="${featuredImageUrl}?cb=${post.id}"
-            alt="${escapeAttr(stripHtml(post.title && post.title.rendered)) || 'Post image'}"
+            alt="${escapeAttr(stripHtml(rawTitle)) || 'Post image'}"
           />
         </div>
       `;
     }
-
-    const dateStr = formatDate(post.date);
-    const titleHtml = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
-    const contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
-
-    const bylineHtml = dateStr
-      ? `<div class="post-detail-byline"><strong>${dateStr}</strong></div>`
-      : '';
 
     const ttsButtonHtml = `
       <button class="tts-button" type="button" data-post-id="${post.id}">
@@ -848,29 +807,23 @@
     `;
 
     app.innerHTML = `
-      <div class="post-detail-view">
-        <article class="post-detail-inner">
-          ${heroHtml}
-          <header class="post-detail-header">
-            <h1 class="post-detail-title">${titleHtml}</h1>
-            ${bylineHtml}
-          </header>
-          <div class="post-detail-tts-row">
-            ${ttsButtonHtml}
-          </div>
-          <section class="post-detail-content">
-            ${contentHtml}
-          </section>
-          <div class="post-detail-footer">
-            <button class="back-button" type="button">Back to posts</button>
-          </div>
-        </article>
+      <div class="post-detail">
+        ${heroHtml}
+        <h1 class="post-title">${titleHtml}</h1>
+        ${metaHtml}
+        <div class="post-detail-tts-row">
+          ${ttsButtonHtml}
+        </div>
+        <div class="post-content post-detail-content entry-content">
+          ${contentHtml}
+        </div>
+        <button class="back-btn" type="button">Back to posts</button>
       </div>
     `;
 
     scrollToTop();
 
-    const back = app.querySelector('.back-button');
+    const back = app.querySelector('.back-btn');
     if (back) {
       back.addEventListener('click', () => {
         navigateTo('#/');
@@ -895,54 +848,133 @@
   }
 
   function enhanceEmbedsInDetail(post) {
-    if (!post || !post.content || !post.content.rendered) return;
+    const container = app.querySelector('.post-detail-content');
+    if (!container || !post) return;
 
-    const detailContent = app.querySelector('.post-detail-content');
-    if (!detailContent) return;
+    const html = post.content && post.content.rendered ? post.content.rendered : '';
+    if (!html) return;
 
-    const facebookVideos = detailContent.querySelectorAll('iframe[src*="facebook.com/plugins/video"]');
-    facebookVideos.forEach((ifr) => {
-      if (!ifr.hasAttribute('loading')) {
-        ifr.setAttribute('loading', 'lazy');
-      }
-    });
-
-    const hardcodedVimeoOverridePostId = 381733;
-    if (post.id === hardcodedVimeoOverridePostId) {
-      const vimeoId = '1126193884';
-      const existingIframe = detailContent.querySelector('iframe[src*="vimeo.com"]');
+    const vimeoOverridePostId = 381733;
+    if (post.id === vimeoOverridePostId) {
+      const hardcodedVimeoId = '1137090361';
+      const existingIframe = container.querySelector('iframe[src*="player.vimeo.com"]');
       if (!existingIframe) {
-        const figure = document.createElement('figure');
-        figure.className = 'post-detail-video-figure';
-
         const iframe = document.createElement('iframe');
-        iframe.src = `https://player.vimeo.com/video/${vimeoId}`;
+        iframe.src = `https://player.vimeo.com/video/${hardcodedVimeoId}`;
+        iframe.setAttribute('allowfullscreen', '');
         iframe.setAttribute('frameborder', '0');
-        iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-        iframe.setAttribute('allowfullscreen', 'true');
-        iframe.setAttribute('loading', 'lazy');
-        iframe.className = 'post-detail-video-iframe';
-
-        figure.appendChild(iframe);
-        detailContent.insertBefore(figure, detailContent.firstChild);
+        iframe.className = 'video-embed video-embed-vimeo';
+        container.insertBefore(iframe, container.firstChild);
       }
+      return;
+    }
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    let videoEmbedHtml = '';
+    const iframes = tmp.querySelectorAll('iframe');
+    if (iframes.length > 0) {
+      const firstIframe = iframes[0];
+      videoEmbedHtml = firstIframe.outerHTML;
+    } else {
+      const links = tmp.querySelectorAll('a');
+      for (const a of links) {
+        const href = a.getAttribute('href') || '';
+        if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+          videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+          break;
+        }
+        if (/vimeo\.com\/\d+/.test(href)) {
+          videoEmbedHtml = buildVimeoEmbedFromUrl(href);
+          break;
+        }
+        if (/facebook\.com\/.*\/videos\//.test(href)) {
+          videoEmbedHtml = buildFacebookEmbedFromUrl(href);
+          break;
+        }
+      }
+    }
+
+    if (videoEmbedHtml) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'video-embed-wrapper';
+      wrapper.innerHTML = videoEmbedHtml;
+      container.insertBefore(wrapper, container.firstChild);
     }
   }
 
+  function buildYouTubeEmbedFromUrl(url) {
+    try {
+      const u = new URL(url);
+      let videoId = '';
+      if (u.hostname.includes('youtu.be')) {
+        videoId = u.pathname.replace('/', '');
+      } else {
+        videoId = u.searchParams.get('v') || '';
+      }
+      if (!videoId) return '';
+      return `
+        <iframe
+          class="video-embed video-embed-youtube"
+          src="https://www.youtube.com/embed/${videoId}"
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      `;
+    } catch (e) {
+      console.warn('[OkObserver] Unable to parse YouTube URL:', url, e);
+      return '';
+    }
+  }
+
+  function buildVimeoEmbedFromUrl(url) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    const videoId = match && match[1];
+    if (!videoId) return '';
+    return `
+      <iframe
+        class="video-embed video-embed-vimeo"
+        src="https://player.vimeo.com/video/${videoId}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    `;
+  }
+
+  function buildFacebookEmbedFromUrl(url) {
+    const enc = encodeURIComponent(url);
+    return `
+      <iframe
+        class="video-embed video-embed-facebook"
+        src="https://www.facebook.com/plugins/video.php?href=${enc}&show_text=0"
+        frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    `;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Not found view
+  // ---------------------------------------------------------------------------
+
   function renderNotFound() {
     stopTtsPlayback();
+    scrollToTop();
 
     app.innerHTML = `
-      <div class="not-found-view">
+      <div class="not-found">
         <h1>Not Found</h1>
-        <p>The page you requested could not be found.</p>
-        <button class="back-button" type="button">Back to posts</button>
+        <p>The page you&apos;re looking for could not be found.</p>
+        <button class="back-btn" type="button">Back to posts</button>
       </div>
     `;
 
-    scrollToTop();
-
-    const back = app.querySelector('.back-button');
+    const back = app.querySelector('.back-btn');
     if (back) {
       back.addEventListener('click', () => {
         navigateTo('#/');
@@ -951,98 +983,29 @@
   }
 
   // ---------------------------------------------------------------------------
-  // MutationObserver for grid sanity
-  // ---------------------------------------------------------------------------
-
-  function setupGridMutationObserver() {
-    const gridSelector = '.home-view .posts-grid';
-
-    const observer = new MutationObserver((mutations) => {
-      let touched = false;
-      for (const m of mutations) {
-        if (m.type === 'childList' && (m.addedNodes.length || m.removedNodes.length)) {
-          touched = true;
-          break;
-        }
-      }
-      if (!touched) return;
-
-      const grid = document.querySelector(gridSelector);
-      if (!grid) return;
-
-      grid.classList.add('grid-hydrated');
-    });
-
-    const root = document.body;
-    if (!root) return;
-
-    observer.observe(root, {
-      childList: true,
-      subtree: true
-    });
-
-    console.debug('[OkObserver] Grid MutationObserver set up.');
-  }
-
-  // ---------------------------------------------------------------------------
-  // SW registration helper (kept minimal)
-  // ---------------------------------------------------------------------------
-
-  function registerServiceWorkerIfSupported() {
-    if (!('serviceWorker' in navigator)) {
-      console.debug('[OkObserver] Service workers not supported in this browser.');
-      return;
-    }
-
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/okobserver/sw.js', {
-        scope: '/okobserver/',
-        updateViaCache: 'none'
-      }).then((reg) => {
-        console.info('[OkObserver] Service worker registered:', reg.scope);
-      }).catch((err) => {
-        console.error('[OkObserver] Service worker registration failed:', err);
-      });
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Lazy removal of embeds when leaving post detail
-  // ---------------------------------------------------------------------------
-
-  function removeLazyloadEmbeds() {
-    try {
-      const detail = document.querySelector('.post-detail-view');
-      if (!detail) return;
-
-      const iframes = detail.querySelectorAll('iframe');
-      iframes.forEach((ifr) => {
-        const src = ifr.getAttribute('src');
-        if (!src) return;
-        if (src.includes('youtube.com') || src.includes('vimeo.com') || src.includes('facebook.com')) {
-          const ds = ifr.getAttribute('data-src') || src;
-          ifr.setAttribute('src', ds);
-          ifr.removeAttribute('data-src');
-        }
-      });
-    } catch (err) {
-      console.error('[OkObserver] Error in removeLazyloadEmbeds:', err);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
   // Initialization
   // ---------------------------------------------------------------------------
 
   function init() {
-    setupGridMutationObserver();
-    registerServiceWorkerIfSupported();
+    console.log('[OkObserver] Initializing app, build:', APP_BUILD_LABEL);
     onRouteChange();
 
-    document.addEventListener('hashchange', () => {
-      const { path } = parseHashRoute();
+    document.addEventListener('okobs:route', (ev) => {
+      const path =
+        (ev && ev.detail && ev.detail.hash) || parseHashRoute();
       if (path !== '/' && !path.startsWith('/post/')) return;
       setTimeout(removeLazyloadEmbeds, 800);
+    });
+  }
+
+  function removeLazyloadEmbeds() {
+    const iframes = document.querySelectorAll('iframe[data-lazy-src]');
+    iframes.forEach((iframe) => {
+      const lazySrc = iframe.getAttribute('data-lazy-src');
+      if (lazySrc) {
+        iframe.removeAttribute('data-lazy-src');
+        iframe.setAttribute('src', lazySrc);
+      }
     });
   }
 
@@ -1051,5 +1014,5 @@
   });
 })();
 
-// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1 + cardAuthorLinksFix1)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
 // 🔴 main.js
