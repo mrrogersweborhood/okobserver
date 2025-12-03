@@ -3985,3 +3985,11 @@ body > header.oo-header {
 .oo-loader--hidden {
   display: none !important;
 }
+/* 🟢 hamburger-visibility-patch — 2025-12-03R1 */
+.oo-hamburger {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 🔴 hamburger-visibility-patch — 2025-12-03R1 */
