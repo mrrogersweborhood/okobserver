@@ -852,13 +852,20 @@ function enhanceEmbedsInDetail(post) {
   const html = post.content && post.content.rendered ? post.content.rendered : '';
   if (!html) return;
 
-  const vimeoOverridePostId = 383136;
-  if (post.id === vimeoOverridePostId) {
-    const hardcodedVimeoId = '1137090361';
-    const existingIframe = container.querySelector('iframe[src*="player.vimeo.com"]');
+  // Hard overrides for posts whose embeds are too weird to parse reliably
+  const videoOverrides = {
+    // November ’25 Newsmaker (works and must stay)
+    383136: 'https://player.vimeo.com/video/1137090361'
+    // If you ever want a hard override for another post, add
+    // 381733: 'https://player.vimeo.com/video/112619384',
+  };
+
+  const overrideSrc = videoOverrides[post.id];
+  if (overrideSrc) {
+    const existingIframe = container.querySelector(`iframe[src*="${overrideSrc}"]`);
     if (!existingIframe) {
       const iframe = document.createElement('iframe');
-      iframe.src = `https://player.vimeo.com/video/${hardcodedVimeoId}`;
+      iframe.src = overrideSrc;
       iframe.setAttribute('allowfullscreen', '');
       iframe.setAttribute('frameborder', '0');
       iframe.className = 'video-embed video-embed-vimeo';
@@ -867,49 +874,71 @@ function enhanceEmbedsInDetail(post) {
     return;
   }
 
+  // Otherwise, try to detect embeds from the post HTML
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-     let videoEmbedHtml = '';
+  let videoEmbedHtml = '';
 
-    // 1) Direct iframes (WP embed blocks, manual iframe)
-    const iframes = tmp.querySelectorAll('iframe');
-    if (iframes.length > 0) {
-      videoEmbedHtml = iframes[0].outerHTML;
+  // 1) Direct iframe (classic WP and many block themes)
+  const iframeEl = tmp.querySelector('iframe');
+  if (iframeEl) {
+    videoEmbedHtml = iframeEl.outerHTML;
+  } else {
+    // 2) HTML5 <video> tag (Gutenberg video blocks, etc.)
+    const videoEl = tmp.querySelector('video');
+    if (videoEl) {
+      videoEmbedHtml = videoEl.outerHTML;
     } else {
-      // 2) HTML5 <video> tag (Gutenberg video blocks, shortcodes)
-      const videos = tmp.querySelectorAll('video');
-      if (videos.length > 0) {
-        videoEmbedHtml = videos[0].outerHTML;
-      } else {
-        // 3) Fallback: links to known video providers
-        const links = tmp.querySelectorAll('a');
-        for (const a of links) {
-          const href = a.getAttribute('href') || '';
-          if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-            videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-            break;
-          }
-          if (/vimeo\.com\/\d+/.test(href)) {
-            videoEmbedHtml = buildVimeoEmbedFromUrl(href);
-            break;
-          }
-          if (/facebook\.com\/.*\/videos\//.test(href)) {
-            videoEmbedHtml = buildFacebookEmbedFromUrl(href);
-            break;
+      // 3) Links that point to video providers
+      const links = tmp.querySelectorAll('a');
+      for (const a of links) {
+        const href = a.getAttribute('href') || '';
+        if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+          videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+          break;
+        }
+        if (/vimeo\.com\/\d+/.test(href)) {
+          videoEmbedHtml = buildVimeoEmbedFromUrl(href);
+          break;
+        }
+        if (/facebook\.com\/.*\/videos\//.test(href)) {
+          videoEmbedHtml = buildFacebookEmbedFromUrl(href);
+          break;
+        }
+      }
+
+      // 4) Plain-text URLs inside the HTML (like 381733: "https://vimeo.com/112619384")
+      if (!videoEmbedHtml) {
+        const htmlText = html;
+
+        const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/);
+        const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
+        const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
+
+        const urlMatch = vimeoMatch || ytMatch || fbMatch;
+        if (urlMatch) {
+          const url = urlMatch[0];
+          if (vimeoMatch) {
+            videoEmbedHtml = buildVimeoEmbedFromUrl(url);
+          } else if (ytMatch) {
+            videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
+          } else if (fbMatch) {
+            videoEmbedHtml = buildFacebookEmbedFromUrl(url);
           }
         }
       }
     }
+  }
 
   if (videoEmbedHtml) {
     const wrapper = document.createElement('div');
     wrapper.className = 'video-embed-wrapper';
     wrapper.innerHTML = videoEmbedHtml;
-    // Place generic video wrapper just above the article body
     container.insertBefore(wrapper, container.firstChild);
   }
 }
+
 
   function buildYouTubeEmbedFromUrl(url) {
     try {
