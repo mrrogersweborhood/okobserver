@@ -4129,3 +4129,21 @@ body > header.oo-header {
   aspect-ratio: 16/9;
   border: 0;
 }
+/* Detail video sizing – make all embedded players full-width */
+.post-detail .video-embed,
+.post-detail .video-embed-wrapper {
+  margin: 12px 0 20px;
+}
+
+.post-detail .video-embed,
+.post-detail .video-embed iframe,
+.post-detail .video-embed video,
+.post-detail .video-embed-wrapper iframe,
+.post-detail .video-embed-wrapper video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 16/9;
+  border: 0;
+}
