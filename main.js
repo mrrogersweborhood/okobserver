@@ -899,7 +899,7 @@ function enhanceEmbedsInDetail(post) {
     wrapper.className = 'video-embed-wrapper';
     wrapper.innerHTML = videoEmbedHtml;
     // Place generic video wrapper just above the article body
-    detailEl.insertBefore(wrapper, contentEl);
+    container.insertBefore(wrapper, container.firstChild);
   }
 }
 
