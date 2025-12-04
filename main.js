@@ -853,12 +853,13 @@ function enhanceEmbedsInDetail(post) {
   if (!html) return;
 
   // Hard overrides for posts whose embeds are too weird to parse reliably
-  const videoOverrides = {
-    // November ’25 Newsmaker (works and must stay)
-    383136: 'https://player.vimeo.com/video/1137090361'
-    // If you ever want a hard override for another post, add
-    // 381733: 'https://player.vimeo.com/video/112619384',
-  };
+const videoOverrides = {
+  // November ’25 Newsmaker (works and must stay)
+  '383136': 'https://player.vimeo.com/video/1137090361',
+
+  // Oct ’25 Newsmakers (381733)
+  '381733': 'https://player.vimeo.com/video/112619384'
+};
 
   const overrideSrc = videoOverrides[post.id];
   if (overrideSrc) {
