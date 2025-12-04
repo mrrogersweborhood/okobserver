@@ -852,7 +852,7 @@ function enhanceEmbedsInDetail(post) {
   const html = post.content && post.content.rendered ? post.content.rendered : '';
   if (!html) return;
 
-  const vimeoOverridePostId = 381733;
+  const vimeoOverridePostId = 383136;
   if (post.id === vimeoOverridePostId) {
     const hardcodedVimeoId = '1137090361';
     const existingIframe = container.querySelector('iframe[src*="player.vimeo.com"]');
