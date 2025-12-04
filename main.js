@@ -903,6 +903,7 @@ const videoOverrides = {
           break;
         }
         if (/facebook\.com\/.*\/videos\//.test(href)) {
+          addFacebookWatchOverlay(href);
           videoEmbedHtml = buildFacebookEmbedFromUrl(href);
           break;
         }
@@ -924,6 +925,7 @@ const videoOverrides = {
           } else if (ytMatch) {
             videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
           } else if (fbMatch) {
+            addFacebookWatchOverlay(url);
             videoEmbedHtml = buildFacebookEmbedFromUrl(url);
           }
         }
@@ -993,6 +995,33 @@ const videoOverrides = {
       ></iframe>
     `;
   }
+function addFacebookWatchOverlay(url) {
+  try {
+    const hero = document.querySelector('.post-hero, .post-detail-hero');
+    if (!hero) return;
+
+    // Avoid duplicates if we re-render
+    if (hero.querySelector('.fb-watch-overlay')) return;
+
+    // Ensure hero can host absolutely positioned children
+    const currentPosition = window.getComputedStyle(hero).position;
+    if (!currentPosition || currentPosition === 'static') {
+      hero.style.position = 'relative';
+    }
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.className = 'fb-watch-overlay';
+    link.textContent = 'Watch on Facebook';
+
+    hero.appendChild(link);
+  } catch (err) {
+    console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
+  }
+}
+
 
   // ---------------------------------------------------------------------------
   // Not found view
