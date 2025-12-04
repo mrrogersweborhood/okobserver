@@ -3992,6 +3992,46 @@ body > header.oo-header {
 }
 
 /* 🔴 hamburger-visibility-patch — 2025-12-03R1 */
+/* Facebook "Watch on Facebook" overlay — small, centered pill */
+.post-detail .post-hero {
+  position: relative; /* ensure hero can anchor the overlay */
+}
+
+.fb-watch-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+
+  background: #1E90FF;  /* OkObserver blue */
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.fb-watch-overlay:hover,
+.fb-watch-overlay:focus-visible {
+  filter: brightness(1.07);
+}
+
+/* Hide broken inline Facebook video players; rely on hero overlay instead */
+#app article iframe[src*="facebook.com"],
+#app article .fb-video,
+#app article .fb-post {
+  display: none !important;
+}
+
 /* ================================
    OkObserver — Byline Color Fix
    ================================ */
