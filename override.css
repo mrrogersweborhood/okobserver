@@ -4036,6 +4036,11 @@ body > header.oo-header {
 #app article .fb-post {
   display: none !important;
 }
+/* Also collapse the empty blocks that only contained the Facebook iframe */
+#app article p:has(iframe[src*="facebook.com"]),
+#app article div:has(iframe[src*="facebook.com"]) {
+  display: none !important;
+}
 
 /* ================================
    OkObserver — Byline Color Fix
