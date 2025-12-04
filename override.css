@@ -4036,6 +4036,13 @@ body > header.oo-header {
 #app article .fb-post {
   display: none !important;
 }
+/* Hide broken inline Facebook video players; rely on hero overlay instead */
+#app article iframe[src*="facebook.com"],
+#app article .fb-video,
+#app article .fb-post {
+  display: none !important;
+}
+
 /* Also collapse the empty blocks / wrappers that only contained the Facebook iframe */
 #app article p:has(iframe[src*="facebook.com"]),
 #app article div:has(iframe[src*="facebook.com"]),
@@ -4052,6 +4059,18 @@ body > header.oo-header {
 #app article figure:has(.fb-post),
 #app article .wp-block-embed:has(.fb-post),
 #app article .wp-block-embed__wrapper:has(.fb-post) {
+  display: none !important;
+}
+
+/* Hide duplicate Facebook thumbnail block under hero */
+#app article .post-detail-content p:has(a[href*="facebook.com/OkObserver/videos"] img),
+#app article .post-detail-content p:has(a[href*="facebook.com/watch"] img) {
+  display: none !important;
+}
+
+/* Remove stray empty paragraphs in post detail content */
+#app article .post-detail-content p:empty,
+#app article .post-detail-content p:has(br:only-child) {
   display: none !important;
 }
 
