@@ -870,29 +870,38 @@ function enhanceEmbedsInDetail(post) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-  let videoEmbedHtml = '';
+    let videoEmbedHtml = '';
+
+  // 1) Direct iframes (WP embed blocks, manual iframe)
   const iframes = tmp.querySelectorAll('iframe');
   if (iframes.length > 0) {
-    const firstIframe = iframes[0];
-    videoEmbedHtml = firstIframe.outerHTML;
+    videoEmbedHtml = iframes[0].outerHTML;
   } else {
-    const links = tmp.querySelectorAll('a');
-    for (const a of links) {
-      const href = a.getAttribute('href') || '';
-      if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-        videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-        break;
-      }
-      if (/vimeo\.com\/\d+/.test(href)) {
-        videoEmbedHtml = buildVimeoEmbedFromUrl(href);
-        break;
-      }
-      if (/facebook\.com\/.*\/videos\//.test(href)) {
-        videoEmbedHtml = buildFacebookEmbedFromUrl(href);
-        break;
+    // 2) HTML5 <video> tag (some posts use this instead of an iframe)
+    const videos = tmp.querySelectorAll('video');
+    if (videos.length > 0) {
+      videoEmbedHtml = videos[0].outerHTML;
+    } else {
+      // 3) Fallback: links that point to a known video provider
+      const links = tmp.querySelectorAll('a');
+      for (const a of links) {
+        const href = a.getAttribute('href') || '';
+        if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+          videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+          break;
+        }
+        if (/vimeo\.com\/\d+/.test(href)) {
+          videoEmbedHtml = buildVimeoEmbedFromUrl(href);
+          break;
+        }
+        if (/facebook\.com\/.*\/videos\//.test(href)) {
+          videoEmbedHtml = buildFacebookEmbedFromUrl(href);
+          break;
+        }
       }
     }
   }
+
 
   if (videoEmbedHtml) {
     const wrapper = document.createElement('div');

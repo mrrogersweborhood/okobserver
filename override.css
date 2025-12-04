@@ -4103,3 +4103,29 @@ body > header.oo-header {
 .about-contact {
   grid-column: 1 / -1;
 }
+/* Detail hero image should be contained, not cropped */
+.post-detail .post-hero .oo-media {
+  width: 100%;
+  height: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center center;
+  border-bottom: none;
+}
+/* Detail video players – full-width, comfortable height */
+.post-detail .video-embed,
+.post-detail .video-embed-wrapper {
+  margin: 12px 0 20px;
+}
+
+.post-detail .video-embed iframe,
+.post-detail .video-embed video,
+.post-detail .video-embed-wrapper iframe,
+.post-detail .video-embed-wrapper video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 16/9;
+  border: 0;
+}
