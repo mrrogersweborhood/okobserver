@@ -857,10 +857,9 @@ const videoOverrides = {
   // November ’25 Newsmaker (works and must stay)
   '383136': 'https://player.vimeo.com/video/1137090361',
 
-  // Oct ’25 Newsmakers (381733)
-  '381733': 'https://player.vimeo.com/video/1126193884'
+  // Oct ’25 Newsmakers (381733) – CORRECT ID
+  '381733': 'https://player.vimeo.com/video/1126193804'
 };
-
   const overrideSrc = videoOverrides[post.id];
   if (overrideSrc) {
     const existingIframe = container.querySelector(`iframe[src*="${overrideSrc}"]`);
