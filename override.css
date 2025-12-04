@@ -4167,3 +4167,30 @@ body > header.oo-header {
 .fb-watch-overlay:focus {
   text-decoration: underline;
 }
+/* Facebook "Watch on Facebook" overlay, centered over the hero image */
+.post-hero {
+  position: relative; /* safe even if already set elsewhere */
+}
+
+.fb-watch-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  background-color: #1E90FF; /* OkObserver blue */
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.fb-watch-overlay:hover,
+.fb-watch-overlay:focus-visible {
+  background-color: #1c7fdc;
+  text-decoration: none;
+}

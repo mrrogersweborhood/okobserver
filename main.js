@@ -853,13 +853,14 @@ function enhanceEmbedsInDetail(post) {
   if (!html) return;
 
   // Hard overrides for posts whose embeds are too weird to parse reliably
-const videoOverrides = {
-  // November ’25 Newsmaker (works and must stay)
-  '383136': 'https://player.vimeo.com/video/1137090361',
+  const videoOverrides = {
+    // November ’25 Newsmaker (works and must stay)
+    '383136': 'https://player.vimeo.com/video/1137090361',
 
-  // Oct ’25 Newsmakers (381733) – CORRECT ID
-  '381733': 'https://player.vimeo.com/video/1126193804'
-};
+    // Oct ’25 Newsmakers (381733) – CORRECT ID
+    '381733': 'https://player.vimeo.com/video/1126193804'
+  };
+
   const overrideSrc = videoOverrides[post.id];
   if (overrideSrc) {
     const existingIframe = container.querySelector(`iframe[src*="${overrideSrc}"]`);
@@ -894,6 +895,7 @@ const videoOverrides = {
       const links = tmp.querySelectorAll('a');
       for (const a of links) {
         const href = a.getAttribute('href') || '';
+
         if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
           videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
           break;
@@ -903,13 +905,14 @@ const videoOverrides = {
           break;
         }
         if (/facebook\.com\/.*\/videos\//.test(href)) {
+          // For Facebook: show a "Watch on Facebook" overlay and REMOVE the dead iframe.
           addFacebookWatchOverlay(href);
-          videoEmbedHtml = buildFacebookEmbedFromUrl(href);
+          // Do NOT set videoEmbedHtml – we don't want an embedded Facebook player.
           break;
         }
       }
 
-      // 4) Plain-text URLs inside the HTML (like 381733: "https://vimeo.com/112619384")
+      // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
       if (!videoEmbedHtml) {
         const htmlText = html;
 
@@ -920,13 +923,14 @@ const videoOverrides = {
         const urlMatch = vimeoMatch || ytMatch || fbMatch;
         if (urlMatch) {
           const url = urlMatch[0];
+
           if (vimeoMatch) {
             videoEmbedHtml = buildVimeoEmbedFromUrl(url);
           } else if (ytMatch) {
             videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
           } else if (fbMatch) {
+            // Again: overlay only, no embedded Facebook player.
             addFacebookWatchOverlay(url);
-            videoEmbedHtml = buildFacebookEmbedFromUrl(url);
           }
         }
       }
@@ -940,6 +944,7 @@ const videoOverrides = {
     container.insertBefore(wrapper, container.firstChild);
   }
 }
+
 
 
   function buildYouTubeEmbedFromUrl(url) {
@@ -1017,10 +1022,18 @@ function addFacebookWatchOverlay(url) {
     link.textContent = 'Watch on Facebook';
 
     hero.appendChild(link);
+
+    // Remove any existing Facebook iframes from the article content
+    const fbIframes = document.querySelectorAll(
+      '.post-detail-content iframe[src*="facebook.com"], ' +
+      '.post-detail-content iframe[data-lazy-src*="facebook.com"]'
+    );
+    fbIframes.forEach((el) => el.remove());
   } catch (err) {
     console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
   }
 }
+
 
 
   // ---------------------------------------------------------------------------
