@@ -4428,3 +4428,35 @@ body > header.oo-header {
   margin: 0 0 0.5rem;
   line-height: 1.5;
 }
+/* === Dynamic About page content === */
+.about-view {
+  max-width: 900px;
+  margin: 1.5rem auto 3rem;
+  padding: 0 16px;
+}
+
+.about-title {
+  font-size: 1.75rem;
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+
+.about-html h1,
+.about-html h2,
+.about-html h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.about-html p {
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+}
+
+.about-html img.about-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 0.75rem;
+  border-radius: 8px;
+}

@@ -616,6 +616,8 @@
   }
 
   // ---------------------------------------------------------------------------
+}
+// ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -642,77 +644,56 @@ async function renderAbout() {
       return;
     }
 
-    const tmp = document.createElement('div');
-    tmp.innerHTML = page.content.rendered;
+    // Drop the raw WP HTML into a wrapper
+    contentEl.innerHTML = `
+      <div class="about-html">
+        ${page.content.rendered}
+      </div>
+    `;
 
-    const columnsWrapper = document.createElement('div');
-    columnsWrapper.className = 'about-columns';
+    const root = contentEl.querySelector('.about-html');
+    if (!root) return;
 
-    // FIND THE HEADINGS
-    const headings = Array.from(tmp.querySelectorAll('h1,h2,h3,h4'));
-    const contactHeading = headings.find(h => /contact/i.test(h.textContent));
-    const aboutHeading = headings.find(h => /^about\b/i.test(h.textContent));
-    const editorHeading = headings.find(h => /arnold hamilton/i.test(h.textContent));
+    // Optionally trim off sections like "Subscriptions" / "Merch" at the bottom
+    const headings = Array.from(root.querySelectorAll('h1,h2,h3,h4'));
+    let cutFrom = null;
+    headings.forEach((h) => {
+      const text = (h.textContent || '').trim();
+      if (/^subscriptions$/i.test(text) || /^merch/i.test(text)) {
+        cutFrom = h;
+      }
+    });
+    if (cutFrom && cutFrom.parentElement) {
+      let node = cutFrom;
+      while (node) {
+        const next = node.nextSibling;
+        node.parentNode.removeChild(node);
+        node = next;
+      }
+    }
 
-    // BUILD 3 COLUMNS
-    columnsWrapper.appendChild(buildAboutColumn(contactHeading, 'Contact Us'));
-    columnsWrapper.appendChild(buildAboutColumn(aboutHeading, 'About'));
-    columnsWrapper.appendChild(buildAboutColumn(editorHeading, 'Arnold Hamilton, Editor'));
+    // Fix lazy-loaded images so they actually show
+    root.querySelectorAll('img').forEach((img) => {
+      const dataSrc = img.getAttribute('data-src');
+      const dataSrcset = img.getAttribute('data-srcset');
 
-    contentEl.innerHTML = '';
-    contentEl.appendChild(columnsWrapper);
+      if (dataSrc) {
+        img.src = dataSrc;
+      }
+      if (dataSrcset) {
+        img.srcset = dataSrcset;
+      }
 
+      img.removeAttribute('data-src');
+      img.removeAttribute('data-srcset');
+      img.classList.add('about-image');
+      img.removeAttribute('width');
+      img.removeAttribute('height');
+    });
   } catch (err) {
     console.error('[OkObserver] Error loading About page:', err);
     contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
-}
-
-function buildAboutColumn(headingNode, fallbackTitle) {
-  const column = document.createElement('section');
-  column.className = 'about-column';
-
-  if (!headingNode) return column;
-
-  const title = document.createElement('h2');
-  title.className = 'about-column-title';
-  title.textContent = (headingNode.textContent || fallbackTitle).trim();
-  column.appendChild(title);
-
-  let node = headingNode.nextSibling;
-  let imgAdded = false;
-
-  while (node) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      if (/^H[1-6]$/.test(node.tagName)) break;
-
-      if (!imgAdded && node.querySelector) {
-        const img = node.querySelector('img');
-        if (img) {
-          const clone = img.cloneNode(true);
-          clone.classList.add('about-image');
-          clone.removeAttribute('width');
-          clone.removeAttribute('height');
-          column.appendChild(clone);
-          imgAdded = true;
-        }
-      }
-
-      const ps = node.querySelectorAll ? node.querySelectorAll('p') : [];
-      ps.forEach(p => {
-        const text = p.textContent.trim();
-        if (text) {
-          const pEl = document.createElement('p');
-          pEl.textContent = text;
-          column.appendChild(pEl);
-        }
-      });
-    }
-
-    node = node.nextSibling;
-  }
-
-  return column;
 }
 
   // ---------------------------------------------------------------------------
