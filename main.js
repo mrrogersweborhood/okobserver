@@ -622,77 +622,66 @@
 // About view
 // ---------------------------------------------------------------------------
 
-async function renderAbout() {
-  stopTtsPlayback();
-  scrollToTop();
+function renderAbout() {
+    window.scrollTo(0, 0);
 
-  app.innerHTML = `
-    <article class="about-view">
-      <h1 class="about-title">About The Oklahoma Observer</h1>
-      <div class="about-content">
-        <p>Loading about information…</p>
-      </div>
-    </article>
-  `;
-
-  const contentEl = app.querySelector('.about-content');
-  if (!contentEl) return;
-
-  try {
-    const page = await fetchAboutPage();
-    if (!page || !page.content || !page.content.rendered) {
-      contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
-      return;
-    }
-
-    // Drop the raw WP HTML into a wrapper
-    contentEl.innerHTML = `
-      <div class="about-html">
-        ${page.content.rendered}
-      </div>
+    const app = document.getElementById("app");
+    app.innerHTML = `
+        <article class="about-view">
+            <h1 class="about-title">About The Oklahoma Observer</h1>
+            <div class="about-content">
+                <div class="about-html"></div>
+            </div>
+        </article>
     `;
 
-    const root = contentEl.querySelector('.about-html');
-    if (!root) return;
+      const aboutHtmlEl = document.querySelector(".about-html");
 
-    // Trim off WP sections like Subscriptions/Merch (optional)
-    const headings = Array.from(root.querySelectorAll('h1,h2,h3,h4'));
-    let cutFrom = null;
-    headings.forEach((h) => {
-      const text = (h.textContent || '').trim();
-      if (/^subscriptions$/i.test(text) || /^merch/i.test(text)) {
-        cutFrom = h;
+  // Fetch WordPress About/Contact/Donate page
+  fetch("https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/pages?slug=contact-about-donate&_embed")
+    .then(res => res.json())
+    .then(pages => {
+      const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+
+      if (!page || !page.content || !page.content.rendered) {
+        aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
+        return;
       }
-    });
-    if (cutFrom && cutFrom.parentElement) {
-      let node = cutFrom;
-      while (node) {
-        const next = node.nextSibling;
-        node.parentNode.removeChild(node);
-        node = next;
+
+      // PARSE the WP raw HTML into a DOM we can query
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(page.content.rendered, "text/html");
+
+      // Find the Newspaper theme’s content wrapper
+      const sourceContent = doc.querySelector(".td-page-content");
+
+      if (sourceContent) {
+        // Identify the 3-column layout blocks
+        const wpColumns = sourceContent.querySelectorAll(".td-pb-span4, .td-pb-span8");
+
+        if (wpColumns.length) {
+          aboutHtmlEl.innerHTML = "";
+
+          wpColumns.forEach(col => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "about-column";
+            wrapper.innerHTML = col.innerHTML;
+            aboutHtmlEl.appendChild(wrapper);
+          });
+        } else {
+          // Fallback if Newspaper theme structure changes
+          aboutHtmlEl.innerHTML = sourceContent.innerHTML;
+        }
+      } else {
+        aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
       }
-    }
-
-    // Fix lazy-loaded images from WP theme
-    root.querySelectorAll('img').forEach((img) => {
-      const dataSrc = img.getAttribute('data-src');
-      const dataSrcset = img.getAttribute('data-srcset');
-
-      if (dataSrc) img.src = dataSrc;
-      if (dataSrcset) img.srcset = dataSrcset;
-
-      img.removeAttribute('data-src');
-      img.removeAttribute('data-srcset');
-      img.classList.add('about-image');
-      img.removeAttribute('width');
-      img.removeAttribute('height');
+    })
+    .catch(err => {
+      console.error("[OkObserver] About page error:", err);
+      aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
     });
 
-  } catch (err) {
-    console.error('[OkObserver] Error loading About page:', err);
-    contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
-  }
-}
+
 
 
   // ---------------------------------------------------------------------------

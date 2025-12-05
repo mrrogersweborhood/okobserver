@@ -4502,3 +4502,79 @@ body > header.oo-header {
   border-radius: 8px;
   margin-bottom: 12px;
 }
+/* 🟢 About page layout — 3 columns desktop, 1 column mobile */
+.about-content {
+  max-width: 1100px;
+  margin: 32px auto 64px;
+  padding: 0 16px;
+}
+
+.about-columns {
+  display: grid;
+  grid-template-columns: 1.1fr 1.2fr 1.1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.about-column {
+  font-size: 0.98rem;
+  line-height: 1.5;
+}
+
+.about-column img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.about-column h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.about-column p {
+  margin: 0 0 10px;
+}
+
+/* Stack columns on smaller screens */
+@media (max-width: 900px) {
+  .about-columns {
+    grid-template-columns: 1fr;
+  }
+  .about-column {
+    margin-bottom: 24px;
+  }
+}
+/* 🔴 About page layout — end */
+/* ---------------------------
+   ABOUT PAGE 3-COLUMN LAYOUT
+   --------------------------- */
+.about-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.about-column {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .about-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .about-content {
+    grid-template-columns: 1fr;
+  }
+}
