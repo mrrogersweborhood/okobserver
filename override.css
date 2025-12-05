@@ -4583,3 +4583,56 @@ body > header.oo-header {
      depending on available space, but never makes them skinny slivers. */
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
+/* OkObserver About page: make cards wide enough to read */
+.about-grid {
+  /* Each card is at least 260px wide; browser chooses 1, 2, or 3 columns
+     depending on available space, but never makes them skinny slivers. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+/* 🟦 About view layout – fix skinny TagDiv columns and make readable cards */
+.about-view .about-content,
+.about-view .about-html {
+  max-width: 1100px;
+  margin: 0 auto 60px auto;
+  padding: 0 16px 40px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 32px;
+  align-items: flex-start;
+}
+
+/* Make each About card fill its grid cell */
+.about-view .about-column {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  padding: 24px 24px 28px;
+}
+
+/* Kill TagDiv’s old 1/3-width columns inside each card */
+.about-view .about-column [class*="td-pb-span"],
+.about-view .about-column .tdc-columns,
+.about-view .about-column .tdc-row,
+.about-view .about-column .wpb_wrapper,
+.about-view .about-column .wpb_column {
+  width: 100% !important;
+  max-width: 100% !important;
+  float: none !important;
+}
+
+/* Tablet: 2 columns */
+@media (max-width: 1100px) {
+  .about-view .about-content,
+  .about-view .about-html {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 768px) {
+  .about-view .about-content,
+  .about-view .about-html {
+    grid-template-columns: 1fr;
+  }
+}
