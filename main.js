@@ -828,7 +828,7 @@
       });
     }
 
-    const ttsButton = app.querySelector('.tts-button');
+        const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
       ttsButton.addEventListener('click', () => {
         const current = currentTtsPostId;
@@ -842,8 +842,13 @@
       });
     }
 
+    // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
     enhanceEmbedsInDetail(post);
+
+    // NEW: fix any lazy-loaded iframes (data-lazy-src → src) so the players actually render
+    removeLazyloadEmbeds();
   }
+
 
 function enhanceEmbedsInDetail(post) {
   const container = app.querySelector('.post-detail-content');

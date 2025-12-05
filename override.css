@@ -4361,3 +4361,15 @@ body > header.oo-header {
 .post-detail .post-body p:has(> svg[width="1"][height="1"]) {
   display: none !important;
 }
+/* === videoWhitespaceFix-2025-12-04 === */
+/* We render our own top-of-article player; hide the leftover lazy iframe block
+   that WordPress/shortcodes leave inside the article body. */
+.post-detail-content p > iframe.lazyload,
+.post-detail-content p:has(> iframe.lazyload) {
+  display: none !important;
+}
+
+/* Safety: remove any truly empty paragraphs inside post detail content */
+.post-detail-content p:empty {
+  display: none !important;
+}
