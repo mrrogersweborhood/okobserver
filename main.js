@@ -198,6 +198,19 @@
     const url = `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=1&_embed`;
     return fetchJson(url);
   }
+  // Cached About page (contact-about-donate) so we only fetch once
+  let aboutPageCache = null;
+
+  async function fetchAboutPage() {
+    if (aboutPageCache) return aboutPageCache;
+
+    const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
+    const pages = await fetchJson(url);
+    const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+
+    aboutPageCache = page;
+    return page;
+  }
 
   // ---------------------------------------------------------------------------
   // Content helpers
@@ -603,40 +616,111 @@
   }
 
   // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
   // About view
   // ---------------------------------------------------------------------------
 
-  function renderAbout() {
-    stopTtsPlayback();
-    scrollToTop();
+  // ---------------------------------------------------------------------------
+// About view
+// ---------------------------------------------------------------------------
 
-    app.innerHTML = `
-      <article class="about-view">
-        <h1>About The Oklahoma Observer</h1>
-        <div class="about-content">
-          <p>
-            <strong>The Oklahoma Observer</strong> has been “To Comfort The Afflicted And Afflict The Comfortable”
-            since 1969. This OkObserver app is an experimental, reader-friendly way to explore recent posts
-            from the publication&apos;s WordPress site.
-          </p>
-          <p>
-            The app is a lightweight viewer that fetches public posts through a read-only Cloudflare Worker proxy.
-            It does not replace your subscription, paywall, or login on the main site. To access full subscriber-only
-            content, you&apos;ll still sign in at the official website.
-          </p>
-          <p>
-            This project is in active development with a strong emphasis on stability:
-            keeping the header layout, grid, and navigation reliable across desktop and mobile while
-            gradually improving performance and accessibility.
-          </p>
-          <p>
-            Feedback and bug reports are always welcome. This app is all about making it easier
-            to read, share, and listen to Observer content while preserving the publication&apos;s spirit and independence.
-          </p>
-        </div>
-      </article>
-    `;
+async function renderAbout() {
+  stopTtsPlayback();
+  scrollToTop();
+
+  app.innerHTML = `
+    <article class="about-view">
+      <h1 class="about-title">About The Oklahoma Observer</h1>
+      <div class="about-content">
+        <p>Loading about information…</p>
+      </div>
+    </article>
+  `;
+
+  const contentEl = app.querySelector('.about-content');
+  if (!contentEl) return;
+
+  try {
+    const page = await fetchAboutPage();
+    if (!page || !page.content || !page.content.rendered) {
+      contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
+      return;
+    }
+
+    // Put the WP HTML into a temporary container so we can slice it into columns
+    const tmp = document.createElement('div');
+    tmp.innerHTML = page.content.rendered;
+
+    function buildColumn(sectionRoot) {
+      const column = document.createElement('section');
+      column.className = 'about-column';
+
+      if (!sectionRoot) {
+        return column;
+      }
+
+      // Heading (Contact Us / About / Arnold Hamilton, Editor)
+      const heading = sectionRoot.querySelector('h2, h3');
+      if (heading && heading.textContent) {
+        const h = document.createElement('h2');
+        h.className = 'about-column-title';
+        h.textContent = heading.textContent.replace(/\s+/g, ' ').trim();
+        column.appendChild(h);
+      }
+
+      // First image in the section (if any)
+      const img = sectionRoot.querySelector('img');
+      if (img) {
+        const clone = img.cloneNode(true);
+        clone.removeAttribute('width');
+        clone.removeAttribute('height');
+        clone.loading = 'lazy';
+        clone.classList.add('about-image');
+        column.appendChild(clone);
+      }
+
+      // Paragraphs – collapse internal whitespace and skip empty ones
+      const paragraphs = sectionRoot.querySelectorAll('p');
+      paragraphs.forEach((p) => {
+        const text = (p.textContent || '').replace(/\s+/g, ' ').trim();
+        if (!text) return;
+        const pEl = document.createElement('p');
+        pEl.textContent = text;
+        column.appendChild(pEl);
+      });
+
+      return column;
+    }
+
+    // Collect sections that start at each H2/H3 – these become our three columns
+    const headings = tmp.querySelectorAll('h2, h3');
+    const sections = [];
+
+    headings.forEach((heading) => {
+      const section = heading.parentElement;
+      if (section && !sections.includes(section)) {
+        sections.push(section);
+      }
+    });
+
+    const first = sections[0] || tmp;
+    const second = sections[1] || null;
+    const third = sections[2] || null;
+
+    const columnsWrapper = document.createElement('div');
+    columnsWrapper.className = 'about-columns';
+
+    columnsWrapper.appendChild(buildColumn(first));
+    columnsWrapper.appendChild(buildColumn(second));
+    columnsWrapper.appendChild(buildColumn(third));
+
+    contentEl.innerHTML = '';
+    contentEl.appendChild(columnsWrapper);
+  } catch (err) {
+    console.error('[OkObserver] Error loading About page:', err);
+    contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
+}
 
   // ---------------------------------------------------------------------------
   // Search view
