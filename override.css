@@ -4373,3 +4373,12 @@ body > header.oo-header {
 .post-detail-content p:empty {
   display: none !important;
 }
+/* Hide WordPress screenshot preview images under real video players */
+.post-detail-content figure.wp-caption {
+  display: none !important;
+}
+
+/* Also remove lone <p></p> blocks after the figure */
+.post-detail-content p:empty {
+  display: none !important;
+}
