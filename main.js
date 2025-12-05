@@ -616,11 +616,7 @@
   }
 
   // ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
-  // About view
-  // ---------------------------------------------------------------------------
-
-  // ---------------------------------------------------------------------------
+   // ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -647,11 +643,42 @@ async function renderAbout() {
       return;
     }
 
-    // Put the WP HTML into a temporary container so we can slice it into columns
+    // Put the WP HTML into a temporary container so we can slice it into sections
     const tmp = document.createElement('div');
     tmp.innerHTML = page.content.rendered;
 
-    function buildColumn(sectionRoot) {
+    const allHeadings = Array.from(tmp.querySelectorAll('h1, h2, h3, h4'));
+
+    function findHeading(matchFn) {
+      return allHeadings.find((h) => matchFn((h.textContent || '').trim()));
+    }
+
+    function collectSectionFromHeading(headingNode) {
+      if (!headingNode) return null;
+
+      const section = document.createElement('div');
+
+      // Collect siblings from after this heading until the next heading
+      let node = headingNode.nextSibling;
+      while (node && node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
+        node = node.nextSibling;
+      }
+
+      while (node) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tag = node.tagName;
+          if (tag && /^H[1-6]$/.test(tag)) break; // stop at next heading
+        }
+
+        const clone = node.cloneNode(true);
+        section.appendChild(clone);
+        node = node.nextSibling;
+      }
+
+      return section;
+    }
+
+    function buildColumn(titleFallback, sectionRoot) {
       const column = document.createElement('section');
       column.className = 'about-column';
 
@@ -659,12 +686,16 @@ async function renderAbout() {
         return column;
       }
 
-      // Heading (Contact Us / About / Arnold Hamilton, Editor)
-      const heading = sectionRoot.querySelector('h2, h3');
-      if (heading && heading.textContent) {
+      // Heading from HTML if present, otherwise fallback
+      const headingNode = sectionRoot.querySelector('h1, h2, h3, h4');
+      const headingText = headingNode && headingNode.textContent
+        ? headingNode.textContent
+        : titleFallback;
+
+      if (headingText) {
         const h = document.createElement('h2');
         h.className = 'about-column-title';
-        h.textContent = heading.textContent.replace(/\s+/g, ' ').trim();
+        h.textContent = headingText.replace(/\s+/g, ' ').trim();
         column.appendChild(h);
       }
 
@@ -679,7 +710,7 @@ async function renderAbout() {
         column.appendChild(clone);
       }
 
-      // Paragraphs – collapse internal whitespace and skip empty ones
+      // Paragraphs – collapse whitespace and skip empties
       const paragraphs = sectionRoot.querySelectorAll('p');
       paragraphs.forEach((p) => {
         const text = (p.textContent || '').replace(/\s+/g, ' ').trim();
@@ -692,27 +723,21 @@ async function renderAbout() {
       return column;
     }
 
-    // Collect sections that start at each H2/H3 – these become our three columns
-    const headings = tmp.querySelectorAll('h2, h3');
-    const sections = [];
+    // Find the three main headings in the WP content
+    const contactHeading = findHeading((text) => /contact us/i.test(text));
+    const aboutHeading = findHeading((text) => /^about\b/i.test(text));
+    const editorHeading = findHeading((text) => /arnold hamilton/i.test(text));
 
-    headings.forEach((heading) => {
-      const section = heading.parentElement;
-      if (section && !sections.includes(section)) {
-        sections.push(section);
-      }
-    });
-
-    const first = sections[0] || tmp;
-    const second = sections[1] || null;
-    const third = sections[2] || null;
+    const contactSection = collectSectionFromHeading(contactHeading);
+    const aboutSection = collectSectionFromHeading(aboutHeading);
+    const editorSection = collectSectionFromHeading(editorHeading);
 
     const columnsWrapper = document.createElement('div');
     columnsWrapper.className = 'about-columns';
 
-    columnsWrapper.appendChild(buildColumn(first));
-    columnsWrapper.appendChild(buildColumn(second));
-    columnsWrapper.appendChild(buildColumn(third));
+    columnsWrapper.appendChild(buildColumn('Contact Us', contactSection));
+    columnsWrapper.appendChild(buildColumn('About', aboutSection));
+    columnsWrapper.appendChild(buildColumn('Arnold Hamilton, Editor', editorSection));
 
     contentEl.innerHTML = '';
     contentEl.appendChild(columnsWrapper);
@@ -721,6 +746,7 @@ async function renderAbout() {
     contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
 }
+
 
   // ---------------------------------------------------------------------------
   // Search view
