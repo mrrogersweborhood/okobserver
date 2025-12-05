@@ -4713,3 +4713,12 @@ article.about-view {
     display: block !important;
     max-width: 100% !important;
 }
+/* === ABOUT PAGE IMAGE FIX — FULL-WIDTH IMAGES === */
+.about-column img {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  margin: 0 0 20px 0 !important;
+}
