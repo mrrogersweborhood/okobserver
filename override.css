@@ -4577,3 +4577,9 @@ body > header.oo-header {
     grid-template-columns: 1fr;
   }
 }
+/* OkObserver About page: make cards wide enough to read */
+.about-grid {
+  /* Each card is at least 260px wide; browser chooses 1, 2, or 3 columns
+     depending on available space, but never makes them skinny slivers. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
