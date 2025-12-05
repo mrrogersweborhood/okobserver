@@ -678,14 +678,14 @@ function renderAbout() {
     })
     .catch(err => {
       console.error("[OkObserver] About page error:", err);
-      aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
+          aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
     });
 
+}   // <----------------------- ADD THIS LINE (closes renderAbout)
 
+    // ---------------------------------------------------------------------------
+    // Search view
 
-
-  // ---------------------------------------------------------------------------
-  // Search view
   // ---------------------------------------------------------------------------
 
   function renderSearch(params) {
