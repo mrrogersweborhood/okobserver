@@ -4460,3 +4460,45 @@ body > header.oo-header {
   margin: 0 0 0.75rem;
   border-radius: 8px;
 }
+/* === About Page: 3-Column Grid Layout Override === */
+
+.about-html {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+/* Medium screens: 2 columns */
+@media (min-width: 700px) {
+  .about-html {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Large screens: 3 columns */
+@media (min-width: 1100px) {
+  .about-html {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Normalize WP content blocks so they behave like cards */
+.about-html > div,
+.about-html > section,
+.about-html .wpb_row,
+.about-html .wpb_column,
+.about-html .vc_row,
+.about-html .vc_column_container {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* Fix images so they fit inside card blocks */
+.about-html img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
