@@ -616,8 +616,6 @@
   }
 
   // ---------------------------------------------------------------------------
-   // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -647,102 +645,75 @@ async function renderAbout() {
     const tmp = document.createElement('div');
     tmp.innerHTML = page.content.rendered;
 
-    const allHeadings = Array.from(tmp.querySelectorAll('h1, h2, h3, h4'));
-
-    function findHeading(matchFn) {
-      return allHeadings.find((h) => matchFn((h.textContent || '').trim()));
-    }
-
-    function buildColumnFromHeading(headingNode, fallbackTitle) {
-      const column = document.createElement('section');
-      column.className = 'about-column';
-
-      if (!headingNode) {
-        return column;
-      }
-
-      const titleText =
-        (headingNode.textContent && headingNode.textContent.trim()) ||
-        fallbackTitle ||
-        '';
-
-      if (titleText) {
-        const h = document.createElement('h2');
-        h.className = 'about-column-title';
-        h.textContent = titleText.replace(/\s+/g, ' ').trim();
-        column.appendChild(h);
-      }
-
-      let node = headingNode.nextSibling;
-      let imgAdded = false;
-
-      // Walk through siblings until the next heading
-      while (node) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const tagName = node.tagName;
-
-          // Stop at the next heading
-          if (tagName && /^H[1-6]$/.test(tagName)) {
-            break;
-          }
-
-          // Capture the first image in this section
-          if (!imgAdded && node.querySelector) {
-            const img = node.querySelector('img');
-            if (img) {
-              const clone = img.cloneNode(true);
-              clone.removeAttribute('width');
-              clone.removeAttribute('height');
-              clone.loading = 'lazy';
-              clone.classList.add('about-image');
-              column.appendChild(clone);
-              imgAdded = true;
-            }
-          }
-
-          // Collect paragraphs (direct or nested)
-          const paragraphs = [];
-          if (tagName === 'P') {
-            paragraphs.push(node);
-          } else if (node.querySelectorAll) {
-            node.querySelectorAll('p').forEach((p) => paragraphs.push(p));
-          }
-
-          paragraphs.forEach((p) => {
-            const text = (p.textContent || '').replace(/\s+/g, ' ').trim();
-            if (!text) return;
-            const pEl = document.createElement('p');
-            pEl.textContent = text;
-            column.appendChild(pEl);
-          });
-        }
-
-        node = node.nextSibling;
-      }
-
-      return column;
-    }
-
-    // Find the three key headings in the WP content
-    const contactHeading = findHeading((text) => /contact us/i.test(text));
-    const aboutHeading = findHeading((text) => /^about\b/i.test(text));
-    const editorHeading = findHeading((text) => /arnold hamilton/i.test(text));
-
     const columnsWrapper = document.createElement('div');
     columnsWrapper.className = 'about-columns';
 
-    columnsWrapper.appendChild(buildColumnFromHeading(contactHeading, 'Contact Us'));
-    columnsWrapper.appendChild(buildColumnFromHeading(aboutHeading, 'About'));
-    columnsWrapper.appendChild(buildColumnFromHeading(editorHeading, 'Arnold Hamilton, Editor'));
+    // FIND THE HEADINGS
+    const headings = Array.from(tmp.querySelectorAll('h1,h2,h3,h4'));
+    const contactHeading = headings.find(h => /contact/i.test(h.textContent));
+    const aboutHeading = headings.find(h => /^about\b/i.test(h.textContent));
+    const editorHeading = headings.find(h => /arnold hamilton/i.test(h.textContent));
+
+    // BUILD 3 COLUMNS
+    columnsWrapper.appendChild(buildAboutColumn(contactHeading, 'Contact Us'));
+    columnsWrapper.appendChild(buildAboutColumn(aboutHeading, 'About'));
+    columnsWrapper.appendChild(buildAboutColumn(editorHeading, 'Arnold Hamilton, Editor'));
 
     contentEl.innerHTML = '';
     contentEl.appendChild(columnsWrapper);
+
   } catch (err) {
     console.error('[OkObserver] Error loading About page:', err);
     contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
+}
 
+function buildAboutColumn(headingNode, fallbackTitle) {
+  const column = document.createElement('section');
+  column.className = 'about-column';
 
+  if (!headingNode) return column;
+
+  const title = document.createElement('h2');
+  title.className = 'about-column-title';
+  title.textContent = (headingNode.textContent || fallbackTitle).trim();
+  column.appendChild(title);
+
+  let node = headingNode.nextSibling;
+  let imgAdded = false;
+
+  while (node) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      if (/^H[1-6]$/.test(node.tagName)) break;
+
+      if (!imgAdded && node.querySelector) {
+        const img = node.querySelector('img');
+        if (img) {
+          const clone = img.cloneNode(true);
+          clone.classList.add('about-image');
+          clone.removeAttribute('width');
+          clone.removeAttribute('height');
+          column.appendChild(clone);
+          imgAdded = true;
+        }
+      }
+
+      const ps = node.querySelectorAll ? node.querySelectorAll('p') : [];
+      ps.forEach(p => {
+        const text = p.textContent.trim();
+        if (text) {
+          const pEl = document.createElement('p');
+          pEl.textContent = text;
+          column.appendChild(pEl);
+        }
+      });
+    }
+
+    node = node.nextSibling;
+  }
+
+  return column;
+}
 
   // ---------------------------------------------------------------------------
   // Search view
