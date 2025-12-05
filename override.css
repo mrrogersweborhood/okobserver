@@ -4636,3 +4636,53 @@ body > header.oo-header {
     grid-template-columns: 1fr;
   }
 }
+
+/* --------------------------------------------------
+   About page layout – 3 wide cards
+   -------------------------------------------------- */
+
+article.about-view {
+  max-width: 1200px;
+  margin: 2rem auto 4rem;
+  padding: 0 1.5rem;
+}
+
+.about-content {
+  /* 3 columns on desktop, auto-wrap on smaller screens */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 32px;
+  align-items: flex-start;
+}
+
+/* Individual cards */
+.about-column {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  padding: 28px 24px;
+  box-sizing: border-box;
+}
+
+/* Headings in the cards */
+.about-column h1,
+.about-column h2,
+.about-column h3 {
+  margin-top: 0;
+}
+
+/* Images inside the cards */
+.about-column img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem auto 0;
+  border-radius: 8px;
+}
+
+/* Mobile / tablet: stack nicely */
+@media (max-width: 900px) {
+  .about-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
