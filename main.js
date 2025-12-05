@@ -677,6 +677,37 @@ function renderAbout() {
           wrapper.innerHTML = col.innerHTML;
           aboutHtmlEl.appendChild(wrapper);
         });
+// --- Move images to top + clean up ---
+document.querySelectorAll(".about-column").forEach(col => {
+    const img = col.querySelector("img");
+    if (img) {
+        // Make image full width
+        img.classList.add("about-image-full");
+
+        // Remove lazyload junk
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        img.removeAttribute("style");
+        img.removeAttribute("data-sizes");
+        img.removeAttribute("data-srcset");
+        img.removeAttribute("data-src");
+
+        // Move the image to the very top of the column
+        col.insertBefore(img, col.firstChild);
+    }
+});
+
+// --- Normalize images inside about-column ---
+document.querySelectorAll(".about-column img").forEach(img => {
+    img.classList.add("about-image-full");
+    img.removeAttribute("width");
+    img.removeAttribute("height");
+    img.removeAttribute("style");
+    img.removeAttribute("data-sizes");
+    img.removeAttribute("data-srcset");
+    img.removeAttribute("data-src");
+});
+
       } else {
         // Fallback: just show the whole HTML if we can't find specific columns
         aboutHtmlEl.innerHTML = rawHtml;
@@ -1116,24 +1147,34 @@ function addFacebookWatchOverlay(url) {
   // Not found view
   // ---------------------------------------------------------------------------
 
-  function renderNotFound() {
-    stopTtsPlayback();
-    scrollToTop();
+    function renderNotFound() {
+    // ...
+  }
 
-    app.innerHTML = `
-      <div class="not-found">
-        <h1>Not Found</h1>
-        <p>The page you&apos;re looking for could not be found.</p>
-        <button class="back-btn" type="button">Back to posts</button>
-      </div>
-    `;
+  // ---------------------------------------------------------------------------
+  // Utility: fix lazy-loaded images (data-src → src)
+  // ---------------------------------------------------------------------------
 
-    const back = app.querySelector('.back-btn');
-    if (back) {
-      back.addEventListener('click', () => {
-        navigateTo('#/');
-      });
-    }
+  function fixLazyImages(root) {
+    const scope = root || document;
+
+    const imgs = scope.querySelectorAll('img[data-src], img[data-lazy-src]');
+    imgs.forEach((img) => {
+      const dataSrc =
+        img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
+      if (dataSrc) {
+        img.src = dataSrc;
+      }
+
+      const dataSrcset = img.getAttribute('data-srcset');
+      if (dataSrcset) {
+        img.srcset = dataSrcset;
+      }
+
+      img.removeAttribute('data-src');
+      img.removeAttribute('data-lazy-src');
+      img.classList.remove('lazyload', 'lazyloaded');
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1142,6 +1183,7 @@ function addFacebookWatchOverlay(url) {
 
   function init() {
     console.log('[OkObserver] Initializing app, build:', APP_BUILD_LABEL);
+
     onRouteChange();
 
     document.addEventListener('okobs:route', (ev) => {

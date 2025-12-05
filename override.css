@@ -4686,3 +4686,19 @@ article.about-view {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.about-column img.about-image-full {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem 0;
+    object-fit: cover;
+    border-radius: 6px;
+}
+.about-column img.about-image-full {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-bottom: 1rem;
+    object-fit: cover;
+    border-radius: 8px;
+}
