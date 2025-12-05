@@ -623,65 +623,71 @@
 // ---------------------------------------------------------------------------
 
 function renderAbout() {
-    window.scrollTo(0, 0);
+  // Stop any TTS and go to top, like other views
+  stopTtsPlayback();
+  scrollToTop();
 
-    const app = document.getElementById("app");
-    app.innerHTML = `
-        <article class="about-view">
-            <h1 class="about-title">About The Oklahoma Observer</h1>
-            <div class="about-content">
-                <div class="about-html"></div>
-            </div>
-        </article>
-    `;
+  // Use a local variable name to avoid confusion with the global `app`
+  const appRoot = document.getElementById("app");
+  if (!appRoot) return;
 
-      const aboutHtmlEl = document.querySelector(".about-html");
+  appRoot.innerHTML = `
+    <article class="about-view">
+      <h1 class="about-title">About The Oklahoma Observer</h1>
+      <div class="about-content">
+        <div class="about-html"></div>
+      </div>
+    </article>
+  `;
 
-  // Fetch WordPress About/Contact/Donate page
-  fetch("https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/pages?slug=contact-about-donate&_embed")
-    .then(res => res.json())
-    .then(pages => {
+  const aboutHtmlEl = document.querySelector(".about-html");
+  if (!aboutHtmlEl) return;
+
+  // Fetch the Contact/About/Donate page via the proxy
+  const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
+
+  fetchJson(url)
+    .then((pages) => {
       const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+      const rawHtml =
+        page && page.content && page.content.rendered
+          ? page.content.rendered
+          : "";
 
-      if (!page || !page.content || !page.content.rendered) {
+      if (!rawHtml) {
         aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
         return;
       }
 
-      // PARSE the WP raw HTML into a DOM we can query
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(page.content.rendered, "text/html");
+      // Work with the HTML in a temporary container
+      const tmp = document.createElement("div");
+      tmp.innerHTML = rawHtml;
 
-      // Find the Newspaper theme’s content wrapper
-      const sourceContent = doc.querySelector(".td-page-content");
+      // TagDiv columns we care about
+      const wpColumns = tmp.querySelectorAll(".td-pb-span4, .td-pb-span8");
 
-      if (sourceContent) {
-        // Identify the 3-column layout blocks
-        const wpColumns = sourceContent.querySelectorAll(".td-pb-span4, .td-pb-span8");
+      if (wpColumns.length) {
+        // Clear any placeholder text
+        aboutHtmlEl.innerHTML = "";
 
-        if (wpColumns.length) {
-          aboutHtmlEl.innerHTML = "";
-
-          wpColumns.forEach(col => {
-            const wrapper = document.createElement("div");
-            wrapper.className = "about-column";
-            wrapper.innerHTML = col.innerHTML;
-            aboutHtmlEl.appendChild(wrapper);
-          });
-        } else {
-          // Fallback if Newspaper theme structure changes
-          aboutHtmlEl.innerHTML = sourceContent.innerHTML;
-        }
+        // Wrap each WP column in our own about-column so our CSS grid can style them
+        wpColumns.forEach((col) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "about-column";
+          wrapper.innerHTML = col.innerHTML;
+          aboutHtmlEl.appendChild(wrapper);
+        });
       } else {
-        aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
+        // Fallback: just show the whole HTML if we can't find specific columns
+        aboutHtmlEl.innerHTML = rawHtml;
       }
     })
-    .catch(err => {
+    .catch((err) => {
       console.error("[OkObserver] About page error:", err);
-          aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
+      aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
     });
-
 }   // <----------------------- ADD THIS LINE (closes renderAbout)
+
 
     // ---------------------------------------------------------------------------
     // Search view
