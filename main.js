@@ -618,6 +618,7 @@
   // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -654,7 +655,7 @@ async function renderAbout() {
     const root = contentEl.querySelector('.about-html');
     if (!root) return;
 
-    // Optionally trim off sections like "Subscriptions" / "Merch" at the bottom
+    // Trim off WP sections like Subscriptions/Merch (optional)
     const headings = Array.from(root.querySelectorAll('h1,h2,h3,h4'));
     let cutFrom = null;
     headings.forEach((h) => {
@@ -672,17 +673,13 @@ async function renderAbout() {
       }
     }
 
-    // Fix lazy-loaded images so they actually show
+    // Fix lazy-loaded images from WP theme
     root.querySelectorAll('img').forEach((img) => {
       const dataSrc = img.getAttribute('data-src');
       const dataSrcset = img.getAttribute('data-srcset');
 
-      if (dataSrc) {
-        img.src = dataSrc;
-      }
-      if (dataSrcset) {
-        img.srcset = dataSrcset;
-      }
+      if (dataSrc) img.src = dataSrc;
+      if (dataSrcset) img.srcset = dataSrcset;
 
       img.removeAttribute('data-src');
       img.removeAttribute('data-srcset');
@@ -690,11 +687,13 @@ async function renderAbout() {
       img.removeAttribute('width');
       img.removeAttribute('height');
     });
+
   } catch (err) {
     console.error('[OkObserver] Error loading About page:', err);
     contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
 }
+
 
   // ---------------------------------------------------------------------------
   // Search view
@@ -921,25 +920,30 @@ const videoOverrides = {
   '383136': 'https://player.vimeo.com/video/1137090361',
 
   // Oct ’25 Newsmakers
-  '381733': 'https://player.vimeo.com/video/1126193804',
+  '381733': 'https://player.vimeo.com/video/1126193884',
 
   // Jul ’25 Newsmakers — POST 374604 (THIS FIXES THE MISSING VIDEO + WHITESPACE)
   '374604': 'https://player.vimeo.com/video/1126193804'
 };
 
   const overrideSrc = videoOverrides[post.id];
-  if (overrideSrc) {
-    const existingIframe = container.querySelector(`iframe[src*="${overrideSrc}"]`);
-    if (!existingIframe) {
-      const iframe = document.createElement('iframe');
-      iframe.src = overrideSrc;
-      iframe.setAttribute('allowfullscreen', '');
-      iframe.setAttribute('frameborder', '0');
-      iframe.className = 'video-embed video-embed-vimeo';
-      container.insertBefore(iframe, container.firstChild);
-    }
-    return;
-  }
+if (overrideSrc) {
+
+  // REMOVE all existing iframes first — they include the broken WP Vimeo embed
+  container.querySelectorAll('iframe').forEach(el => el.remove());
+
+  // Now safely insert ONLY the correct Vimeo player
+  const iframe = document.createElement('iframe');
+  iframe.src = overrideSrc;
+  iframe.setAttribute('allowfullscreen', '');
+  iframe.setAttribute('frameborder', '0');
+  iframe.className = 'video-embed video-embed-vimeo';
+
+  container.insertBefore(iframe, container.firstChild);
+
+  return;
+}
+
 
   // Otherwise, try to detect embeds from the post HTML
   const tmp = document.createElement('div');
