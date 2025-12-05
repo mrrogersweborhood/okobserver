@@ -4277,3 +4277,11 @@ body > header.oo-header {
 .post-detail-content > p > a[href*="facebook.com"] {
   display: none !important;
 }
+/* Clean up empty blocks in legacy .post-detail-content wrapper (fix big white gaps under videos) */
+.post-detail-content p:empty,
+.post-detail-content p:has(br:only-child),
+.post-detail-content p:has(img:empty),
+.post-detail-content div:empty,
+.post-detail-content figure:empty {
+  display: none !important;
+}
