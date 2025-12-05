@@ -617,6 +617,7 @@
 
   // ---------------------------------------------------------------------------
    // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -643,7 +644,6 @@ async function renderAbout() {
       return;
     }
 
-    // Put the WP HTML into a temporary container so we can slice it into sections
     const tmp = document.createElement('div');
     tmp.innerHTML = page.content.rendered;
 
@@ -653,91 +653,87 @@ async function renderAbout() {
       return allHeadings.find((h) => matchFn((h.textContent || '').trim()));
     }
 
-    function collectSectionFromHeading(headingNode) {
-      if (!headingNode) return null;
-
-      const section = document.createElement('div');
-
-      // Collect siblings from after this heading until the next heading
-      let node = headingNode.nextSibling;
-      while (node && node.nodeType === Node.TEXT_NODE && !node.textContent.trim()) {
-        node = node.nextSibling;
-      }
-
-      while (node) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-          const tag = node.tagName;
-          if (tag && /^H[1-6]$/.test(tag)) break; // stop at next heading
-        }
-
-        const clone = node.cloneNode(true);
-        section.appendChild(clone);
-        node = node.nextSibling;
-      }
-
-      return section;
-    }
-
-    function buildColumn(titleFallback, sectionRoot) {
+    function buildColumnFromHeading(headingNode, fallbackTitle) {
       const column = document.createElement('section');
       column.className = 'about-column';
 
-      if (!sectionRoot) {
+      if (!headingNode) {
         return column;
       }
 
-      // Heading from HTML if present, otherwise fallback
-      const headingNode = sectionRoot.querySelector('h1, h2, h3, h4');
-      const headingText = headingNode && headingNode.textContent
-        ? headingNode.textContent
-        : titleFallback;
+      const titleText =
+        (headingNode.textContent && headingNode.textContent.trim()) ||
+        fallbackTitle ||
+        '';
 
-      if (headingText) {
+      if (titleText) {
         const h = document.createElement('h2');
         h.className = 'about-column-title';
-        h.textContent = headingText.replace(/\s+/g, ' ').trim();
+        h.textContent = titleText.replace(/\s+/g, ' ').trim();
         column.appendChild(h);
       }
 
-      // First image in the section (if any)
-      const img = sectionRoot.querySelector('img');
-      if (img) {
-        const clone = img.cloneNode(true);
-        clone.removeAttribute('width');
-        clone.removeAttribute('height');
-        clone.loading = 'lazy';
-        clone.classList.add('about-image');
-        column.appendChild(clone);
-      }
+      let node = headingNode.nextSibling;
+      let imgAdded = false;
 
-      // Paragraphs – collapse whitespace and skip empties
-      const paragraphs = sectionRoot.querySelectorAll('p');
-      paragraphs.forEach((p) => {
-        const text = (p.textContent || '').replace(/\s+/g, ' ').trim();
-        if (!text) return;
-        const pEl = document.createElement('p');
-        pEl.textContent = text;
-        column.appendChild(pEl);
-      });
+      // Walk through siblings until the next heading
+      while (node) {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const tagName = node.tagName;
+
+          // Stop at the next heading
+          if (tagName && /^H[1-6]$/.test(tagName)) {
+            break;
+          }
+
+          // Capture the first image in this section
+          if (!imgAdded && node.querySelector) {
+            const img = node.querySelector('img');
+            if (img) {
+              const clone = img.cloneNode(true);
+              clone.removeAttribute('width');
+              clone.removeAttribute('height');
+              clone.loading = 'lazy';
+              clone.classList.add('about-image');
+              column.appendChild(clone);
+              imgAdded = true;
+            }
+          }
+
+          // Collect paragraphs (direct or nested)
+          const paragraphs = [];
+          if (tagName === 'P') {
+            paragraphs.push(node);
+          } else if (node.querySelectorAll) {
+            node.querySelectorAll('p').forEach((p) => paragraphs.push(p));
+          }
+
+          paragraphs.forEach((p) => {
+            const text = (p.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text) return;
+            const pEl = document.createElement('p');
+            pEl.textContent = text;
+            column.appendChild(pEl);
+          });
+        }
+
+        node = node.nextSibling;
+      }
 
       return column;
     }
 
-    // Find the three main headings in the WP content
+    // Find the three key headings in the WP content
     const contactHeading = findHeading((text) => /contact us/i.test(text));
     const aboutHeading = findHeading((text) => /^about\b/i.test(text));
     const editorHeading = findHeading((text) => /arnold hamilton/i.test(text));
 
-    const contactSection = collectSectionFromHeading(contactHeading);
-    const aboutSection = collectSectionFromHeading(aboutHeading);
-    const editorSection = collectSectionFromHeading(editorHeading);
-
     const columnsWrapper = document.createElement('div');
     columnsWrapper.className = 'about-columns';
 
-    columnsWrapper.appendChild(buildColumn('Contact Us', contactSection));
-    columnsWrapper.appendChild(buildColumn('About', aboutSection));
-    columnsWrapper.appendChild(buildColumn('Arnold Hamilton, Editor', editorSection));
+    columnsWrapper.appendChild(buildColumnFromHeading(contactHeading, 'Contact Us'));
+    columnsWrapper.appendChild(buildColumnFromHeading(aboutHeading, 'About'));
+    columnsWrapper.appendChild(buildColumnFromHeading(editorHeading, 'Arnold Hamilton, Editor'));
 
     contentEl.innerHTML = '';
     contentEl.appendChild(columnsWrapper);
@@ -745,7 +741,7 @@ async function renderAbout() {
     console.error('[OkObserver] Error loading About page:', err);
     contentEl.innerHTML = '<p>Unable to load About page right now.</p>';
   }
-}
+
 
 
   // ---------------------------------------------------------------------------
