@@ -937,13 +937,24 @@ function enhanceEmbedsInDetail(post) {
     }
   }
 
-  if (videoEmbedHtml) {
+   if (videoEmbedHtml) {
     const wrapper = document.createElement('div');
     wrapper.className = 'video-embed-wrapper';
     wrapper.innerHTML = videoEmbedHtml;
     container.insertBefore(wrapper, container.firstChild);
   }
+
+  // After inserting embeds, remove stray empty paragraphs that
+  // only add vertical white space under the player.
+  const paragraphs = container.querySelectorAll('p');
+  paragraphs.forEach((p) => {
+    const hasMediaChild = p.querySelector('img, iframe, video, figure');
+    if (!hasMediaChild && !p.textContent.trim()) {
+      p.remove();
+    }
+  });
 }
+
 
 
 
