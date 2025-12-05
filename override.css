@@ -4285,3 +4285,22 @@ body > header.oo-header {
 .post-detail-content figure:empty {
   display: none !important;
 }
+/* Collapse leftover video screenshot wrappers and blank paragraphs under detail players */
+.post-detail-content .video-embed-wrapper,
+.post-detail-content .video-embed-wrapper figure,
+.post-detail-content .video-embed-wrapper img,
+.post-detail-content .video-embed-wrapper figcaption {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Remove empty paragraphs between the player and the article body */
+.post-detail-content p:empty {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  height: 0 !important;
+}
