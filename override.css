@@ -4316,3 +4316,33 @@ body > header.oo-header {
   line-height: 0 !important;
   height: 0 !important;
 }
+/* 🟢 detail-video-gap-fix 2025-12-04R1 */
+/* Clamp Vimeo/YT/Facebook iframes and kill phantom spacer paragraphs
+   on post *detail* pages only. */
+
+.post-detail .post-body iframe,
+.post-detail .post-body .wp-block-embed__wrapper iframe,
+.post-detail .post-body .wp-block-embed iframe {
+  /* Let the iframe size itself; don’t force giant ghost height */
+  min-height: 0 !important;
+}
+
+/* Their outer Gutenberg wrappers should also not reserve tall space */
+.post-detail .post-body figure.wp-block-embed,
+.post-detail .post-body .wp-block-embed__wrapper {
+  min-height: 0 !important;
+}
+
+/* Nuke spacer paragraphs that are literally empty or just a <br> */
+.post-detail .post-body p:empty,
+.post-detail .post-body p:has(> br:only-child) {
+  display: none !important;
+}
+
+/* Make sure the first real block after the video doesn’t start miles down */
+.post-detail .post-body iframe + p,
+.post-detail .post-body iframe + figure,
+.post-detail .post-body iframe + div {
+  margin-top: 8px !important;
+}
+/* 🔴 detail-video-gap-fix 2025-12-04R1 */
