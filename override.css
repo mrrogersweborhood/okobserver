@@ -4702,3 +4702,8 @@ article.about-view {
     object-fit: cover;
     border-radius: 8px;
 }
+.about-column img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+}
