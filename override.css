@@ -1261,16 +1261,28 @@ div.fb-video:empty {
   }
 }
 
-/* Kill phantom whitespace made by empty <p> or <br>-only paragraphs */
+/* Kill phantom whitespace made by empty <p> or <br>-only paragraphs
+   – apply to both summary cards (.post-body) and full post detail (.post-detail-content) */
 .post-body p:empty,
-.post-body p:has(> br:only-child) { display: none !important; }
+.post-detail-content p:empty,
+.post-body p:has(> br:only-child),
+.post-detail-content p:has(> br:only-child) {
+  display: none !important;
+}
 
 /* If an iframe lives inside a paragraph, keep sane spacing */
-.post-body p:has(> iframe) { margin: 0 0 16px !important; }
+.post-body p:has(> iframe),
+.post-detail-content p:has(> iframe) {
+  margin: 0 0 16px !important;
+}
 
 /* Safety: any oEmbed wrappers with no content shouldn’t take space */
 .post-body .wp-block-embed__wrapper:empty,
-.post-body figure.wp-block-embed:empty { display: none !important; }
+.post-detail-content .wp-block-embed__wrapper:empty,
+.post-body figure.wp-block-embed:empty,
+.post-detail-content figure.wp-block-embed:empty {
+  display: none !important;
+}
 /* --- OkObserver Grid Enforcer: 4/3/1 columns (desktop/tablet/mobile) --- */
 #app .posts-grid{
   display:grid !important;
