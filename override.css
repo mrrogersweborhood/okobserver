@@ -4269,3 +4269,11 @@ body > header.oo-header {
   background-color: #1c7fdc;
   text-decoration: none;
 }
+/* Facebook placeholder cleanup: remove empty hero/link block that leaves big gap */
+.post-detail-content > .mc-temp {
+  display: none !important;
+}
+
+.post-detail-content > p > a[href*="facebook.com"] {
+  display: none !important;
+}
