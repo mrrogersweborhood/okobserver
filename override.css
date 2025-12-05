@@ -4346,3 +4346,18 @@ body > header.oo-header {
   margin-top: 8px !important;
 }
 /* 🔴 detail-video-gap-fix 2025-12-04R1 */
+/* --- Remove blank WP paragraphs that create giant gaps --- */
+.post-detail-content p:empty,
+.post-detail-content p:empty::before,
+.post-detail-content p:empty::after {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    line-height: 0 !important;
+    display: none !important;
+}
+/* Hide WP-inserted 1x1 SVG spacer paragraphs that create big white gaps */
+.post-detail .post-body p:has(> svg[width="1"][height="1"]) {
+  display: none !important;
+}
