@@ -4166,13 +4166,12 @@ body > header.oo-header {
   }
 }
 
-/* Desktop: 3 columns */
+/* Desktop: 2 columns (wider cards) */
 @media (min-width: 1024px) {
   .about-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-
 .about-card {
   background: #fff;
   border-radius: 12px;
