@@ -4908,3 +4908,31 @@ article.about-view {
   border-radius: 20px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.3);
 }
+/* 2025-12-06 — Fullscreen splash, centered, blocking */
+.oo-splash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+
+  display: flex !important; /* override earlier display:none */
+  align-items: center;
+  justify-content: center;
+
+  background: #ffffff; /* pure white so it looks like its own page */
+  z-index: 9999; /* above everything */
+
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.oo-splash-video {
+  width: 90vw;
+  max-width: 640px;
+  height: auto;
+
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+}
