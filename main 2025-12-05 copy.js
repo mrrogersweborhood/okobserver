@@ -112,7 +112,7 @@
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
 
-        if (path === '/' || path === '') {
+    if (path === '/' || path === '') {
       renderHome();
     } else if (path.startsWith('/post/')) {
       const idStr = path.replace('/post/', '').split('/')[0];
@@ -123,14 +123,16 @@
         console.warn('[OkObserver] Invalid post ID in route:', idStr);
         renderNotFound();
       }
-    } else if (path === '/about') {
+        } else if (path === '/about') {
       renderAbout();
+      // After About view renders, fix lazy-loaded images so they actually show
+      setTimeout(fixAboutLazyImages, 1200);
     } else if (path === '/search') {
       renderSearch(params);
+
     } else {
       renderNotFound();
     }
-
   }
 
   // Scroll helpers
@@ -620,7 +622,6 @@
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // About view
 // ---------------------------------------------------------------------------
 
@@ -629,6 +630,7 @@ function renderAbout() {
   stopTtsPlayback();
   scrollToTop();
 
+  // Use a local variable name to avoid confusion with the global `app`
   const appRoot = document.getElementById("app");
   if (!appRoot) return;
 
@@ -644,6 +646,7 @@ function renderAbout() {
   const aboutHtmlEl = document.querySelector(".about-html");
   if (!aboutHtmlEl) return;
 
+  // Fetch the Contact/About/Donate page via the proxy
   const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
 
   fetchJson(url)
@@ -659,42 +662,120 @@ function renderAbout() {
         return;
       }
 
+      // Work with the HTML in a temporary container
       const tmp = document.createElement("div");
       tmp.innerHTML = rawHtml;
 
-      // TagDiv layout: three columns using td-pb-span4 / td-pb-span8
+      // TagDiv columns we care about
       const wpColumns = tmp.querySelectorAll(".td-pb-span4, .td-pb-span8");
 
       if (wpColumns.length) {
+        // Clear any placeholder text
         aboutHtmlEl.innerHTML = "";
 
+        // Wrap each WP column in our own about-column so our CSS grid can style them
         wpColumns.forEach((col) => {
           const wrapper = document.createElement("div");
           wrapper.className = "about-column";
           wrapper.innerHTML = col.innerHTML;
           aboutHtmlEl.appendChild(wrapper);
         });
+// Load TagDiv lazy images (About page photos)
+aboutHtmlEl.querySelectorAll("img").forEach(img => {
+  const src =
+    img.getAttribute("data-src") ||
+    img.getAttribute("data-lazy-src") ||
+    img.getAttribute("data-original");
 
-        // Fix lazy-loaded images so About photos actually show
-        aboutHtmlEl.querySelectorAll("img").forEach((img) => {
-          const src =
-            img.getAttribute("data-src") ||
-            img.getAttribute("data-lazy-src") ||
-            img.getAttribute("data-original");
-          const srcset = img.getAttribute("data-srcset");
+  const srcset = img.getAttribute("data-srcset");
 
-          if (src) img.src = src;
-          if (srcset) img.srcset = srcset;
+  if (src) img.src = src;
+  if (srcset) img.srcset = srcset;
 
-          img.removeAttribute("data-src");
-          img.removeAttribute("data-lazy-src");
-          img.removeAttribute("data-original");
-          img.removeAttribute("data-srcset");
-          img.removeAttribute("data-sizes");
+  img.removeAttribute("data-src");
+  img.removeAttribute("data-lazy-src");
+  img.removeAttribute("data-original");
+  img.removeAttribute("data-srcset");
+  img.removeAttribute("data-sizes");
 
-          img.classList.remove("lazyload", "lazyloaded");
-          img.classList.add("about-image-full");
-        });
+  img.classList.remove("lazyload", "lazyloaded");
+  img.classList.add("about-image-full");
+});
+
+fixAboutImages(aboutHtmlEl);
+
+// 🔧 FIX TAGDIV LAZY IMAGES (loads real photos instead of blank placeholders)
+
+  const src1 = img.getAttribute("data-src");
+  const src2 = img.getAttribute("data-lazy-src");
+  const srcset = img.getAttribute("data-srcset");
+
+  if (src1) img.src = src1;
+  if (src2) img.src = src2;
+  if (srcset) img.srcset = srcset;
+
+  img.removeAttribute("data-src");
+  img.removeAttribute("data-lazy-src");
+  img.removeAttribute("data-srcset");
+  img.removeAttribute("data-sizes");
+
+  img.classList.remove("lazyload", "lazyloaded");
+  img.classList.add("about-image-full");
+});
+
+// 🔧 Force TagDiv lazy images to load
+
+  const ds = img.getAttribute("data-src");
+  const dls = img.getAttribute("data-lazy-src");
+  const dss = img.getAttribute("data-srcset");
+
+  if (ds) img.src = ds;
+  if (dls) img.src = dls;
+  if (dss) img.srcset = dss;
+
+  img.removeAttribute("data-src");
+  img.removeAttribute("data-lazy-src");
+  img.removeAttribute("data-srcset");
+  img.removeAttribute("data-sizes");
+  img.classList.remove("lazyload", "lazyloaded");
+
+  // Make image full-width
+  img.classList.add("about-image-full");
+});
+
+// *** FIX TAGDIV LAZY IMAGES ***
+fixLazyImages(aboutHtmlEl);
+// --- Move images to top + clean up ---
+document.querySelectorAll(".about-column").forEach(col => {
+    const img = col.querySelector("img");
+    if (img) {
+        // Make image full width
+        img.classList.add("about-image-full");
+
+        // Remove lazyload junk
+        img.removeAttribute("width");
+        img.removeAttribute("height");
+        img.removeAttribute("style");
+        img.removeAttribute("data-sizes");
+        img.removeAttribute("data-srcset");
+        img.removeAttribute("data-src");
+
+        // Move the image to the very top of the column
+        col.insertBefore(img, col.firstChild);
+    }
+});
+
+// --- Normalize images inside about-column ---
+document.querySelectorAll(".about-column img").forEach(img => {
+    img.classList.add("about-image-full");
+    img.removeAttribute("width");
+    img.removeAttribute("height");
+    img.removeAttribute("style");
+    img.removeAttribute("data-sizes");
+    img.removeAttribute("data-srcset");
+    img.removeAttribute("data-src");
+});
+
       } else {
         // Fallback: just show the whole HTML if we can't find specific columns
         aboutHtmlEl.innerHTML = rawHtml;
@@ -704,7 +785,8 @@ function renderAbout() {
       console.error("[OkObserver] About page error:", err);
       aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
     });
-}
+}   // <----------------------- ADD THIS LINE (closes renderAbout)
+
 
     // ---------------------------------------------------------------------------
     // Search view

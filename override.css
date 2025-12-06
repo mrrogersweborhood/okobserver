@@ -4722,3 +4722,55 @@ article.about-view {
   display: block !important;
   margin: 0 0 20px 0 !important;
 }
+/* About page layout – appended safely at end */
+.about-view {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.about-title {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.about-content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+/* Stack to 2 columns on medium, 1 column on small */
+@media (max-width: 960px) {
+  .about-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .about-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.about-column {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  padding: 1.25rem 1.5rem 1.5rem;
+  line-height: 1.5;
+}
+
+/* Full-width About images inside each column */
+.about-column img,
+.about-image-full {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 0 0.75rem 0;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
