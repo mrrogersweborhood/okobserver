@@ -80,10 +80,12 @@
   <!-- App root -->
   <main id="app" role="main"></main>
 
-  <!-- Splash / hero video container (can be hidden via CSS on home if desired) -->
-  <div class="oo-splash" aria-hidden="true">
+  <!-- Splash / hero video container -->
+  <div class="oo-splash" aria-hidden="false">
     <video
+      id="oo-splash-video"
       class="oo-splash-video"
+      preload="auto"
       autoplay
       muted
       loop
@@ -91,7 +93,7 @@
     >
       <!-- New splash video file -->
       <source
-        src="Animated_Logo_Into_Cell_Phone.mp4?v=2025-11-28R2-splash1"
+        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2025-12-06R1-splash"
         type="video/mp4"
       />
       <!-- Fallback -->
