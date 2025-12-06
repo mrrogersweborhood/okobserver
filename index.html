@@ -191,7 +191,7 @@
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 
-      window.addEventListener('load', function () {
+            window.addEventListener('load', function () {
         navigator.serviceWorker
           .getRegistration(SCOPE)
           .then(function (reg) {
@@ -219,6 +219,59 @@
             console.warn('[OkObserver] SW register error:', err);
           });
       });
+    })();
+  </script>
+
+  <!-- Splash hide logic: show only while first posts are loading -->
+  <script>
+    (function () {
+      var splash = document.querySelector('.oo-splash');
+      if (!splash) return;
+
+      // If we've already shown splash in this tab, hide instantly and never show again
+      if (window.__OO_SPLASH_SHOWN_ONCE__) {
+        splash.style.opacity = '0';
+        splash.style.visibility = 'hidden';
+        splash.style.pointerEvents = 'none';
+        return;
+      }
+
+      function hideSplash() {
+        if (!splash || splash.__ooHidden) return;
+        splash.__ooHidden = true;
+
+        splash.style.opacity = '0';
+        splash.style.visibility = 'hidden';
+        splash.style.pointerEvents = 'none';
+
+        window.__OO_SPLASH_SHOWN_ONCE__ = true;
+      }
+
+      function checkGridReady() {
+        var grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        var cards = grid.querySelectorAll('.post-card');
+        if (cards.length > 0) {
+          hideSplash();
+        }
+      }
+
+      // Watch #app for the first batch of post cards
+      var appRoot = document.getElementById('app');
+      if (appRoot && window.MutationObserver) {
+        var observer = new MutationObserver(checkGridReady);
+        observer.observe(appRoot, { childList: true, subtree: true });
+      }
+
+      // Safety: never get stuck on splash – hide after 7s max
+      setTimeout(hideSplash, 7000);
+
+      // Initial check when DOM is ready
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        checkGridReady();
+      } else {
+        document.addEventListener('DOMContentLoaded', checkGridReady);
+      }
     })();
   </script>
 </body>
