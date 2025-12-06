@@ -890,12 +890,19 @@ function renderAbout() {
 
     scrollToTop();
 
-    const back = app.querySelector('.back-btn');
-    if (back) {
-      back.addEventListener('click', () => {
-        navigateTo('#/');
-      });
+const back = app.querySelector('.back-btn');
+if (back) {
+  back.addEventListener('click', () => {
+    // If user came from the grid, let browser restore DOM + scroll
+    if (homeState.initialized) {
+      window.history.back();
+    } else {
+      // Deep-linked directly to a post
+      navigateTo('#/');
     }
+  });
+}
+
 
         const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
