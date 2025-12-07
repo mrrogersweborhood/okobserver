@@ -487,30 +487,53 @@
       setupInfiniteScroll(grid);
       loadMorePosts();
     } else {
-      setupInfiniteScroll(grid);
+      // Returning from a post detail view:
+      //  - rebuild grid from cached posts
+      //  - then reattach infinite scroll
       hydrateExistingHomeGrid(grid);
+      setupInfiniteScroll(grid);
       restoreHomeScroll();
     }
   }
 
   function hydrateExistingHomeGrid(grid) {
-    const hash = window.location.hash || '#/';
-    if (!hash || hash === '#/' || hash === '#') {
-      const existingCards = document.querySelectorAll('.home-view .posts-grid .post-card');
-      if (existingCards.length > 0) {
-        console.debug('[OkObserver] Hydrating home grid with', existingCards.length, 'existing cards');
-      }
+    // If we don't have a remembered home state or any seen posts,
+    // fall back to a fresh load as a safety net.
+    if (!homeState.initialized || !seenPostIds || seenPostIds.size === 0) {
+      grid.innerHTML = '';
+      currentPage = 1;
+      hasMorePages = true;
+      seenPostIds.clear();
+      window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+      loadMorePosts();
       return;
     }
 
-    grid.innerHTML = '';
-    currentPage = 1;
-    hasMorePages = true;
-    seenPostIds.clear();
-    window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+    // Normal path: rebuild the grid in the exact order we originally loaded posts,
+    // using the in-memory cache instead of refetching from the server.
+    const frag = document.createDocumentFragment();
 
-    loadMorePosts();
+    for (const id of seenPostIds) {
+      const post = postCache.get(id);
+      if (!post) continue;
+
+      // Still respect excluded categories, just in case.
+      if (hasExcludedCategory(post)) continue;
+
+      const card = createPostCard(post);
+      frag.appendChild(card);
+    }
+
+    grid.innerHTML = '';
+    grid.appendChild(frag);
+
+    console.debug(
+      '[OkObserver] Rehydrated home grid from',
+      seenPostIds.size,
+      'cached posts'
+    );
   }
+
 
   function setupInfiniteScroll(grid) {
     if (infiniteObserver) {
