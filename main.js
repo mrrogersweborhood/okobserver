@@ -1,7 +1,7 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-12-08R1-perf1 (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce)
+// Build 2025-12-08R2-perf2-gridRehydrate (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce + grid rehydrate)
 // NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
 //       It must remain plain JS (no modules) for GitHub Pages compatibility.
 //
@@ -22,8 +22,8 @@
   // Global configuration and flags
   // ---------------------------------------------------------------------------
 
-  const APP_BUILD_TAG = '2025-12-08R1-perf1';
-  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R1-perf1 — Splash & About stable; scroll debounce on infinite scroll';
+  const APP_BUILD_TAG = '2025-12-08R2-perf2-gridRehydrate';
+  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R2-perf2-gridRehydrate — Splash & About stable; scroll debounce + grid rehydrate';
 
   // Proxy base (must always be used instead of direct WP origin)
   const WP_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -131,7 +131,6 @@
     } else {
       renderNotFound();
     }
-
   }
 
   // Scroll helpers
@@ -200,6 +199,7 @@
     const url = `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=1&_embed`;
     return fetchJson(url);
   }
+
   // Cached About page (contact-about-donate) so we only fetch once
   let aboutPageCache = null;
 
@@ -534,7 +534,6 @@
     );
   }
 
-
   function setupInfiniteScroll(grid) {
     if (infiniteObserver) {
       infiniteObserver.disconnect();
@@ -607,6 +606,8 @@
           continue;
         }
 
+        // Cache this post so we can rebuild the grid when returning from detail.
+        postCache.set(post.id, post);
         seenPostIds.add(post.id);
         const card = createPostCard(post);
         frag.appendChild(card);
@@ -650,10 +651,6 @@
     }
   }
 
-  // ---------------------------------------------------------------------------
-
-  // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
   // About view
   // ---------------------------------------------------------------------------
@@ -1242,5 +1239,5 @@
   });
 })();
 
-// 🔴 main.js — end of file (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce)
+// 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate)
 // 🔴 main.js
