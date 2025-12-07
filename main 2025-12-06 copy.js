@@ -1,7 +1,7 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Build 2025-12-08R1-perf1 (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce)
+// Build 2025-11-30R2 (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
 // NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
 //       It must remain plain JS (no modules) for GitHub Pages compatibility.
 //
@@ -22,8 +22,8 @@
   // Global configuration and flags
   // ---------------------------------------------------------------------------
 
-  const APP_BUILD_TAG = '2025-12-08R1-perf1';
-  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R1-perf1 — Splash & About stable; scroll debounce on infinite scroll';
+  const APP_BUILD_TAG = '2025-11-30R2';
+  const APP_BUILD_LABEL = 'OkObserver Build 2025-11-30R2 — Header stable, mobile logo corrected, search grid cleanup, no regressions';
 
   // Proxy base (must always be used instead of direct WP origin)
   const WP_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -57,7 +57,6 @@
   let currentPage = 1;
   let hasMorePages = true;
   let infiniteObserver = null;
-  let infiniteScrollLoadTimeout = null;
 
   // Root app container & loader overlay
   const app = document.getElementById('app');
@@ -113,7 +112,7 @@
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
 
-    if (path === '/' || path === '') {
+        if (path === '/' || path === '') {
       renderHome();
     } else if (path.startsWith('/post/')) {
       const idStr = path.replace('/post/', '').split('/')[0];
@@ -526,7 +525,9 @@
     infiniteObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
-          requestMorePostsViaScroll();
+          if (!isFetchingPosts && hasMorePages) {
+            loadMorePosts();
+          }
         }
       }
     }, {
@@ -535,18 +536,6 @@
     });
 
     infiniteObserver.observe(sentinel);
-  }
-
-  function requestMorePostsViaScroll() {
-    if (isFetchingPosts || !hasMorePages) return;
-    if (infiniteScrollLoadTimeout) {
-      clearTimeout(infiniteScrollLoadTimeout);
-    }
-    infiniteScrollLoadTimeout = setTimeout(() => {
-      if (!isFetchingPosts && hasMorePages) {
-        loadMorePosts();
-      }
-    }, 120);
   }
 
   async function loadMorePosts() {
@@ -629,21 +618,21 @@
 
   // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
-  // About view
-  // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// About view
+// ---------------------------------------------------------------------------
 
-  function renderAbout() {
-    // Stop any TTS and go to top, like other views
-    stopTtsPlayback();
-    scrollToTop();
+function renderAbout() {
+  // Stop any TTS and go to top, like other views
+  stopTtsPlayback();
+  scrollToTop();
 
-    const appRoot = document.getElementById("app");
-    if (!appRoot) return;
+  const appRoot = document.getElementById("app");
+  if (!appRoot) return;
 
-    appRoot.innerHTML = `
+  appRoot.innerHTML = `
     <article class="about-view">
       <h1 class="about-title">About The Oklahoma Observer</h1>
       <div class="about-content">
@@ -652,73 +641,74 @@
     </article>
   `;
 
-    const aboutHtmlEl = document.querySelector(".about-html");
-    if (!aboutHtmlEl) return;
+  const aboutHtmlEl = document.querySelector(".about-html");
+  if (!aboutHtmlEl) return;
 
-    const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
+  const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
 
-    fetchJson(url)
-      .then((pages) => {
-        const page = Array.isArray(pages) && pages.length ? pages[0] : null;
-        const rawHtml =
-          page && page.content && page.content.rendered
-            ? page.content.rendered
-            : "";
+  fetchJson(url)
+    .then((pages) => {
+      const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+      const rawHtml =
+        page && page.content && page.content.rendered
+          ? page.content.rendered
+          : "";
 
-        if (!rawHtml) {
-          aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
-          return;
-        }
+      if (!rawHtml) {
+        aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
+        return;
+      }
 
-        const tmp = document.createElement("div");
-        tmp.innerHTML = rawHtml;
+      const tmp = document.createElement("div");
+      tmp.innerHTML = rawHtml;
 
-        // TagDiv layout: three columns using td-pb-span4 / td-pb-span8
-        const wpColumns = tmp.querySelectorAll(".td-pb-span4, .td-pb-span8");
+      // TagDiv layout: three columns using td-pb-span4 / td-pb-span8
+      const wpColumns = tmp.querySelectorAll(".td-pb-span4, .td-pb-span8");
 
-        if (wpColumns.length) {
-          aboutHtmlEl.innerHTML = "";
+      if (wpColumns.length) {
+        aboutHtmlEl.innerHTML = "";
 
-          wpColumns.forEach((col) => {
-            const wrapper = document.createElement("div");
-            wrapper.className = "about-column";
-            wrapper.innerHTML = col.innerHTML;
-            aboutHtmlEl.appendChild(wrapper);
-          });
+        wpColumns.forEach((col) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "about-column";
+          wrapper.innerHTML = col.innerHTML;
+          aboutHtmlEl.appendChild(wrapper);
+        });
 
-          // Fix lazy-loaded images so About photos actually show
-          aboutHtmlEl.querySelectorAll("img").forEach((img) => {
-            const src =
-              img.getAttribute("data-src") ||
-              img.getAttribute("data-lazy-src") ||
-              img.getAttribute("data-original");
-            const srcset = img.getAttribute("data-srcset");
+        // Fix lazy-loaded images so About photos actually show
+        aboutHtmlEl.querySelectorAll("img").forEach((img) => {
+          const src =
+            img.getAttribute("data-src") ||
+            img.getAttribute("data-lazy-src") ||
+            img.getAttribute("data-original");
+          const srcset = img.getAttribute("data-srcset");
 
-            if (src) img.src = src;
-            if (srcset) img.srcset = srcset;
+          if (src) img.src = src;
+          if (srcset) img.srcset = srcset;
 
-            img.removeAttribute("data-src");
-            img.removeAttribute("data-lazy-src");
-            img.removeAttribute("data-original");
-            img.removeAttribute("data-srcset");
-            img.removeAttribute("data-sizes");
+          img.removeAttribute("data-src");
+          img.removeAttribute("data-lazy-src");
+          img.removeAttribute("data-original");
+          img.removeAttribute("data-srcset");
+          img.removeAttribute("data-sizes");
 
-            img.classList.remove("lazyload", "lazyloaded");
-            img.classList.add("about-image-full");
-          });
-        } else {
-          // Fallback: just show the whole HTML if we can't find specific columns
-          aboutHtmlEl.innerHTML = rawHtml;
-        }
-      })
-      .catch((err) => {
-        console.error("[OkObserver] About page error:", err);
-        aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
-      });
-  }
+          img.classList.remove("lazyload", "lazyloaded");
+          img.classList.add("about-image-full");
+        });
+      } else {
+        // Fallback: just show the whole HTML if we can't find specific columns
+        aboutHtmlEl.innerHTML = rawHtml;
+      }
+    })
+    .catch((err) => {
+      console.error("[OkObserver] About page error:", err);
+      aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
+    });
+}
 
-  // ---------------------------------------------------------------------------
-  // Search view
+    // ---------------------------------------------------------------------------
+    // Search view
+
   // ---------------------------------------------------------------------------
 
   function renderSearch(params) {
@@ -900,20 +890,21 @@
 
     scrollToTop();
 
-    const back = app.querySelector('.back-btn');
-    if (back) {
-      back.addEventListener('click', () => {
-        // If user came from the grid, let browser restore DOM + scroll
-        if (homeState.initialized) {
-          window.history.back();
-        } else {
-          // Deep-linked directly to a post
-          navigateTo('#/');
-        }
-      });
+const back = app.querySelector('.back-btn');
+if (back) {
+  back.addEventListener('click', () => {
+    // If user came from the grid, let browser restore DOM + scroll
+    if (homeState.initialized) {
+      window.history.back();
+    } else {
+      // Deep-linked directly to a post
+      navigateTo('#/');
     }
+  });
+}
 
-    const ttsButton = app.querySelector('.tts-button');
+
+        const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
       ttsButton.addEventListener('click', () => {
         const current = currentTtsPostId;
@@ -934,122 +925,127 @@
     removeLazyloadEmbeds();
   }
 
-  function enhanceEmbedsInDetail(post) {
-    const container = app.querySelector('.post-detail-content');
-    if (!container || !post) return;
 
-    const html = post.content && post.content.rendered ? post.content.rendered : '';
-    if (!html) return;
+function enhanceEmbedsInDetail(post) {
+  const container = app.querySelector('.post-detail-content');
+  if (!container || !post) return;
 
-    // Hard overrides for posts whose embeds are too weird to parse reliably
-    const videoOverrides = {
-      // November ’25 Newsmaker
-      '383136': 'https://player.vimeo.com/video/1137090361',
+  const html = post.content && post.content.rendered ? post.content.rendered : '';
+  if (!html) return;
 
-      // Oct ’25 Newsmakers
-      "381733": "https://player.vimeo.com/video/1126193804",
+  // Hard overrides for posts whose embeds are too weird to parse reliably
+const videoOverrides = {
+  // November ’25 Newsmaker
+  '383136': 'https://player.vimeo.com/video/1137090361',
 
-      // Jul ’25 Newsmakers — POST 374604 (THIS FIXES THE MISSING VIDEO + WHITESPACE)
-      '374604': 'https://player.vimeo.com/video/1126193804'
-    };
+  // Oct ’25 Newsmakers
+  "381733": "https://player.vimeo.com/video/1126193804",
 
-    const overrideSrc = videoOverrides[post.id];
-    if (overrideSrc) {
+  // Jul ’25 Newsmakers — POST 374604 (THIS FIXES THE MISSING VIDEO + WHITESPACE)
+  '374604': 'https://player.vimeo.com/video/1126193804'
+};
 
-      // REMOVE all existing iframes first — they include the broken WP Vimeo embed
-      container.querySelectorAll('iframe').forEach(el => el.remove());
+  const overrideSrc = videoOverrides[post.id];
+if (overrideSrc) {
 
-      // Now safely insert ONLY the correct Vimeo player
-      const iframe = document.createElement('iframe');
-      iframe.src = overrideSrc;
-      iframe.setAttribute('allowfullscreen', '');
-      iframe.setAttribute('frameborder', '0');
-      iframe.className = 'video-embed video-embed-vimeo';
+  // REMOVE all existing iframes first — they include the broken WP Vimeo embed
+  container.querySelectorAll('iframe').forEach(el => el.remove());
 
-      container.insertBefore(iframe, container.firstChild);
+  // Now safely insert ONLY the correct Vimeo player
+  const iframe = document.createElement('iframe');
+  iframe.src = overrideSrc;
+  iframe.setAttribute('allowfullscreen', '');
+  iframe.setAttribute('frameborder', '0');
+  iframe.className = 'video-embed video-embed-vimeo';
 
-      return;
-    }
+  container.insertBefore(iframe, container.firstChild);
 
-    // Otherwise, try to detect embeds from the post HTML
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
+  return;
+}
 
-    let videoEmbedHtml = '';
 
-    // 1) Direct iframe (classic WP and many block themes)
-    const iframeEl = tmp.querySelector('iframe');
-    if (iframeEl) {
-      videoEmbedHtml = iframeEl.outerHTML;
+  // Otherwise, try to detect embeds from the post HTML
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+
+  let videoEmbedHtml = '';
+
+  // 1) Direct iframe (classic WP and many block themes)
+  const iframeEl = tmp.querySelector('iframe');
+  if (iframeEl) {
+    videoEmbedHtml = iframeEl.outerHTML;
+  } else {
+    // 2) HTML5 <video> tag (Gutenberg video blocks, etc.)
+    const videoEl = tmp.querySelector('video');
+    if (videoEl) {
+      videoEmbedHtml = videoEl.outerHTML;
     } else {
-      // 2) HTML5 <video> tag (Gutenberg video blocks, etc.)
-      const videoEl = tmp.querySelector('video');
-      if (videoEl) {
-        videoEmbedHtml = videoEl.outerHTML;
-      } else {
-        // 3) Links that point to video providers
-        const links = tmp.querySelectorAll('a');
-        for (const a of links) {
-          const href = a.getAttribute('href') || '';
+      // 3) Links that point to video providers
+      const links = tmp.querySelectorAll('a');
+      for (const a of links) {
+        const href = a.getAttribute('href') || '';
 
-          if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-            videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-            break;
-          }
-          if (/vimeo\.com\/\d+/.test(href)) {
-            videoEmbedHtml = buildVimeoEmbedFromUrl(href);
-            break;
-          }
-          if (/facebook\.com\/.*\/videos\//.test(href)) {
-            // For Facebook: show a "Watch on Facebook" overlay and REMOVE the dead iframe.
-            addFacebookWatchOverlay(href);
-            // Do NOT set videoEmbedHtml – we don't want an embedded Facebook player.
-            break;
-          }
+        if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+          videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+          break;
         }
+        if (/vimeo\.com\/\d+/.test(href)) {
+          videoEmbedHtml = buildVimeoEmbedFromUrl(href);
+          break;
+        }
+        if (/facebook\.com\/.*\/videos\//.test(href)) {
+          // For Facebook: show a "Watch on Facebook" overlay and REMOVE the dead iframe.
+          addFacebookWatchOverlay(href);
+          // Do NOT set videoEmbedHtml – we don't want an embedded Facebook player.
+          break;
+        }
+      }
 
-        // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
-        if (!videoEmbedHtml) {
-          const htmlText = html;
+      // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
+      if (!videoEmbedHtml) {
+        const htmlText = html;
 
-          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/);
-          const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
-          const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
+        const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/);
+        const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
+        const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
 
-          const urlMatch = vimeoMatch || ytMatch || fbMatch;
-          if (urlMatch) {
-            const url = urlMatch[0];
+        const urlMatch = vimeoMatch || ytMatch || fbMatch;
+        if (urlMatch) {
+          const url = urlMatch[0];
 
-            if (vimeoMatch) {
-              videoEmbedHtml = buildVimeoEmbedFromUrl(url);
-            } else if (ytMatch) {
-              videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
-            } else if (fbMatch) {
-              // Again: overlay only, no embedded Facebook player.
-              addFacebookWatchOverlay(url);
-            }
+          if (vimeoMatch) {
+            videoEmbedHtml = buildVimeoEmbedFromUrl(url);
+          } else if (ytMatch) {
+            videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
+          } else if (fbMatch) {
+            // Again: overlay only, no embedded Facebook player.
+            addFacebookWatchOverlay(url);
           }
         }
       }
     }
-
-    if (videoEmbedHtml) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'video-embed-wrapper';
-      wrapper.innerHTML = videoEmbedHtml;
-      container.insertBefore(wrapper, container.firstChild);
-    }
-
-    // After inserting embeds, remove stray empty paragraphs that
-    // only add vertical white space under the player.
-    const paragraphs = container.querySelectorAll('p');
-    paragraphs.forEach((p) => {
-      const hasMediaChild = p.querySelector('img, iframe, video, figure');
-      if (!hasMediaChild && !p.textContent.trim()) {
-        p.remove();
-      }
-    });
   }
+
+   if (videoEmbedHtml) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'video-embed-wrapper';
+    wrapper.innerHTML = videoEmbedHtml;
+    container.insertBefore(wrapper, container.firstChild);
+  }
+
+  // After inserting embeds, remove stray empty paragraphs that
+  // only add vertical white space under the player.
+  const paragraphs = container.querySelectorAll('p');
+  paragraphs.forEach((p) => {
+    const hasMediaChild = p.querySelector('img, iframe, video, figure');
+    if (!hasMediaChild && !p.textContent.trim()) {
+      p.remove();
+    }
+  });
+}
+
+
+
 
   function buildYouTubeEmbedFromUrl(url) {
     try {
@@ -1104,60 +1100,48 @@
       ></iframe>
     `;
   }
+function addFacebookWatchOverlay(url) {
+  try {
+    const hero = document.querySelector('.post-hero, .post-detail-hero');
+    if (!hero) return;
 
-  function addFacebookWatchOverlay(url) {
-    try {
-      const hero = document.querySelector('.post-hero, .post-detail-hero');
-      if (!hero) return;
+    // Avoid duplicates if we re-render
+    if (hero.querySelector('.fb-watch-overlay')) return;
 
-      // Avoid duplicates if we re-render
-      if (hero.querySelector('.fb-watch-overlay')) return;
-
-      // Ensure hero can host absolutely positioned children
-      const currentPosition = window.getComputedStyle(hero).position;
-      if (!currentPosition || currentPosition === 'static') {
-        hero.style.position = 'relative';
-      }
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.className = 'fb-watch-overlay';
-      link.textContent = 'Watch on Facebook';
-
-      hero.appendChild(link);
-
-      // Remove any existing Facebook iframes from the article content
-      const fbIframes = document.querySelectorAll(
-        '.post-detail-content iframe[src*="facebook.com"], ' +
-        '.post-detail-content iframe[data-lazy-src*="facebook.com"]'
-      );
-      fbIframes.forEach((el) => el.remove());
-    } catch (err) {
-      console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
+    // Ensure hero can host absolutely positioned children
+    const currentPosition = window.getComputedStyle(hero).position;
+    if (!currentPosition || currentPosition === 'static') {
+      hero.style.position = 'relative';
     }
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.className = 'fb-watch-overlay';
+    link.textContent = 'Watch on Facebook';
+
+    hero.appendChild(link);
+
+    // Remove any existing Facebook iframes from the article content
+    const fbIframes = document.querySelectorAll(
+      '.post-detail-content iframe[src*="facebook.com"], ' +
+      '.post-detail-content iframe[data-lazy-src*="facebook.com"]'
+    );
+    fbIframes.forEach((el) => el.remove());
+  } catch (err) {
+    console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
   }
+}
+
+
 
   // ---------------------------------------------------------------------------
   // Not found view
   // ---------------------------------------------------------------------------
 
-  function renderNotFound() {
-    scrollToTop();
-    app.innerHTML = `
-      <div class="not-found-view">
-        <h1>Not found</h1>
-        <p>We couldn’t find that page. Please return to the latest posts.</p>
-        <button class="back-btn" type="button">Back to posts</button>
-      </div>
-    `;
-    const back = app.querySelector('.back-btn');
-    if (back) {
-      back.addEventListener('click', () => {
-        navigateTo('#/');
-      });
-    }
+    function renderNotFound() {
+    // ...
   }
 
   // ---------------------------------------------------------------------------
@@ -1219,5 +1203,5 @@
   });
 })();
 
-// 🔴 main.js — end of file (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce)
+// 🔴 main.js — end of file (loaderSafe2 + scrollRestoreFix1 + TTS chunked + pagingUX1 + perf2-ttsChunks-hotfix1)
 // 🔴 main.js
