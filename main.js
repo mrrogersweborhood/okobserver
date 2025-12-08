@@ -1008,25 +1008,47 @@
         videoEmbedHtml = videoEl.outerHTML;
       } else {
         // 3) Links that point to video providers
-        const links = tmp.querySelectorAll('a');
-        for (const a of links) {
-          const href = a.getAttribute('href') || '';
+            const links = tmp.querySelectorAll('a');
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      const text = (a.textContent || '').trim().toLowerCase();
 
-          if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-            videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-            break;
-          }
-          if (/vimeo\.com\/\d+/.test(href)) {
-            videoEmbedHtml = buildVimeoEmbedFromUrl(href);
-            break;
-          }
-          if (/facebook\.com\/.*\/videos\//.test(href)) {
-            // For Facebook: show a "Watch on Facebook" overlay and REMOVE the dead iframe.
-            addFacebookWatchOverlay(href);
-            // Do NOT set videoEmbedHtml – we don't want an embedded Facebook player.
-            break;
-          }
+      // YouTube: standard watch or youtu.be links
+      if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+        videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+        break;
+      }
+
+      // Vimeo: any link that contains vimeo.com with a numeric ID somewhere.
+      // This covers both plain vimeo.com/123456789 and vimeo.com/123456789?share=copy...
+      if (/vimeo\.com/.test(href)) {
+        const candidate = buildVimeoEmbedFromUrl(href);
+        if (candidate) {
+          videoEmbedHtml = candidate;
+          break;
         }
+      }
+
+      // Special case: links that say "Click here to listen in" and go to Vimeo,
+      // even if WordPress wrapped them weirdly.
+      if (!videoEmbedHtml &&
+          text.includes('click here to listen in') &&
+          href.includes('vimeo.com')) {
+        const candidate = buildVimeoEmbedFromUrl(href);
+        if (candidate) {
+          videoEmbedHtml = candidate;
+          break;
+        }
+      }
+
+      // Facebook: use "Watch on Facebook" overlay instead of in-page embed
+      if (/facebook\.com\/.*\/videos\//.test(href)) {
+        addFacebookWatchOverlay(href);
+        // No embedded Facebook iframe; overlay only
+        break;
+      }
+    }
+
 
         // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
         if (!videoEmbedHtml) {
