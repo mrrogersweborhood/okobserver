@@ -1019,15 +1019,26 @@
         break;
       }
 
-      // Vimeo: any link that contains vimeo.com with a numeric ID somewhere.
-      // This covers both plain vimeo.com/123456789 and vimeo.com/123456789?share=copy...
-      if (/vimeo\.com/.test(href)) {
-        const candidate = buildVimeoEmbedFromUrl(href);
-        if (candidate) {
-          videoEmbedHtml = candidate;
-          break;
-        }
-      }
+// Vimeo: extract numeric ID even if URL has ?share=copy or tracking params
+if (href.includes('vimeo.com')) {
+  const idMatch = href.match(/vimeo\.com\/(\d+)/);
+  if (idMatch && idMatch[1]) {
+    const embed = `
+      <iframe
+        class="video-embed video-embed-vimeo"
+        src="https://player.vimeo.com/video/${idMatch[1]}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    `;
+    videoEmbedHtml = embed;
+    break;  // <-- NOW safe to break (we definitely have a playable ID)
+  }
+  // If href has vimeo.com but regex fails, DO NOT break.
+  // Continue scanning other links (like "Click here to listen in").
+}
+
 
       // Special case: links that say "Click here to listen in" and go to Vimeo,
       // even if WordPress wrapped them weirdly.
@@ -1054,7 +1065,8 @@
         if (!videoEmbedHtml) {
           const htmlText = html;
 
-          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/\d+/);
+          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+
           const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
           const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
 
@@ -1062,9 +1074,19 @@
           if (urlMatch) {
             const url = urlMatch[0];
 
-            if (vimeoMatch) {
-              videoEmbedHtml = buildVimeoEmbedFromUrl(url);
-            } else if (ytMatch) {
+           if (vimeoMatch && vimeoMatch[1]) {
+  const id = vimeoMatch[1];
+  videoEmbedHtml = `
+    <iframe
+      class="video-embed video-embed-vimeo"
+      src="https://player.vimeo.com/video/${id}"
+      frameborder="0"
+      allow="autoplay; fullscreen; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  `;
+}
+ else if (ytMatch) {
               videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
             } else if (fbMatch) {
               // Again: overlay only, no embedded Facebook player.
