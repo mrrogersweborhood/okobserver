@@ -961,17 +961,40 @@
     const html = post.content && post.content.rendered ? post.content.rendered : '';
     if (!html) return;
 
-    // Hard overrides for posts whose embeds are too weird to parse reliably
-    const videoOverrides = {
-      // November ’25 Newsmaker
-      '383136': 'https://player.vimeo.com/video/1137090361',
+ 
+  // DEBUG: inspect links & raw Vimeo URLs for this post
+  try {
+    console.groupCollapsed('[OkObserver debug] video scan for post', post.id);
+    console.log('Raw HTML length:', html.length);
 
-      // Oct ’25 Newsmakers
-      "381733": "https://player.vimeo.com/video/1126193804",
+    const debugTmp = document.createElement('div');
+    debugTmp.innerHTML = html;
 
-      // Jul ’25 Newsmakers — POST 374604 (THIS FIXES THE MISSING VIDEO + WHITESPACE)
-      '374604': 'https://player.vimeo.com/video/1126193804'
-    };
+    const debugLinks = Array.from(debugTmp.querySelectorAll('a'));
+    console.log('Found', debugLinks.length, 'links in content:');
+    debugLinks.forEach((a, idx) => {
+      console.log(
+        `#${idx}`,
+        'text=',
+        (a.textContent || '').trim(),
+        'href=',
+        a.getAttribute('href') || ''
+      );
+    });
+
+    const allVimeoMatches = html.match(/https?:\/\/[^"'<\s]*vimeo\.com[^"'<\s]*/g);
+    console.log('Raw Vimeo-like strings in HTML:', allVimeoMatches || []);
+  } catch (e) {
+    console.warn('[OkObserver debug] failed to inspect post content', post.id, e);
+  }
+
+  // Hard overrides for posts whose embeds are too weird to parse reliably
+  const videoOverrides = {
+    '383136': 'https://player.vimeo.com/video/1137090361',
+    "381733": "https://player.vimeo.com/video/1126193804",
+    '374604': 'https://player.vimeo.com/video/1126193804'
+  };
+
 
     const overrideSrc = videoOverrides[post.id];
     if (overrideSrc) {
@@ -1093,6 +1116,15 @@
         }
       }
     }
+    console.log(
+      '[OkObserver debug] final videoEmbedHtml present?',
+      !!videoEmbedHtml
+    );
+    console.groupEnd();
+
+    if (videoEmbedHtml) {
+      const wrapper = document.createElement('div');
+      ...
 
     if (videoEmbedHtml) {
       const wrapper = document.createElement('div');
