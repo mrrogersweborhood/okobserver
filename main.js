@@ -1236,7 +1236,7 @@
   // Not found view
   // ---------------------------------------------------------------------------
 
-  function renderNotFound() {
+function renderNotFound() {
     scrollToTop();
     app.innerHTML = `
       <div class="not-found-view">
@@ -1252,6 +1252,10 @@
       });
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Utility: fix lazy-loaded images (data-src → src)
+  // ---------------------------------------------------------------------------
 
   // ---------------------------------------------------------------------------
   // Utility: fix lazy-loaded images (data-src → src)
