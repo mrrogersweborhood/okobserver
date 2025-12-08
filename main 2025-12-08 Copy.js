@@ -22,8 +22,8 @@
   // Global configuration and flags
   // ---------------------------------------------------------------------------
 
-  const APP_BUILD_TAG = '2025-12-08R6-vimeoPattern';
-  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R6-vimeoPattern — Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix';
+  const APP_BUILD_TAG = '2025-12-08R2-perf2-gridRehydrate';
+  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R2-perf2-gridRehydrate — Splash & About stable; scroll debounce + grid rehydrate';
 
   // Proxy base (must always be used instead of direct WP origin)
   const WP_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
@@ -1008,62 +1008,65 @@
         videoEmbedHtml = videoEl.outerHTML;
       } else {
         // 3) Links that point to video providers
-        const links = tmp.querySelectorAll('a');
-        for (const a of links) {
-          const href = a.getAttribute('href') || '';
-          const text = (a.textContent || '').trim().toLowerCase();
+            const links = tmp.querySelectorAll('a');
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      const text = (a.textContent || '').trim().toLowerCase();
 
-          // YouTube: standard watch or youtu.be links
-          if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
-            videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
-            break;
-          }
+      // YouTube: standard watch or youtu.be links
+      if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+        videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+        break;
+      }
 
-          // Vimeo: handle vimeo.com/123456789 and vimeo.com/123456789?share=copy, etc.
-          if (href.includes('vimeo.com')) {
-            const idMatch = href.match(/vimeo\.com\/(\d{6,12})/);
-            if (idMatch && idMatch[1]) {
-              videoEmbedHtml = `
-                <iframe
-                  class="video-embed video-embed-vimeo"
-                  src="https://player.vimeo.com/video/${idMatch[1]}"
-                  frameborder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowfullscreen
-                ></iframe>
-              `;
-              // We definitely have a playable Vimeo ID now.
-              break;
-            }
-            // If href has vimeo.com but regex fails, DO NOT break.
-            // Keep scanning other links (like "Click here to listen in").
-          }
+// Vimeo: extract numeric ID even if URL has ?share=copy or tracking params
+if (href.includes('vimeo.com')) {
+  const idMatch = href.match(/vimeo\.com\/(\d+)/);
+  if (idMatch && idMatch[1]) {
+    const embed = `
+      <iframe
+        class="video-embed video-embed-vimeo"
+        src="https://player.vimeo.com/video/${idMatch[1]}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    `;
+    videoEmbedHtml = embed;
+    break;  // <-- NOW safe to break (we definitely have a playable ID)
+  }
+  // If href has vimeo.com but regex fails, DO NOT break.
+  // Continue scanning other links (like "Click here to listen in").
+}
 
-          // Special case: "Click here to listen in" pointing at Vimeo, even if href is weird
-          if (!videoEmbedHtml &&
-              text.includes('click here to listen in') &&
-              href.includes('vimeo.com')) {
-            const candidate = buildVimeoEmbedFromUrl(href);
-            if (candidate) {
-              videoEmbedHtml = candidate;
-              break;
-            }
-          }
 
-          // Facebook: use "Watch on Facebook" overlay instead of embedding
-          if (/facebook\.com\/.*\/videos\//.test(href)) {
-            addFacebookWatchOverlay(href);
-            // No embedded Facebook iframe; overlay only.
-            break;
-          }
+      // Special case: links that say "Click here to listen in" and go to Vimeo,
+      // even if WordPress wrapped them weirdly.
+      if (!videoEmbedHtml &&
+          text.includes('click here to listen in') &&
+          href.includes('vimeo.com')) {
+        const candidate = buildVimeoEmbedFromUrl(href);
+        if (candidate) {
+          videoEmbedHtml = candidate;
+          break;
         }
+      }
+
+      // Facebook: use "Watch on Facebook" overlay instead of in-page embed
+      if (/facebook\.com\/.*\/videos\//.test(href)) {
+        addFacebookWatchOverlay(href);
+        // No embedded Facebook iframe; overlay only
+        break;
+      }
+    }
+
 
         // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
         if (!videoEmbedHtml) {
           const htmlText = html;
 
-          // Look for any bare Vimeo, YouTube or Facebook URL in the HTML.
-          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d{6,12})/);
+          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d+)/);
+
           const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
           const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
 
@@ -1071,19 +1074,19 @@
           if (urlMatch) {
             const url = urlMatch[0];
 
-            if (vimeoMatch && vimeoMatch[1]) {
-              // Build Vimeo embed directly from the captured ID
-              const id = vimeoMatch[1];
-              videoEmbedHtml = `
-                <iframe
-                  class="video-embed video-embed-vimeo"
-                  src="https://player.vimeo.com/video/${id}"
-                  frameborder="0"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowfullscreen
-                ></iframe>
-              `;
-            } else if (ytMatch) {
+           if (vimeoMatch && vimeoMatch[1]) {
+  const id = vimeoMatch[1];
+  videoEmbedHtml = `
+    <iframe
+      class="video-embed video-embed-vimeo"
+      src="https://player.vimeo.com/video/${id}"
+      frameborder="0"
+      allow="autoplay; fullscreen; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  `;
+}
+ else if (ytMatch) {
               videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
             } else if (fbMatch) {
               // Again: overlay only, no embedded Facebook player.
@@ -1280,5 +1283,5 @@
   });
 })();
 
-// 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix)
+// 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate)
 // 🔴 main.js
