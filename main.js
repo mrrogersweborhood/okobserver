@@ -1122,11 +1122,7 @@
     );
     console.groupEnd();
 
-    if (videoEmbedHtml) {
-      const wrapper = document.createElement('div');
-      ...
-
-    if (videoEmbedHtml) {
+        if (videoEmbedHtml) {
       const wrapper = document.createElement('div');
       wrapper.className = 'video-embed-wrapper';
       wrapper.innerHTML = videoEmbedHtml;
