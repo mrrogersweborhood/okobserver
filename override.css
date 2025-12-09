@@ -5051,3 +5051,45 @@ article.about-view {
     aspect-ratio: 16/9 !important;
     max-width: 100% !important;
 }
+/* Search page layout refinements — 2025-12-10 */
+.search-view {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.search-label {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.search-label-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.search-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.4rem 0.6rem;
+  box-sizing: border-box;
+}
+
+/* Keep the button aligned with the input on the right */
+.search-submit {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0.4rem 1rem;
+  box-sizing: border-box;
+  align-self: flex-end;
+}
