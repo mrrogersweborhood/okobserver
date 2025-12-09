@@ -1125,6 +1125,8 @@
       videoEmbedHtml
     );
     console.groupEnd();
+    console.log('[OkObserver debug] final videoEmbedHtml =', videoEmbedHtml);
+
 
     // FINAL safety net: scan the raw HTML string for any Vimeo URL,
     // even if it has ?share=copy, fbclid, etc., and turn it into a player.
