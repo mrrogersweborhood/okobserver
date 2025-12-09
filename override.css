@@ -4953,3 +4953,21 @@ article.about-view {
   aspect-ratio: 16 / 9;
   height: auto;
 }
+/* --- Fix Vimeo / video embeds on post detail --- */
+.video-embed-wrapper {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 1.5rem;
+  position: relative;
+  overflow: visible; /* override any hidden value */
+}
+
+/* Make the actual player visible and responsive */
+.video-embed-wrapper iframe,
+.video-embed-wrapper .video-embed {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9; /* gives the element non-zero height */
+}
