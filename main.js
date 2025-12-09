@@ -1044,7 +1044,8 @@
 
           // Vimeo: handle vimeo.com/123456789 and vimeo.com/123456789?share=copy, etc.
           if (href.includes('vimeo.com')) {
-              const idMatch = href.match(/vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+             const idMatch = href.match(/vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+
 
             if (idMatch && idMatch[1]) {
               videoEmbedHtml = `
