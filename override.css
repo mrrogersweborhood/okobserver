@@ -4300,16 +4300,35 @@ body > header.oo-header {
   display: none !important;
 }
 /* Collapse leftover video screenshot wrappers and blank paragraphs under detail players */
-.post-detail-content .video-embed-wrapper,
-.post-detail-content .video-embed-wrapper figure,
-.post-detail-content .video-embed-wrapper img,
-.post-detail-content .video-embed-wrapper figcaption {
-  margin: 0 !important;
+/* Detail video wrapper: let the player be visible */
+.post-detail-content .video-embed-wrapper {
+  margin: 12px 0 20px !important;
   padding: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+  min-height: 0 !important; /* no forced zero-height */
+  height: auto !important;
 }
+
+/* Make sure the iframe/video fills the wrapper nicely */
+.post-detail-content .video-embed-wrapper iframe,
+.post-detail-content .video-embed-wrapper video {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+}
+
+/* Optional: captions under the player, but NOT zero-height */
+.post-detail-content .video-embed-wrapper figcaption {
+  margin: 6px 0 0 !important;
+  padding: 0 !important;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow: visible !important;
+}
+
 
 /* Remove empty paragraphs between the player and the article body */
 .post-detail-content p:empty {
