@@ -4939,3 +4939,17 @@ article.about-view {
   border-radius: 20px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
 }
+/* Video embed layout for detail pages */
+.detail-content.entry-content .video-embed-wrapper {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+/* Make the Vimeo (and other) players visible and responsive */
+.detail-content.entry-content .video-embed-wrapper iframe {
+  display: block;
+  width: 100%;
+  /* Maintain a standard 16:9 aspect ratio */
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
