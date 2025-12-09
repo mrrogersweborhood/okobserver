@@ -58,16 +58,6 @@
   let hasMorePages = true;
   let infiniteObserver = null;
   let infiniteScrollLoadTimeout = null;
-  // ---------------------------------------------------------------------------
-  // Search paging state (added 2025-12-10)
-  // ---------------------------------------------------------------------------
-  let currentSearchTerm = '';
-  let currentSearchPage = 1;
-  let hasMoreSearchPages = false;
-  let isFetchingSearchResults = false;
-  let searchObserver = null;
-  let searchScrollLoadTimeout = null;
-
 
   // Root app container & loader overlay
   const app = document.getElementById('app');
@@ -204,13 +194,11 @@
     return data;
   }
 
-  async function fetchSearchResults(term, page = 1) {
+  async function fetchSearchResults(term) {
     const enc = encodeURIComponent(term || '');
-    const url =
-      `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
+    const url = `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=1&_embed`;
     return fetchJson(url);
   }
-
 
   // Cached About page (contact-about-donate) so we only fetch once
   let aboutPageCache = null;
@@ -825,19 +813,10 @@
     });
   }
 
-    async function performSearch(term, statusEl, grid) {
+  async function performSearch(term, statusEl, grid) {
     try {
-      // Reset paging for new search term
-      currentSearchTerm = term || '';
-      currentSearchPage = 1;
-      hasMoreSearchPages = true;
-      isFetchingSearchResults = false;
-      teardownSearchInfiniteScroll();
-
-      // Always fetch first page explicitly
-      const results = await fetchSearchResults(term, 1);
+      const results = await fetchSearchResults(term);
       if (!Array.isArray(results) || results.length === 0) {
-        hasMoreSearchPages = false;
         statusEl.textContent = 'No results found.';
         grid.innerHTML = '';
         return;
@@ -846,8 +825,10 @@
       const frag = document.createDocumentFragment();
       let rendered = 0;
 
-      results.forEach((post) => {
-        if (hasExcludedCategory(post)) return;
+      results.forEach(post => {
+        if (hasExcludedCategory(post)) {
+          return;
+        }
         const card = createPostCard(post);
         frag.appendChild(card);
         rendered++;
@@ -856,28 +837,13 @@
       if (rendered > 0) {
         grid.innerHTML = '';
         grid.appendChild(frag);
-        statusEl.textContent =
-          `${rendered} result${rendered === 1 ? '' : 's'} found.`;
-
-        // Enable infinite scroll ONLY if a full page came back
-        if (rendered >= POSTS_PER_PAGE) {
-          hasMoreSearchPages = true;
-          setupSearchInfiniteScroll(grid);
-        } else {
-          hasMoreSearchPages = false;
-          teardownSearchInfiniteScroll();
-        }
+        statusEl.textContent = `${rendered} result${rendered === 1 ? '' : 's'} found.`;
       } else {
-        hasMoreSearchPages = false;
-        teardownSearchInfiniteScroll();
-        statusEl.textContent =
-          'No visible results (some posts may be filtered).';
+        statusEl.textContent = 'No visible results (some posts may be filtered).';
         grid.innerHTML = '';
       }
     } catch (err) {
       console.error('[OkObserver] Search error:', err);
-      hasMoreSearchPages = false;
-      teardownSearchInfiniteScroll();
       statusEl.textContent = 'An error occurred while searching.';
       grid.innerHTML = '';
     }
@@ -1406,135 +1372,6 @@ function renderNotFound() {
     init();
   });
 })();
-// ---------------------------------------------------------------------------
-// Search Infinite Scroll Helpers (added 2025-12-10, Option C placement)
-// ---------------------------------------------------------------------------
-
-function teardownSearchInfiniteScroll() {
-  if (searchObserver) {
-    searchObserver.disconnect();
-    searchObserver = null;
-  }
-  if (searchScrollLoadTimeout) {
-    clearTimeout(searchScrollLoadTimeout);
-    searchScrollLoadTimeout = null;
-  }
-  const sentinel = document.querySelector('.search-scroll-sentinel');
-  if (sentinel && sentinel.parentNode) {
-    sentinel.parentNode.removeChild(sentinel);
-  }
-}
-
-function setupSearchInfiniteScroll(grid) {
-  teardownSearchInfiniteScroll();
-
-  if (!currentSearchTerm) return;
-
-  const sentinel = document.createElement('div');
-  sentinel.className = 'search-scroll-sentinel';
-  sentinel.setAttribute('aria-hidden', 'true');
-  grid.insertAdjacentElement('afterend', sentinel);
-
-  searchObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
-          requestMoreSearchResults();
-        }
-      }
-    },
-    {
-      root: null,
-      threshold: [SCROLL_SENTRY_OFFSET],
-    }
-  );
-
-  searchObserver.observe(sentinel);
-}
-
-function requestMoreSearchResults() {
-  if (isFetchingSearchResults || !hasMoreSearchPages) return;
-  if (searchScrollLoadTimeout) {
-    clearTimeout(searchScrollLoadTimeout);
-  }
-  searchScrollLoadTimeout = setTimeout(() => {
-    if (!isFetchingSearchResults && hasMoreSearchPages) {
-      loadMoreSearchResults();
-    }
-  }, 120);
-}
-
-async function loadMoreSearchResults() {
-  if (isFetchingSearchResults || !hasMoreSearchPages || !currentSearchTerm) {
-    return;
-  }
-
-  isFetchingSearchResults = true;
-  showPagingStatus();
-
-  const view = document.querySelector('.search-view');
-  if (!view) {
-    hidePagingStatus();
-    isFetchingSearchResults = false;
-    return;
-  }
-
-  const grid = view.querySelector('.search-grid');
-  const statusEl = view.querySelector('.search-status');
-  if (!grid || !statusEl) {
-    hidePagingStatus();
-    isFetchingSearchResults = false;
-    return;
-  }
-
-  try {
-    const nextPage = currentSearchPage + 1;
-    console.debug('[OkObserver] Fetching search page', nextPage, 'for term', currentSearchTerm);
-
-    const results = await fetchSearchResults(currentSearchTerm, nextPage);
-    if (!Array.isArray(results) || results.length === 0) {
-      hasMoreSearchPages = false;
-      teardownSearchInfiniteScroll();
-      hidePagingStatus();
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    let appended = 0;
-
-    for (const post of results) {
-      if (hasExcludedCategory(post)) continue;
-      const card = createPostCard(post);
-      frag.appendChild(card);
-      appended++;
-    }
-
-    if (appended > 0) {
-      grid.appendChild(frag);
-
-      const total = grid.querySelectorAll('.post-card').length;
-      statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
-
-      currentSearchPage = nextPage;
-
-      if (appended < POSTS_PER_PAGE) {
-        hasMoreSearchPages = false;
-        teardownSearchInfiniteScroll();
-      }
-    } else {
-      hasMoreSearchPages = false;
-      teardownSearchInfiniteScroll();
-    }
-
-    hidePagingStatus();
-  } catch (err) {
-    console.error('[OkObserver] Error loading more search results:', err);
-    hidePagingStatus();
-  } finally {
-    isFetchingSearchResults = false;
-  }
-}
-// ---------------------------------------------------------------------------
 
 // 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix)
 // 🔴 main.js
