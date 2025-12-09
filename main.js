@@ -1157,6 +1157,7 @@
       container.insertAdjacentHTML('afterbegin', wrapperHtml);
     }
 
+
     // After inserting embeds, remove stray empty paragraphs that
     // only add vertical white space under the player.
     const paragraphs = container.querySelectorAll('p');
