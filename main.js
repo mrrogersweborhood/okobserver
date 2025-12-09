@@ -1139,11 +1139,14 @@
       }
     }
 
-        if (videoEmbedHtml) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'video-embed-wrapper';
-      wrapper.innerHTML = videoEmbedHtml;
-      container.insertBefore(wrapper, container.firstChild);
+    if (videoEmbedHtml) {
+      const wrapperHtml = `
+        <div class="video-embed-wrapper">
+          ${videoEmbedHtml}
+        </div>
+      `;
+      // Insert the wrapper as the very first thing inside the content area
+      container.insertAdjacentHTML('afterbegin', wrapperHtml);
     }
 
     // After inserting embeds, remove stray empty paragraphs that
@@ -1156,6 +1159,7 @@
       }
     });
   }
+
 
   function buildYouTubeEmbedFromUrl(url) {
     try {
