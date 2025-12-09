@@ -1136,7 +1136,10 @@
     // FINAL safety net: scan the raw HTML string for any Vimeo URL,
     // even if it has ?share=copy, fbclid, etc., and turn it into a player.
     if (!videoEmbedHtml) {
-      const rawVimeo = html.match(/https?:\/\/[^"'<\s]*vimeo\.com\/(\d{6,12})[^"'<\s]*/i);
+      const rawVimeo = html.match(
+  /https?:\/\/[^"'<\s]*vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/i
+);
+
       if (rawVimeo && rawVimeo[1]) {
         const vimeoId = rawVimeo[1];
         videoEmbedHtml = `
