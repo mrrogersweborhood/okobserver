@@ -5013,3 +5013,22 @@ article.about-view {
     aspect-ratio: 16 / 9 !important;
     max-width: 100% !important;
 }
+/* === FINAL FORCE-FIX FOR VIMEO VISIBILITY === */
+
+.detail-content.entry-content .video-embed-wrapper {
+    display: block !important;
+    width: 100% !important;
+    min-height: 350px !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: relative !important;
+    background: #f9f9f9; /* temporary visual indicator */
+}
+
+.detail-content.entry-content .video-embed-wrapper iframe {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 16/9 !important;
+    max-width: 100% !important;
+}
