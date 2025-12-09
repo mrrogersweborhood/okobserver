@@ -1088,7 +1088,9 @@
           const htmlText = html;
 
           // Look for any bare Vimeo, YouTube or Facebook URL in the HTML.
-            const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+            const vimeoMatch = htmlText.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/
+          );
 
           const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
           const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
