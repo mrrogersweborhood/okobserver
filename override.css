@@ -4994,3 +4994,22 @@ article.about-view {
   height: auto !important;
   aspect-ratio: 16 / 9; /* gives a proper visible box */
 }
+/* --- HARD OVERRIDE: FORCE VIMEO/VIDEO PLAYERS TO DISPLAY --- */
+
+.detail-content.entry-content .video-embed-wrapper {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 300px !important; /* <- THIS FORCES VISIBILITY */
+    overflow: visible !important;  /* defeat hidden overflow */
+    position: relative !important;
+}
+
+/* Ensure the iframe fills the wrapper */
+.detail-content.entry-content .video-embed-wrapper iframe {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 16 / 9 !important;
+    max-width: 100% !important;
+}
