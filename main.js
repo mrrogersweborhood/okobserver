@@ -990,11 +990,14 @@
 
   // Hard overrides for posts whose embeds are too weird to parse reliably
   const videoOverrides = {
-    '383136': 'https://player.vimeo.com/video/1137090361',
-    "381733": "https://player.vimeo.com/video/1126193804",
-    '374604': 'https://player.vimeo.com/video/1126193804'
-  };
+  '383136': 'https://player.vimeo.com/video/1137090361',
+  "381733": "https://player.vimeo.com/video/1126193804",
+  '374604': 'https://player.vimeo.com/video/1126193804',
 
+  // Added 2025-12-10 — explicit Vimeo override for post 372002
+  // This stabilizes a non-standard Vimeo link the regex cannot extract.
+  '372002': 'https://player.vimeo.com/video/1093051934?dnt=1&app_id=122963'
+};
 
     const overrideSrc = videoOverrides[post.id];
     if (overrideSrc) {
