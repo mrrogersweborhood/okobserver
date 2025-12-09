@@ -4971,3 +4971,26 @@ article.about-view {
   height: auto;
   aspect-ratio: 16 / 9; /* gives the element non-zero height */
 }
+/* --- Hard override: always show video players on post detail --- */
+
+/* Wrapper should be visible and tall enough */
+.detail-content.entry-content .video-embed-wrapper {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 0 1.5rem !important;
+  position: relative !important;
+  overflow: visible !important; /* defeat any hidden overflow */
+  min-height: 220px !important; /* guarantee non-zero height */
+}
+
+/* Any iframe/video inside the detail content should render like a player */
+.detail-content.entry-content iframe,
+.detail-content.entry-content .video-embed-wrapper iframe,
+.detail-content.entry-content .video-embed-wrapper .video-embed {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9; /* gives a proper visible box */
+}
