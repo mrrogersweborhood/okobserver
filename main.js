@@ -1121,6 +1121,23 @@
       !!videoEmbedHtml
     );
     console.groupEnd();
+    // FINAL safety net: scan the raw HTML string for any Vimeo URL,
+    // even if it has ?share=copy, fbclid, etc., and turn it into a player.
+    if (!videoEmbedHtml) {
+      const rawVimeo = html.match(/https?:\/\/[^"'<\s]*vimeo\.com\/(\d{6,12})[^"'<\s]*/i);
+      if (rawVimeo && rawVimeo[1]) {
+        const vimeoId = rawVimeo[1];
+        videoEmbedHtml = `
+          <iframe
+            class="video-embed video-embed-vimeo"
+            src="https://player.vimeo.com/video/${vimeoId}"
+            frameborder="0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen
+          ></iframe>
+        `;
+      }
+    }
 
         if (videoEmbedHtml) {
       const wrapper = document.createElement('div');
@@ -1253,10 +1270,7 @@ function renderNotFound() {
   // Utility: fix lazy-loaded images (data-src → src)
   // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // Utility: fix lazy-loaded images (data-src → src)
-  // ---------------------------------------------------------------------------
-
+  
   function fixLazyImages(root) {
     const scope = root || document;
 
