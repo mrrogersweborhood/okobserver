@@ -1044,7 +1044,8 @@
 
           // Vimeo: handle vimeo.com/123456789 and vimeo.com/123456789?share=copy, etc.
           if (href.includes('vimeo.com')) {
-            const idMatch = href.match(/vimeo\.com\/(\d{6,12})/);
+              const idMatch = href.match(/vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+
             if (idMatch && idMatch[1]) {
               videoEmbedHtml = `
                 <iframe
@@ -1086,7 +1087,8 @@
           const htmlText = html;
 
           // Look for any bare Vimeo, YouTube or Facebook URL in the HTML.
-          const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(\d{6,12})/);
+            const vimeoMatch = htmlText.match(/https?:\/\/(?:www\.)?vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+
           const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
           const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
 
