@@ -776,6 +776,21 @@
     const grid = app.querySelector('.search-grid');
 
     if (!form || !input || !grid) return;
+  // Auto-focus the search box when the search view is shown,
+  // without disturbing scroll restore.
+  requestAnimationFrame(() => {
+    if (document.body.contains(input)) {
+      try {
+        input.focus({ preventScroll: true });
+      } catch (e) {
+        // Fallback for older browsers
+        try {
+          input.focus();
+        } catch (_) {}
+      }
+    }
+  });
+
 
     if (initialQuery) {
       performSearch(initialQuery, statusEl, grid);
