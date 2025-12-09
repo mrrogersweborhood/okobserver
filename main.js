@@ -999,23 +999,31 @@
   '372002': 'https://player.vimeo.com/video/1093051934?dnt=1&app_id=122963'
 };
 
-    const overrideSrc = videoOverrides[post.id];
-    if (overrideSrc) {
+  const overrideSrc = videoOverrides[post.id];
+  if (overrideSrc) {
+    console.log('[OkObserver debug] Using videoOverrides for post', post.id, overrideSrc);
 
-      // REMOVE all existing iframes first — they include the broken WP Vimeo embed
-      container.querySelectorAll('iframe').forEach(el => el.remove());
+    // REMOVE all existing iframes first — they include the broken WP Vimeo embed
+    container.querySelectorAll('iframe').forEach(el => el.remove());
 
-      // Now safely insert ONLY the correct Vimeo player
-      const iframe = document.createElement('iframe');
-      iframe.src = overrideSrc;
-      iframe.setAttribute('allowfullscreen', '');
-      iframe.setAttribute('frameborder', '0');
-      iframe.className = 'video-embed video-embed-vimeo';
+    // Create the same wrapper we use for auto-detected embeds
+    const wrapper = document.createElement('div');
+    wrapper.className = 'video-embed-wrapper';
 
-      container.insertBefore(iframe, container.firstChild);
+    const iframe = document.createElement('iframe');
+    iframe.src = overrideSrc;
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('frameborder', '0');
+    iframe.className = 'video-embed video-embed-vimeo';
 
-      return;
-    }
+    wrapper.appendChild(iframe);
+
+    // Insert wrapper at the top of the article content
+    container.insertBefore(wrapper, container.firstChild);
+
+    return;
+  }
+
 
     // Otherwise, try to detect embeds from the post HTML
     const tmp = document.createElement('div');
