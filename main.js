@@ -1116,11 +1116,16 @@
         }
       }
     }
-    console.log(
+        console.log(
       '[OkObserver debug] final videoEmbedHtml present?',
       !!videoEmbedHtml
     );
+    console.log(
+      '[OkObserver debug] final videoEmbedHtml =',
+      videoEmbedHtml
+    );
     console.groupEnd();
+
     // FINAL safety net: scan the raw HTML string for any Vimeo URL,
     // even if it has ?share=copy, fbclid, etc., and turn it into a player.
     if (!videoEmbedHtml) {
@@ -1138,6 +1143,7 @@
         `;
       }
     }
+
 
     if (videoEmbedHtml) {
       const wrapperHtml = `
