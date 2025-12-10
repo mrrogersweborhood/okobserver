@@ -5099,3 +5099,54 @@ article.about-view {
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
+/* Search view layout + alignment ---------------------------------------- */
+
+.search-view {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.search-title {
+  text-align: center;
+  margin: 0 0 1.5rem;
+}
+
+/* Put input + button on one line on desktop/tablet */
+.search-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Label column grows, button stays compact */
+.search-label {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-input {
+  width: 100%;
+}
+
+/* Keep button aligned with input, but not stretched comically tall */
+.search-submit {
+  flex: 0 0 auto;
+  padding: 0.6rem 1.8rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+/* Mobile: stack nicely with full-width button */
+@media (max-width: 640px) {
+  .search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-submit {
+    width: 100%;
+  }
+}
