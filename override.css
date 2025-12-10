@@ -5150,3 +5150,35 @@ article.about-view {
     width: 100%;
   }
 }
+/* Mobile tightening for Search layout ----------------------------------- */
+@media (max-width: 640px) {
+
+  /* Reduce vertical spacing around search area */
+  .search-view {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
+
+  /* Stack but keep items close together */
+  .search-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem; /* was larger — tighten space between input + button */
+  }
+
+  /* Remove default label margin that pushes input downward */
+  .search-label label {
+    margin-bottom: 0.2rem;
+  }
+
+  /* Reduce extra margin under the input field */
+  .search-input {
+    margin-bottom: 0.2rem;
+  }
+
+  /* Button stays close to the input */
+  .search-submit {
+    width: 100%;
+    margin-top: 0; /* eliminate any inherited spacing */
+  }
+}
