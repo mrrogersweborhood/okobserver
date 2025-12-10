@@ -5182,3 +5182,40 @@ article.about-view {
     margin-top: 0; /* eliminate any inherited spacing */
   }
 }
+/* 🟢 search mobile tight layout 2025-12-11R1 */
+@media (max-width: 640px) {
+  /* Keep the search area snug near the top */
+  .search-view {
+    padding-top: 0.75rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .search-title {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Stack input + button, but keep them very close together */
+  .search-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;          /* tighter than previous 0.4rem+ */
+    margin-bottom: 0.5rem; /* less bottom gap */
+  }
+
+  .search-label {
+    flex: 1 1 auto;
+    gap: 0.15rem;          /* pull label text + input closer */
+  }
+
+  .search-input {
+    margin-bottom: 0;      /* remove extra space under input */
+  }
+
+  /* Full-width button directly under the input */
+  .search-submit {
+    width: 100%;
+    align-self: stretch;
+    margin-top: 0;         /* kill any inherited margin/top gap */
+  }
+}
+/* 🔴 search mobile tight layout 2025-12-11R1 */
