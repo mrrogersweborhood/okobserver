@@ -1347,32 +1347,137 @@ function renderNotFound() {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Utility: fix lazy-loaded images (data-src → src)
-  // ---------------------------------------------------------------------------
 
   
-  function fixLazyImages(root) {
-    const scope = root || document;
+    // ---------------------------------------------------------------------------
+  // Search Infinite Scroll Helpers (added 2025-12-10, Option C inside-IIFE)
+  // ---------------------------------------------------------------------------
 
-    const imgs = scope.querySelectorAll('img[data-src], img[data-lazy-src]');
-    imgs.forEach((img) => {
-      const dataSrc =
-        img.getAttribute('data-src') || img.getAttribute('data-lazy-src');
-      if (dataSrc) {
-        img.src = dataSrc;
-      }
-
-      const dataSrcset = img.getAttribute('data-srcset');
-      if (dataSrcset) {
-        img.srcset = dataSrcset;
-      }
-
-      img.removeAttribute('data-src');
-      img.removeAttribute('data-lazy-src');
-      img.classList.remove('lazyload', 'lazyloaded');
-    });
+  function teardownSearchInfiniteScroll() {
+    if (searchObserver) {
+      searchObserver.disconnect();
+      searchObserver = null;
+    }
+    if (searchScrollLoadTimeout) {
+      clearTimeout(searchScrollLoadTimeout);
+      searchScrollLoadTimeout = null;
+    }
+    const sentinel = document.querySelector('.search-scroll-sentinel');
+    if (sentinel && sentinel.parentNode) {
+      sentinel.parentNode.removeChild(sentinel);
+    }
   }
+
+  function setupSearchInfiniteScroll(grid) {
+    teardownSearchInfiniteScroll();
+
+    if (!currentSearchTerm) return;
+
+    const sentinel = document.createElement('div');
+    sentinel.className = 'search-scroll-sentinel';
+    sentinel.setAttribute('aria-hidden', 'true');
+    grid.insertAdjacentElement('afterend', sentinel);
+
+    searchObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
+            requestMoreSearchResults();
+          }
+        }
+      },
+      {
+        root: null,
+        threshold: [SCROLL_SENTRY_OFFSET],
+      }
+    );
+
+    searchObserver.observe(sentinel);
+  }
+
+  function requestMoreSearchResults() {
+    if (isFetchingSearchResults || !hasMoreSearchPages) return;
+    if (searchScrollLoadTimeout) {
+      clearTimeout(searchScrollLoadTimeout);
+    }
+    searchScrollLoadTimeout = setTimeout(() => {
+      if (!isFetchingSearchResults && hasMoreSearchPages) {
+        loadMoreSearchResults();
+      }
+    }, 120);
+  }
+
+  async function loadMoreSearchResults() {
+    if (isFetchingSearchResults || !hasMoreSearchPages || !currentSearchTerm) {
+      return;
+    }
+
+    isFetchingSearchResults = true;
+    showPagingStatus();
+
+    const view = document.querySelector('.search-view');
+    if (!view) {
+      hidePagingStatus();
+      isFetchingSearchResults = false;
+      return;
+    }
+
+    const grid = view.querySelector('.search-grid');
+    const statusEl = view.querySelector('.search-status');
+    if (!grid || !statusEl) {
+      hidePagingStatus();
+      isFetchingSearchResults = false;
+      return;
+    }
+
+    try {
+      const nextPage = currentSearchPage + 1;
+      console.debug('[OkObserver] Fetching search page', nextPage, 'for term', currentSearchTerm);
+
+      const results = await fetchSearchResults(currentSearchTerm, nextPage);
+      if (!Array.isArray(results) || results.length === 0) {
+        hasMoreSearchPages = false;
+        teardownSearchInfiniteScroll();
+        hidePagingStatus();
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      let appended = 0;
+
+      for (const post of results) {
+        if (hasExcludedCategory(post)) continue;
+        const card = createPostCard(post);
+        frag.appendChild(card);
+        appended++;
+      }
+
+      if (appended > 0) {
+        grid.appendChild(frag);
+
+        const total = grid.querySelectorAll('.post-card').length;
+        statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+
+        currentSearchPage = nextPage;
+
+        if (appended < POSTS_PER_PAGE) {
+          hasMoreSearchPages = false;
+          teardownSearchInfiniteScroll();
+        }
+      } else {
+        hasMoreSearchPages = false;
+        teardownSearchInfiniteScroll();
+      }
+
+      hidePagingStatus();
+    } catch (err) {
+      console.error('[OkObserver] Error loading more search results:', err);
+      hidePagingStatus();
+    } finally {
+      isFetchingSearchResults = false;
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -1406,135 +1511,6 @@ function renderNotFound() {
     init();
   });
 })();
-// ---------------------------------------------------------------------------
-// Search Infinite Scroll Helpers (added 2025-12-10, Option C placement)
-// ---------------------------------------------------------------------------
-
-function teardownSearchInfiniteScroll() {
-  if (searchObserver) {
-    searchObserver.disconnect();
-    searchObserver = null;
-  }
-  if (searchScrollLoadTimeout) {
-    clearTimeout(searchScrollLoadTimeout);
-    searchScrollLoadTimeout = null;
-  }
-  const sentinel = document.querySelector('.search-scroll-sentinel');
-  if (sentinel && sentinel.parentNode) {
-    sentinel.parentNode.removeChild(sentinel);
-  }
-}
-
-function setupSearchInfiniteScroll(grid) {
-  teardownSearchInfiniteScroll();
-
-  if (!currentSearchTerm) return;
-
-  const sentinel = document.createElement('div');
-  sentinel.className = 'search-scroll-sentinel';
-  sentinel.setAttribute('aria-hidden', 'true');
-  grid.insertAdjacentElement('afterend', sentinel);
-
-  searchObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
-          requestMoreSearchResults();
-        }
-      }
-    },
-    {
-      root: null,
-      threshold: [SCROLL_SENTRY_OFFSET],
-    }
-  );
-
-  searchObserver.observe(sentinel);
-}
-
-function requestMoreSearchResults() {
-  if (isFetchingSearchResults || !hasMoreSearchPages) return;
-  if (searchScrollLoadTimeout) {
-    clearTimeout(searchScrollLoadTimeout);
-  }
-  searchScrollLoadTimeout = setTimeout(() => {
-    if (!isFetchingSearchResults && hasMoreSearchPages) {
-      loadMoreSearchResults();
-    }
-  }, 120);
-}
-
-async function loadMoreSearchResults() {
-  if (isFetchingSearchResults || !hasMoreSearchPages || !currentSearchTerm) {
-    return;
-  }
-
-  isFetchingSearchResults = true;
-  showPagingStatus();
-
-  const view = document.querySelector('.search-view');
-  if (!view) {
-    hidePagingStatus();
-    isFetchingSearchResults = false;
-    return;
-  }
-
-  const grid = view.querySelector('.search-grid');
-  const statusEl = view.querySelector('.search-status');
-  if (!grid || !statusEl) {
-    hidePagingStatus();
-    isFetchingSearchResults = false;
-    return;
-  }
-
-  try {
-    const nextPage = currentSearchPage + 1;
-    console.debug('[OkObserver] Fetching search page', nextPage, 'for term', currentSearchTerm);
-
-    const results = await fetchSearchResults(currentSearchTerm, nextPage);
-    if (!Array.isArray(results) || results.length === 0) {
-      hasMoreSearchPages = false;
-      teardownSearchInfiniteScroll();
-      hidePagingStatus();
-      return;
-    }
-
-    const frag = document.createDocumentFragment();
-    let appended = 0;
-
-    for (const post of results) {
-      if (hasExcludedCategory(post)) continue;
-      const card = createPostCard(post);
-      frag.appendChild(card);
-      appended++;
-    }
-
-    if (appended > 0) {
-      grid.appendChild(frag);
-
-      const total = grid.querySelectorAll('.post-card').length;
-      statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
-
-      currentSearchPage = nextPage;
-
-      if (appended < POSTS_PER_PAGE) {
-        hasMoreSearchPages = false;
-        teardownSearchInfiniteScroll();
-      }
-    } else {
-      hasMoreSearchPages = false;
-      teardownSearchInfiniteScroll();
-    }
-
-    hidePagingStatus();
-  } catch (err) {
-    console.error('[OkObserver] Error loading more search results:', err);
-    hidePagingStatus();
-  } finally {
-    isFetchingSearchResults = false;
-  }
-}
-// ---------------------------------------------------------------------------
 
 // 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix)
 // 🔴 main.js
