@@ -5093,3 +5093,9 @@ article.about-view {
   box-sizing: border-box;
   align-self: flex-end;
 }
+/* Prevent long URLs in card excerpts from bleeding across columns */
+.post-card-excerpt,
+.post-card-excerpt a {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
