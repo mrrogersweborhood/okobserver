@@ -41,8 +41,15 @@
     initialized: false
   };
 
+  const searchState = {
+    scrollY: 0,
+    initialized: false,
+    term: ''
+  };
+
   // Simple in-memory cache for posts (by ID) to avoid refetching
   const postCache = new Map();
+
 
   // Seen IDs for duplicate-guard in infinite scroll
   const seenPostIds = new Set();
@@ -145,9 +152,50 @@
 
   // Scroll helpers
   function saveHomeScroll() {
-    homeState.scrollY = window.scrollY || window.pageYOffset || 0;
-    homeState.initialized = true;
-    console.debug('[OkObserver] Saved home scrollY:', homeState.scrollY);
+    const y = window.scrollY || window.pageYOffset || 0;
+    const { path, params } = parseHashRoute();
+
+    if (path === '/search') {
+      // Save scroll for the current search term
+      searchState.scrollY = y;
+      searchState.initialized = true;
+      searchState.term = (params && params.q) || '';
+      console.debug(
+        '[OkObserver] Saved search scrollY:',
+        y,
+        'for term:',
+        searchState.term
+      );
+    } else if (path === '/') {
+      // Normal home grid
+      homeState.scrollY = y;
+      homeState.initialized = true;
+      console.debug('[OkObserver] Saved home scrollY:', homeState.scrollY);
+    } else {
+      // Fallback: treat as home-style scroll
+      homeState.scrollY = y;
+      homeState.initialized = true;
+      console.debug('[OkObserver] Saved generic scrollY:', y, 'for path:', path);
+    }
+  }
+
+  function restoreSearchScroll(expectedTerm) {
+    if (!searchState.initialized) return;
+    if (expectedTerm && searchState.term && expectedTerm !== searchState.term) {
+      // Different search term → don't restore old scroll
+      return;
+    }
+
+    const y = searchState.scrollY || 0;
+    requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      console.debug(
+        '[OkObserver] Restored search scrollY:',
+        y,
+        'for term:',
+        searchState.term
+      );
+    });
   }
 
   function restoreHomeScroll() {
@@ -867,6 +915,9 @@
           hasMoreSearchPages = false;
           teardownSearchInfiniteScroll();
         }
+
+        // If we came back from a search detail view, restore search scroll
+        restoreSearchScroll(term);
       } else {
         hasMoreSearchPages = false;
         teardownSearchInfiniteScroll();
@@ -874,6 +925,7 @@
           'No visible results (some posts may be filtered).';
         grid.innerHTML = '';
       }
+
     } catch (err) {
       console.error('[OkObserver] Search error:', err);
       hasMoreSearchPages = false;
@@ -972,8 +1024,9 @@
     const back = app.querySelector('.back-btn');
     if (back) {
       back.addEventListener('click', () => {
-        // If user came from the grid, let browser restore DOM + scroll
-        if (homeState.initialized) {
+        // If user came from a grid view (home or search),
+        // let the browser restore DOM + scroll from history.
+        if (homeState.initialized || searchState.initialized) {
           window.history.back();
         } else {
           // Deep-linked directly to a post
