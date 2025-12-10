@@ -823,7 +823,11 @@
           </label>
           <button class="search-submit" type="submit">Search</button>
         </form>
-        <div class="search-status" aria-live="polite"></div>
+        <div class="search-status" aria-live="polite">
+  <span class="search-status-spinner" aria-hidden="true"></span>
+  <span class="search-status-text"></span>
+</div>
+
         <div class="search-results">
           <div class="posts-grid search-grid"></div>
         </div>
@@ -836,6 +840,10 @@
     const grid = app.querySelector('.search-grid');
 
     if (!form || !input || !grid) return;
+const statusTextEl = statusEl
+  ? statusEl.querySelector('.search-status-text')
+  : null;
+
   // Auto-focus the search box when the search view is shown,
   // without disturbing scroll restore.
   requestAnimationFrame(() => {
@@ -859,14 +867,23 @@
     form.addEventListener('submit', (evt) => {
       evt.preventDefault();
       const value = input.value.trim();
-      if (!value) {
-        statusEl.textContent = 'Please enter a search term.';
-        grid.innerHTML = '';
-        navigateTo('#/search');
-        return;
-      }
-      statusEl.textContent = 'Searching…';
-      grid.innerHTML = '';
+if (!value) {
+  statusEl.classList.remove('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Please enter a search term.';
+  }
+  grid.innerHTML = '';
+  navigateTo('#/search');
+  return;
+}
+
+// Show spinner + message
+statusEl.classList.add('is-loading');
+if (statusTextEl) {
+  statusTextEl.textContent = 'Searching…';
+}
+grid.innerHTML = '';
+
       performSearch(value, statusEl, grid);
       const enc = encodeURIComponent(value);
       navigateTo(`#/search?q=${enc}`);

@@ -5219,3 +5219,47 @@ article.about-view {
   }
 }
 /* 🔴 search mobile tight layout 2025-12-11R1 */
+/* 🟢 search spinner 2025-12-11R1 */
+.search-status {
+  min-height: 2rem;           /* reserve a little vertical space */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+/* Hide spinner by default */
+.search-status-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: 2px solid rgba(30, 144, 255, 0.3);   /* light ring */
+  border-top-color: #1E90FF;                   /* OkObserver blue */
+  animation: oo-search-spin 0.8s linear infinite;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+/* Only show/animate spinner when .is-loading is applied */
+.search-status.is-loading .search-status-spinner {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* If there is no text, center the spinner a bit */
+.search-status-text:empty::before {
+  content: '';
+}
+
+/* Spinner keyframes */
+@keyframes oo-search-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 🔴 search spinner 2025-12-11R1 */
