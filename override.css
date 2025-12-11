@@ -5263,3 +5263,33 @@ article.about-view {
   }
 }
 /* 🔴 search spinner 2025-12-11R1 */
+/* --- Search Spinner (2025-12-11) --- */
+.search-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.search-status-spinner {
+  width: 16px;
+  height: 16px;
+  border: 3px solid rgba(30, 144, 255, 0.2);
+  border-top-color: #1E90FF;
+  border-radius: 50%;
+  animation: oo-spin 0.6s linear infinite;
+  display: none;
+}
+
+.search-status.is-loading .search-status-spinner {
+  display: inline-block;
+}
+
+@keyframes oo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.search-status-text {
+  font-size: 0.9rem;
+}

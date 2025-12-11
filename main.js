@@ -860,9 +860,14 @@ const statusTextEl = statusEl
   });
 
 
-    if (initialQuery) {
+        if (initialQuery) {
+      statusEl.classList.add('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'Searching…';
+      }
       performSearch(initialQuery, statusEl, grid);
     }
+
 
     form.addEventListener('submit', (evt) => {
       evt.preventDefault();
@@ -890,67 +895,84 @@ grid.innerHTML = '';
     });
   }
 
-    async function performSearch(term, statusEl, grid) {
-    try {
-      // Reset paging for new search term
-      currentSearchTerm = term || '';
-      currentSearchPage = 1;
-      hasMoreSearchPages = true;
-      isFetchingSearchResults = false;
-      teardownSearchInfiniteScroll();
+async function performSearch(term, statusEl, grid) {
+  const statusTextEl = statusEl
+    ? statusEl.querySelector('.search-status-text')
+    : null;
 
-      // Always fetch first page explicitly
-      const results = await fetchSearchResults(term, 1);
-      if (!Array.isArray(results) || results.length === 0) {
-        hasMoreSearchPages = false;
-        statusEl.textContent = 'No results found.';
-        grid.innerHTML = '';
-        return;
+  try {
+    // Reset paging for new search term
+    currentSearchTerm = term || '';
+    currentSearchPage = 1;
+    hasMoreSearchPages = true;
+    isFetchingSearchResults = false;
+    teardownSearchInfiniteScroll();
+
+    // Always fetch first page explicitly
+    const results = await fetchSearchResults(term, 1);
+    if (!Array.isArray(results) || results.length === 0) {
+      hasMoreSearchPages = false;
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No results found.';
+      }
+      grid.innerHTML = '';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    let rendered = 0;
+
+    results.forEach((post) => {
+      if (hasExcludedCategory(post)) return;
+      const card = createPostCard(post);
+      frag.appendChild(card);
+      rendered++;
+    });
+
+    if (rendered > 0) {
+      grid.innerHTML = '';
+      grid.appendChild(frag);
+
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent =
+          `${rendered} result${rendered === 1 ? '' : 's'} found.`;
       }
 
-      const frag = document.createDocumentFragment();
-      let rendered = 0;
-
-      results.forEach((post) => {
-        if (hasExcludedCategory(post)) return;
-        const card = createPostCard(post);
-        frag.appendChild(card);
-        rendered++;
-      });
-
-      if (rendered > 0) {
-        grid.innerHTML = '';
-        grid.appendChild(frag);
-        statusEl.textContent =
-          `${rendered} result${rendered === 1 ? '' : 's'} found.`;
-
-        // Enable infinite scroll ONLY if a full page came back
-        if (rendered >= POSTS_PER_PAGE) {
-          hasMoreSearchPages = true;
-          setupSearchInfiniteScroll(grid);
-        } else {
-          hasMoreSearchPages = false;
-          teardownSearchInfiniteScroll();
-        }
-
-        // If we came back from a search detail view, restore search scroll
-        restoreSearchScroll(term);
+      // Enable infinite scroll ONLY if a full page came back
+      if (rendered >= POSTS_PER_PAGE) {
+        hasMoreSearchPages = true;
+        setupSearchInfiniteScroll(grid);
       } else {
         hasMoreSearchPages = false;
         teardownSearchInfiniteScroll();
-        statusEl.textContent =
-          'No visible results (some posts may be filtered).';
-        grid.innerHTML = '';
       }
 
-    } catch (err) {
-      console.error('[OkObserver] Search error:', err);
+      // If we came back from a search detail view, restore search scroll
+      restoreSearchScroll(term);
+    } else {
       hasMoreSearchPages = false;
       teardownSearchInfiniteScroll();
-      statusEl.textContent = 'An error occurred while searching.';
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent =
+          'No visible results (some posts may be filtered).';
+      }
       grid.innerHTML = '';
     }
+
+  } catch (err) {
+    console.error('[OkObserver] Search error:', err);
+    hasMoreSearchPages = false;
+    teardownSearchInfiniteScroll();
+    statusEl.classList.remove('is-loading');
+    if (statusTextEl) {
+      statusTextEl.textContent = 'An error occurred while searching.';
+    }
+    grid.innerHTML = '';
   }
+}
 
   function escapeAttr(value) {
     if (!value) return '';
@@ -1533,6 +1555,7 @@ function renderNotFound() {
         statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
 
         currentSearchPage = nextPage;
+
 
         if (appended < POSTS_PER_PAGE) {
           hasMoreSearchPages = false;
