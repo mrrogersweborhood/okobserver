@@ -6,7 +6,7 @@
    - Static assets (CSS/JS/images): cache-first with guarded network fill.
 */
 
-const SW_BUILD   = '2025-12-03-this-better-fix-the-hamburger-menu';
+const SW_BUILD   = '2025-12-12-r100';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list
@@ -53,6 +53,11 @@ function isHTML(req) {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+// Never cache non-GET (fixes "Cache.put POST is unsupported")
+if (req.method !== 'GET') {
+  event.respondWith(fetch(req));
+  return;
+}
 
   // HTML navigation → pure network-first, no dynamic caching
   if (isHTML(req)) {
