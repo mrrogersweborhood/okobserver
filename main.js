@@ -241,26 +241,26 @@
   // Fetch helpers (all via proxy)
   // ---------------------------------------------------------------------------
 
-async function fetchJson(url, options) {
+async function fetchJson(url, options = {}) {
   console.debug('[OkObserver] fetchJson:', url);
 
-  // Only send cookies when we actually need auth.
-  // Keeps normal post browsing working (no credentialed CORS),
-  // but still allows login + authenticated reads after login.
-  const needsCreds =
-    String(url).includes('/auth/') ||
-    window.__OKOBS_AUTH === true;
+  const isAuthCall =
+    url.includes('/auth/login') ||
+    url.includes('/auth/logout') ||
+    options.credentials === 'include';
 
   const response = await fetch(url, {
-    ...(options || {}),
-    credentials: needsCreds ? 'include' : 'omit'
+    ...options,
+    ...(isAuthCall ? { credentials: 'include' } : {})
   });
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
+
   return response.json();
 }
+
 
   async function fetchPostsPage(page) {
     const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
