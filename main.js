@@ -244,9 +244,16 @@
 async function fetchJson(url, options) {
   console.debug('[OkObserver] fetchJson:', url);
 
+  // Only send cookies when we actually need auth.
+  // Keeps normal post browsing working (no credentialed CORS),
+  // but still allows login + authenticated reads after login.
+  const needsCreds =
+    String(url).includes('/auth/') ||
+    window.__OKOBS_AUTH === true;
+
   const response = await fetch(url, {
     ...(options || {}),
-    credentials: 'include' // <-- keep this
+    credentials: needsCreds ? 'include' : 'omit'
   });
 
   if (!response.ok) {
