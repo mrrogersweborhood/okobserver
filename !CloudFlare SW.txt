@@ -1,0 +1,213 @@
+/**
+ * OkObserver Cloudflare Worker — FULL REPLACEMENT (v2025-10-30q)
+ * - Transparent pass-through for WordPress REST JSON (keeps paywall/login HTML intact)
+ * - CORS for GitHub Pages
+ * - Caches only successful (2xx) JSON briefly; never caches 404/5xx
+ * - /status health endpoint
+ * - EXTRA DIAGNOSTICS: logs inbound path + upstream URL + status (to resolve 404 loops)
+ */
+
+const ORIGIN = "https://okobserver.org";
+
+// Relaxed allowlist: permit all WordPress REST routes (including /wp-json/wp/v2/* and embeds)
+const API_ALLOW = ["/wp-json/"]; // anything under /wp-json/ is OK
+
+const CACHE_TTL = 300;       // seconds
+const NOCACHE_QS = "nocache"; // append ?nocache=1 to bypass edge caching
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    // --- CORS preflight ---
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
+    }
+
+    // --- Health check ---
+    if (url.pathname === "/status") {
+      return json(
+        200,
+        {
+          ok: true,
+          now: new Date().toISOString(),
+          upstream: ORIGIN,
+          note: "Proxy is online; JSON passed through unmodified.",
+        },
+        { "cache-control": "no-store" },
+        request
+      );
+    }
+
+    // --- Allow only WP REST API routes we expect ---
+    const allowed = API_ALLOW.some((p) => url.pathname.startsWith(p));
+    if (!allowed) {
+      console.log(`[Proxy] BLOCKED path: ${url.pathname}`);
+      return text(403, "Not allowed", request);
+    }
+
+    // --- Build absolute upstream URL (preserves path + query exactly) ---
+    // Using explicit concatenation to avoid leading-slash surprises.
+    const upstream = new URL(`${ORIGIN}${url.pathname}${url.search}`);
+
+    // DIAGNOSTIC: show inbound and upstream for quick verification
+    console.log(`[Proxy] Inbound:  ${url.pathname}${url.search}`);
+    console.log(`[Proxy] Upstream: ${upstream.pathname}${upstream.search}`);
+
+    // --- Prepare headers (strip origin-ish headers; set a UA) ---
+    const fwdHeaders = new Headers(request.headers);
+    ["origin", "referer", "cf-connecting-ip", "x-forwarded-for", "x-forwarded-proto"].forEach((h) =>
+      fwdHeaders.delete(h)
+    );
+    fwdHeaders.set("user-agent", "okobserver-proxy/1.3 (+workers)");
+
+    // Decide if this is cacheable
+    const cacheable =
+      (request.method === "GET" || request.method === "HEAD") &&
+      !upstream.searchParams.has(NOCACHE_QS);
+
+    const init = {
+      method: request.method,
+      headers: fwdHeaders,
+      body:
+        request.method === "GET" || request.method === "HEAD"
+          ? undefined
+          : request.body,
+      ...(cacheable && {
+        cf: {
+          cacheEverything: true,
+          cacheTtlByStatus: { "200-299": CACHE_TTL, "300-399": 60, "404": 0, "500-599": 0 },
+        },
+      }),
+    };
+
+    // --- Fetch origin ---
+    let upstreamResp;
+    try {
+      upstreamResp = await fetch(upstream, init);
+    } catch (err) {
+      console.error("[Proxy] Upstream fetch failed:", err?.message || err);
+      return jsonError(502, "Upstream fetch failed", err, request);
+    }
+
+    // DIAGNOSTIC: status line
+    console.log(`[Proxy] ${upstreamResp.status} ${upstream.pathname}`);
+
+    // --- Prepare response headers (CORS + relax embed-breaking headers) ---
+    const outHeaders = new Headers(upstreamResp.headers);
+    outHeaders.set("access-control-allow-origin", "*");
+    outHeaders.set(
+      "access-control-allow-headers",
+      request.headers.get("access-control-request-headers") ||
+        "content-type, authorization, x-requested-with"
+    );
+    outHeaders.set("access-control-allow-methods", "GET,HEAD,POST,OPTIONS");
+    outHeaders.set("access-control-max-age", "86400");
+    outHeaders.delete("content-security-policy");
+    outHeaders.delete("x-frame-options");
+    outHeaders.set("x-proxy-cache", cacheable ? "possible" : "bypass");
+
+    // Never cache errors
+    if (upstreamResp.status >= 400) {
+      outHeaders.set("cache-control", "no-store");
+    }
+
+    const ct = upstreamResp.headers.get("content-type") || "";
+
+    // Helpful 404 body for debugging (includes upstream URL), but still passes status 404
+    if (upstreamResp.status === 404 && !ct.includes("application/json")) {
+      return json(
+        404,
+        {
+          error: "Not Found (origin)",
+          path: upstream.pathname,
+          query: upstream.search,
+          note:
+            "The origin returned 404. Confirm the post ID exists and the upstream URL is correct.",
+        },
+        { ...Object.fromEntries(outHeaders) },
+        request
+      );
+    }
+
+    // JSON pass-through (keeps paywall-protected content fields intact)
+    if (ct.includes("application/json")) {
+      const raw = await upstreamResp.text();
+      try {
+        const data = JSON.parse(raw);
+        logPostInfo(data);
+      } catch (_) {
+        // keep raw if parsing fails even though CT said JSON
+      }
+      return new Response(raw, { status: upstreamResp.status, headers: outHeaders });
+    }
+
+    // Non-JSON: stream
+    return new Response(upstreamResp.body, {
+      status: upstreamResp.status,
+      headers: outHeaders,
+    });
+  },
+};
+
+/* ---------------- helpers ---------------- */
+
+function corsHeaders(req) {
+  return {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,HEAD,POST,OPTIONS",
+    "access-control-allow-headers":
+      req.headers.get("access-control-request-headers") ||
+      "content-type, authorization, x-requested-with",
+    "access-control-max-age": "86400",
+  };
+}
+
+function text(status, body, req) {
+  return new Response(body, {
+    status,
+    headers: { ...corsHeaders(req), "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+function json(status, obj, extraHeaders, req) {
+  const headers = {
+    ...corsHeaders(req),
+    "content-type": "application/json; charset=utf-8",
+    ...(extraHeaders || {}),
+  };
+  return new Response(JSON.stringify(obj), { status, headers });
+}
+
+function jsonError(status, msg, err, req) {
+  return json(
+    status,
+    {
+      error: msg,
+      detail: String(err?.message || err || ""),
+      path: new URL(req.url).pathname,
+    },
+    { "cache-control": "no-store" },
+    req
+  );
+}
+
+function logPostInfo(data) {
+  try {
+    const mark = (p) => (p?.content?.protected ? "[protected]" : "");
+    if (Array.isArray(data)) {
+      for (const p of data) {
+        if (p?.id && p?.title?.rendered) {
+          console.log(`[Proxy] ${p.id} ${mark(p)} ${trimTitle(p.title.rendered)}`);
+        }
+      }
+    } else if (data?.id) {
+      console.log(`[Proxy] ${data.id} ${mark(data)} ${trimTitle(data?.title?.rendered || "")}`);
+    }
+  } catch (_) {}
+}
+
+function trimTitle(htmlTitle) {
+  const text = String(htmlTitle || "").replace(/<[^>]+>/g, "").trim();
+  return text.length > 80 ? text.slice(0, 77) + "…" : text;
+}

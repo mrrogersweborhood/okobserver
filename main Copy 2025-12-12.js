@@ -47,12 +47,8 @@
     term: ''
   };
 
-  // Last non-login route hash (for “go back to where I was before login”)
-  let lastNonLoginHash = '#/';
-
   // Simple in-memory cache for posts (by ID) to avoid refetching
   const postCache = new Map();
-
 
 
   // Seen IDs for duplicate-guard in infinite scroll
@@ -130,14 +126,9 @@
     onRouteChange();
   });
 
-     function onRouteChange() {
+  function onRouteChange() {
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
-
-    // Remember the last non-login hash so we can return to it after login
-    if (path !== '/login') {
-      lastNonLoginHash = window.location.hash || '#/';
-    }
 
     if (path === '/' || path === '') {
       renderHome();
@@ -154,15 +145,10 @@
       renderAbout();
     } else if (path === '/search') {
       renderSearch(params);
-    } else if (path === '/login') {
-      // NEW: dedicated login route
-      renderLogin();
     } else {
       renderNotFound();
     }
   }
-
-
 
   // Scroll helpers
   function saveHomeScroll() {
@@ -241,19 +227,14 @@
   // Fetch helpers (all via proxy)
   // ---------------------------------------------------------------------------
 
-async function fetchJson(url, options) {
-  console.debug('[OkObserver] fetchJson:', url);
-
-  const response = await fetch(url, {
-    ...(options || {}),
-    credentials: 'include' // <-- keep this
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} for ${url}`);
+  async function fetchJson(url, options) {
+    console.debug('[OkObserver] fetchJson:', url);
+    const response = await fetch(url, options);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} for ${url}`);
+    }
+    return response.json();
   }
-  return response.json();
-}
 
   async function fetchPostsPage(page) {
     const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
@@ -1439,101 +1420,6 @@ async function performSearch(term, statusEl, grid) {
     } catch (err) {
       console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
     }
-  }
-  // ---------------------------------------------------------------------------
-  // Auth helpers (login via Cloudflare Worker)
-  // ---------------------------------------------------------------------------
-
-  async function loginUser(username, password) {
-    try {
-      const resp = await fetch(
-        'https://okobserver-proxy.bob-b5c.workers.dev/auth/login',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'include',
-          body: JSON.stringify({ username, password })
-        }
-      );
-
-      const data = await resp.json().catch(() => null);
-
-      if (!resp.ok || !data || !data.success) {
-        console.warn('[OkObserver] Login failed response:', data);
-        return false;
-      }
-
-      console.info(
-        '[OkObserver] Login successful for:',
-        (data.user && (data.user.email || data.user.name)) || username
-      );
-      return true;
-    } catch (err) {
-      console.error('[OkObserver] Login error:', err);
-      return false;
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Login view (new)
-  // ---------------------------------------------------------------------------
-
-  function renderLogin() {
-    stopTtsPlayback();
-    scrollToTop();
-
-    app.innerHTML = `
-      <div class="login-view">
-        <h1 class="login-title">Member Login</h1>
-
-        <form class="login-form" novalidate>
-          <label class="login-label">
-            <span class="login-label-text">Email or Username</span>
-            <input class="login-input" type="text" name="username" required />
-          </label>
-
-          <label class="login-label">
-            <span class="login-label-text">Password</span>
-            <input class="login-input" type="password" name="password" required />
-          </label>
-
-          <button class="login-submit" type="submit">Sign In</button>
-
-          <div class="login-error" aria-live="polite"></div>
-        </form>
-      </div>
-    `;
-
-    const form = app.querySelector(".login-form");
-    const errorBox = app.querySelector(".login-error");
-
-    form.addEventListener("submit", async (evt) => {
-      evt.preventDefault();
-      errorBox.textContent = "";
-
-      const formData = new FormData(form);
-      const username = formData.get("username")?.trim();
-      const password = formData.get("password")?.trim();
-
-      if (!username || !password) {
-        errorBox.textContent = "Please enter both username and password.";
-        return;
-      }
-
-      try {
-        const ok = await loginUser(username, password);
-        if (ok) {
-          navigateTo("#/");
-        } else {
-          errorBox.textContent = "Invalid login. Please try again.";
-        }
-      } catch (err) {
-        console.error("Login error:", err);
-        errorBox.textContent = "Unable to login. Please try again later.";
-      }
-    });
   }
 
   // ---------------------------------------------------------------------------
