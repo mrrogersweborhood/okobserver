@@ -1,15 +1,17 @@
-// 🟢 sw.js — start of full file
-/* OkObserver Service Worker — Build 2025-11-25-SWfix1
+// 🟢 sw.js
+/* 🟢 sw.js
+   OkObserver Service Worker — Build 2025-12-16R1
    Scope: /okobserver/
    Strategy:
-   - HTML (navigation): network-first, offline fallback to cached index.
-   - Static assets (CSS/JS/images): cache-first with guarded network fill.
-*/
+   - NEVER cache non-GET (fixes "Cache.put POST is unsupported")
+   - HTML (navigation): network-first, offline fallback to cached index.html
+   - Static assets: cache-first with guarded network fill
+   🔴 sw.js */
 
-const SW_BUILD   = '2025-12-12-r100';
+const SW_BUILD   = '2025-12-16R1';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
-// Explicit precache list
+// Explicit precache list (root-scope paths)
 const PRECACHE = [
   '/okobserver/',
   '/okobserver/index.html',
@@ -36,9 +38,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) =>
-        Promise.all(
-          keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k)))
-        )
+        Promise.all(keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k))))
       )
       .then(() => self.clients.claim())
   );
@@ -53,13 +53,14 @@ function isHTML(req) {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-// Never cache non-GET (fixes "Cache.put POST is unsupported")
-if (req.method !== 'GET') {
-  event.respondWith(fetch(req));
-  return;
-}
 
-  // HTML navigation → pure network-first, no dynamic caching
+  // ✅ Critical: never cache non-GET (POST/PUT/etc). Just pass through.
+  if (req.method !== 'GET') {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  // HTML navigation → network-first, offline fallback to cached index
   if (isHTML(req)) {
     event.respondWith(
       fetch(req).catch(async () => {
@@ -70,7 +71,7 @@ if (req.method !== 'GET') {
         return (
           match ||
           new Response('<h1>Offline</h1>', {
-            headers: { 'Content-Type': 'text/html' }
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
           })
         );
       })
@@ -78,22 +79,28 @@ if (req.method !== 'GET') {
     return;
   }
 
-  // Other assets → cache-first with guarded network fill
+  // Other assets → cache-first (GET only)
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(req);
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      // Match ignoring querystrings, since you use ?v= cache-busters in HTML
+      const cached = await cache.match(req, { ignoreSearch: true });
       if (cached) return cached;
+
       try {
         const fresh = await fetch(req);
+
+        // Guard cache.put
         if (fresh && fresh.ok && fresh.status === 200 && fresh.type !== 'opaque') {
-          cache.put(req, fresh.clone());
+          await cache.put(req, fresh.clone());
         }
         return fresh;
       } catch (err) {
-        // If we had a cached version, we already returned it above.
         return new Response('', { status: 504 });
       }
-    })
+    })()
   );
 });
-// 🔴 sw.js — end of full file
+
+// 🔴 sw.js
