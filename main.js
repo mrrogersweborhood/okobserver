@@ -157,6 +157,8 @@
     } else if (path === '/login') {
       // NEW: dedicated login route
       renderLogin();
+    } else if (path === '/logout') {
+      renderLogout();
     } else {
       renderNotFound();
     }
@@ -1482,6 +1484,15 @@ async function performSearch(term, statusEl, grid) {
       return false;
     }
   }
+async function logoutUser() {
+  try {
+    await fetchJson('/auth/logout', { method: 'POST' });
+    return true;
+  } catch (e) {
+    console.warn('[auth] logout failed', e);
+    return false;
+  }
+}
 
   // ---------------------------------------------------------------------------
   // Login view (new)
@@ -1542,6 +1553,36 @@ async function performSearch(term, statusEl, grid) {
       }
     });
   }
+function renderLogout() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <div class="login-wrap">
+      <h1>Log out</h1>
+      <p>This will end your OkObserver session on this device.</p>
+      <div class="login-actions">
+        <button id="btnConfirmLogout" class="btnPrimary">Log out</button>
+        <button id="btnCancelLogout" class="btnSecondary">Cancel</button>
+      </div>
+      <div id="logoutMsg" class="login-msg" aria-live="polite"></div>
+    </div>
+  `;
+
+  const msgEl = document.getElementById('logoutMsg');
+
+  document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
+    navigateTo('/');
+  });
+
+  document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
+    if (msgEl) msgEl.textContent = 'Logging out…';
+    const ok = await logoutUser();
+    if (msgEl) msgEl.textContent = ok ? 'Logged out.' : 'Logout failed (you may already be logged out).';
+    // Give the user a beat to see the message, then return home.
+    setTimeout(() => navigateTo('/'), 400);
+  });
+}
 
   // ---------------------------------------------------------------------------
   // Not found view
