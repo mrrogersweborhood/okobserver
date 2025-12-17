@@ -1632,21 +1632,20 @@ async function logoutUser() {
       }
 
       try {
-        const ok = await loginUser(username, password);
+                const ok = await loginUser(username, password);
         if (ok) {
-  try { localStorage.setItem('ooLoggedIn', '1'); } catch (_) {}
-  try { document.body.classList.add('oo-logged-in'); } catch (_) {}
+          try { localStorage.setItem('ooLoggedIn', '1'); } catch (_) {}
+          try { document.body.classList.add('oo-logged-in'); } catch (_) {}
 
-  // IMPORTANT: throw away any paywalled/teaser post responses cached before login
-  try { postCache.clear(); } catch (_) {}
+          // IMPORTANT: throw away any paywalled/teaser post responses cached before login
+          try { postCache.clear(); } catch (_) {}
 
-  updateAuthNav();
-  navigateTo(lastNonLoginHash || "#/");
-}
+          updateAuthNav();
+          navigateTo(lastNonLoginHash || "#/");
+        } else {
+          errorBox.textContent = "Invalid login. Please try again.";
+        }
 
-} else {
-  errorBox.textContent = "Invalid login. Please try again.";
-}
 
       } catch (err) {
         console.error("Login error:", err);
