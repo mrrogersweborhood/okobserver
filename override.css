@@ -5573,3 +5573,149 @@ form.login-form {
 }
 
 /* 🔴 override.css append — Login UI (OkObserver style) — END */
+/* Hide login error box when empty */
+.login-error:empty {
+  display: none;
+}
+/* Login card refinement */
+.login-card {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+}
+
+.login-card h2 {
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.login-card button[type="submit"] {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+/* Logout confirmation styling */
+.logout-container {
+  max-width: 420px;
+  margin: 4rem auto;
+  padding: 2rem;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.logout-container h2 {
+  margin-bottom: 0.5rem;
+}
+
+.logout-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+/* =====================================================================
+   Login / Logout pages (OkObserver-ish)
+   NOTE: The error/success boxes are hidden when empty.
+   ===================================================================== */
+
+.login-wrap{
+  max-width:460px;
+  margin:48px auto 24px;
+  padding:24px 22px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 12px 32px rgba(0,0,0,.12);
+}
+
+@media (max-width:520px){
+  .login-wrap{margin:24px 12px 18px; padding:20px 16px;}
+}
+
+.login-title{
+  margin:0 0 14px;
+  font-size:30px;
+  font-weight:800;
+  letter-spacing:.2px;
+}
+
+.login-field{margin:12px 0}
+.login-field label{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  margin:0 0 6px;
+  opacity:.9;
+}
+.login-field input{
+  width:100%;
+  padding:12px 12px;
+  border:1px solid rgba(30,144,255,.25);
+  border-radius:12px;
+  font-size:15px;
+  outline:none;
+  transition:box-shadow .15s ease, border-color .15s ease;
+}
+.login-field input:focus{
+  border-color:rgba(30,144,255,.55);
+  box-shadow:0 0 0 4px rgba(30,144,255,.15);
+}
+
+.login-actions{
+  display:flex;
+  gap:12px;
+  margin-top:14px;
+  align-items:center;
+}
+@media (max-width:520px){
+  .login-actions{flex-direction:column; align-items:stretch;}
+}
+
+.btnPrimary, .btnSecondary{
+  border:0;
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+  transition:transform .05s ease, filter .12s ease;
+}
+.btnPrimary:active, .btnSecondary:active{transform:translateY(1px)}
+.btnPrimary{background:var(--oko-blue); color:#fff; box-shadow:0 10px 18px rgba(30,144,255,.22)}
+.btnPrimary:hover{filter:brightness(1.03)}
+.btnSecondary{background:#eef5ff; color:#0b2a4a}
+.btnSecondary:hover{filter:brightness(1.02)}
+@media (max-width:520px){
+  .btnPrimary, .btnSecondary{width:100%}
+}
+
+/* Hide message boxes when empty (fixes “red banner with no error”). */
+.login-error, .login-msg{
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:12px;
+  font-size:14px;
+  line-height:1.35;
+  display:none;
+}
+.login-error:not(:empty){
+  display:block;
+  background:#ffe9e9;
+  border:1px solid #f2b4b4;
+  color:#7a1b1b;
+}
+.login-msg:not(:empty){
+  display:block;
+  background:#e9fff1;
+  border:1px solid #a6e7bf;
+  color:#145b2e;
+}
+
+/* Logout note */
+.logout-note{
+  margin:10px 0 0;
+  font-size:14px;
+  opacity:.85;
+}
+
+/* 🔴 override.css */
