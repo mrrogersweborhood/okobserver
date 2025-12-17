@@ -5424,3 +5424,152 @@ article.about-view {
     padding: 12px;
   }
 }
+/* 🟢 override.css append — Login UI (OkObserver style) — START
+   Safe, append-only. No JS assumptions.
+*/
+
+/* Page-level centering for login route */
+.oo-login-page,
+.login-page,
+#login,
+[data-route="login"] {
+  min-height: calc(100vh - 120px); /* account for header */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 48px;
+}
+
+/* Login card */
+.oo-login-card,
+.login-card,
+form.login-form {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.18);
+  padding: 24px 22px 26px;
+}
+
+/* Heading */
+.oo-login-card h1,
+.login-card h1,
+.login-form h1 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  text-align: center;
+  color: #1E90FF;
+}
+
+.oo-login-subtitle,
+.login-subtitle {
+  text-align: center;
+  font-size: .9rem;
+  color: #667085;
+  margin-bottom: 18px;
+}
+
+/* Form layout */
+.login-form,
+.oo-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Labels */
+.login-form label,
+.oo-login-form label {
+  font-size: .85rem;
+  font-weight: 600;
+  color: #344054;
+}
+
+/* Inputs */
+.login-form input[type="text"],
+.login-form input[type="username"],
+.login-form input[type="email"],
+.login-form input[type="password"],
+.oo-login-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #d0d5dd;
+  font-size: .95rem;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.login-form input:focus,
+.oo-login-form input:focus {
+  border-color: #1E90FF;
+  box-shadow: 0 0 0 3px rgba(30,144,255,.18);
+}
+
+/* Submit button */
+.login-form button[type="submit"],
+.oo-login-submit {
+  margin-top: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  background: #1E90FF;
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 600;
+  padding: 12px 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(30,144,255,.35);
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+
+.login-form button[type="submit"]:hover,
+.oo-login-submit:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.login-form button[type="submit"]:active,
+.oo-login-submit:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(30,144,255,.28);
+}
+
+/* Error message */
+.login-error,
+.oo-login-error {
+  margin-top: 10px;
+  background: #fdecea;
+  color: #b42318;
+  border: 1px solid #f5c2c7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: .85rem;
+  text-align: center;
+}
+
+/* Logged-in note (optional) */
+.login-success,
+.oo-login-success {
+  margin-top: 10px;
+  background: #e8f3ff;
+  color: #0b63ce;
+  border: 1px solid #cfe4ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: .85rem;
+  text-align: center;
+}
+
+/* Mobile tightening */
+@media (max-width: 480px) {
+  .oo-login-card,
+  .login-card,
+  form.login-form {
+    padding: 20px 16px 22px;
+    border-radius: 14px;
+  }
+}
+
+/* 🔴 override.css append — Login UI (OkObserver style) — END */
