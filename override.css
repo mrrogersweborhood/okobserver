@@ -5948,3 +5948,92 @@ diff --git a/override.css b/override.css
 +
 +/* 🟢 override.css — Auth UI polish (2025-12-18) END
 +   🔴 override.css */
+/* 🟢 override.css — Auth UI polish (2025-12-18) START
+   Append-only. CSS-only.
+   🔴 override.css */
+
+/* ----------------------------- */
+/* Login: small refinements      */
+/* ----------------------------- */
+.login-view{
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.login-view .login-submit:focus-visible,
+.login-view .login-input:focus-visible{
+  outline: 2px solid rgba(30,144,255,.55);
+  outline-offset: 2px;
+}
+
+.login-view .login-submit{
+  width: 100%;
+}
+
+/* Keep error collapsed unless populated */
+.login-view .login-error{ display:none; }
+.login-view .login-error:not(:empty){ display:block; }
+
+/* ----------------------------- */
+/* Logout: make it match login   */
+/* ----------------------------- */
+.logout-wrap{
+  max-width: 460px;
+  margin: 48px auto 24px;
+  padding: 24px 22px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+  text-align: center;
+}
+
+@media (max-width:520px){
+  .logout-wrap{ margin: 24px 12px 18px; padding: 20px 16px; }
+}
+
+.logout-wrap h1{
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: var(--oko-blue, #1E90FF);
+}
+
+.logout-wrap p{
+  margin: 0 0 16px;
+  color: #475467;
+}
+
+.logout-actions{
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.logout-actions .btnPrimary,
+.logout-actions .btnSecondary{
+  flex: 1;
+}
+
+@media (max-width:420px){
+  .logout-actions{ flex-direction: column; }
+}
+
+#logoutMsg.login-msg{
+  margin-top: 12px;
+  font-size: 13px;
+  color: #667085;
+}
+
+/* ----------------------------- */
+/* Menu: auth clarity + polish   */
+/* ----------------------------- */
+.oo-menu-list .menuLink{
+  font-weight: 800;
+}
+
+body.oo-logged-in #ooSignInLink{ display:none !important; }
+body:not(.oo-logged-in) #ooSignOutLink{ display:none !important; }
+
+/* 🟢 override.css — Auth UI polish (2025-12-18) END
+   🔴 override.css */
