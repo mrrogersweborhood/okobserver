@@ -263,9 +263,11 @@ async function fetchJson(url, options = {}) {
   console.debug('[OkObserver] fetchJson:', url);
 
   const isAuthCall =
-    url.includes('/auth/login') ||
-    url.includes('/auth/logout') ||
-    options.credentials === 'include';
+  url.includes('/auth/login') ||
+  url.includes('/auth/logout') ||
+  (typeof WP_API_BASE === 'string' && url.startsWith(WP_API_BASE)) ||
+  options.credentials === 'include';
+
 
   const response = await fetch(url, {
     ...options,
@@ -1079,6 +1081,41 @@ async function performSearch(term, statusEl, grid) {
       renderNotFound();
     }
   }
+function removePaywallNoticeFromDetail(html) {
+  if (!html) return html;
+
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    const killPhrases = [
+      'to access this content',
+      'print only',
+      'digital only',
+      'total access'
+    ];
+
+    const nodes = tmp.querySelectorAll('p, div');
+    nodes.forEach((el) => {
+      const t = (el.textContent || '').toLowerCase();
+      if (!t) return;
+
+      const hasAccessLine = t.includes(killPhrases[0]);
+      const planHits =
+        (t.includes(killPhrases[1]) ? 1 : 0) +
+        (t.includes(killPhrases[2]) ? 1 : 0) +
+        (t.includes(killPhrases[3]) ? 1 : 0);
+
+      if (hasAccessLine || planHits >= 2) {
+        el.remove();
+      }
+    });
+
+    return tmp.innerHTML;
+  } catch (e) {
+    return html;
+  }
+}
 
   function renderPostDetailInner(post) {
     if (!post) {
@@ -1088,7 +1125,11 @@ async function performSearch(term, statusEl, grid) {
 
     const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
     const titleHtml = rawTitle;
-    const contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+    let contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+if (isClientLoggedIn && isClientLoggedIn()) {
+  contentHtml = removePaywallNoticeFromDetail(contentHtml);
+}
+
 
     const dateStr = formatDate(post.date);
     const authorName = getAuthorName(post);
@@ -1173,7 +1214,7 @@ async function performSearch(term, statusEl, grid) {
     const container = app.querySelector('.post-detail-content');
     if (!container || !post) return;
 
-    const html = post.content && post.content.rendered ? post.content.rendered : '';
+    const html = container.innerHTML || '';
     if (!html) return;
 
  
