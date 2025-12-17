@@ -1589,10 +1589,13 @@ async function logoutUser() {
       try {
         const ok = await loginUser(username, password);
         if (ok) {
-          navigateTo("#/");
-        } else {
-          errorBox.textContent = "Invalid login. Please try again.";
-        }
+  try { localStorage.setItem('ooLoggedIn', '1'); } catch (_) {}
+  updateAuthNav();
+  navigateTo("#/");
+} else {
+  errorBox.textContent = "Invalid login. Please try again.";
+}
+
       } catch (err) {
         console.error("Login error:", err);
         errorBox.textContent = "Unable to login. Please try again later.";
@@ -1624,6 +1627,8 @@ function renderLogout() {
   document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
     if (msgEl) msgEl.textContent = 'Logging out…';
     const ok = await logoutUser();
+try { localStorage.removeItem('ooLoggedIn'); } catch (_) {} updateAuthNav();
+
     if (msgEl) msgEl.textContent = ok ? 'Logged out.' : 'Logout failed (you may already be logged out).';
     // Give the user a beat to see the message, then return home.
     setTimeout(() => navigateTo('/'), 400);
