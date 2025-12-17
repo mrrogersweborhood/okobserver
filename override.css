@@ -6289,3 +6289,26 @@ body.is-menu-open [data-oo="menu"] *{
 }
 
 /* 🟢 override.css — Hamburger crisp text hotfix (2025-12-18) END */
+/* 🟢 override.css — FINAL hamburger blur fix (GPU text rendering) */
+/* Append-only. No layout changes. */
+
+/* Remove GPU transform inheritance that causes Chrome text blur */
+.oo-menu,
+.oo-menu * {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+/* Force crisp text rendering on Windows/Chrome */
+.oo-menu {
+  backface-visibility: visible !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* Ensure parent header transforms do NOT affect menu */
+header,
+.site-header,
+.header-inner {
+  transform-style: flat !important;
+}
