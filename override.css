@@ -5719,3 +5719,62 @@ form.login-form {
 }
 
 /* 🔴 override.css */
+/* ================================
+   Logout screen polish
+   ================================ */
+
+.logout-wrap {
+  max-width: 420px;
+  margin: 6rem auto;
+  padding: 2.5rem 2rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+  text-align: center;
+}
+
+.logout-wrap h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.2;
+}
+
+.logout-wrap p {
+  font-size: 1rem;
+  color: #444;
+  margin-bottom: 2rem;
+}
+
+.logout-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.logout-actions button {
+  min-width: 110px;
+  padding: 0.65rem 1.2rem;
+  font-size: 0.95rem;
+  border-radius: 10px;
+}
+
+.logout-actions .btn-logout {
+  background: #1E90FF;
+  color: #fff;
+}
+
+.logout-actions .btn-cancel {
+  background: #f1f3f5;
+  color: #333;
+}
+
+@media (max-width: 600px) {
+  .logout-wrap {
+    margin: 3rem 1rem;
+    padding: 2rem 1.5rem;
+  }
+
+  .logout-actions {
+    flex-direction: column;
+  }
+}
