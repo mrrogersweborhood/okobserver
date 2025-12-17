@@ -530,9 +530,9 @@ async function fetchJson(url, options = {}) {
 
     const excerptEl = document.createElement('div');
     excerptEl.className = 'post-card-excerpt';
-    excerptEl.innerHTML = post.excerpt && post.excerpt.rendered
-      ? post.excerpt.rendered
-      : '';
+    excerptEl.innerHTML = cleanExcerptForLoggedIn(
+  post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : ''
+);
 
     content.appendChild(titleEl);
     content.appendChild(meta);
@@ -560,6 +560,37 @@ async function fetchJson(url, options = {}) {
     tmp.innerHTML = html;
     return (tmp.textContent || tmp.innerText || '').trim();
   }
+  // Logged-in excerpt cleanup: remove paywall boilerplate from excerpts only
+function isClientLoggedIn() {
+  try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
+}
+
+function cleanExcerptForLoggedIn(excerptHtml) {
+  if (!excerptHtml) return '';
+  if (!isClientLoggedIn()) return excerptHtml;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = excerptHtml;
+
+  // Remove common paywall/login boilerplate (client-side only)
+  const killPhrases = [
+    'you must log in',
+    'purchase',
+    'subscription',
+    'sign in',
+    'log in to continue'
+  ];
+
+  // Remove paragraphs/divs that are basically just the boilerplate message
+  tmp.querySelectorAll('p, div').forEach((el) => {
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!t) return;
+    if (killPhrases.some(p => t.includes(p))) el.remove();
+  });
+
+  const cleaned = tmp.innerHTML.trim();
+  return cleaned || '';
+}
 
   // ---------------------------------------------------------------------------
   // Home view
