@@ -133,13 +133,12 @@ function updateAuthNav() {
     try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
   })();
 
+  try { document.body.classList.toggle('oo-logged-in', loggedIn); } catch (_) {}
+
   if (signIn) signIn.style.display = loggedIn ? 'none' : '';
   if (signOut) signOut.style.display = loggedIn ? '' : 'none';
 }
-document.body.classList.toggle(
-  'oo-logged-in',
-  localStorage.getItem('ooLoggedIn') === '1'
-);
+
 
   window.addEventListener('hashchange', () => {
     onRouteChange();
@@ -150,10 +149,12 @@ document.body.classList.toggle(
     console.info('[OkObserver] Route change:', path, params);
 updateAuthNav();
 
-    // Remember the last non-login hash so we can return to it after login
-    if (path !== '/login') {
-      lastNonLoginHash = window.location.hash || '#/';
-    }
+    // Remember the last non-login hash so we can return after login/logout
+// (Don't overwrite it with /login or /logout)
+if (path !== '/login' && path !== '/logout') {
+  lastNonLoginHash = window.location.hash || '#/';
+}
+
 
     if (path === '/' || path === '') {
       renderHome();
@@ -1659,32 +1660,45 @@ function renderLogout() {
 
   app.innerHTML = `
     <div class="logout-wrap">
-      <h1>Log out</h1>
-      <p>This will end your OkObserver session on this device.</p>
+      <h1>Sign out</h1>
+      <p>You’ll be signed out on this device. You can sign back in anytime.</p>
       <div class="logout-actions">
-        <button id="btnConfirmLogout" class="btnPrimary">Log out</button>
-        <button id="btnCancelLogout" class="btnSecondary">Cancel</button>
+        <button id="btnConfirmLogout" class="btnPrimary">Sign out</button>
+        <button id="btnCancelLogout" class="btnSecondary">Stay signed in</button>
       </div>
       <div id="logoutMsg" class="login-msg" aria-live="polite"></div>
     </div>
   `;
 
   const msgEl = document.getElementById('logoutMsg');
+  const btnCancel = document.getElementById('btnCancelLogout');
+  const btnConfirm = document.getElementById('btnConfirmLogout');
+  let busy = false;
 
-  document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
-    navigateTo('#/');
+  btnCancel?.addEventListener('click', () => {
+    if (busy) return;
+    navigateTo(lastNonLoginHash || '#/');
   });
 
-  document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
-    if (msgEl) msgEl.textContent = 'Logging out…';
-    const ok = await logoutUser();
-try { localStorage.removeItem('ooLoggedIn'); } catch (_) {} updateAuthNav();
+  btnConfirm?.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    if (btnCancel) btnCancel.disabled = true;
+    if (btnConfirm) btnConfirm.disabled = true;
 
-    if (msgEl) msgEl.textContent = ok ? 'Logged out.' : 'Logout failed (you may already be logged out).';
-    // Give the user a beat to see the message, then return home.
-    setTimeout(() => navigateTo('#/'), 400);
+    if (msgEl) msgEl.textContent = 'Signing out…';
+
+    const ok = await logoutUser();
+    try { localStorage.removeItem('ooLoggedIn'); } catch (_) {}
+    updateAuthNav();
+
+    if (msgEl) msgEl.textContent =
+      ok ? 'Signed out.' : 'Sign out failed (you may already be signed out).';
+
+    setTimeout(() => navigateTo(lastNonLoginHash || '#/'), 450);
   });
 }
+
 
   // ---------------------------------------------------------------------------
   // Not found view
