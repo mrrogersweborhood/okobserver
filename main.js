@@ -531,8 +531,7 @@ async function fetchJson(url, options = {}) {
     const excerptEl = document.createElement('div');
     excerptEl.className = 'post-card-excerpt';
     excerptEl.innerHTML = cleanExcerptForLoggedIn(
-  post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : ''
-);
+  post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : '' );
 
     content.appendChild(titleEl);
     content.appendChild(meta);
