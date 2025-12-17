@@ -6264,3 +6264,28 @@ body.menu-open::after {
 .nav-menu {
   background-color: rgba(255, 255, 255, 0.98);
 }
+/* 🟢 override.css — Hamburger crisp text hotfix (2025-12-18) START */
+/* Append-only. CSS-only. */
+
+/* Force the actual menu panel to render without transform/blur */
+body.is-menu-open .oo-menu,
+body.is-menu-open [data-oo="menu"]{
+  transform: none !important;
+  animation: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  background: #ffffff !important;
+}
+
+/* Ensure menu items inherit no blur */
+body.is-menu-open .oo-menu *,
+body.is-menu-open [data-oo="menu"] *{
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+/* 🟢 override.css — Hamburger crisp text hotfix (2025-12-18) END */
