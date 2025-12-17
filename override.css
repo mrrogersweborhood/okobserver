@@ -6179,3 +6179,24 @@ body.is-menu-open .oo-hamburger{
 }
 
 /* 🟢 override.css — Hamburger overlay header fix (2025-12-18) END */
+/* 🟢 override.css — Hamburger pointer-events fix (2025-12-18) START */
+/* Append-only. CSS-only. */
+
+/* Overlay should never block menu interaction */
+.oo-overlay{
+  pointer-events: none !important;
+}
+
+/* Menu must explicitly receive pointer events */
+.oo-menu,
+.oo-menu *{
+  pointer-events: auto !important;
+}
+
+/* Ensure menu is topmost interactive layer */
+.oo-menu{
+  position: fixed;
+  z-index: 2000;
+}
+
+/* 🟢 override.css — Hamburger pointer-events fix (2025-12-18) END */
