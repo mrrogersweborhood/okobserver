@@ -291,7 +291,7 @@ async function fetchJson(url, options = {}) {
     }
 
     const url = `${WP_API_BASE}/posts/${id}?_embed`;
-    const data = await fetchJson(url);
+        const data = await fetchJson(url, { credentials: 'include' });
     postCache.set(id, data);
     return data;
   }
