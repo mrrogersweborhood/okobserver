@@ -5846,3 +5846,11 @@ form.login-form {
 .login-error{display:none;}
 .login-error:not(:empty){display:block;}
 /* 🟢 override.css — Login UI polish for .login-view (2025-12-17) END */
+/* Hamburger auth visibility polish */
+body.oo-logged-in #ooSignInLink {
+  display: none !important;
+}
+
+body:not(.oo-logged-in) #ooSignOutLink {
+  display: none !important;
+}

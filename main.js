@@ -136,6 +136,10 @@ function updateAuthNav() {
   if (signIn) signIn.style.display = loggedIn ? 'none' : '';
   if (signOut) signOut.style.display = loggedIn ? '' : 'none';
 }
+document.body.classList.toggle(
+  'oo-logged-in',
+  localStorage.getItem('ooLoggedIn') === '1'
+);
 
   window.addEventListener('hashchange', () => {
     onRouteChange();
