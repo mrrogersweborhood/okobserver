@@ -6139,3 +6139,28 @@ body.is-menu-open .oo-hamburger{
 }
 
 /* 🟢 override.css — :has() fallback for auth divider (2025-12-18) END */
+/* 🟢 override.css — Hamburger click fix (overlay stacking) START */
+/* Append-only. CSS-only. */
+
+.oo-overlay{
+  pointer-events: auto;
+}
+
+body.is-menu-open .oo-menu{
+  pointer-events: auto;
+}
+
+body.is-menu-open .oo-overlay{
+  pointer-events: auto;
+}
+
+.oo-menu{
+  position: fixed;
+  z-index: 1200; /* ensure above overlay */
+}
+
+.oo-overlay{
+  z-index: 1100;
+}
+
+/* 🟢 override.css — Hamburger click fix (overlay stacking) END */
