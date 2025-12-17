@@ -6200,3 +6200,42 @@ body.is-menu-open .oo-hamburger{
 }
 
 /* 🟢 override.css — Hamburger pointer-events fix (2025-12-18) END */
+/* --- FIX: Hamburger menu not clickable / blurred overlay --- */
+
+/* Ensure menu panel sits above any backdrop or overlay */
+.oo-menu,
+.oo-menu-panel,
+.hamburger-menu,
+.nav-menu {
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+/* Kill pointer-blocking overlays when menu is open */
+body.menu-open::before,
+body.menu-open::after {
+  pointer-events: none;
+}
+
+/* If a backdrop blur is used, it must NOT intercept clicks */
+.oo-menu-backdrop,
+.menu-backdrop,
+.nav-backdrop {
+  pointer-events: none;
+}
+
+/* Explicitly allow clicking menu links */
+.oo-menu a,
+.oo-menu button,
+.nav-menu a,
+.nav-menu button {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Remove accidental blur on menu text itself */
+.oo-menu,
+.nav-menu {
+  filter: none;
+  backdrop-filter: none;
+}
