@@ -19,22 +19,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2025-12-04-R131"
+    href="override.css?v=2025-12-04-R132"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2025-12-04-R131"
+    href="override.css?v=2025-12-04-R132"
   />
 
   <!-- Main SPA entry -->
   <script
     defer
-    src="main.js?v=2025-12-04-R131"
+    src="main.js?v=2025-12-04-R132"
   ></script>
   <script
     defer
-    src="PostDetail.js?v=2025-12-04-R131"
+    src="PostDetail.js?v=2025-12-04-R132"
   ></script>
 </head>
 <body>
@@ -134,13 +134,23 @@
     hamburger.focus();
   }
 }
+function syncAuthClass() {
+  try {
+    var isLoggedIn = localStorage.getItem('ooLoggedIn') === '1';
+    document.body.classList.toggle('oo-logged-in', isLoggedIn);
+  } catch (e) {
+    document.body.classList.remove('oo-logged-in');
+  }
+}
 
 
-        hamburger.addEventListener('click', function (evt) {
-          evt.preventDefault();
-          var isOpen = !document.body.classList.contains('is-menu-open');
-          setOpen(isOpen);
-        });
+       hamburger.addEventListener('click', function (evt) {
+  evt.preventDefault();
+  syncAuthClass();
+  var isOpen = !document.body.classList.contains('is-menu-open');
+  setOpen(isOpen);
+});
+
 
         overlay.addEventListener('click', function () {
           setOpen(false);
@@ -153,12 +163,12 @@
           }
         });
 
-        window.addEventListener('hashchange', function () {
-          setOpen(false);
-        });
-window.addEventListener('keydown', function (evt) {
-  if (evt.key === 'Escape') setOpen(false);
+        
+window.addEventListener('hashchange', function () {
+  syncAuthClass();
+  setOpen(false);
 });
+syncAuthClass();
 
         console.log('[OkObserver] Header script initialized.');
       }
