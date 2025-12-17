@@ -19,22 +19,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2025-12-04-R128"
+    href="override.css?v=2025-12-04-R130"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2025-12-04-R128"
+    href="override.css?v=2025-12-04-R130"
   />
 
   <!-- Main SPA entry -->
   <script
     defer
-    src="main.js?v=2025-12-04-R128"
+    src="main.js?v=2025-12-04-R130"
   ></script>
   <script
     defer
-    src="PostDetail.js?v=2025-12-04-R128"
+    src="PostDetail.js?v=2025-12-04-R130"
   ></script>
 </head>
 <body>
@@ -74,8 +74,9 @@
       <li><a href="#/">Posts</a></li>
       <li><a href="#/search">Search</a></li>
       <li><a href="#/about">About</a></li>
-      <li><a id="ooAuthLink" href="#/login" class="menuLink">Sign In</a></li>
-      <li><a href="#/logout">Sign Out</a></li>
+      <li><a id="ooSignInLink" href="#/login" class="menuLink">Sign In</a></li>
+               <li><a id="ooSignOutLink" href="#/logout" class="menuLink">Sign Out</a></li>
+
 
     </ul>
   </nav>
@@ -120,10 +121,20 @@
         }
 
         function setOpen(isOpen) {
-          document.body.classList.toggle('is-menu-open', isOpen);
-          hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-          overlay.hidden = !isOpen;
-        }
+  document.body.classList.toggle('is-menu-open', isOpen);
+  hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  overlay.hidden = !isOpen;
+
+  if (isOpen) {
+    // Focus first link for keyboard users
+    var firstLink = menu.querySelector('a');
+    if (firstLink) firstLink.focus();
+  } else {
+    // Return focus to hamburger
+    hamburger.focus();
+  }
+}
+
 
         hamburger.addEventListener('click', function (evt) {
           evt.preventDefault();
@@ -145,6 +156,9 @@
         window.addEventListener('hashchange', function () {
           setOpen(false);
         });
+window.addEventListener('keydown', function (evt) {
+  if (evt.key === 'Escape') setOpen(false);
+});
 
         console.log('[OkObserver] Header script initialized.');
       }

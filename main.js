@@ -1607,10 +1607,10 @@ function renderLogout() {
   if (!app) return;
 
   app.innerHTML = `
-    <div class="login-wrap">
+    <div class="logout-wrap">
       <h1>Log out</h1>
       <p>This will end your OkObserver session on this device.</p>
-      <div class="login-actions">
+      <div class="logout-actions">
         <button id="btnConfirmLogout" class="btnPrimary">Log out</button>
         <button id="btnCancelLogout" class="btnSecondary">Cancel</button>
       </div>
@@ -1621,7 +1621,7 @@ function renderLogout() {
   const msgEl = document.getElementById('logoutMsg');
 
   document.getElementById('btnCancelLogout')?.addEventListener('click', () => {
-    navigateTo('/');
+    navigateTo('#/');
   });
 
   document.getElementById('btnConfirmLogout')?.addEventListener('click', async () => {
@@ -1631,7 +1631,7 @@ try { localStorage.removeItem('ooLoggedIn'); } catch (_) {} updateAuthNav();
 
     if (msgEl) msgEl.textContent = ok ? 'Logged out.' : 'Logout failed (you may already be logged out).';
     // Give the user a beat to see the message, then return home.
-    setTimeout(() => navigateTo('/'), 400);
+    setTimeout(() => navigateTo('#/'), 400);
   });
 }
 

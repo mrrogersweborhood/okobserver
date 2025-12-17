@@ -5778,3 +5778,71 @@ form.login-form {
     flex-direction: column;
   }
 }
+/* 🟢 override.css — Login UI polish for .login-view (2025-12-17) START */
+/* Paste at END of override.css */
+
+.login-view{
+  max-width:460px;
+  margin:48px auto 24px;
+  padding:24px 22px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 12px 32px rgba(0,0,0,.12);
+}
+
+@media (max-width:520px){
+  .login-view{margin:24px 12px 18px; padding:20px 16px;}
+}
+
+.login-title{
+  margin:0 0 14px;
+  font-size:30px;
+  font-weight:800;
+  letter-spacing:.2px;
+  text-align:center;
+  color:var(--oko-blue);
+}
+
+.login-form{display:flex; flex-direction:column; gap:12px}
+
+.login-label-text{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  margin:0 0 6px;
+  opacity:.9;
+}
+
+.login-input{
+  width:100%;
+  padding:12px 12px;
+  border:1px solid rgba(30,144,255,.25);
+  border-radius:12px;
+  font-size:15px;
+  outline:none;
+  transition:box-shadow .15s ease, border-color .15s ease;
+}
+
+.login-input:focus{
+  border-color:rgba(30,144,255,.55);
+  box-shadow:0 0 0 4px rgba(30,144,255,.15);
+}
+
+.login-submit{
+  border:0;
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:15px;
+  font-weight:800;
+  cursor:pointer;
+  background:var(--oko-blue);
+  color:#fff;
+  box-shadow:0 10px 18px rgba(30,144,255,.22);
+}
+
+.login-submit:active{transform:translateY(1px)}
+
+/* Keep your “no red banner unless there’s text” behavior */
+.login-error{display:none;}
+.login-error:not(:empty){display:block;}
+/* 🟢 override.css — Login UI polish for .login-view (2025-12-17) END */
