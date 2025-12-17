@@ -125,6 +125,17 @@
       window.location.hash = hash;
     }
   }
+function updateAuthNav() {
+  const signIn = document.getElementById('ooSignInLink');
+  const signOut = document.getElementById('ooSignOutLink');
+
+  const loggedIn = (() => {
+    try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
+  })();
+
+  if (signIn) signIn.style.display = loggedIn ? 'none' : '';
+  if (signOut) signOut.style.display = loggedIn ? '' : 'none';
+}
 
   window.addEventListener('hashchange', () => {
     onRouteChange();
@@ -133,6 +144,7 @@
      function onRouteChange() {
     const { path, params } = parseHashRoute();
     console.info('[OkObserver] Route change:', path, params);
+updateAuthNav();
 
     // Remember the last non-login hash so we can return to it after login
     if (path !== '/login') {
@@ -1486,7 +1498,11 @@ async function performSearch(term, statusEl, grid) {
   }
 async function logoutUser() {
   try {
-    await fetchJson('/auth/logout', { method: 'POST' });
+    await fetch('https://okobserver-proxy.bob-b5c.workers.dev/auth/logout', {
+  method: 'POST',
+  credentials: 'include'
+});
+
     return true;
   } catch (e) {
     console.warn('[auth] logout failed', e);

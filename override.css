@@ -5293,3 +5293,134 @@ article.about-view {
 .search-status-text {
   font-size: 0.9rem;
 }
+/* ============================================================
+   OkObserver Login / Logout UI
+   Added: 2025-12-16
+   Purpose: Centered, branded login form (desktop + mobile)
+   ============================================================ */
+
+.login-wrap {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 40px;
+  background: #f3f5f7;
+}
+
+.login-card {
+  width: min(440px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  padding: 22px 20px;
+}
+
+.login-title {
+  margin: 0 0 6px;
+  font-size: 24px;
+  color: #111111;
+}
+
+.login-sub {
+  margin: 0 0 18px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-row label {
+  display: block;
+  font-size: 12px;
+  color: #374151;
+  margin: 0 0 6px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.login-row input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 16px;
+  background: #ffffff;
+  outline: none;
+}
+
+.login-row input:focus {
+  border-color: #1E90FF;
+  box-shadow: 0 0 0 3px rgba(30,144,255,0.25);
+}
+
+.login-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  appearance: none;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btnPrimary {
+  background: #1E90FF;
+  color: #ffffff;
+}
+
+.btnPrimary:hover {
+  filter: brightness(0.95);
+}
+
+.btnSecondary {
+  background: #eef2f7;
+  color: #111111;
+}
+
+.btnSecondary:hover {
+  filter: brightness(0.98);
+}
+
+.login-error {
+  margin-top: 10px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.login-note {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Mobile refinements */
+@media (max-width: 420px) {
+  .login-card {
+    padding: 18px 16px;
+  }
+  .login-title {
+    font-size: 22px;
+  }
+  .btnPrimary,
+  .btnSecondary {
+    padding: 12px;
+  }
+}
