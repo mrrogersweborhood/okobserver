@@ -6406,3 +6406,10 @@ body.is-menu-open #app {
 }
 
 /* 🔴 override.css — menu blur hotfix (append-only) */
+/* ================================
+   Clickable hero cursor (grid)
+   ================================ */
+#app .posts-grid .post-card .thumb,
+#app .posts-grid .post-card .thumb img {
+  cursor: pointer;
+}
