@@ -6413,3 +6413,10 @@ body.is-menu-open #app {
 #app .posts-grid .post-card .thumb img {
   cursor: pointer;
 }
+/* ================================
+   Post summary cards are clickable
+   ================================ */
+#app .posts-grid .post-card,
+#app .posts-grid .post-card * {
+  cursor: pointer;
+}
