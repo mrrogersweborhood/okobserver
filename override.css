@@ -6446,3 +6446,28 @@ body.is-menu-open #app {
 .login-password-toggle:hover{
   opacity: 1;
 }
+/* --- 2025-12-18 menu + clickable-hero polish (append at END of override.css) --- */
+
+/* Make clickable hero/featured image feel clickable */
+.posts-grid .post-card-image-wrapper,
+.posts-grid .post-card-image-wrapper img {
+  cursor: pointer;
+}
+
+/* Mobile “blurry/out of focus” hamburger/menu: ensure overlay never sits above menu, and kill blur filters */
+body.is-menu-open .oo-overlay,
+body.is-menu-open [data-oo="overlay"]{
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+  z-index: 900 !important;
+}
+
+body.is-menu-open nav#oo-menu.oo-menu{
+  z-index: 3000 !important;
+}
+
+body.is-menu-open nav#oo-menu.oo-menu,
+body.is-menu-open nav#oo-menu.oo-menu *{
+  filter: none !important;
+}
