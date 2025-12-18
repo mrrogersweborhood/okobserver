@@ -1643,7 +1643,7 @@ async function logoutUser() {
           try { postCache.clear(); } catch (_) {}
 
           updateAuthNav();
-          navigateTo(lastNonLoginHash || "#/");
+          window.location.replace(lastNonLoginHash || "#/");
         } else {
           errorBox.textContent = "Invalid login. Please try again.";
         }
