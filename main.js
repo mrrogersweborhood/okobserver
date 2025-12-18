@@ -1182,7 +1182,14 @@ if (isClientLoggedIn && isClientLoggedIn()) {
         // If user came from a grid view (home or search),
         // let the browser restore DOM + scroll from history.
         if (homeState.initialized || searchState.initialized) {
-          window.history.back();
+        const target =
+  !lastNonLoginHash ||
+  lastNonLoginHash === '#/login' ||
+  lastNonLoginHash === '#/logout'
+    ? '#/'
+    : (lastNonLoginHash || '#/');
+
+window.location.replace(target);
         } else {
           // Deep-linked directly to a post
           window.location.replace('#/');
