@@ -21,7 +21,7 @@
   // ---------------------------------------------------------------------------
   // Global configuration and flags
   // ---------------------------------------------------------------------------
-
+  const OO_DEBUG_EMBEDS = false;
   const APP_BUILD_TAG = '2025-12-08R6-vimeoPattern';
   const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R6-vimeoPattern — Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix';
 
