@@ -6420,3 +6420,29 @@ body.is-menu-open #app {
 #app .posts-grid .post-card * {
   cursor: pointer;
 }
+/* =========================
+   Login: password eye toggle
+   ========================= */
+.login-password-wrap{
+  position: relative;
+  display: block;
+}
+.login-password-wrap .login-input{
+  padding-right: 44px; /* room for the eye button */
+}
+.login-password-toggle{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  padding: 6px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.85;
+}
+.login-password-toggle:hover{
+  opacity: 1;
+}

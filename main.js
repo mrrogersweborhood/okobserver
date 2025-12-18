@@ -1618,7 +1618,10 @@ async function logoutUser() {
 
           <label class="login-label">
             <span class="login-label-text">Password</span>
-            <input class="login-input" type="password" name="password" required />
+            <div class="login-password-wrap">
+  <input class="login-input" id="ooLoginPassword" type="password" name="password" required autocomplete="current-password" />
+  <button class="login-password-toggle" type="button" aria-label="Show password" aria-pressed="false" aria-controls="ooLoginPassword">👁</button>
+</div>
           </label>
 
           <button class="login-submit" type="submit">Sign In</button>
@@ -1630,6 +1633,24 @@ async function logoutUser() {
 
     const form = app.querySelector(".login-form");
     const errorBox = app.querySelector(".login-error");
+// Password peek (eye toggle)
+const pwInput = app.querySelector("#ooLoginPassword");
+const pwToggle = app.querySelector(".login-password-toggle");
+
+if (pwInput && pwToggle) {
+  pwToggle.addEventListener("click", () => {
+    const showing = pwInput.type === "text";
+    pwInput.type = showing ? "password" : "text";
+
+    pwToggle.setAttribute("aria-pressed", String(!showing));
+    pwToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    pwToggle.textContent = showing ? "👁" : "🙈";
+
+    // Keep focus in the field for usability
+    pwInput.focus({ preventScroll: true });
+    try { pwInput.setSelectionRange(pwInput.value.length, pwInput.value.length); } catch (_) {}
+  });
+}
 
     form.addEventListener("submit", async (evt) => {
       evt.preventDefault();
