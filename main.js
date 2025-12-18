@@ -209,12 +209,11 @@ if (path !== '/login' && path !== '/logout') {
       homeState.scrollY = y;
       homeState.initialized = true;
       console.debug('[OkObserver] Saved home scrollY:', homeState.scrollY);
-    } else {
-      // Fallback: treat as home-style scroll
-      homeState.scrollY = y;
-      homeState.initialized = true;
-      console.debug('[OkObserver] Saved generic scrollY:', y, 'for path:', path);
-    }
+} else {
+  // Intentionally do nothing.
+  // Only save scroll state for #/ (home) and #/search.
+}
+
   }
 
   function restoreSearchScroll(expectedTerm) {
