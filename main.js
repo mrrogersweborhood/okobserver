@@ -1691,6 +1691,9 @@ function renderLogout() {
     const ok = await logoutUser();
     try { localStorage.removeItem('ooLoggedIn'); } catch (_) {}
     updateAuthNav();
+// Clear any cached authenticated content so UI cannot look logged-in
+try { postCache.clear(); } catch (_) {}
+try { document.body.classList.remove('oo-logged-in'); } catch (_) {}
 
     if (msgEl) msgEl.textContent =
       ok ? 'Signed out.' : 'Sign out failed (you may already be signed out).';
