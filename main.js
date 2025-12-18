@@ -1185,7 +1185,8 @@ if (isClientLoggedIn && isClientLoggedIn()) {
           window.history.back();
         } else {
           // Deep-linked directly to a post
-          navigateTo('#/');
+          window.location.replace('#/');
+
         }
       });
     }
@@ -1677,7 +1678,7 @@ function renderLogout() {
 
   btnCancel?.addEventListener('click', () => {
     if (busy) return;
-    navigateTo(lastNonLoginHash || '#/');
+    window.location.replace(lastNonLoginHash || '#/');
   });
 
   btnConfirm?.addEventListener('click', async () => {
@@ -1698,7 +1699,7 @@ try { document.body.classList.remove('oo-logged-in'); } catch (_) {}
     if (msgEl) msgEl.textContent =
       ok ? 'Signed out.' : 'Sign out failed (you may already be signed out).';
 
-    setTimeout(() => navigateTo(lastNonLoginHash || '#/'), 450);
+    setTimeout(() => window.location.replace(lastNonLoginHash || '#/'), 450);
   });
 }
 
@@ -1719,7 +1720,8 @@ function renderNotFound() {
     const back = app.querySelector('.back-btn');
     if (back) {
       back.addEventListener('click', () => {
-        navigateTo('#/');
+        window.location.replace('#/');
+
       });
     }
   }
