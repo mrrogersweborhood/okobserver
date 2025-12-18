@@ -1652,7 +1652,8 @@ async function logoutUser() {
 
           // IMPORTANT: throw away any paywalled/teaser post responses cached before login
           try { postCache.clear(); } catch (_) {}
-
+          homeState.initialized = false;
+          searchState.initialized = false;
           updateAuthNav();
           window.location.replace(lastNonLoginHash || "#/");
         } else {
