@@ -263,16 +263,18 @@ if (path !== '/login' && path !== '/logout') {
 async function fetchJson(url, options = {}) {
   console.debug('[OkObserver] fetchJson:', url);
 
-  const isAuthCall =
+const isAuthCall =
   url.includes('/auth/login') ||
   url.includes('/auth/logout') ||
-  (typeof WP_API_BASE === 'string' && url.startsWith(WP_API_BASE)) ||
+  url.includes('/auth/status') ||
   options.credentials === 'include';
+
+const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' && isClientLoggedIn());
 
 
   const response = await fetch(url, {
     ...options,
-    ...(isAuthCall ? { credentials: 'include' } : {})
+    ...(shouldSendCreds ? { credentials: 'include' } : {})
   });
 
   if (!response.ok) {
@@ -294,7 +296,7 @@ async function fetchJson(url, options = {}) {
     }
 
     const url = `${WP_API_BASE}/posts/${id}?_embed`;
-        const data = await fetchJson(url, { credentials: 'include' });
+    const data = await fetchJson(url, isClientLoggedIn() ? { credentials: 'include' } : {});
     postCache.set(id, data);
     return data;
   }
