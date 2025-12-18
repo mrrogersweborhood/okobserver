@@ -49,7 +49,7 @@
 
   // Last non-login route hash (for “go back to where I was before login”)
   let lastNonLoginHash = '#/';
-
+  let lastListHash = '#/'; // remembers last grid/search page only 
   // Simple in-memory cache for posts (by ID) to avoid refetching
   const postCache = new Map();
 
@@ -146,6 +146,11 @@ function updateAuthNav() {
 
      function onRouteChange() {
     const { path, params } = parseHashRoute();
+// Track last grid/search route for PostDetail "Back to posts"
+if (path === '/' || path === '/search') {
+  lastListHash = window.location.hash || '#/';
+}
+
     console.info('[OkObserver] Route change:', path, params);
 updateAuthNav();
 
@@ -1182,14 +1187,12 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     if (back) {
       back.addEventListener('click', () => {
         // If user came from a grid view (home or search),
-        // let the browser restore DOM + scroll from history.
+        // Return to last grid/search view safely (no auth routes in history)
         if (homeState.initialized || searchState.initialized) {
         const target =
-  !lastNonLoginHash ||
-  lastNonLoginHash === '#/login' ||
-  lastNonLoginHash === '#/logout'
-    ? '#/'
-    : (lastNonLoginHash || '#/');
+  lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+    ? lastListHash
+    : '#/';
 
 window.location.replace(target);
         } else {
