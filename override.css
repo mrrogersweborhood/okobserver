@@ -6312,3 +6312,23 @@ header,
 .header-inner {
   transform-style: flat !important;
 }
+/* 🟢 override.css — menu blur fix: disable transform-based animation */
+
+/* Kill GPU-transform animation on the dropdown (fixes hazy text) */
+.oo-menu {
+  will-change: auto !important;
+  transform: none !important;
+  animation: none !important;
+  transition: opacity 120ms ease !important;
+}
+
+/* Open state: still visible/clickable, but no translateY */
+.is-menu-open .oo-menu {
+  transform: none !important;
+  animation: none !important;
+}
+
+/* Also stop the hamburger active-scale (can blur the icon) */
+.oo-hamburger:active {
+  transform: none !important;
+}
