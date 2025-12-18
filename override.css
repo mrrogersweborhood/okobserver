@@ -6032,9 +6032,17 @@ diff --git a/override.css b/override.css
   font-weight: 800;
 }
 
-body.oo-logged-in #ooSignInLink{ display:none !important; }
-body:not(.oo-logged-in) #ooSignOutLink{ display:none !important; }
+/* Hide the entire LI row (not just the link) so no empty row/dividers remain */
+body.oo-logged-in .oo-menu-list li:has(#ooSignInLink){ display:none !important; }
+body:not(.oo-logged-in) .oo-menu-list li:has(#ooSignOutLink){ display:none !important; }
 
+/* Remove the “auth divider” styling so we don’t get extra horizontal lines */
+body.oo-logged-in .oo-menu-list li:has(#ooSignOutLink),
+body:not(.oo-logged-in) .oo-menu-list li:has(#ooSignInLink){
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
+}
 /* 🟢 override.css — Auth UI polish (2025-12-18) END
    🔴 override.css */
 /* 🟢 override.css — Hamburger menu polish (2025-12-18) START */
