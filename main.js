@@ -1187,12 +1187,17 @@ if (isClientLoggedIn && isClientLoggedIn()) {
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
-// Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
-const heroLinkRaw = extractHeroLinkFromContent(post);
-const heroLink =
-  (heroLinkRaw && !/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(heroLinkRaw))
-    ? heroLinkRaw
-    : '';
+// Prefer a meaningful (non-image-file) link wrapped around an image in post content.
+// If the first linked image points directly to an image file, DO NOT link the hero at all.
+let heroLink = '';
+try {
+  heroLink = extractHeroLinkFromContent(post) || '';
+} catch (e) {
+  heroLink = '';
+}
+if (heroLink && /\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(heroLink)) {
+  heroLink = '';
+}
 
 if (featuredImageUrl) {
   const safeAlt = escapeAttr(stripHtml(post?.title?.rendered || ''));
@@ -1213,6 +1218,7 @@ if (featuredImageUrl) {
       </div>
     `;
 }
+
 
 
   <button class="tts-button" type="button" data-post-id="${post.id}">🔊</button>
