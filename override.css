@@ -6471,3 +6471,35 @@ body.is-menu-open nav#oo-menu.oo-menu,
 body.is-menu-open nav#oo-menu.oo-menu *{
   filter: none !important;
 }
+/* ---------------------------------- */
+/* OkObserver — Menu + Cursor polish   */
+/* (append at END of override.css)     */
+/* ---------------------------------- */
+
+/* Fix extra “mystery divider lines” caused by empty <li> rows */
+.oo-menu-list li:empty{
+  display:none !important;
+}
+
+/* If your menu uses borders on LI rows, ensure first visible row has no top border */
+.oo-menu-list li:first-child{
+  border-top:0 !important;
+}
+
+/* Make it visually obvious the post-card (and hero) is clickable */
+.post-card{
+  cursor:pointer;
+}
+.post-card .post-card-image-wrapper,
+.post-card .post-card-image-wrapper img{
+  cursor:pointer;
+}
+
+/* Optional: detail hero feels clickable (for zoom/open) */
+.post-detail .post-hero img.oo-media{
+  cursor:zoom-in;
+}
+/* Detail hero image should feel clickable */
+.post-hero .oo-media-link { display: block; }
+.post-hero .oo-media-link, 
+.post-hero .oo-media { cursor: pointer; }

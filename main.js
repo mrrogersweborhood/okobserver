@@ -1148,18 +1148,23 @@ if (isClientLoggedIn && isClientLoggedIn()) {
       : '';
 
     let heroHtml = '';
-    const featuredImageUrl = getFeaturedImageUrl(post);
-    if (featuredImageUrl) {
-      heroHtml = `
-        <div class="post-hero">
-          <img
-            class="oo-media"
-            src="${featuredImageUrl}?cb=${post.id}"
-            alt="${escapeAttr(stripHtml(rawTitle)) || 'Post image'}"
-          />
-        </div>
-      `;
-    }
+const featuredImageUrl = getFeaturedImageUrl(post);
+if (featuredImageUrl) {
+  const imgSrc = featuredImageUrl + (featuredImageUrl.includes('?') ? '&' : '?') + `cb=${post.id}`;
+
+  heroHtml = `
+    <div class="post-hero">
+      <a class="oo-media-link" href="${featuredImageUrl}" target="_blank" rel="noopener">
+        <img
+          class="oo-media"
+          src="${imgSrc}"
+          alt="${escapeAttr(stripHtml(rawTitle)) || 'Post image'}"
+        />
+      </a>
+    </div>
+  `;
+}
+
 
     const ttsButtonHtml = `
   <button class="tts-button" type="button" data-post-id="${post.id}">🔊</button>
