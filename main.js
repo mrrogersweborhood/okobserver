@@ -380,6 +380,35 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
 
     return media.source_url || null;
   }
+function getFirstLinkedImageHrefFromContent(post) {
+  try {
+    const html = post && post.content && post.content.rendered ? post.content.rendered : "";
+    if (!html) return "";
+
+    // Find: <a href="..."><img ...></a> (first occurrence)
+    const m = html.match(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i);
+    if (!m || !m[1]) return "";
+
+    // Make relative links absolute (WP site base)
+    const href = m[1].trim();
+    try {
+      return new URL(href, "https://okobserver.org/").toString();
+    } catch (_) {
+      return href;
+    }
+  } catch (_) {
+    return "";
+  }
+}
+function extractHeroLinkFromContent(post) {
+  try {
+    const html = post?.content?.rendered || "";
+    // Look for: <a href="..."><img ...></a> (first occurrence)
+    const m = html.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img[\s\S]*?>\s*<\/a>/i);
+    if (m && m[1]) return m[1];
+  } catch (_) {}
+  return "";
+}
 
   function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -1147,23 +1176,25 @@ if (isClientLoggedIn && isClientLoggedIn()) {
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
       : '';
 
-    let heroHtml = '';
+let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
+
+// If the post body contains a linked image (like Dec 2025 cover), use that link for the hero click.
+const heroClickHref = getFirstLinkedImageHrefFromContent(post);
+
 if (featuredImageUrl) {
-  const imgSrc = featuredImageUrl + (featuredImageUrl.includes('?') ? '&' : '?') + `cb=${post.id}`;
+  const heroLink = extractHeroLinkFromContent(post);
+  const href = heroLink || featuredImageUrl;
 
   heroHtml = `
     <div class="post-hero">
-      <a class="oo-media-link" href="${featuredImageUrl}" target="_blank" rel="noopener">
-        <img
-          class="oo-media"
-          src="${imgSrc}"
-          alt="${escapeAttr(stripHtml(rawTitle)) || 'Post image'}"
-        />
+      <a class="post-hero-link" href="${href}">
+        <img class="oo-media" src="${featuredImageUrl}?cb=${post.id}" alt="${escapeHtml(post.title.rendered)}" />
       </a>
     </div>
   `;
 }
+
 
 
     const ttsButtonHtml = `

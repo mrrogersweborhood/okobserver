@@ -6503,3 +6503,19 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-hero .oo-media-link { display: block; }
 .post-hero .oo-media-link, 
 .post-hero .oo-media { cursor: pointer; }
+/* ================================
+   OO OVERRIDES — 2025-12-18
+   Cursor affordance for clickable hero
+   ================================ */
+
+/* Make it obvious the hero image area is clickable */
+.post-card .post-card-image-wrapper,
+.post-card .post-card-image-wrapper img.post-card-image,
+.post-card img.post-card-image {
+  cursor: pointer !important;
+}
+/* Detail hero is clickable */
+.post-hero-link,
+.post-hero-link img.oo-media {
+  cursor: pointer !important;
+}
