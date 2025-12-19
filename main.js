@@ -1188,15 +1188,42 @@ let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
 // If the post body contains a linked image (like Dec 2025 cover), use that link for the hero click.
-const heroClickHref = getFirstLinkedImageHrefFromContent(post);
+
 
 if (featuredImageUrl) {
-  const heroLink = extractHeroLinkFromContent(post);
-  const href = heroLink || featuredImageUrl;
+  let heroLink = null;
+
+const content = post?.content?.rendered || '';
+const match = content.match(
+  /<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img/i
+);
+
+if (match) {
+  const candidate = match[1];
+
+  // Ignore links that point directly to image files
+  if (!/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(candidate)) {
+    heroLink = candidate;
+  }
+}
+
+// FINAL RULE:
+// – If there is a valid non-image link, use it
+// – Otherwise, DO NOT link the hero at all
+const href = heroLink || null;
+
 
   heroHtml = `
     <div class="post-hero">
-      <a class="post-hero-link" href="${href}">
+      ${href
+  ? `<a class="post-hero-link" href="${href}">`
+  : `<div class="post-hero-link">`
+}
+<img class="oo-media"
+     src="${featuredImageUrl}?cb=${post.id}"
+     alt="${escapeHtml(post.title.rendered)}" />
+${href ? `</a>` : `</div>`}
+
         <img class="oo-media" src="${featuredImageUrl}?cb=${post.id}" alt="${escapeHtml(post.title.rendered)}" />
       </a>
     </div>
