@@ -1183,6 +1183,15 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
       : '';
+// --- DETAIL TAGS/CATEGORIES (restore) ---
+const cats = extractCategories(post) || [];
+const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
+
+const categoriesHtml = catNames.length
+  ? `<div class="post-tags" aria-label="Categories">
+       ${catNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')}
+     </div>`
+  : '';
 
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
@@ -1227,6 +1236,7 @@ const ttsButtonHtml = `
         ${heroHtml}
         <h1 class="post-title">${titleHtml}</h1>
         ${metaHtml}
+        ${categoriesHtml}
         <div class="post-detail-tts-row">
           ${ttsButtonHtml}
         </div>
