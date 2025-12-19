@@ -1200,24 +1200,25 @@ if (featuredImageUrl) {
   const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
 
   heroHtml = heroLink
-    ? `
+  ? `
       <div class="post-hero">
         <a class="post-hero-link" href="${escapeAttr(heroLink)}" rel="noopener noreferrer">
           ${heroImg}
         </a>
       </div>
     `
-    : `
+  : `
       <div class="post-hero">
         ${heroImg}
       </div>
     `;
+
 }
 
 const ttsButtonHtml = `
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
 
-
+`;
    
 
 
