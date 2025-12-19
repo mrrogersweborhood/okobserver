@@ -1187,19 +1187,12 @@ if (isClientLoggedIn && isClientLoggedIn()) {
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
-// Pull the first <a href="..."><img ...> from post content,
-// but IGNORE hrefs that are direct image files (.jpg/.png/.gif/.webp)
-function extractHeroLinkFromContent(post) {
-  const html = post?.content?.rendered || '';
-  const m = html.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img\b/i);
-  if (!m) return '';
-  const href = String(m[1] || '').trim();
-  if (!href) return '';
-  if (/\.(?:jpe?g|png|gif|webp)(?:[?#]|$)/i.test(href)) return '';
-  return href;
-}
-
-const heroLink = extractHeroLinkFromContent(post);
+// Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
+const heroLinkRaw = extractHeroLinkFromContent(post);
+const heroLink =
+  (heroLinkRaw && !/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(heroLinkRaw))
+    ? heroLinkRaw
+    : '';
 
 if (featuredImageUrl) {
   const safeAlt = escapeAttr(stripHtml(post?.title?.rendered || ''));
@@ -1207,15 +1200,26 @@ if (featuredImageUrl) {
   const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
 
   heroHtml = heroLink
-    ? `<div class="post-hero"><a class="post-hero-link" href="${escapeAttr(heroLink)}" rel="noopener noreferrer">${heroImg}</a></div>`
-    : `<div class="post-hero">${heroImg}</div>`;
+    ? `
+      <div class="post-hero">
+        <a class="post-hero-link" href="${escapeAttr(heroLink)}" rel="noopener noreferrer">
+          ${heroImg}
+        </a>
+      </div>
+    `
+    : `
+      <div class="post-hero">
+        ${heroImg}
+      </div>
+    `;
 }
 
+const ttsButtonHtml = `
+  <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
 
 
+   
 
-  <button class="tts-button" type="button" data-post-id="${post.id}">🔊</button>
-`;
 
     app.innerHTML = `
       <div class="post-detail">
