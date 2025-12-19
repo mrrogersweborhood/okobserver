@@ -1187,52 +1187,34 @@ if (isClientLoggedIn && isClientLoggedIn()) {
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
-// If the post body contains a linked image (like Dec 2025 cover), use that link for the hero click.
-
+// Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
+const heroLinkRaw = extractHeroLinkFromContent(post);
+const heroLink =
+  (heroLinkRaw && !/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(heroLinkRaw))
+    ? heroLinkRaw
+    : '';
 
 if (featuredImageUrl) {
-  let heroLink = null;
+  const safeAlt = escapeAttr(stripHtml(post?.title?.rendered || ''));
+  const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+  const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
 
-const content = post?.content?.rendered || '';
-const match = content.match(
-  /<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img/i
-);
-
-if (match) {
-  const candidate = match[1];
-
-  // Ignore links that point directly to image files
-  if (!/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(candidate)) {
-    heroLink = candidate;
-  }
-}
-
-// FINAL RULE:
-// – If there is a valid non-image link, use it
-// – Otherwise, DO NOT link the hero at all
-const href = heroLink || null;
-
-
-  heroHtml = `
-    <div class="post-hero">
-      ${href
-  ? `<a class="post-hero-link" href="${href}">`
-  : `<div class="post-hero-link">`
-}
-<img class="oo-media"
-     src="${featuredImageUrl}?cb=${post.id}"
-     alt="${escapeHtml(post.title.rendered)}" />
-${href ? `</a>` : `</div>`}
-
-        <img class="oo-media" src="${featuredImageUrl}?cb=${post.id}" alt="${escapeHtml(post.title.rendered)}" />
-      </a>
-    </div>
-  `;
+  heroHtml = heroLink
+    ? `
+      <div class="post-hero">
+        <a class="post-hero-link" href="${escapeAttr(heroLink)}" target="_blank" rel="noopener noreferrer">
+          ${heroImg}
+        </a>
+      </div>
+    `
+    : `
+      <div class="post-hero">
+        ${heroImg}
+      </div>
+    `;
 }
 
 
-
-    const ttsButtonHtml = `
   <button class="tts-button" type="button" data-post-id="${post.id}">🔊</button>
 `;
 
