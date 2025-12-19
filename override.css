@@ -6520,3 +6520,4 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-hero-link img.oo-media {
   cursor: pointer !important;
 }
+.post-hero-link { display: block; }
