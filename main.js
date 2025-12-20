@@ -1178,6 +1178,9 @@ function removePaywallNoticeFromDetail(html) {
 }
 
   function renderPostDetailInner(post) {
+  // --- FIX: prevent scroll restoration from hiding post tags ---
+  window.scrollTo(0, 0);
+
     if (!post) {
       renderNotFound();
       return;
