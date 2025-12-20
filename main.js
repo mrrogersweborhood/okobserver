@@ -432,10 +432,15 @@ function extractHeroLinkFromContent(post) {
     // skip image files
     if (/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(h)) continue;
 
-    // skip obvious internal/wp/media links
-    if (/okobserver\.org\/wp-content\/uploads\//i.test(h)) continue;
+// skip obvious internal/wp/media links
+if (/okobserver\.org\/wp-content\/uploads\//i.test(h)) continue;
 
-    return h;
+// skip membership/paywall redirect links (not a real "hero" destination)
+if (/okobserver\.org\/my-account\/\?wcm_redirect_to=post\b/i.test(h)) continue;
+if (/\bwcm_redirect_to=post\b/i.test(h) || /\bwcm_redirect_id=\d+\b/i.test(h)) continue;
+
+return h;
+
   }
 
   return null;
