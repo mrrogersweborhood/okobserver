@@ -263,9 +263,6 @@ if (path !== '/login' && path !== '/logout') {
   // ---------------------------------------------------------------------------
   // Fetch helpers (all via proxy)
   // ---------------------------------------------------------------------------
-  // Keep list payloads small for faster home/search loads.
-  // Includes categories (for cartoon filtering) + _embedded (for featured media/author).
-  const LIST_FIELDS = 'id,date,link,title,excerpt,author,featured_media,categories,_embedded';
 
 async function fetchJson(url, options = {}) {
   console.debug('[OkObserver] fetchJson:', url);
@@ -293,7 +290,7 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
 
 
   async function fetchPostsPage(page) {
-    const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed&_fields=${encodeURIComponent(LIST_FIELDS)}`;
+    const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
     return fetchJson(url);
   }
 
@@ -311,7 +308,7 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   async function fetchSearchResults(term, page = 1) {
     const enc = encodeURIComponent(term || '');
     const url =
-      `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed&_fields=${encodeURIComponent(LIST_FIELDS)}`;
+      `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
     return fetchJson(url);
   }
 
