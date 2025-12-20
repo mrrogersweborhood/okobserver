@@ -1200,20 +1200,22 @@ if (isClientLoggedIn && isClientLoggedIn()) {
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
       : '';
 // --- DETAIL TAGS/CATEGORIES ---
+// --- DETAIL TAGS/CATEGORIES (restore) ---
 const cats = extractCategories(post) || [];
 const tags = extractTags(post) || [];
 
 const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
 const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boolean);
 
-const tagsHtml = `<div class="post-tags" aria-label="Tags">
-  ${
-    tagNames.length
-      ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
-      : `<span class="post-tag post-tag-empty">None</span>`
-  }
-</div>`;
-
+const tagsHtml = `
+  <div class="post-tags" aria-label="Tags">
+    ${
+      tagNames.length
+        ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
+        : `<span class="post-tag post-tag-empty">None</span>`
+    }
+  </div>
+`;
 
 const categoriesHtml = catNames.length
   ? `<div class="post-tags" aria-label="Categories">
@@ -1222,8 +1224,9 @@ const categoriesHtml = catNames.length
   : '';
 
 const taxHtml = (tagsHtml || categoriesHtml)
-  ? `<div class="post-tax">${tagsHtml}${categoriesHtml}</div>`
+  ? `<div class="post-tax">${tagsHtml}${taxHtml}</div>`
   : '';
+
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
