@@ -417,14 +417,30 @@ function getFirstLinkedImageHrefFromContent(post) {
   }
 }
 function extractHeroLinkFromContent(post) {
-  try {
-    const html = post?.content?.rendered || "";
-    // Look for: <a href="..."><img ...></a> (first occurrence)
-    const m = html.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img[\s\S]*?>\s*<\/a>/i);
-    if (m && m[1]) return m[1];
-  } catch (_) {}
-  return "";
+  const html = post && post.content && post.content.rendered ? post.content.rendered : '';
+  if (!html) return null;
+
+  // 1) Best case: <a href="..."><img ...></a>
+  const m = html.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img[^>]+>/i);
+  if (m && m[1]) return m[1];
+
+  // 2) Fallback: first non-image external link in the content (covers WP formatting variations)
+  const links = html.match(/https?:\/\/[^\s"'<>]+/gi) || [];
+  for (const href of links) {
+    const h = String(href).trim();
+
+    // skip image files
+    if (/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(h)) continue;
+
+    // skip obvious internal/wp/media links
+    if (/okobserver\.org\/wp-content\/uploads\//i.test(h)) continue;
+
+    return h;
+  }
+
+  return null;
 }
+
 
   function formatDate(dateStr) {
     if (!dateStr) return '';
