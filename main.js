@@ -417,34 +417,20 @@ function getFirstLinkedImageHrefFromContent(post) {
   }
 }
 function extractHeroLinkFromContent(post) {
-  const html = post && post.content && post.content.rendered ? post.content.rendered : '';
+  const html = post && post.content && post.content.rendered
+    ? post.content.rendered
+    : '';
+
   if (!html) return null;
 
-  // 1) Best case: <a href="..."><img ...></a>
-  const m = html.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*<img[^>]+>/i);
-  if (m && m[1]) return m[1];
+  // ONLY accept: <a href="..."><img ...></a>
+  const m = html.match(
+    /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i
+  );
 
-  // 2) Fallback: first non-image external link in the content (covers WP formatting variations)
-  const links = html.match(/https?:\/\/[^\s"'<>]+/gi) || [];
-  for (const href of links) {
-    const h = String(href).trim();
-
-    // skip image files
-    if (/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(h)) continue;
-
-// skip obvious internal/wp/media links
-if (/okobserver\.org\/wp-content\/uploads\//i.test(h)) continue;
-
-// skip membership/paywall redirect links (not a real "hero" destination)
-if (/okobserver\.org\/my-account\/\?wcm_redirect_to=post\b/i.test(h)) continue;
-if (/\bwcm_redirect_to=post\b/i.test(h) || /\bwcm_redirect_id=\d+\b/i.test(h)) continue;
-
-return h;
-
-  }
-
-  return null;
+  return (m && m[1]) ? m[1] : null;
 }
+
 
 
   function formatDate(dateStr) {
