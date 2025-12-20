@@ -332,19 +332,35 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   // ---------------------------------------------------------------------------
 
   function extractCategories(post) {
-    if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
-      for (const termGroup of post._embedded['wp:term']) {
-        if (Array.isArray(termGroup)) {
-          for (const term of termGroup) {
-            if (term.taxonomy === 'category') {
-              return termGroup;
-            }
+  if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
+    for (const termGroup of post._embedded['wp:term']) {
+      if (Array.isArray(termGroup)) {
+        for (const term of termGroup) {
+          if (term && term.taxonomy === 'category') {
+            return termGroup;
           }
         }
       }
     }
-    return [];
   }
+  return [];
+}
+
+function extractTags(post) {
+  if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
+    for (const termGroup of post._embedded['wp:term']) {
+      if (Array.isArray(termGroup)) {
+        for (const term of termGroup) {
+          if (term && term.taxonomy === 'post_tag') {
+            return termGroup;
+          }
+        }
+      }
+    }
+  }
+  return [];
+}
+
 
   function hasExcludedCategory(post) {
     const cats = extractCategories(post);
@@ -1236,7 +1252,7 @@ const ttsButtonHtml = `
         ${heroHtml}
         <h1 class="post-title">${titleHtml}</h1>
         ${metaHtml}
-        ${categoriesHtml}
+        ${taxHtml}
         <div class="post-detail-tts-row">
           ${ttsButtonHtml}
         </div>
