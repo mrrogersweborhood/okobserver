@@ -1266,21 +1266,22 @@ const ttsButtonHtml = `
    
 
 
-    app.innerHTML = `
-      <div class="post-detail">
-        ${heroHtml}
-        <h1 class="post-title">${titleHtml}</h1>
-        ${metaHtml}
-        ${taxHtml}
-        <div class="post-detail-tts-row">
-          ${ttsButtonHtml}
-        </div>
-        <div class="post-content post-detail-content entry-content">
-          ${contentHtml}
-        </div>
-        <button class="back-btn" type="button">Back to posts</button>
-      </div>
-    `;
+app.innerHTML = `
+  <div class="post-detail">
+    ${heroHtml}
+    <h1 class="post-title">${titleHtml}</h1>
+    ${metaHtml}
+    <div class="post-detail-tts-row">
+      ${ttsButtonHtml}
+    </div>
+    <div class="post-content post-detail-content entry-content">
+      ${contentHtml}
+    </div>
+    ${taxHtml}
+    <button class="back-btn" type="button">Back to posts</button>
+  </div>
+`;
+
 
     scrollToTop();
 
