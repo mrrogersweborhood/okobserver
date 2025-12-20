@@ -1234,9 +1234,9 @@ const featuredImageUrl = getFeaturedImageUrl(post);
 // Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
 const heroLinkRaw = extractHeroLinkFromContent(post);
 const heroLink =
-  (heroLinkRaw && !/\.(?:jpe?g|png|gif|webp)(?:\?|#|$)/i.test(heroLinkRaw))
+  (heroLinkRaw && !/\.(?:jpe?g|png|gif|webp)$/i.test(heroLinkRaw))
     ? heroLinkRaw
-    : '';
+    : `#/post/${post.id}`;
 
 if (featuredImageUrl) {
   const safeAlt = escapeAttr(stripHtml(post?.title?.rendered || ''));
