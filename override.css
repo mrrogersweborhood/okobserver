@@ -6531,3 +6531,30 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-detail {
   scroll-margin-top: 96px; /* matches header height */
 }
+/* === Post detail tag chips (scoped, safe) === */
+.post-detail .post-tax {
+  margin: 14px 0 0;
+}
+
+.post-detail .post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.post-detail .post-tag {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid rgba(30, 144, 255, 0.35);
+  background: rgba(30, 144, 255, 0.10);
+  color: #0b2a4a;
+  white-space: nowrap;
+}
+
+.post-detail .post-tag-empty {
+  opacity: 0.7;
+}
