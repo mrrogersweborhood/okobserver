@@ -1199,9 +1199,18 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
       : '';
-// --- DETAIL TAGS/CATEGORIES (restore) ---
+// --- DETAIL TAGS/CATEGORIES ---
 const cats = extractCategories(post) || [];
+const tags = extractTags(post) || [];
+
 const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
+const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boolean);
+
+const tagsHtml = tagNames.length
+  ? `<div class="post-tags" aria-label="Tags">
+       ${tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')}
+     </div>`
+  : '';
 
 const categoriesHtml = catNames.length
   ? `<div class="post-tags" aria-label="Categories">
@@ -1209,6 +1218,9 @@ const categoriesHtml = catNames.length
      </div>`
   : '';
 
+const taxHtml = (tagsHtml || categoriesHtml)
+  ? `<div class="post-tax">${tagsHtml}${categoriesHtml}</div>`
+  : '';
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
 
