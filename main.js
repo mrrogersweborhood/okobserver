@@ -1199,7 +1199,6 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
       : '';
-// --- DETAIL TAGS/CATEGORIES ---
 // --- DETAIL TAGS/CATEGORIES (restore) ---
 const cats = extractCategories(post) || [];
 const tags = extractTags(post) || [];
@@ -1207,25 +1206,24 @@ const tags = extractTags(post) || [];
 const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
 const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boolean);
 
-const tagsHtml = `
-  <div class="post-tags" aria-label="Tags">
-    ${
-      tagNames.length
-        ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
-        : `<span class="post-tag post-tag-empty">None</span>`
-    }
-  </div>
-`;
+// Always show "Tags" (even if empty)
+const tagsHtml = `<div class="post-tags" aria-label="Tags">
+  ${
+    tagNames.length
+      ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
+      : `<span class="post-tag post-tag-empty">None</span>`
+  }
+</div>`;
 
+// Categories optional (unchanged)
 const categoriesHtml = catNames.length
   ? `<div class="post-tags" aria-label="Categories">
        ${catNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')}
      </div>`
   : '';
 
-const taxHtml = (tagsHtml || categoriesHtml)
-  ? `<div class="post-tax">${tagsHtml}${taxHtml}</div>`
-  : '';
+// ✅ taxHtml is now initialized BEFORE the template uses it
+const taxHtml = `<div class="post-tax">${tagsHtml}${categoriesHtml}</div>`;
 
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
