@@ -6521,3 +6521,13 @@ body.is-menu-open nav#oo-menu.oo-menu *{
   cursor: pointer !important;
 }
 .post-hero-link { display: block; }
+/* --- FIX: prevent sticky header from covering post tags --- */
+.post-detail .post-tax {
+  margin-top: 1rem;
+  padding-top: 0.25rem;
+}
+
+/* Ensure tags are not overlapped by sticky header */
+.post-detail {
+  scroll-margin-top: 96px; /* matches header height */
+}
