@@ -6558,3 +6558,9 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-detail .post-tag-empty {
   opacity: 0.7;
 }
+/* --- FIX: prevent zoom/magnifier cursor on post detail hero image --- */
+.post-detail img,
+.post-detail .post-hero img,
+.post-detail .featured-image img {
+  cursor: default !important;
+}
