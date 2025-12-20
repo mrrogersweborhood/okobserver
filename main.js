@@ -1206,11 +1206,14 @@ const tags = extractTags(post) || [];
 const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
 const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boolean);
 
-const tagsHtml = tagNames.length
-  ? `<div class="post-tags" aria-label="Tags">
-       ${tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')}
-     </div>`
-  : '';
+const tagsHtml = `<div class="post-tags" aria-label="Tags">
+  ${
+    tagNames.length
+      ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
+      : `<span class="post-tag post-tag-empty">None</span>`
+  }
+</div>`;
+
 
 const categoriesHtml = catNames.length
   ? `<div class="post-tags" aria-label="Categories">
