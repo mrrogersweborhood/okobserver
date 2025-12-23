@@ -606,10 +606,25 @@ function extractHeroLinkFromContent(post) {
 
     card.addEventListener('click', (evt) => {
       const clickedLink = evt.target.closest('a');
-      if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
-        // Let links inside the excerpt behave like normal links.
-        return;
-      }
+if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
+  // If WP injected the paywall login redirect link, keep the user inside the SPA.
+  const href = (clickedLink.getAttribute('href') || '').trim();
+
+  if (
+    href &&
+    href.includes('okobserver.org/my-account') &&
+    href.includes('wcm_redirect_to=post')
+  ) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    navigateTo('#/login');
+    return;
+  }
+
+  // Otherwise, let links inside the excerpt behave like normal links.
+  return;
+}
+
       evt.preventDefault();
       saveHomeScroll();
       navigateTo(`#/post/${post.id}`);
@@ -1190,12 +1205,49 @@ function linkifyPaywallLoginForSignedOut(html) {
   const marker = 'To access this content, you must log in or purchase';
   if (html.indexOf(marker) === -1) return html;
 
-  // If it's already linkified, do nothing
-  if (html.match(/<a\b[^>]*>\s*log in\s*<\/a>/i)) return html;
+  try {
+    // Use a DOM pass so we can rewrite WP-injected links safely.
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
 
-  // Replace ONLY the first "log in" occurrence in that block with an in-app route
-  return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    // 1) If WP already wrapped "log in" in a my-account redirect link, rewrite it to SPA login.
+    const links = Array.from(tmp.querySelectorAll('a'));
+    for (const a of links) {
+      const text = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const href = (a.getAttribute('href') || '').trim();
+
+      if (
+        text === 'log in' &&
+        href.includes('okobserver.org/my-account') &&
+        href.includes('wcm_redirect_to=post')
+      ) {
+        a.setAttribute('href', '#/login');
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+        a.classList.add('oo-inline-login');
+        return tmp.innerHTML;
+      }
+    }
+
+    // 2) Otherwise, if "log in" is plain text (no existing link), linkify the first occurrence.
+    // If it's already linkified (any link around "log in"), do nothing.
+    const alreadyLinkified = tmp.querySelectorAll('a').length && links.some(a => {
+      const t = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      return t === 'log in';
+    });
+    if (alreadyLinkified) return html;
+
+    // Plain-text fallback: replace first "log in" in the paywall block.
+    // (Keep visible copy identical.)
+    return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+  } catch (_) {
+    // Safe fallback if DOM parsing fails
+    // (Only affect plain text case)
+    if (html.match(/<a\b[^>]*>\s*log in\s*<\/a>/i)) return html;
+    return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+  }
 }
+
 
   function renderPostDetailInner(post) {
   // --- FIX: prevent scroll restoration from hiding post tags ---
