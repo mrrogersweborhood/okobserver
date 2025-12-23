@@ -1183,6 +1183,19 @@ function removePaywallNoticeFromDetail(html) {
     return html;
   }
 }
+function linkifyPaywallLoginForSignedOut(html) {
+  if (!html) return html;
+
+  // Only touch the signed-out paywall line (keeps everything else unchanged)
+  const marker = 'To access this content, you must log in or purchase';
+  if (html.indexOf(marker) === -1) return html;
+
+  // If it's already linkified, do nothing
+  if (html.match(/<a\b[^>]*>\s*log in\s*<\/a>/i)) return html;
+
+  // Replace ONLY the first "log in" occurrence in that block with an in-app route
+  return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+}
 
   function renderPostDetailInner(post) {
   // --- FIX: prevent scroll restoration from hiding post tags ---
@@ -1195,10 +1208,14 @@ function removePaywallNoticeFromDetail(html) {
 
     const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
     const titleHtml = rawTitle;
-    let contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+let contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+
 if (isClientLoggedIn && isClientLoggedIn()) {
   contentHtml = removePaywallNoticeFromDetail(contentHtml);
+} else {
+  contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
 }
+
 
 
     const dateStr = formatDate(post.date);
