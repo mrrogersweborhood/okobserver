@@ -1628,7 +1628,7 @@ div:has(> .post-card):not(.post-detail) {
   display: block;
 }
 
-/* Reduce tap-jank on the hamburger button */
+/* Reduce tap-jank on the hamburger button 2*/
 .oo-hamburger {
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
@@ -1685,7 +1685,7 @@ div:has(> .post-card):not(.post-detail) {
   display: block;
 }
 
-/* Reduce tap-jank on the hamburger button */
+/* Reduce tap-jank on the hamburger button 1*/ 
 .oo-hamburger {
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
@@ -2253,7 +2253,6 @@ header [data-oo="hamburger"], .site-header [data-oo="hamburger"], .oo-header [da
 
 /* Ensure the header can anchor absolutely-positioned controls */
 .oo-header, .site-header, header { position: sticky; top: 0; z-index: 1002; }
-.oo-header, .site-header, header { position: relative; } /* for absolute hamburger */
 
 /* Center the brand block and motto */
 .oo-brand, .site-branding, .brand {
@@ -3794,6 +3793,17 @@ body > header.oo-header {
   top: 50%;
   transform: translateY(-50%);
 }
+/* 🟢 B) Desktop hamburger jump fix — preserve translateY on press (append-only) */
+@media (min-width: 769px) {
+  [data-oo="hamburger"]:active,
+  .oo-hamburger:active {
+    /* If any other rule sets transform on :active (like scale), it causes the jump.
+       Force the same translateY so the icon stays vertically locked. */
+    transform: translateY(-50%) !important;
+  }
+}
+/* 🔴 B) Desktop hamburger jump fix */
+
 /* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
 /* 🔧 Mobile hamburger visibility fix — safe append only */
 @media (max-width: 768px) {
