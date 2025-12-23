@@ -1004,18 +1004,23 @@ const statusTextEl = statusEl
 
   // Auto-focus the search box when the search view is shown,
   // without disturbing scroll restore.
-  requestAnimationFrame(() => {
-    if (document.body.contains(input)) {
-      try {
-        input.focus({ preventScroll: true });
-      } catch (e) {
-        // Fallback for older browsers
+    // Auto-focus ONLY when entering Search with no query.
+  // If q is present (e.g., after clicking Search), do NOT refocus (prevents mobile keyboard pop).
+  if (!initialQuery) {
+    requestAnimationFrame(() => {
+      if (document.body.contains(input)) {
         try {
-          input.focus();
-        } catch (_) {}
+          input.focus({ preventScroll: true });
+        } catch (e) {
+          // Fallback for older browsers
+          try {
+            input.focus();
+          } catch (_) {}
+        }
       }
-    }
-  });
+    });
+  }
+
 
 
         if (initialQuery) {
