@@ -538,13 +538,19 @@ function extractHeroLinkFromContent(post) {
     }
   }
 
-  function buildTtsTextFromHtml(html) {
-    if (!html) return '';
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const text = tmp.textContent || tmp.innerText || '';
-    return text.replace(/\s+/g, ' ').trim();
-  }
+function buildTtsTextFromHtml(html) {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+
+  const text = tmp.textContent || tmp.innerText || '';
+
+  // TTS: strip bare URLs (prevents reading raw podcast/file links like https://...mp3)
+  const noUrls = text.replace(/\bhttps?:\/\/[^\s]+/gi, '');
+
+  return noUrls.replace(/\s+/g, ' ').trim();
+}
+
 
   // ---------------------------------------------------------------------------
   // Card creation (home/search grid)
