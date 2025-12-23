@@ -1201,26 +1201,23 @@ function removePaywallNoticeFromDetail(html) {
 function linkifyPaywallLoginForSignedOut(html) {
   if (!html) return html;
 
-  // Only touch the signed-out paywall line (keeps everything else unchanged)
-  const marker = 'To access this content, you must log in or purchase';
-  if (html.indexOf(marker) === -1) return html;
-
   try {
-    // Use a DOM pass so we can rewrite WP-injected links safely.
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
 
-    // 1) If WP already wrapped "log in" in a my-account redirect link, rewrite it to SPA login.
+    const isWpPaywallLoginHref = (href) => {
+      if (!href) return false;
+      const h = String(href).trim();
+      return h.includes('my-account') && h.includes('wcm_redirect_to=post');
+    };
+
+    // 1) Rewrite WP-injected paywall login links ("log in" or "sign in") to SPA login.
     const links = Array.from(tmp.querySelectorAll('a'));
     for (const a of links) {
       const text = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
       const href = (a.getAttribute('href') || '').trim();
 
-      if (
-        text === 'log in' &&
-        href.includes('my-account') &&
-        href.includes('wcm_redirect_to=post')
-      ) {
+      if ((text === 'log in' || text === 'sign in') && isWpPaywallLoginHref(href)) {
         a.setAttribute('href', '#/login');
         a.removeAttribute('target');
         a.removeAttribute('rel');
@@ -1229,22 +1226,25 @@ function linkifyPaywallLoginForSignedOut(html) {
       }
     }
 
-    // 2) Otherwise, if "log in" is plain text (no existing link), linkify the first occurrence.
-    // If it's already linkified (any link around "log in"), do nothing.
-    const alreadyLinkified = tmp.querySelectorAll('a').length && links.some(a => {
-      const t = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      return t === 'log in';
-    });
-    if (alreadyLinkified) return html;
+    // 2) Plain-text fallback: if the words exist without a link, linkify them.
+    // (Does not change any other content.)
+    if (/\bsign in\b/i.test(html)) {
+      return html.replace(/\bsign in\b/i, `<a href="#/login" class="oo-inline-login">sign in</a>`);
+    }
+    if (/\blog in\b/i.test(html)) {
+      return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    }
 
-    // Plain-text fallback: replace first "log in" in the paywall block.
-    // (Keep visible copy identical.)
-    return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    return html;
   } catch (_) {
-    // Safe fallback if DOM parsing fails
-    // (Only affect plain text case)
-    if (html.match(/<a\b[^>]*>\s*log in\s*<\/a>/i)) return html;
-    return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    // Safe fallback
+    if (/\bsign in\b/i.test(html)) {
+      return html.replace(/\bsign in\b/i, `<a href="#/login" class="oo-inline-login">sign in</a>`);
+    }
+    if (/\blog in\b/i.test(html)) {
+      return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    }
+    return html;
   }
 }
 
