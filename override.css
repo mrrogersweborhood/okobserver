@@ -6580,3 +6580,7 @@ button.oo-hamburger:focus,
 button.oo-hamburger:active {
   outline: none;
 }
+/* Active state must NOT override centering transform */
+.oo-hamburger:active {
+  transform: inherit !important;
+}
