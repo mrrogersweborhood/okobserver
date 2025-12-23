@@ -1634,7 +1634,7 @@ div:has(> .post-card):not(.post-detail) {
   cursor: pointer;
 }
 .oo-hamburger:active {
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 /* 🔴 override.css — END FULL FILE */
 /* 🟢 Full file: override.css v2025-11-07SR1 + append-only: hamburger animation hooks */
@@ -1691,7 +1691,7 @@ div:has(> .post-card):not(.post-detail) {
   cursor: pointer;
 }
 .oo-hamburger:active {
-  transform: scale(0.98);
+  opacity: 0.85;
 }
 /* 🔴 override.css — END FULL FILE */
 /* 🟢 post detail byline */
@@ -6590,4 +6590,11 @@ button.oo-hamburger:active {
 .oo-hamburger:active {
   transform: translateY(-50%) !important; /* preserve centering */
   opacity: 0.85;                          /* visual feedback without layout shift */
+}
+/* 🟢 OkObserver — MOBILE hamburger centering lock
+   Prevent :active state from breaking vertical centering on mobile only */
+@media (max-width: 768px) {
+  .oo-hamburger:active {
+    transform: translateY(-50%) !important;
+  }
 }
