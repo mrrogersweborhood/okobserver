@@ -6584,3 +6584,10 @@ button.oo-hamburger:active {
 .oo-hamburger:active {
   transform: inherit !important;
 }
+/* 🟢 OkObserver — FIX mobile hamburger jump (append-only, safe)
+   Reason: :active transform was overriding translateY(-50%)
+*/
+.oo-hamburger:active {
+  transform: translateY(-50%) !important; /* preserve centering */
+  opacity: 0.85;                          /* visual feedback without layout shift */
+}
