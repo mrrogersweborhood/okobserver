@@ -761,7 +761,13 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     const sentinel = document.createElement('div');
     sentinel.className = 'scroll-sentinel';
     sentinel.setAttribute('aria-hidden', 'true');
-    grid.insertAdjacentElement('afterend', sentinel);
+// Ensure the sentinel has real dimensions so IntersectionObserver can reach
+// intersectionRatio >= SCROLL_SENTRY_OFFSET (0.9). A 0-height sentinel can “stall” scrolling.
+sentinel.style.display = 'block';
+sentinel.style.width = '100%';
+sentinel.style.height = '1px';
+    
+grid.insertAdjacentElement('afterend', sentinel);
 
     infiniteObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
