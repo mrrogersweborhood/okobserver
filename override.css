@@ -3789,19 +3789,30 @@ body > header.oo-header {
 /* 🔴 OkObserver — header restore + search icon stack */
 /* 🟢 OkObserver — mobile/desktop hamburger vertical alignment fix (append-only) */
 /* Ensure the absolutely positioned hamburger is vertically centered in the header. */
-[data-oo="hamburger"], .oo-hamburger {
-  top: 50%;
-  transform: translateY(-50%);
-}
-/* 🟢 B) Desktop hamburger jump fix — preserve translateY on press (append-only) */
-@media (min-width: 769px) {
-  [data-oo="hamburger"]:active,
-  .oo-hamburger:active {
-    /* If any other rule sets transform on :active (like scale), it causes the jump.
-       Force the same translateY so the icon stays vertically locked. */
-    transform: translateY(-50%) !important;
+/* 🟢 OkObserver — MOBILE hamburger vertical alignment fix (append-only)
+   Mobile uses absolute positioning, so we center with top:50% + translateY(-50%) */
+@media (max-width: 768px) {
+  [data-oo="hamburger"], .oo-hamburger {
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
+/* 🟢 B) Desktop hamburger jump fix — preserve translateY on press (append-only) */
+/* 🟢 B) Desktop hamburger jump fix — never change transform on press (append-only) */
+@media (min-width: 769px) {
+  [data-oo="hamburger"],
+  .oo-hamburger {
+    transform: none !important;
+    top: auto !important;
+  }
+
+  [data-oo="hamburger"]:active,
+  .oo-hamburger:active {
+    transform: none !important; /* prevents click-jump */
+    opacity: 0.85;              /* optional press feedback */
+  }
+}
+
 /* 🔴 B) Desktop hamburger jump fix */
 
 /* 🔴 OkObserver — mobile/desktop hamburger vertical alignment fix */
@@ -6606,5 +6617,15 @@ button.oo-hamburger:active {
 @media (max-width: 768px) {
   .oo-hamburger:active {
     transform: translateY(-50%) !important;
+  }
+}
+/* 🟢 OkObserver — DESKTOP hamburger jump fix (append-only)
+   Desktop must NOT inherit/translateY on :active (causes vertical jump). */
+@media (min-width: 769px) {
+  .oo-header .oo-hamburger:active,
+  .oo-header [data-oo="hamburger"]:active,
+  .oo-hamburger:active,
+  [data-oo="hamburger"]:active {
+    transform: none !important;
   }
 }
