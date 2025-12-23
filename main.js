@@ -612,7 +612,7 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
 
   if (
     href &&
-    href.includes('okobserver.org/my-account') &&
+    href.includes('my-account') &&
     href.includes('wcm_redirect_to=post')
   ) {
     evt.preventDefault();
@@ -1218,7 +1218,7 @@ function linkifyPaywallLoginForSignedOut(html) {
 
       if (
         text === 'log in' &&
-        href.includes('okobserver.org/my-account') &&
+        href.includes('my-account') &&
         href.includes('wcm_redirect_to=post')
       ) {
         a.setAttribute('href', '#/login');
