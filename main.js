@@ -290,7 +290,8 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
 
 
   async function fetchPostsPage(page) {
-    const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
+    const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+
     return fetchJson(url);
   }
 
@@ -308,7 +309,8 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   async function fetchSearchResults(term, page = 1) {
     const enc = encodeURIComponent(term || '');
     const url =
-      `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed`;
+  `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+
     return fetchJson(url);
   }
 
