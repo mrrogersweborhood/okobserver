@@ -6564,3 +6564,19 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-detail .featured-image img {
   cursor: default !important;
 }
+/* --- Stabilize mobile hamburger icon (prevent vertical jump) --- */
+button.oo-hamburger {
+  width: 44px;              /* fixed tap target */
+  height: 44px;             /* FIXED HEIGHT = no jump */
+  padding: 0;               /* remove baseline-sensitive padding */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;           /* decouple glyph baseline */
+}
+
+/* Prevent focus/active state from shifting layout */
+button.oo-hamburger:focus,
+button.oo-hamburger:active {
+  outline: none;
+}
