@@ -835,6 +835,20 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       if (appendedCount > 0) {
         grid.appendChild(frag);
       }
+// If WP returned posts but all were filtered out (e.g., cartoons),
+// skip ahead to the next page automatically instead of “stalling” infinite scroll.
+if (posts.length > 0 && appendedCount === 0) {
+  currentPage += 1;
+  hidePagingStatus();
+
+  // Let the current call unwind (so finally runs) before fetching the next page.
+  setTimeout(() => {
+    loadMorePosts();
+  }, 0);
+
+  return;
+}
+
 
       currentPage += 1;
       hidePagingStatus();
