@@ -300,17 +300,14 @@ async function fetchPostById(id) {
     return postCache.get(id);
   }
 
-const url = `${WP_API_BASE}/posts/${id}?_embed`;
+  const url = `${WP_API_BASE}/posts/${id}?_embed`;
 
-
-  const data = await fetchJson(
-    url,
-    isLoggedIn ? { credentials: 'include' } : {}
-  );
+  const data = await fetchJson(url);
 
   postCache.set(id, data);
   return data;
 }
+
 
 
   async function fetchSearchResults(term, page = 1) {
