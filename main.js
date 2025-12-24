@@ -300,10 +300,7 @@ async function fetchPostById(id) {
     return postCache.get(id);
   }
 
-  const isLoggedIn = isClientLoggedIn();
-const url = isLoggedIn
-  ? `${WP_API_BASE}/posts/${id}?_embed&context=edit`
-  : `${WP_API_BASE}/posts/${id}?_embed`;
+const url = `${WP_API_BASE}/posts/${id}?_embed`;
 
 
   const data = await fetchJson(
