@@ -1,30 +1,177 @@
+// 🟢 worker.js
+// OkObserver Cloudflare Worker — FULL REPLACEMENT (v2025-12-13a)
+// (Filename is illustrative; paste into your Cloudflare Worker editor as the whole script.)
+// 🟢 worker.js
+
 /**
- * OkObserver Cloudflare Worker — FULL REPLACEMENT (v2025-10-30q)
- * - Transparent pass-through for WordPress REST JSON (keeps paywall/login HTML intact)
- * - CORS for GitHub Pages
- * - Caches only successful (2xx) JSON briefly; never caches 404/5xx
+ * OkObserver Cloudflare Worker — FULL REPLACEMENT (v2025-12-13a)
+ * - Proxies WordPress REST JSON from https://okobserver.org
+ * - Adds /auth/login + /auth/logout for JWT cookie sessions
+ * - Injects Authorization: Bearer <jwt> to upstream when cookie present
+ * - Never caches authenticated requests
+ * - CORS for GitHub Pages (credentials supported for your GH origin)
  * - /status health endpoint
- * - EXTRA DIAGNOSTICS: logs inbound path + upstream URL + status (to resolve 404 loops)
+ * - Friendly / root text for Cloudflare preview
  */
 
 const ORIGIN = "https://okobserver.org";
+const API_ALLOW = ["/wp-json/"]; // allow anything under /wp-json/
 
-// Relaxed allowlist: permit all WordPress REST routes (including /wp-json/wp/v2/* and embeds)
-const API_ALLOW = ["/wp-json/"]; // anything under /wp-json/ is OK
-
-const CACHE_TTL = 300;       // seconds
+const CACHE_TTL = 300;        // seconds
 const NOCACHE_QS = "nocache"; // append ?nocache=1 to bypass edge caching
+
+/* ---------------- AUTH HELPERS ---------------- */
+
+const JWT_COOKIE_NAME = "okobserver_jwt";
+const JWT_MAX_AGE = 60 * 60 * 8; // 8 hours
+const WP_JWT_ENDPOINT = `${ORIGIN}/wp-json/jwt-auth/v1/token`; // JWT Authentication for WP REST API
+
+async function handleLogin(request) {
+  try {
+    const body = await request.json();
+    const { username, password } = body || {};
+
+    if (!username || !password) {
+      return json(
+        400,
+        { success: false, message: "Username and password required." },
+        { "cache-control": "no-store" },
+        request
+      );
+    }
+
+    const wpResp = await fetch(WP_JWT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username, password }).toString()
+    });
+
+    const data = await wpResp.json();
+
+    // Plugin returns { token, user_email, user_nicename, user_display_name }
+    if (!wpResp.ok || !data?.token) {
+      return json(
+        401,
+        { success: false, message: data?.message || "Invalid credentials." },
+        { "cache-control": "no-store" },
+        request
+      );
+    }
+
+    const token = data.token;
+
+    const user = {
+      id: data?.data?.user?.id || null, // sometimes present, sometimes not
+      name: data.user_display_name || data.user_nicename || username,
+      email: data.user_email || null
+    };
+
+    const headers = new Headers(corsHeaders(request));
+    headers.append("Set-Cookie", makeJwtCookie(token, JWT_MAX_AGE));
+    headers.set("Content-Type", "application/json; charset=utf-8");
+    headers.set("cache-control", "no-store");
+
+    return new Response(JSON.stringify({ success: true, user }), {
+      status: 200,
+      headers
+    });
+  } catch (err) {
+    console.error("[Auth] Login failed:", err?.message || err);
+    return jsonError(500, "Login failed", err, request);
+  }
+}
+
+async function handleLogout(request) {
+  const headers = new Headers(corsHeaders(request));
+  headers.append("Set-Cookie", expireJwtCookie());
+  headers.set("Content-Type", "application/json; charset=utf-8");
+  headers.set("cache-control", "no-store");
+
+  return new Response(JSON.stringify({ success: true }), {
+    status: 200,
+    headers
+  });
+}
+
+function makeJwtCookie(token, maxAge) {
+  return [
+    `${JWT_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=None",
+    "Partitioned",
+    `Max-Age=${maxAge}`
+  ].join("; ");
+}
+
+function expireJwtCookie() {
+  return [
+    `${JWT_COOKIE_NAME}=`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=None",
+    "Partitioned",
+    "Max-Age=0"
+  ].join("; ");
+}
+
+function getJwtFromCookie(request) {
+  const cookie = request.headers.get("Cookie") || "";
+  const parts = cookie.split(";").map((c) => c.trim());
+  for (const p of parts) {
+    if (p.startsWith(`${JWT_COOKIE_NAME}=`)) {
+      return decodeURIComponent(p.slice(JWT_COOKIE_NAME.length + 1));
+    }
+  }
+  return null;
+}
+
+/* ---------------- MAIN FETCH HANDLER ---------------- */
+
+async function fetchUpstreamWithOptionalAuth(upstream, init, hadAuth) {
+  const resp = await fetch(upstream, init);
+
+  // If a bad/expired JWT breaks public reads, retry once without Authorization.
+  if (hadAuth && resp.status === 401) {
+    const retryHeaders = new Headers(init.headers);
+    retryHeaders.delete("Authorization");
+    const retryInit = { ...init, headers: retryHeaders };
+    return fetch(upstream, retryInit);
+  }
+
+  return resp;
+}
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // --- CORS preflight ---
+    // Friendly root for Cloudflare Preview
+    if (url.pathname === "/" && request.method === "GET") {
+      return text(
+        200,
+        "OkObserver proxy is running. Try /status or /wp-json/wp/v2/posts?per_page=1",
+        request,
+        { "cache-control": "no-store" }
+      );
+    }
+
+    /* ------------------ AUTH ROUTES (must come first) ------------------ */
+    if (url.pathname === "/auth/login" && request.method === "POST") {
+      return handleLogin(request);
+    }
+    if (url.pathname === "/auth/logout" && request.method === "POST") {
+      return handleLogout(request);
+    }
+
+    /* ---------------------- CORS Preflight ---------------------- */
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
-    // --- Health check ---
+    /* ------------------------- Health Check ------------------------- */
     if (url.pathname === "/status") {
       return json(
         200,
@@ -32,37 +179,46 @@ export default {
           ok: true,
           now: new Date().toISOString(),
           upstream: ORIGIN,
-          note: "Proxy is online; JSON passed through unmodified.",
+          note: "Proxy is online; JSON passed through unmodified."
         },
         { "cache-control": "no-store" },
         request
       );
     }
 
-    // --- Allow only WP REST API routes we expect ---
+    /* ---------- Allow only expected WP REST API routes ---------- */
     const allowed = API_ALLOW.some((p) => url.pathname.startsWith(p));
     if (!allowed) {
       console.log(`[Proxy] BLOCKED path: ${url.pathname}`);
-      return text(403, "Not allowed", request);
+      return text(403, "Not allowed", request, { "cache-control": "no-store" });
     }
 
-    // --- Build absolute upstream URL (preserves path + query exactly) ---
-    // Using explicit concatenation to avoid leading-slash surprises.
+    /* ----------------- Build upstream WordPress URL ----------------- */
     const upstream = new URL(`${ORIGIN}${url.pathname}${url.search}`);
 
-    // DIAGNOSTIC: show inbound and upstream for quick verification
     console.log(`[Proxy] Inbound:  ${url.pathname}${url.search}`);
     console.log(`[Proxy] Upstream: ${upstream.pathname}${upstream.search}`);
 
-    // --- Prepare headers (strip origin-ish headers; set a UA) ---
+    /* ----------------- Prepare headers for upstream ----------------- */
     const fwdHeaders = new Headers(request.headers);
-    ["origin", "referer", "cf-connecting-ip", "x-forwarded-for", "x-forwarded-proto"].forEach((h) =>
-      fwdHeaders.delete(h)
-    );
+    ["origin", "referer", "cf-connecting-ip", "x-forwarded-for", "x-forwarded-proto"]
+      .forEach((h) => fwdHeaders.delete(h));
+
     fwdHeaders.set("user-agent", "okobserver-proxy/1.3 (+workers)");
 
-    // Decide if this is cacheable
+    /* ----------------------- JWT Injection ----------------------- */
+    const jwt = getJwtFromCookie(request);
+    const hadAuth = !!(jwt && jwt.trim());
+
+    if (hadAuth) {
+      fwdHeaders.set("Authorization", `Bearer ${jwt.trim()}`);
+    } else {
+      fwdHeaders.delete("Authorization");
+    }
+
+    /* ---------------------- Cache Logic ---------------------- */
     const cacheable =
+      !hadAuth &&
       (request.method === "GET" || request.method === "HEAD") &&
       !upstream.searchParams.has(NOCACHE_QS);
 
@@ -76,26 +232,33 @@ export default {
       ...(cacheable && {
         cf: {
           cacheEverything: true,
-          cacheTtlByStatus: { "200-299": CACHE_TTL, "300-399": 60, "404": 0, "500-599": 0 },
-        },
-      }),
+          cacheTtlByStatus: {
+            "200-299": CACHE_TTL,
+            "300-399": 60,
+            "401": 0,
+            "403": 0,
+            "404": 0,
+            "500-599": 0
+          }
+        }
+      })
     };
 
-    // --- Fetch origin ---
+    /* -------------------- Fetch WordPress -------------------- */
     let upstreamResp;
     try {
-      upstreamResp = await fetch(upstream, init);
+      upstreamResp = await fetchUpstreamWithOptionalAuth(upstream, init, hadAuth);
     } catch (err) {
       console.error("[Proxy] Upstream fetch failed:", err?.message || err);
       return jsonError(502, "Upstream fetch failed", err, request);
     }
 
-    // DIAGNOSTIC: status line
     console.log(`[Proxy] ${upstreamResp.status} ${upstream.pathname}`);
 
-    // --- Prepare response headers (CORS + relax embed-breaking headers) ---
+    /* ------------------- Prepare Outgoing Headers ------------------- */
     const outHeaders = new Headers(upstreamResp.headers);
-    outHeaders.set("access-control-allow-origin", "*");
+    Object.entries(corsHeaders(request)).forEach(([k, v]) => outHeaders.set(k, v));
+
     outHeaders.set(
       "access-control-allow-headers",
       request.headers.get("access-control-request-headers") ||
@@ -103,70 +266,64 @@ export default {
     );
     outHeaders.set("access-control-allow-methods", "GET,HEAD,POST,OPTIONS");
     outHeaders.set("access-control-max-age", "86400");
+
+    // Allow embeds / oEmbed
     outHeaders.delete("content-security-policy");
     outHeaders.delete("x-frame-options");
+
     outHeaders.set("x-proxy-cache", cacheable ? "possible" : "bypass");
 
-    // Never cache errors
     if (upstreamResp.status >= 400) {
       outHeaders.set("cache-control", "no-store");
     }
 
-    const ct = upstreamResp.headers.get("content-type") || "";
-
-    // Helpful 404 body for debugging (includes upstream URL), but still passes status 404
-    if (upstreamResp.status === 404 && !ct.includes("application/json")) {
-      return json(
-        404,
-        {
-          error: "Not Found (origin)",
-          path: upstream.pathname,
-          query: upstream.search,
-          note:
-            "The origin returned 404. Confirm the post ID exists and the upstream URL is correct.",
-        },
-        { ...Object.fromEntries(outHeaders) },
-        request
-      );
-    }
-
-    // JSON pass-through (keeps paywall-protected content fields intact)
-    if (ct.includes("application/json")) {
-      const raw = await upstreamResp.text();
-      try {
-        const data = JSON.parse(raw);
-        logPostInfo(data);
-      } catch (_) {
-        // keep raw if parsing fails even though CT said JSON
-      }
-      return new Response(raw, { status: upstreamResp.status, headers: outHeaders });
-    }
-
-    // Non-JSON: stream
+    // Stream passthrough (JSON or otherwise)
     return new Response(upstreamResp.body, {
       status: upstreamResp.status,
-      headers: outHeaders,
+      headers: outHeaders
     });
-  },
+  }
 };
 
 /* ---------------- helpers ---------------- */
 
 function corsHeaders(req) {
-  return {
-    "access-control-allow-origin": "*",
+  const reqOrigin = req.headers.get("Origin") || "";
+  const allowedOrigin = "https://mrrogersweborhood.github.io";
+
+  const base = {
     "access-control-allow-methods": "GET,HEAD,POST,OPTIONS",
     "access-control-allow-headers":
       req.headers.get("access-control-request-headers") ||
       "content-type, authorization, x-requested-with",
-    "access-control-max-age": "86400",
+    "access-control-max-age": "86400"
+  };
+
+  // If request comes from your GH Pages origin, allow credentials.
+  if (reqOrigin === allowedOrigin) {
+    return {
+      ...base,
+      "access-control-allow-origin": allowedOrigin,
+      "access-control-allow-credentials": "true",
+      "vary": "Origin"
+    };
+  }
+
+  // Otherwise allow public read-only CORS without credentials.
+  return {
+    ...base,
+    "access-control-allow-origin": "*"
   };
 }
 
-function text(status, body, req) {
+function text(status, body, req, extraHeaders) {
   return new Response(body, {
     status,
-    headers: { ...corsHeaders(req), "content-type": "text/plain; charset=utf-8" },
+    headers: {
+      ...corsHeaders(req),
+      "content-type": "text/plain; charset=utf-8",
+      ...(extraHeaders || {})
+    }
   });
 }
 
@@ -174,7 +331,7 @@ function json(status, obj, extraHeaders, req) {
   const headers = {
     ...corsHeaders(req),
     "content-type": "application/json; charset=utf-8",
-    ...(extraHeaders || {}),
+    ...(extraHeaders || {})
   };
   return new Response(JSON.stringify(obj), { status, headers });
 }
@@ -185,29 +342,12 @@ function jsonError(status, msg, err, req) {
     {
       error: msg,
       detail: String(err?.message || err || ""),
-      path: new URL(req.url).pathname,
+      path: new URL(req.url).pathname
     },
     { "cache-control": "no-store" },
     req
   );
 }
 
-function logPostInfo(data) {
-  try {
-    const mark = (p) => (p?.content?.protected ? "[protected]" : "");
-    if (Array.isArray(data)) {
-      for (const p of data) {
-        if (p?.id && p?.title?.rendered) {
-          console.log(`[Proxy] ${p.id} ${mark(p)} ${trimTitle(p.title.rendered)}`);
-        }
-      }
-    } else if (data?.id) {
-      console.log(`[Proxy] ${data.id} ${mark(data)} ${trimTitle(data?.title?.rendered || "")}`);
-    }
-  } catch (_) {}
-}
-
-function trimTitle(htmlTitle) {
-  const text = String(htmlTitle || "").replace(/<[^>]+>/g, "").trim();
-  return text.length > 80 ? text.slice(0, 77) + "…" : text;
-}
+// 🔴 worker.js
+// 🔴 worker.js
