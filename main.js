@@ -302,11 +302,15 @@ async function fetchPostById(id) {
 
   const url = `${WP_API_BASE}/posts/${id}?_embed`;
 
-  const data = await fetchJson(url);
+  const data = await fetchJson(
+    url,
+    { credentials: 'include' }   // ← THIS IS THE KEY
+  );
 
   postCache.set(id, data);
   return data;
 }
+
 
 
 
