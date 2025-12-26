@@ -433,13 +433,31 @@ function extractHeroLinkFromContent(post) {
 
   if (!html) return null;
 
-  // ONLY accept: <a href="..."><img ...></a>
+  // Prefer: <a href="..."><img ...></a>
   const m = html.match(
     /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i
   );
 
-  return (m && m[1]) ? m[1] : null;
+  const href = (m && m[1]) ? String(m[1]).trim() : "";
+
+  // IMPORTANT: ignore links that just point to image files
+  if (
+    href &&
+    !/\.(?:jpe?g|png|gif|webp|svg)(?:\?|#|$)/i.test(href)
+  ) {
+    return href;
+  }
+
+  // Fallback: FlipHTML / flipbook link anywhere in content
+  // (fixes posts like #/post/383665)
+  const flip = html.match(
+    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
+  );
+  if (flip && flip[1]) return String(flip[1]).trim();
+
+  return null;
 }
+
 
 
 
@@ -1403,10 +1421,10 @@ const featuredImageUrl = getFeaturedImageUrl(post);
 // Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
 const heroLinkRaw = extractHeroLinkFromContent(post);
 const heroLink =
-  heroLinkRaw && !/\.(jpe?g|png|gif|webp)$/i.test(heroLinkRaw)
-    ? heroLinkRaw
+  heroLinkRaw &&
+  !/\.(?:jpe?g|png|gif|webp|svg)(?:\?|#|$)/i.test(String(heroLinkRaw).trim())
+    ? String(heroLinkRaw).trim()
     : null;
-
 if (featuredImageUrl) {
   const safeAlt = escapeAttr(stripHtml(post.title.rendered || ''));
   const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
