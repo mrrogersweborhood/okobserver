@@ -448,8 +448,7 @@ function extractHeroLinkFromContent(post) {
     return href;
   }
 
-  // Fallback: FlipHTML / flipbook link anywhere in content
-  // (fixes posts like #/post/383665)
+  // Fallback: FlipHTML / flipbook link anywhere in content (fixes #/post/383665)
   const flip = html.match(
     /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
   );
@@ -682,26 +681,31 @@ function normalizeTextForHeuristics(html) {
 function isMostlyPaywallOrEmptyDetail(html) {
   const t = normalizeTextForHeuristics(html);
 
-  // “too short” usually means it’s not real body content
-  if (!t || t.length < 180) return true;
+  // Only treat as "missing" if truly empty (or basically empty)
+  if (!t || t.length < 10) return true;
 
-  // Common boilerplate phrases we’ve seen in restricted/truncated content
+  // Paywall/boilerplate signals (Woo/WP patterns)
   const signals = [
     'to access this content',
     'you must log in',
     'log in or purchase',
-    'print only',
-    'digital only',
+    'sign in',
+    'my account',
+    'subscription',
     'total access',
-    'subscription'
+    'digital only',
+    'print only'
   ];
 
-  // If it’s mostly boilerplate and very short, treat as fallback
   const hits = signals.filter(s => t.includes(s)).length;
-  if (hits >= 2 && t.length < 600) return true;
+
+  // Only fallback when we have strong evidence it's boilerplate
+  // (Do NOT use "short length" alone, because embed-heavy posts are naturally short in plain text.)
+  if (hits >= 2) return true;
 
   return false;
 }
+
 
 function buildDetailFallbackHtml(post) {
   const title = (post && post.title && post.title.rendered) ? post.title.rendered : '(Untitled)';
