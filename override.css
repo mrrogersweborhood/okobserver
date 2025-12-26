@@ -6629,3 +6629,21 @@ button.oo-hamburger:active {
     transform: none !important;
   }
 }
+.oo-detail-fallback {
+  padding: 12px 0;
+}
+.oo-detail-fallback-excerpt {
+  margin-top: 10px;
+}
+.oo-detail-fallback-actions {
+  margin-top: 12px;
+}
+.oo-detail-fallback-link {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  background: #1E90FF;
+  color: #fff;
+  font-weight: 600;
+}

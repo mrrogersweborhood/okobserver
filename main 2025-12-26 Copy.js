@@ -655,54 +655,6 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
     tmp.innerHTML = html;
     return (tmp.textContent || tmp.innerText || '').trim();
   }
-// --- Detail fallback: if WP returns empty/boilerplate content, render excerpt + source link ---
-function normalizeTextForHeuristics(html) {
-  const t = stripHtml(html || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  return t;
-}
-
-function isMostlyPaywallOrEmptyDetail(html) {
-  const t = normalizeTextForHeuristics(html);
-
-  // “too short” usually means it’s not real body content
-  if (!t || t.length < 180) return true;
-
-  // Common boilerplate phrases we’ve seen in restricted/truncated content
-  const signals = [
-    'to access this content',
-    'you must log in',
-    'log in or purchase',
-    'print only',
-    'digital only',
-    'total access',
-    'subscription'
-  ];
-
-  // If it’s mostly boilerplate and very short, treat as fallback
-  const hits = signals.filter(s => t.includes(s)).length;
-  if (hits >= 2 && t.length < 600) return true;
-
-  return false;
-}
-
-function buildDetailFallbackHtml(post) {
-  const title = (post && post.title && post.title.rendered) ? post.title.rendered : '(Untitled)';
-  const excerpt = (post && post.excerpt && post.excerpt.rendered) ? post.excerpt.rendered : '';
-  const link = (post && post.link) ? String(post.link) : 'https://okobserver.org/';
-
-  return `
-    <div class="oo-detail-fallback">
-      <p><strong>Full article text wasn’t available through the API for this post.</strong></p>
-      ${excerpt ? `<div class="oo-detail-fallback-excerpt">${excerpt}</div>` : `<p>(No excerpt available.)</p>`}
-      <p class="oo-detail-fallback-actions">
-        <a class="oo-detail-fallback-link" href="${escapeAttr(link)}" target="_blank" rel="noopener">
-          Read on okobserver.org ↗
-        </a>
-      </p>
-    </div>
-  `;
-}
-
   // Logged-in excerpt cleanup: remove paywall boilerplate from excerpts only
 function isClientLoggedIn() {
   try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
@@ -1357,10 +1309,6 @@ if (isClientLoggedIn && isClientLoggedIn()) {
   contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
 }
 
-// If content is empty/boilerplate/truncated, render a safe fallback (excerpt + source link)
-if (isMostlyPaywallOrEmptyDetail(contentHtml)) {
-  contentHtml = buildDetailFallbackHtml(post);
-}
 
 
     const dateStr = formatDate(post.date);
