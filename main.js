@@ -450,7 +450,7 @@ function extractHeroLinkFromContent(post) {
 
   // Fallback: FlipHTML / flipbook link anywhere in content (fixes #/post/383665)
   const flip = html.match(
-    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
+    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|online\.fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
   );
   if (flip && flip[1]) return String(flip[1]).trim();
 
