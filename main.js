@@ -453,7 +453,7 @@ function extractHeroLinkFromContent(post) {
     /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|online\.fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
   );
   if (flip && flip[1]) return String(flip[1]).trim();
-
+  
   return null;
 }
 
