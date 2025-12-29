@@ -296,15 +296,23 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   }
 
   async function fetchPostById(id) {
-    if (postCache.has(id)) {
-      return postCache.get(id);
-    }
-
-    const url = `${WP_API_BASE}/posts/${id}?_embed`;
-    const data = await fetchJson(url, isClientLoggedIn() ? { credentials: 'include' } : {});
-    postCache.set(id, data);
-    return data;
+  if (postCache.has(id)) {
+    return postCache.get(id);
   }
+
+  const isLoggedIn = isClientLoggedIn();
+  const contextParam = isLoggedIn ? '&context=edit' : '';
+  const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
+
+  const data = await fetchJson(
+    url,
+    isLoggedIn ? { credentials: 'include' } : {}
+  );
+
+  postCache.set(id, data);
+  return data;
+}
+
 
   async function fetchSearchResults(term, page = 1) {
     const enc = encodeURIComponent(term || '');
@@ -649,8 +657,17 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
   }
   // Logged-in excerpt cleanup: remove paywall boilerplate from excerpts only
 function isClientLoggedIn() {
-  try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
+  try {
+    return (
+      localStorage.getItem('ooLoggedIn') === '1' ||
+      localStorage.getItem('oo_logged_in') === '1' ||      // legacy restore key (if any)
+      localStorage.getItem('ooLoggedIn') === 'true'        // defensive
+    );
+  } catch (_) {
+    return false;
+  }
 }
+
 
 function cleanExcerptForLoggedIn(excerptHtml) {
   if (!excerptHtml) return '';
