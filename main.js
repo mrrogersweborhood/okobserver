@@ -301,13 +301,20 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   }
 
   const isLoggedIn = isClientLoggedIn();
-  const contextParam = isLoggedIn ? '&context=edit' : '';
+
+const fetchOpts = isLoggedIn
+  ? { credentials: 'include' }
+  : {};
+
+const contextParam =
+  fetchOpts.credentials === 'include'
+    ? '&context=edit'
+    : '';
+
   const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
 
-  const data = await fetchJson(
-    url,
-    isLoggedIn ? { credentials: 'include' } : {}
-  );
+const data = await fetchJson(url, fetchOpts);
+
 
   postCache.set(id, data);
   return data;
