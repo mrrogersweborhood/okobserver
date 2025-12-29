@@ -295,24 +295,16 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
     return fetchJson(url);
   }
 
-async function fetchPostById(id) {
-  if (postCache.has(id)) {
-    return postCache.get(id);
+  async function fetchPostById(id) {
+    if (postCache.has(id)) {
+      return postCache.get(id);
+    }
+
+    const url = `${WP_API_BASE}/posts/${id}?_embed`;
+    const data = await fetchJson(url, isClientLoggedIn() ? { credentials: 'include' } : {});
+    postCache.set(id, data);
+    return data;
   }
-
-  const url = `${WP_API_BASE}/posts/${id}?_embed`;
-
-  const data = await fetchJson(
-    url,
-    { credentials: 'include' }   // ← THIS IS THE KEY
-  );
-
-  postCache.set(id, data);
-  return data;
-}
-
-
-
 
   async function fetchSearchResults(term, page = 1) {
     const enc = encodeURIComponent(term || '');
@@ -433,30 +425,13 @@ function extractHeroLinkFromContent(post) {
 
   if (!html) return null;
 
-  // Prefer: <a href="..."><img ...></a>
+  // ONLY accept: <a href="..."><img ...></a>
   const m = html.match(
     /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i
   );
 
-  const href = (m && m[1]) ? String(m[1]).trim() : "";
-
-  // IMPORTANT: ignore links that just point to image files
-  if (
-    href &&
-    !/\.(?:jpe?g|png|gif|webp|svg)(?:\?|#|$)/i.test(href)
-  ) {
-    return href;
-  }
-
-  // Fallback: FlipHTML / flipbook link anywhere in content (fixes #/post/383665)
-  const flip = html.match(
-    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
-  );
-  if (flip && flip[1]) return String(flip[1]).trim();
-
-  return null;
+  return (m && m[1]) ? m[1] : null;
 }
-
 
 
 
@@ -672,59 +647,6 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
     tmp.innerHTML = html;
     return (tmp.textContent || tmp.innerText || '').trim();
   }
-// --- Detail fallback: if WP returns empty/boilerplate content, render excerpt + source link ---
-function normalizeTextForHeuristics(html) {
-  const t = stripHtml(html || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  return t;
-}
-
-function isMostlyPaywallOrEmptyDetail(html) {
-  const t = normalizeTextForHeuristics(html);
-
-  // Only treat as "missing" if truly empty (or basically empty)
-  if (!t || t.length < 10) return true;
-
-  // Paywall/boilerplate signals (Woo/WP patterns)
-  const signals = [
-    'to access this content',
-    'you must log in',
-    'log in or purchase',
-    'sign in',
-    'my account',
-    'subscription',
-    'total access',
-    'digital only',
-    'print only'
-  ];
-
-  const hits = signals.filter(s => t.includes(s)).length;
-
-  // Only fallback when we have strong evidence it's boilerplate
-  // (Do NOT use "short length" alone, because embed-heavy posts are naturally short in plain text.)
-  if (hits >= 2) return true;
-
-  return false;
-}
-
-
-function buildDetailFallbackHtml(post) {
-  const title = (post && post.title && post.title.rendered) ? post.title.rendered : '(Untitled)';
-  const excerpt = (post && post.excerpt && post.excerpt.rendered) ? post.excerpt.rendered : '';
-  const link = (post && post.link) ? String(post.link) : 'https://okobserver.org/';
-
-  return `
-    <div class="oo-detail-fallback">
-      <p><strong>Full article text wasn’t available through the API for this post.</strong></p>
-      ${excerpt ? `<div class="oo-detail-fallback-excerpt">${excerpt}</div>` : `<p>(No excerpt available.)</p>`}
-      <p class="oo-detail-fallback-actions">
-        <a class="oo-detail-fallback-link" href="${escapeAttr(link)}" target="_blank" rel="noopener">
-          Read on okobserver.org ↗
-        </a>
-      </p>
-    </div>
-  `;
-}
-
   // Logged-in excerpt cleanup: remove paywall boilerplate from excerpts only
 function isClientLoggedIn() {
   try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
@@ -1379,10 +1301,6 @@ if (isClientLoggedIn && isClientLoggedIn()) {
   contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
 }
 
-// If content is empty/boilerplate/truncated, render a safe fallback (excerpt + source link)
-if (isMostlyPaywallOrEmptyDetail(contentHtml)) {
-  contentHtml = buildDetailFallbackHtml(post);
-}
 
 
     const dateStr = formatDate(post.date);
@@ -1425,10 +1343,10 @@ const featuredImageUrl = getFeaturedImageUrl(post);
 // Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
 const heroLinkRaw = extractHeroLinkFromContent(post);
 const heroLink =
-  heroLinkRaw &&
-  !/\.(?:jpe?g|png|gif|webp|svg)(?:\?|#|$)/i.test(String(heroLinkRaw).trim())
-    ? String(heroLinkRaw).trim()
+  heroLinkRaw && !/\.(jpe?g|png|gif|webp)$/i.test(heroLinkRaw)
+    ? heroLinkRaw
     : null;
+
 if (featuredImageUrl) {
   const safeAlt = escapeAttr(stripHtml(post.title.rendered || ''));
   const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
