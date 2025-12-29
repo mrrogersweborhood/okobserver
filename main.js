@@ -295,30 +295,20 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
     return fetchJson(url);
   }
 
-  async function fetchPostById(id) {
+async function fetchPostById(id) {
   if (postCache.has(id)) {
     return postCache.get(id);
   }
 
-  const isLoggedIn = isClientLoggedIn();
+  const url = `${WP_API_BASE}/posts/${id}?_embed`;
 
-const fetchOpts = isLoggedIn
-  ? { credentials: 'include' }
-  : {};
-
-const contextParam =
-  fetchOpts.credentials === 'include'
-    ? '&context=edit'
-    : '';
-
-  const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
-
-const data = await fetchJson(url, fetchOpts);
-
+  // Only include creds when logged in (so cookie is sent).
+  const data = await fetchJson(url, isClientLoggedIn() ? { credentials: 'include' } : {});
 
   postCache.set(id, data);
   return data;
 }
+
 
 
   async function fetchSearchResults(term, page = 1) {
