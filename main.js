@@ -427,16 +427,11 @@ function getFirstLinkedImageHrefFromContent(post) {
   }
 }
 function extractHeroLinkFromContent(post) {
-    const contentHtml =
-    (post && post.content && post.content.rendered) ? String(post.content.rendered) : '';
-  const excerptHtml =
-    (post && post.excerpt && post.excerpt.rendered) ? String(post.excerpt.rendered) : '';
-
-  // Some paywalled / issue posts expose the FlipHTML link in excerpt, not content.
-  const html = (contentHtml + '\n' + excerptHtml).trim();
+  const html = post && post.content && post.content.rendered
+    ? post.content.rendered
+    : '';
 
   if (!html) return null;
-
 
   // Prefer: <a href="..."><img ...></a>
   const m = html.match(
@@ -455,31 +450,9 @@ function extractHeroLinkFromContent(post) {
 
   // Fallback: FlipHTML / flipbook link anywhere in content (fixes #/post/383665)
   const flip = html.match(
-    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|online\.fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
+    /<a\b[^>]*\bhref=["'](https?:\/\/(?:www\.)?(?:fliphtml5\.com|fliphtml\.com|online\.flippingbook\.com|heyzine\.com)\/[^"']+)["']/i
   );
   if (flip && flip[1]) return String(flip[1]).trim();
-    // Extra fallback: if WP content structure breaks the <a><img></a> pattern,
-  // still honor the first flipbook link anywhere in content by scanning <a> tags.
-  try {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-
-    const links = Array.from(tmp.querySelectorAll('a[href]'));
-    for (const a of links) {
-      const h = (a.getAttribute('href') || '').trim();
-      if (!h) continue;
-
-      if (
-        /^https?:\/\//i.test(h) &&
-        /(fliphtml5\.com|fliphtml\.com|flippingbook\.com|heyzine\.com)/i.test(h) &&
-        !/\.(?:jpe?g|png|gif|webp|svg)(?:\?|#|$)/i.test(h)
-      ) {
-        return h;
-      }
-    }
-  } catch (_) {
-    // ignore parsing errors and fall through
-  }
 
   return null;
 }
