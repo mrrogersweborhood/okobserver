@@ -297,7 +297,13 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
 
 async function fetchPostById(id) {
   const isLoggedIn = isClientLoggedIn();
-
+    console.debug('[OkObserver auth] fetchPostById:', {
+    id,
+    isLoggedIn,
+    ooLoggedIn: (() => { try { return localStorage.getItem('ooLoggedIn'); } catch(e){ return 'ERR'; } })(),
+    oo_logged_in: (() => { try { return localStorage.getItem('oo_logged_in'); } catch(e){ return 'ERR'; } })()
+  });
+ 
   if (postCache.has(id)) {
     const cached = postCache.get(id);
     const cachedAuth = !!(cached && cached._ooAuth);
@@ -310,7 +316,8 @@ async function fetchPostById(id) {
 
   const contextParam = isLoggedIn ? '&context=edit' : '';
 const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
-
+    console.debug('[OkObserver auth] fetchPostById url:', url);
+ 
 
   // Only include creds when logged in (so cookie is sent).
   const data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
