@@ -308,7 +308,9 @@ async function fetchPostById(id) {
     }
   }
 
-  const url = `${WP_API_BASE}/posts/${id}?_embed`;
+  const contextParam = isLoggedIn ? '&context=edit' : '';
+const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
+
 
   // Only include creds when logged in (so cookie is sent).
   const data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
@@ -1802,11 +1804,21 @@ window.location.replace(target);
         return false;
       }
 
-      console.info(
-        '[OkObserver] Login successful for:',
-        (data.user && (data.user.email || data.user.name)) || username
-      );
-      return true;
+console.info(
+  '[OkObserver] Login successful for:',
+  (data.user && (data.user.email || data.user.name)) || username
+);
+
+// ✅ persist logged-in state for authenticated fetches
+try {
+  localStorage.setItem('ooLoggedIn', '1');
+  if (data.token) {
+    localStorage.setItem('ooJwt', data.token);
+  }
+} catch (_) {}
+
+return true;
+
     } catch (err) {
       console.error('[OkObserver] Login error:', err);
       return false;
