@@ -296,18 +296,30 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   }
 
 async function fetchPostById(id) {
+  const isLoggedIn = isClientLoggedIn();
+
   if (postCache.has(id)) {
-    return postCache.get(id);
+    const cached = postCache.get(id);
+    const cachedAuth = !!(cached && cached._ooAuth);
+
+    // If login state changed since this post was cached, refetch.
+    if (cachedAuth === isLoggedIn) {
+      return cached;
+    }
   }
 
   const url = `${WP_API_BASE}/posts/${id}?_embed`;
 
   // Only include creds when logged in (so cookie is sent).
-  const data = await fetchJson(url, isClientLoggedIn() ? { credentials: 'include' } : {});
+  const data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
+
+  // Mark what auth state produced this cached payload.
+  try { data._ooAuth = !!isLoggedIn; } catch (_) {}
 
   postCache.set(id, data);
   return data;
 }
+
 
 
 
