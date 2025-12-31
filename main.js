@@ -320,7 +320,22 @@ const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
  
 
   // Only include creds when logged in (so cookie is sent).
-  const data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
+    let data;
+  try {
+    data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
+  } catch (err) {
+    // If WP rejects context=edit (403), retry without it.
+    const msg = (err && err.message) ? String(err.message) : '';
+    const is403 = msg.includes('HTTP 403');
+
+    if (isLoggedIn && is403) {
+      const fallbackUrl = `${WP_API_BASE}/posts/${id}?_embed`;
+      data = await fetchJson(fallbackUrl, { credentials: 'include' });
+    } else {
+      throw err;
+    }
+  }
+
 
   // Mark what auth state produced this cached payload.
   try { data._ooAuth = !!isLoggedIn; } catch (_) {}
