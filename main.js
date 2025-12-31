@@ -314,27 +314,27 @@ async function fetchPostById(id) {
     }
   }
 
-  const contextParam = isLoggedIn ? '&context=edit' : '';
-const url = `${WP_API_BASE}/posts/${id}?_embed${contextParam}`;
+  // If logged in, fetch the “full post” via the Worker endpoint (Option B).
+  // This avoids relying on WP REST context=edit, which may be blocked for members.
+  let data;
+
+  if (isLoggedIn) {
+    const fullUrlObj = new URL(WP_API_BASE);
+    fullUrlObj.pathname = '/content/full-post';
+    fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
+
+    console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
+
+    const fullResp = await fetchJson(fullUrlObj.toString(), { credentials: 'include' });
+
+    // Worker returns { ok:true, post:{...} } — fall back if structure differs.
+    data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
+  } else {
+    const url = `${WP_API_BASE}/posts/${id}?_embed`;
     console.debug('[OkObserver auth] fetchPostById url:', url);
- 
-
-  // Only include creds when logged in (so cookie is sent).
-    let data;
-  try {
-    data = await fetchJson(url, isLoggedIn ? { credentials: 'include' } : {});
-  } catch (err) {
-    // If WP rejects context=edit (403), retry without it.
-    const msg = (err && err.message) ? String(err.message) : '';
-    const is403 = msg.includes('HTTP 403');
-
-    if (isLoggedIn && is403) {
-      const fallbackUrl = `${WP_API_BASE}/posts/${id}?_embed`;
-      data = await fetchJson(fallbackUrl, { credentials: 'include' });
-    } else {
-      throw err;
-    }
+    data = await fetchJson(url, {});
   }
+
 
 
   // Mark what auth state produced this cached payload.

@@ -8,7 +8,7 @@
    - Static assets: cache-first with guarded network fill
    🔴 sw.js */
 
-const SW_BUILD = '2025-12-29R008';
+const SW_BUILD = '2025-12-29R009';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list (root-scope paths)
@@ -62,7 +62,8 @@ self.addEventListener('fetch', (event) => {
   // ✅ Auth/API safety: never cache WP API or auth endpoints in the SW
   // These can return different content when logged-in vs logged-out.
   const url = new URL(req.url);
-  if (url.pathname.includes('/wp-json/') || url.pathname.includes('/auth/')) {
+  if (url.pathname.includes('/wp-json/') || url.pathname.includes('/auth/') || url.pathname.includes('/content/')) {
+
     event.respondWith(fetch(req));
     return;
   }
