@@ -6676,3 +6676,14 @@ button.oo-hamburger:active {
     object-position: center 20%; /* bias framing upward so content is visible */
   }
 }
+/* Mobile: reduce perceived zoom while staying fullscreen */
+@media (max-width: 768px) {
+  .oo-splash-video,
+  .oo-splash-fallback-image {
+    object-fit: cover;
+    object-position: center top;
+
+    transform: scale(0.88);        /* <- THIS is the key */
+    transform-origin: center top;  /* keep masthead visible */
+  }
+}
