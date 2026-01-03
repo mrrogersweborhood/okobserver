@@ -6687,3 +6687,14 @@ button.oo-hamburger:active {
     transform-origin: center top;  /* keep masthead visible */
   }
 }
+/* Android mobile: reduce perceived zoom while keeping fullscreen */
+@media (max-width: 768px) {
+  .oo-splash-video,
+  .oo-splash-fallback-image {
+    object-fit: cover;
+    object-position: center top;
+
+    transform: scale(0.78);
+    transform-origin: center top;
+  }
+}
