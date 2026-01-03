@@ -6668,3 +6668,11 @@ button.oo-hamburger:active {
   border-radius: 0;
   box-shadow: none;
 }
+/* Mobile framing tweak — keep fullscreen but reduce perceived zoom */
+@media (max-width: 768px) {
+  .oo-splash-video,
+  .oo-splash-fallback-image {
+    object-fit: cover;          /* still full screen */
+    object-position: center 20%; /* bias framing upward so content is visible */
+  }
+}
