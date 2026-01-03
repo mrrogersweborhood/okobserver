@@ -6698,3 +6698,14 @@ button.oo-hamburger:active {
     transform-origin: center top;
   }
 }
+/* Android mobile — aggressive zoom-out to preserve full content */
+@media (max-width: 768px) {
+  .oo-splash-video,
+  .oo-splash-fallback-image {
+    object-fit: cover;
+    object-position: center top;
+
+    transform: scale(0.50);
+    transform-origin: center top;
+  }
+}
