@@ -33,7 +33,9 @@
 
   // Infinite scroll / paging settings
   const POSTS_PER_PAGE = 12;
-  const SCROLL_SENTRY_OFFSET = 0.9; // intersection ratio for near-bottom detection
+  const SCROLL_SENTRY_OFFSET = 0; // trigger as soon as sentinel intersects
+  const SCROLL_ROOT_MARGIN = '400px 0px'; // start loading ~400px before bottom
+
 
   // Scroll restoration and routing
   const homeState = {
@@ -819,7 +821,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     sentinel.className = 'scroll-sentinel';
     sentinel.setAttribute('aria-hidden', 'true');
 // Ensure the sentinel has real dimensions so IntersectionObserver can reach
-// intersectionRatio >= SCROLL_SENTRY_OFFSET (0.9). A 0-height sentinel can “stall” scrolling.
+// intersectionRatio >= SCROLL_SENTRY_OFFSET (0.). A 0-height sentinel can “stall” scrolling.
 sentinel.style.display = 'block';
 sentinel.style.width = '100%';
 sentinel.style.height = '1px';
@@ -828,14 +830,17 @@ grid.insertAdjacentElement('afterend', sentinel);
 
     infiniteObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
-          requestMorePostsViaScroll();
-        }
+        if (entry.isIntersecting) {
+  requestMorePostsViaScroll();
+}
+
       }
     }, {
-      root: null,
-      threshold: [SCROLL_SENTRY_OFFSET]
-    });
+  root: null,
+  rootMargin: SCROLL_ROOT_MARGIN,
+  threshold: [SCROLL_SENTRY_OFFSET]
+});
+
 
     infiniteObserver.observe(sentinel);
   }
