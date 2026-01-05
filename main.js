@@ -613,6 +613,9 @@ function buildTtsTextFromHtml(html) {
       img.src = `${imageUrl}?cb=${post.id}`;
       img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
       img.loading = 'lazy';
+      img.decoding = 'async';
+      img.fetchPriority = 'low';
+
 
       imgWrapper.appendChild(img);
       card.appendChild(imgWrapper);
@@ -708,6 +711,10 @@ function cleanExcerptForLoggedIn(excerptHtml) {
 
   const tmp = document.createElement('div');
   tmp.innerHTML = excerptHtml;
+  // PERF: prevent heavy media from loading in grid/search excerpts
+  // Keep excerpts text-only (media belongs on the post detail page).
+  tmp.querySelectorAll('img, picture, source, video, iframe, figure').forEach((el) => el.remove());
+
 
   // Remove common paywall/login boilerplate (client-side only)
   const killPhrases = [
