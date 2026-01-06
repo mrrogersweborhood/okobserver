@@ -6708,3 +6708,39 @@ button.oo-hamburger:active {
   }
 
 }
+/* =========================================
+   Mobile header: ultra-compact height
+   ========================================= */
+@media (max-width: 600px) {
+
+  /* Collapse header vertical padding hard */
+  header {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  /* Prevent logo from forcing height */
+  header .logo {
+    max-height: 36px;
+  }
+
+  /* Motto should not add vertical bulk */
+  header .motto {
+    margin-top: 0;
+    margin-bottom: 0;
+    line-height: 1.0;
+    font-size: 0.7rem;
+  }
+
+  /* Keep hamburger easy to tap despite tight header */
+  .hamburger {
+    padding: 10px; /* tap target stays large */
+  }
+
+  .hamburger span {
+    width: 30px;
+    height: 3px;
+    margin: 6px 0;
+  }
+
+}
