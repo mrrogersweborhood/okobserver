@@ -6744,3 +6744,24 @@ button.oo-hamburger:active {
   }
 
 }
+/* =========================================
+   About page: ultra-tight horizontal padding
+   ========================================= */
+
+/* About page only */
+.about-view,
+.about-content,
+.about-column {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+/* Keep it consistent on mobile */
+@media (max-width: 600px) {
+  .about-view,
+  .about-content,
+  .about-column {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
