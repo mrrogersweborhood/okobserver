@@ -6685,3 +6685,26 @@ button.oo-hamburger:active {
   }
 
 }
+/* =========================================
+   Mobile header padding + hamburger size
+   ========================================= */
+@media (max-width: 600px) {
+
+  /* Reduce top/bottom padding of header */
+  header {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  /* Make hamburger icon larger */
+  .hamburger {
+    padding: 10px;   /* bigger tap target */
+  }
+
+  .hamburger span {
+    width: 28px;     /* wider bars */
+    height: 3px;     /* thicker bars */
+    margin: 6px 0;   /* more spacing between bars */
+  }
+
+}
