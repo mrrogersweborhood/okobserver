@@ -6629,3 +6629,24 @@ button.oo-hamburger:active {
     transform: none !important;
   }
 }
+/* ===============================
+   Mobile header height reduction
+   =============================== */
+@media (max-width: 600px) {
+
+  header {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  header .logo {
+    max-height: 44px; /* was visually ~56px */
+  }
+
+  header .motto {
+    margin-top: 2px;
+    line-height: 1.1;
+    font-size: 0.75rem;
+  }
+
+}
