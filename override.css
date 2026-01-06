@@ -6650,3 +6650,38 @@ button.oo-hamburger:active {
   }
 
 }
+/* =========================================
+   Mobile header height + hamburger sizing
+   ========================================= */
+@media (max-width: 600px) {
+
+  /* Reduce overall header height */
+  header {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  /* Slightly shrink logo to match tighter header */
+  header .logo {
+    max-height: 44px;
+  }
+
+  /* Tighten motto spacing */
+  header .motto {
+    margin-top: 2px;
+    line-height: 1.1;
+    font-size: 0.75rem;
+  }
+
+  /* Enlarge hamburger tap target */
+  .hamburger {
+    padding: 10px;          /* increases clickable area */
+  }
+
+  .hamburger span {
+    width: 26px;            /* was ~20–22px */
+    height: 3px;
+    margin: 5px 0;
+  }
+
+}
