@@ -55,6 +55,9 @@
   // Simple in-memory cache for posts (by ID) to avoid refetching
   const postCache = new Map();
 
+  // Perf: remember the last clicked summary post (so detail can render instantly if desired)
+  let lastClickedPostSummary = null;
+
 
 
   // Seen IDs for duplicate-guard in infinite scroll
@@ -295,6 +298,14 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
     const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
 
     return fetchJson(url);
+  }
+  function prefetchPostDetail(postId) {
+    try {
+      if (!postId) return;
+
+      // Don't block UI—just warm cache in the background.
+      fetchPostById(postId).catch(() => {});
+    } catch (_) {}
   }
 
 async function fetchPostById(id) {
@@ -659,7 +670,7 @@ function buildTtsTextFromHtml(html) {
     card.appendChild(content);
 
     card.addEventListener('click', (evt) => {
-      const clickedLink = evt.target.closest('a');
+      const clickedLink = (evt.target && evt.target.closest) ? evt.target.closest('a') : null;
 if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
   // If WP injected the paywall login redirect link, keep the user inside the SPA.
   const href = (clickedLink.getAttribute('href') || '').trim();
@@ -681,6 +692,9 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
 
       evt.preventDefault();
       saveHomeScroll();
+// Option A: remember the clicked summary post so we can render detail shell immediately
+      lastClickedPostSummary = post;
+      prefetchPostDetail(post.id);
       navigateTo(`#/post/${post.id}`);
     });
 
@@ -1244,11 +1258,20 @@ function escapeHtml(s) {
     stopTtsPlayback();
     scrollToTop();
 
-    app.innerHTML = `
-      <div class="post-detail-loading">
-        <p>Loading article…</p>
-      </div>
-    `;
+    // Option A: if we have the clicked summary post, render an instant prefill shell
+    const canPrefill =
+      lastClickedPostSummary &&
+      Number(lastClickedPostSummary.id) === Number(id);
+
+    if (canPrefill) {
+      renderPostDetailPrefillFromSummary(lastClickedPostSummary);
+    } else {
+      app.innerHTML = `
+        <div class="post-detail-loading">
+          <p>Loading article…</p>
+        </div>
+      `;
+    }
 
     try {
       const post = await fetchPostById(id);
@@ -1258,6 +1281,7 @@ function escapeHtml(s) {
       renderNotFound();
     }
   }
+
 function removePaywallNoticeFromDetail(html) {
   if (!html) return html;
 
@@ -1342,6 +1366,65 @@ function linkifyPaywallLoginForSignedOut(html) {
     return html;
   }
 }
+  // Option A helper: render a fast “prefill” detail view using the clicked summary post
+  // This avoids a blank/jarring transition while the full post is fetched.
+  function renderPostDetailPrefillFromSummary(post) {
+    if (!post) return;
+
+    const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+    const titleHtml = rawTitle;
+
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    const metaParts = [];
+    if (authorName) metaParts.push(authorName);
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+
+    // Use the summary excerpt as temporary content (kept lightweight)
+    const excerptHtml =
+      post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : '';
+    const prefillContent = cleanExcerptForLoggedIn(excerptHtml);
+
+    // Hero image (same logic as detail)
+    let heroHtml = '';
+    const featuredImageUrl = getFeaturedImageUrl(post);
+    if (featuredImageUrl) {
+      const safeAlt = escapeAttr(stripHtml(post.title && post.title.rendered ? post.title.rendered : ''));
+      const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+      const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
+      heroHtml = `<div class="post-hero">${heroImg}</div>`;
+    }
+
+    app.innerHTML = `
+      <div class="post-detail oo-detail-prefill">
+        ${heroHtml}
+        <h1 class="post-title">${titleHtml}</h1>
+        ${metaHtml}
+        <div class="post-detail-loading-inline">
+          <p>Loading full article…</p>
+        </div>
+        <div class="post-content post-detail-content entry-content">
+          ${prefillContent}
+        </div>
+        <button class="back-btn" type="button">Back to posts</button>
+      </div>
+    `;
+
+    // Back button should work even during prefill
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        const target =
+          lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+            ? lastListHash
+            : '#/';
+        window.location.replace(target);
+      });
+    }
+  }
 
 
   function renderPostDetailInner(post) {
