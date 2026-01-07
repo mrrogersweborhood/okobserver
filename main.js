@@ -1063,7 +1063,7 @@ if (posts.length > 0 && appendedCount === 0) {
 
     app.innerHTML = `
       <div class="search-view">
-        <h1 class="search-title">Search Posts</h1>
+        <h1 class="search-title">Search News</h1>
         <form class="search-form" novalidate>
           <label class="search-label">
             <span class="search-label-text">Search term</span>
