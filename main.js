@@ -1409,7 +1409,7 @@ function linkifyPaywallLoginForSignedOut(html) {
         <div class="post-content post-detail-content entry-content">
           ${prefillContent}
         </div>
-        <button class="back-btn" type="button">Back to posts</button>
+        <button class="back-btn" type="button">Back to News</button>
       </div>
     `;
 
@@ -1530,7 +1530,7 @@ app.innerHTML = `
       ${contentHtml}
     </div>
     ${taxHtml}
-    <button class="back-btn" type="button">Back to posts</button>
+    <button class="back-btn" type="button">Back to News</button>
   </div>
 `;
 
@@ -2111,8 +2111,8 @@ function renderNotFound() {
     app.innerHTML = `
       <div class="not-found-view">
         <h1>Not found</h1>
-        <p>We couldn’t find that page. Please return to the latest posts.</p>
-        <button class="back-btn" type="button">Back to posts</button>
+        <p>We couldn’t find that page. Please return to the latest news.</p>
+        <button class="back-btn" type="button">Back to News</button>
       </div>
     `;
     const back = app.querySelector('.back-btn');
