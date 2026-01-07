@@ -6872,3 +6872,27 @@ button.oo-hamburger:active {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+/* Mobile: reduce side whitespace on home + search grids */
+@media (max-width: 600px) {
+  /* App outer container padding */
+  #app {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  /* Kill any extra padding from wrappers on mobile */
+  .home-view,
+  .search-view,
+  .search-results {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Ensure the grid itself doesn't add extra side gutters */
+  .posts-grid {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
