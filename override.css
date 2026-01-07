@@ -6896,3 +6896,31 @@ button.oo-hamburger:active {
     padding-right: 0 !important;
   }
 }
+/* Mobile: remove extra left/right whitespace so grids use the screen */
+@media (max-width: 700px) {
+  /* App root often carries the side padding/max-width */
+  main#app, #app {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  /* Ensure both home + search wrappers don't add extra padding */
+  .home-view,
+  .search-view,
+  .search-results {
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* The grid itself should be edge-to-edge inside #app padding */
+  #app .posts-grid {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
