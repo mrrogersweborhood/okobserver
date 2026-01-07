@@ -6798,3 +6798,65 @@ button.oo-hamburger:active {
   position: relative;
   display: block;
 }
+@media (max-width: 600px) {
+  /* Collapse header vertical padding hard (make selectors + priority stronger) */
+  header,
+  .oo-header,
+  .site-header,
+  .okobs-header,
+  .app-header {
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    min-height: 0 !important;
+  }
+
+  /* Prevent logo area from forcing height */
+  header .logo,
+  header .oo-logo,
+  .oo-header .logo,
+  .oo-header .oo-logo,
+  .site-header .logo,
+  .site-header .oo-logo {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  header .logo img,
+  header .oo-logo img,
+  .oo-header .logo img,
+  .oo-header .oo-logo img {
+    max-height: 32px !important;
+    height: auto !important;
+  }
+
+  /* Motto should not add vertical bulk */
+  header .motto,
+  header .oo-motto,
+  .oo-header .motto,
+  .oo-header .oo-motto {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1.0 !important;
+  }
+
+  /* Make hamburger bigger (cover common class/id variants) */
+  .hamburger,
+  .oo-hamburger,
+  #ooHamburger,
+  .menu-toggle {
+    padding: 4px !important;
+  }
+
+  .hamburger span,
+  .oo-hamburger span,
+  #ooHamburger span,
+  .menu-toggle span {
+    width: 34px !important;
+    height: 4px !important;
+    margin: 7px 0 !important;
+  }
+}
