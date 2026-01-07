@@ -1498,7 +1498,7 @@ if (featuredImageUrl) {
   const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
 
   const isFacebookHeroLink =
-  heroLink && /facebook\.com\/(?:watch|OkObserver\/videos|.*\/videos)/i.test(heroLink);
+  !!heroLink && /(facebook\.com|m\.facebook\.com|fb\.watch)\//i.test(heroLink);
 
 heroHtml = heroLink
   ? `<a class="post-hero-link${isFacebookHeroLink ? ' post-hero-facebook' : ''}"

@@ -6541,8 +6541,10 @@ body.is-menu-open nav#oo-menu.oo-menu *{
 .post-hero-link img.oo-media {
   cursor: pointer !important;
 }
-.post-hero-link { display: block; }
-/* --- FIX: prevent sticky header from covering post tags --- */
+.post-hero-link { 
+  display: block;
+  position: relative;
+}/* --- FIX: prevent sticky header from covering post tags --- */
 .post-detail .post-tax {
   margin-top: 1rem;
   padding-top: 0.25rem;
