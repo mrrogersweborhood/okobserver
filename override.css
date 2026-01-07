@@ -625,7 +625,7 @@ html, body { margin:0; padding:0; background:var(--okobs-bg); color:var(--okobs-
 }
 
 /* Layout */
-main#app { max-width:1200px; margin:18px auto; padding:0 16px; }
+main#app { max-width:1200px; margin:18px auto; padding:0 4px; }
 .site-footer { max-width:1200px; margin:32px auto; padding:24px 16px; color:#555; font-size:14px; }
 
 /* Grid */
