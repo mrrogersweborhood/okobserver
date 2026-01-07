@@ -6924,3 +6924,25 @@ button.oo-hamburger:active {
     padding: 0 !important;
   }
 }
+/* Mobile: force Search results area to match Home grid edge spacing */
+@media (max-width: 700px) {
+  /* Search page wrappers sometimes add their own padding */
+  #app .search-view,
+  #app .search-view .search-results,
+  #app .search-view .search-results > div,
+  #app .search-view .search-results .posts-grid,
+  #app .search-view .posts-grid.search-grid {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Keep the overall 4px “safe” gutter consistent */
+  #app .search-view {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
