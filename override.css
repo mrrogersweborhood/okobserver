@@ -6860,3 +6860,15 @@ button.oo-hamburger:active {
     margin: 7px 0 !important;
   }
 }
+/* =========================================
+   Make search grid match home grid spacing
+   ========================================= */
+
+/* Remove extra horizontal padding added by search wrappers */
+.search-view,
+.search-results,
+.search-container,
+.search-page {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
