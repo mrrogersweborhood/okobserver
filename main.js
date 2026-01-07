@@ -1497,9 +1497,17 @@ if (featuredImageUrl) {
   const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
   const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
 
-  heroHtml = heroLink
-    ? `<a class="post-hero-link" href="${heroLink}" target="_blank" rel="noopener">${heroImg}</a>`
-    : `<div class="post-hero">${heroImg}</div>`;
+  const isFacebookHeroLink =
+  heroLink && /facebook\.com\/(?:watch|OkObserver\/videos|.*\/videos)/i.test(heroLink);
+
+heroHtml = heroLink
+  ? `<a class="post-hero-link${isFacebookHeroLink ? ' post-hero-facebook' : ''}"
+        href="${heroLink}" target="_blank" rel="noopener">
+        ${heroImg}
+        ${isFacebookHeroLink ? `<span class="fb-watch-overlay" aria-label="Watch on Facebook">Watch on Facebook</span>` : ''}
+     </a>`
+  : `<div class="post-hero">${heroImg}</div>`;
+
 }
 
 

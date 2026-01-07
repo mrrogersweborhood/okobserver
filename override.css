@@ -6765,3 +6765,34 @@ button.oo-hamburger:active {
     padding-right: 4px;
   }
 }
+/* --- mobile-header-tighten + bigger-hamburger (2026-01-07) --- */
+@media (max-width: 768px) {
+  .site-header {
+    padding: 2px 0 2px 0 !important; /* tighter top/bottom */
+  }
+
+  .header-logo {
+    height: 56px !important; /* smaller logo to reclaim vertical space */
+  }
+
+  .motto {
+    margin-top: 2px !important;
+    font-size: 0.9rem !important;
+    line-height: 1.1 !important;
+  }
+
+  .menu-toggle {
+    font-size: 40px !important;   /* bigger hamburger */
+    top: 6px !important;          /* re-center after padding shrink */
+    right: 12px !important;
+  }
+}
+/* --- about-card-padding-4px (2026-01-07) --- */
+.about-card {
+  padding: 4px !important;
+}
+/* Ensure FB overlay can anchor when hero is an <a> */
+.post-detail .post-hero-link {
+  position: relative;
+  display: block;
+}

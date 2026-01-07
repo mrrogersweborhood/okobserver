@@ -8,7 +8,7 @@
    - Static assets: cache-first with guarded network fill
    🔴 sw.js */
 
-const SW_BUILD = '2026-01-05R028';
+const SW_BUILD = '2026-01-05R034';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list (root-scope paths)
