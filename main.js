@@ -1253,18 +1253,82 @@ function escapeHtml(s) {
   // ---------------------------------------------------------------------------
   // Post detail view
   // ---------------------------------------------------------------------------
+  // Option A helper: render a fast “detail shell” from the clicked summary post
+  function renderPostDetailShellFromSummary(summaryPost) {
+    if (!summaryPost) return;
 
-  async function renderPostDetail(id) {
+    const rawTitle =
+      summaryPost.title && summaryPost.title.rendered
+        ? summaryPost.title.rendered
+        : '(Untitled)';
+
+    const dateStr = formatDate(summaryPost.date);
+    const authorName = getAuthorName(summaryPost);
+    const metaParts = [];
+    if (authorName) metaParts.push(authorName);
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+
+    const featuredImageUrl = getFeaturedImageUrl(summaryPost);
+    let heroHtml = '';
+    if (featuredImageUrl) {
+      const safeAlt = escapeAttr(stripHtml(rawTitle || ''));
+      const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+      heroHtml = `
+        <div class="post-hero">
+          <img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${summaryPost.id}" alt="${safeAlt}" />
+        </div>
+      `;
+    }
+
+    // Use the excerpt as a placeholder body (fast paint), cleaned for logged-in users
+    const excerptHtml = cleanExcerptForLoggedIn(
+      summaryPost.excerpt && summaryPost.excerpt.rendered
+        ? summaryPost.excerpt.rendered
+        : ''
+    );
+
+    app.innerHTML = `
+      <div class="post-detail">
+        ${heroHtml}
+        <h1 class="post-title">${rawTitle}</h1>
+        ${metaHtml}
+        <div class="post-detail-tts-row"></div>
+        <div class="post-content post-detail-content entry-content">
+          ${excerptHtml}
+          <p class="oo-detail-loading-inline">Loading full article…</p>
+        </div>
+        <button class="back-btn" type="button">Back to posts</button>
+      </div>
+    `;
+
+    // Keep back button working even during shell
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        const target =
+          lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+            ? lastListHash
+            : '#/';
+        window.location.replace(target);
+      });
+    }
+  }
+
+    async function renderPostDetail(id) {
     stopTtsPlayback();
     scrollToTop();
 
-    // Option A: if we have the clicked summary post, render an instant prefill shell
-    const canPrefill =
-      lastClickedPostSummary &&
-      Number(lastClickedPostSummary.id) === Number(id);
+    // Option A: if we have the clicked summary post, paint a fast shell immediately
+    const summary =
+      lastClickedPostSummary && lastClickedPostSummary.id === id
+        ? lastClickedPostSummary
+        : null;
 
-    if (canPrefill) {
-      renderPostDetailPrefillFromSummary(lastClickedPostSummary);
+    if (summary) {
+      renderPostDetailShellFromSummary(summary);
     } else {
       app.innerHTML = `
         <div class="post-detail-loading">
@@ -1281,6 +1345,7 @@ function escapeHtml(s) {
       renderNotFound();
     }
   }
+
 
 function removePaywallNoticeFromDetail(html) {
   if (!html) return html;
@@ -1586,31 +1651,6 @@ window.location.replace(target);
     if (!html) return;
 
  
-  // DEBUG: inspect links & raw Vimeo URLs for this post
-  try {
-    console.groupCollapsed('[OkObserver debug] video scan for post', post.id);
-    console.log('Raw HTML length:', html.length);
-
-    const debugTmp = document.createElement('div');
-    debugTmp.innerHTML = html;
-
-    const debugLinks = Array.from(debugTmp.querySelectorAll('a'));
-    console.log('Found', debugLinks.length, 'links in content:');
-    debugLinks.forEach((a, idx) => {
-      console.log(
-        `#${idx}`,
-        'text=',
-        (a.textContent || '').trim(),
-        'href=',
-        a.getAttribute('href') || ''
-      );
-    });
-
-    const allVimeoMatches = html.match(/https?:\/\/[^"'<\s]*vimeo\.com[^"'<\s]*/g);
-    console.log('Raw Vimeo-like strings in HTML:', allVimeoMatches || []);
-  } catch (e) {
-    console.warn('[OkObserver debug] failed to inspect post content', post.id, e);
-  }
 
    // Hard overrides for posts whose embeds are too weird to parse reliably
   const videoOverrides = {
@@ -1760,16 +1800,6 @@ window.location.replace(target);
         }
       }
     }
-        console.log(
-      '[OkObserver debug] final videoEmbedHtml present?',
-      !!videoEmbedHtml
-    );
-    console.log(
-      '[OkObserver debug] final videoEmbedHtml =',
-      videoEmbedHtml
-    );
-    console.groupEnd();
-    console.log('[OkObserver debug] final videoEmbedHtml =', videoEmbedHtml);
 
 
     // FINAL safety net: scan the raw HTML string for any Vimeo URL,
