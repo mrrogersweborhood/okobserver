@@ -1357,7 +1357,10 @@ function escapeHtml(s) {
         ${heroHtml}
         <h1 class="post-title">${rawTitle}</h1>
         ${metaHtml}
-        <p class="oo-detail-loading-inline">Loading full article…</p>
+        <div class="oo-detail-loading-inline" aria-live="polite">
+        <span class="oo-loading-spinner" aria-hidden="true"></span>
+        <span class="oo-loading-text">Loading full article…</span>
+        </div>
         <div class="post-detail-tts-row"></div>
         <div class="post-content post-detail-content entry-content">
           ${excerptHtml}
