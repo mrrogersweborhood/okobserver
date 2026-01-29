@@ -7077,3 +7077,16 @@ button.oo-hamburger:active {
 @media (prefers-reduced-motion: reduce) {
   .oo-loading-spinner { animation: none; }
 }
+/* 🟢 Post detail inline loading text (2026-01-29) */
+.oo-detail-loading-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #555;
+}
+
+.oo-detail-loading-text {
+  line-height: 1;
+}
+/* 🔴 Post detail inline loading text */

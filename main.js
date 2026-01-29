@@ -1359,6 +1359,7 @@ function escapeHtml(s) {
         ${metaHtml}
         <div class="oo-detail-loading-inline" aria-live="polite">
         <span class="oo-loading-spinner" aria-hidden="true"></span>
+        <span class="oo-loading-text">Loading…</span>
         </div>
         <div class="post-detail-tts-row"></div>
         <div class="post-content post-detail-content entry-content">
@@ -1534,6 +1535,7 @@ function linkifyPaywallLoginForSignedOut(html) {
         ${metaHtml}
         <div class="oo-detail-loading-inline" aria-live="polite">
         <span class="oo-loading-spinner" aria-hidden="true"></span>
+        <span class="oo-loading-text">Loading…</span>
         </div>
         <div class="post-content post-detail-content entry-content">
           ${prefillContent}
