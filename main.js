@@ -1357,10 +1357,10 @@ function escapeHtml(s) {
         ${heroHtml}
         <h1 class="post-title">${rawTitle}</h1>
         ${metaHtml}
+        <p class="oo-detail-loading-inline">Loading full article…</p>
         <div class="post-detail-tts-row"></div>
         <div class="post-content post-detail-content entry-content">
           ${excerptHtml}
-          <p class="oo-detail-loading-inline">Loading full article…</p>
         </div>
         <button class="back-btn" type="button">Back to posts</button>
       </div>
