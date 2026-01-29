@@ -1241,6 +1241,68 @@ async function performSearch(term, statusEl, grid) {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
+function sanitizeAuthorBioHtml(rawHtml) {
+  try {
+    if (!rawHtml) return '';
+
+    // Parse + let the browser fix broken/misaligned tags
+    const root = document.createElement('div');
+    root.innerHTML = String(rawHtml);
+
+    const ALLOWED = new Set(['A', 'STRONG', 'EM', 'B', 'I', 'BR', 'P']);
+
+    // Snapshot all elements (TreeWalker live traversal can be tricky while mutating)
+    const elements = Array.from(root.querySelectorAll('*'));
+
+    for (const el of elements) {
+      const tag = el.tagName;
+
+      if (!ALLOWED.has(tag)) {
+        // Replace disallowed tag with its text content
+        const txt = document.createTextNode(el.textContent || '');
+        el.replaceWith(txt);
+        continue;
+      }
+
+      if (tag === 'A') {
+        // Keep only safe href; force external-safe behavior
+        const href = (el.getAttribute('href') || '').trim();
+        const isSafe =
+          href.startsWith('http://') ||
+          href.startsWith('https://') ||
+          href.startsWith('/');
+
+        if (!isSafe) {
+          // Strip unsafe link but keep readable text
+          const txt = document.createTextNode(el.textContent || '');
+          el.replaceWith(txt);
+          continue;
+        }
+
+        // Remove all attributes first, then add back the safe ones
+        const safeHref = href;
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+
+        el.setAttribute('href', safeHref);
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      } else {
+        // For STRONG/EM/etc, remove all attributes
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+      }
+    }
+
+    // Convert newlines in text nodes to <br> (optional, helps when WP stores plain line breaks)
+    // If you don't want this, you can delete this block.
+    root.innerHTML = root.innerHTML.replace(/\n/g, '<br>');
+
+    return root.innerHTML.trim();
+  } catch (e) {
+    // Fallback: treat as plain text if anything goes sideways
+    return escapeHtml(String(rawHtml || '')).replace(/\n/g, '<br>');
+  }
+}
+
 function escapeHtml(s) {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -1564,7 +1626,7 @@ const __avatar =
 let authorBoxHtml = '';
 if (__authorName || __authorBio || __avatar) {
   const safeName = escapeHtml(__authorName || 'Author');
-  const safeBio = __authorBio ? escapeHtml(__authorBio).replace(/\n/g, '<br>') : '';
+  const safeBio = __authorBio ? sanitizeAuthorBioHtml(__authorBio) : '';
   const safeLink = __authorLink ? escapeAttr(__authorLink) : '';
   const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
 
