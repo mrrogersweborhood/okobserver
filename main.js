@@ -1359,7 +1359,6 @@ function escapeHtml(s) {
         ${metaHtml}
         <div class="oo-detail-loading-inline" aria-live="polite">
         <span class="oo-loading-spinner" aria-hidden="true"></span>
-        <span class="oo-loading-text">Loading full article…</span>
         </div>
         <div class="post-detail-tts-row"></div>
         <div class="post-content post-detail-content entry-content">
@@ -1533,8 +1532,8 @@ function linkifyPaywallLoginForSignedOut(html) {
         ${heroHtml}
         <h1 class="post-title">${titleHtml}</h1>
         ${metaHtml}
-        <div class="post-detail-loading-inline">
-          <p>Loading full article…</p>
+        <div class="oo-detail-loading-inline" aria-live="polite">
+        <span class="oo-loading-spinner" aria-hidden="true"></span>
         </div>
         <div class="post-content post-detail-content entry-content">
           ${prefillContent}
