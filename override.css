@@ -6946,3 +6946,70 @@ button.oo-hamburger:active {
     padding-right: 4px !important;
   }
 }
+/* =========================
+   Author Box (Post Detail)
+   ========================= */
+
+.author-box {
+  margin: 28px 0 20px;
+  padding: 18px;
+  border-top: 1px solid #e6e6e6;
+}
+
+.author-box-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.author-box-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.author-box-text {
+  flex: 1;
+}
+
+.author-box-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.author-box-name {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.author-box-name-link {
+  color: #1E90FF;
+  text-decoration: none;
+}
+
+.author-box-name-link:hover {
+  text-decoration: underline;
+}
+
+.author-box-bio {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #333;
+}
+
+/* Mobile safety */
+@media (max-width: 600px) {
+  .author-box-inner {
+    gap: 12px;
+  }
+
+  .author-box-avatar {
+    width: 56px;
+    height: 56px;
+  }
+}

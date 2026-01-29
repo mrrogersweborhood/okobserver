@@ -1546,6 +1546,45 @@ const categoriesHtml = catNames.length
 
 // ✅ taxHtml is now initialized BEFORE the template uses it
 const taxHtml = `<div class="post-tax">${tagsHtml}${categoriesHtml}</div>`;
+// --- AUTHOR BOX (bottom on detail) ---
+const __author = post && post._embedded && Array.isArray(post._embedded.author)
+  ? post._embedded.author[0]
+  : null;
+
+const __authorName = __author && __author.name ? String(__author.name) : '';
+const __authorLink = __author && __author.link ? String(__author.link) : '';
+const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
+const __authorBio = __authorBioRaw.trim();
+
+const __avatar =
+  __author && __author.avatar_urls
+    ? (__author.avatar_urls['96'] || __author.avatar_urls['48'] || __author.avatar_urls['24'] || '')
+    : '';
+
+let authorBoxHtml = '';
+if (__authorName || __authorBio || __avatar) {
+  const safeName = escapeHtml(__authorName || 'Author');
+  const safeBio = __authorBio ? escapeHtml(__authorBio).replace(/\n/g, '<br>') : '';
+  const safeLink = __authorLink ? escapeAttr(__authorLink) : '';
+  const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
+
+  const nameHtml = safeLink
+    ? `<a class="author-box-name-link" href="${safeLink}" target="_blank" rel="noopener">${safeName}</a>`
+    : `<span class="author-box-name-link">${safeName}</span>`;
+
+  authorBoxHtml = `
+    <div class="author-box" aria-label="About the author">
+      <div class="author-box-inner">
+        ${safeAvatar ? `<img class="author-box-avatar" src="${safeAvatar}" alt="${safeName}" />` : ''}
+        <div class="author-box-text">
+          <div class="author-box-title">About the author</div>
+          <div class="author-box-name">${nameHtml}</div>
+          ${safeBio ? `<div class="author-box-bio">${safeBio}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 let heroHtml = '';
 const featuredImageUrl = getFeaturedImageUrl(post);
@@ -1595,6 +1634,7 @@ app.innerHTML = `
       ${contentHtml}
     </div>
     ${taxHtml}
+    ${authorBoxHtml}
     <button class="back-btn" type="button">Back to News</button>
   </div>
 `;
