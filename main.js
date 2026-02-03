@@ -393,7 +393,7 @@ async function fetchPostById(id) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'category') {
-            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
+            return termGroup;
           }
         }
       }
@@ -408,7 +408,7 @@ function extractTags(post) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'post_tag') {
-            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
+            return termGroup.filter(t => t && t.taxonomy === 'category');
           }
         }
       }
@@ -1611,7 +1611,7 @@ const categoriesHtml = catNames.length
   : '';
 
 // ✅ taxHtml is now initialized BEFORE the template uses it
-const taxHtml = `<div class="post-tax">${tagsHtml}${categoriesHtml}</div>`;
+const taxHtml = `<div class="post-tax">${tagsHtml}</div>`;
 // --- AUTHOR BOX (bottom on detail) ---
 const __author = post && post._embedded && Array.isArray(post._embedded.author)
   ? post._embedded.author[0]
