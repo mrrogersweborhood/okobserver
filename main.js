@@ -393,7 +393,7 @@ async function fetchPostById(id) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'category') {
-            return termGroup;
+            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
           }
         }
       }
