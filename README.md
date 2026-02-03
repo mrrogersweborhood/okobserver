@@ -1,151 +1,276 @@
-# OkObserver App
+OkObserver App
 
-**OkObserver** is a custom, production‑grade single‑page application (SPA) for *The Oklahoma Observer*. It runs as a static site on GitHub Pages and consumes WordPress content exclusively through a Cloudflare Worker proxy. The project prioritizes layout stability, editorial fidelity, and predictable deployments over speculative optimization.
+OkObserver is a custom single-page application (SPA) for The Oklahoma Observer, built with vanilla JavaScript and deployed via GitHub Pages, with all WordPress data and authentication handled through a Cloudflare Worker proxy.
 
-Live site: https://mrrogersweborhood.github.io/okobserver/
+This repository is the authoritative frontend source for the live app.
 
----
+🔗 Live Deployment
 
-## Project Goals
+App (GitHub Pages)
+https://mrrogersweborhood.github.io/okobserver/
 
-- Preserve the Oklahoma Observer’s visual identity and editorial structure
-- Deliver fast first paint with progressive enhancement (excerpt → full post)
-- Avoid framework lock‑in (plain JavaScript, no bundlers, no ES modules)
-- Maintain strict anti‑regression guarantees for layout, grid, and navigation
-- Keep WordPress payloads intact and unmodified
+Repository
+mrrogersweborhood/okobserver
 
----
+⚠️ Important:
+The app is hosted under the subpath:
 
-## Architecture Overview
+/okobserver/
 
-### Frontend
 
-- **Type:** Vanilla JavaScript SPA (hash‑based routing)
-- **Hosting:** GitHub Pages (`/okobserver/` subdirectory)
-- **Key files:**
-  - `index.html` — application shell, header, grid, MutationObserver
-  - `main.js` — router, data fetching, rendering logic
-  - `PostDetail.js` — post detail helpers (no phantom routes)
-  - `override.css` — all custom styling and UI polish
-  - `sw.js` — service worker with explicit versioning
-  - `.nojekyll` — required for GitHub Pages
+All asset paths and Service Worker scope must respect this.
 
-### Backend / Data
+🧱 Architecture Overview
+Frontend (GitHub Pages)
 
-- **WordPress origin:** https://okobserver.org
-- **Access path:** Cloudflare Worker proxy only (never direct WP calls)
-- **Authentication:** JWT via `/auth/login` and `/auth/logout`
-- **Full post endpoint:** `/content/full-post?id=<postId>`
-- **Payload rules:**
-  - `_embed` data must remain intact (authors, terms, media)
-  - No reshaping, filtering, or performance shortcuts without verification
+Vanilla JavaScript SPA (no frameworks, no ES modules)
 
----
+No build step / no bundlers
 
-## Core UI & Layout Rules (Non‑Negotiable)
+Files served directly from repo root
 
-- Sticky blue header (`#1E90FF`) with centered logo + motto
-- Motto text (case sensitive):
-  > To Comfort The Afflicted And Afflict The Comfortable
-- Hamburger menu always present
-- Responsive grid:
-  - Desktop: 4 columns
-  - Tablet: 3 columns
-  - Mobile: 1 column
-- Grid enforced via **MutationObserver** (must never be removed)
-- White cards with rounded corners and soft shadows
-- Featured images fully contained (no cropping regressions)
-- Single “Back to Posts” button at bottom of post detail
+Backend / API (Cloudflare Worker)
 
----
+Proxies all WordPress REST API requests
 
-## Post Detail Rendering Flow
+Handles authentication (JWT)
 
-1. Fast shell render
-2. Hero image
-3. Title
-4. Byline
-5. Inline status text: *“Loading full article…”*
-6. Excerpt prefill (cleaned for logged‑in users)
-7. Full post JSON fetch
-8. Content replacement (no layout shift)
+Serves logged-in full post content
 
-This order is intentional and should not be changed without review.
+Prevents direct WordPress origin access
 
----
+🌐 Cloudflare Worker Endpoints
 
-## Author Data
+Proxy base
 
-- Author info is sourced from WordPress `_embedded.author`
-- Avatar URLs are read from `avatar_urls`
-- Bio content may contain HTML and must be rendered safely
-- Author box appears on desktop and mobile
+https://okobserver-proxy.bob-b5c.workers.dev/
 
----
 
-## Service Worker Rules
+WordPress REST
 
-- Service worker lives at repo root
-- Every change must bump a version string (`?v=YYYY-MM-DDx`)
-- Never cache authenticated responses
-- Avoid aggressive caching strategies
-- When debugging, unregister SW and hard reload
+/wp-json/wp/v2/...
 
----
 
-## Cloudflare Worker Rules
+Auth
 
-- Never reshape WordPress payloads
-- Never remove `_embed`, `wp:term`, or category data
-- Performance changes must be:
-  - Measured
-  - Minimal
-  - Reversible
-- When in doubt: stability > speed
+/auth/login
+/auth/logout
+/auth/status
 
----
 
-## Restore Points & Safety
+Logged-in full content
 
-This project uses explicit **restore points** (date‑stamped builds) to guarantee rollback safety.
+/content/full-post?id=<postId>
 
-Before any risky change:
 
-- Back up GitHub Pages source
-- Back up Cloudflare Worker script
-- Confirm the current restore point
+⚠️ Hard rule:
+The Worker must never reshape or remove WordPress payload data, including:
 
-Never assume files are identical unless working from a fresh upload.
+_embed
 
----
+wp:term
 
-## Deployment Checklist
+tags
 
-1. Verify all files locally
-2. Upload only required files
-3. Confirm `.nojekyll` is present
-4. Bump cache‑busting query strings
-5. Update service worker version
-6. Clear browser + SW cache
-7. Verify header, grid, and post detail
+categories
 
----
+📂 Core Files (Frontend)
 
-## Philosophy
+These files define the app and are treated as authoritative:
 
-This project favors:
+index.html        # App shell, header, layout, routing mount
+main.js           # Router, fetch logic, list views, infinite scroll
+PostDetail.js     # Post detail rendering (may be no-op in some builds)
+override.css      # All custom styling
+sw.js             # Service Worker (cache + offline handling)
+.nojekyll         # Required for GitHub Pages
+logo.png
+favicon.ico
+Splash video file (if present)
 
-- Determinism over cleverness
-- Evidence‑based changes
-- Explicit anchors and insertion points
-- Reversibility and rollback safety
 
-If something feels fragile, stop and verify.
+⚠️ Rules
 
----
+No ES module syntax
 
-## License / Ownership
+No framework imports
 
-All editorial content belongs to *The Oklahoma Observer*.
-This repository contains application code and presentation logic only.
+No speculative file edits
 
+Always bump cache-busting query strings on changes
+
+🧭 UI & Behavior (Verified at Checkpoint)
+
+Checkpoint: OkObserver Build 2026-02-03
+
+Global UI
+
+Sticky blue header (#1E90FF)
+
+Centered logo + motto
+“To Comfort The Afflicted And Afflict The Comfortable”
+
+Hamburger menu (desktop + mobile)
+
+Responsive grid:
+
+Desktop: 4 columns
+
+Tablet: 3 columns
+
+Mobile: 1 column
+
+Grid stability enforced via MutationObserver
+
+Home / Search
+
+Infinite scroll
+
+Cartoon category posts filtered out
+
+Search grid margins stable
+
+Mobile spacing verified
+
+Post Detail
+
+Fast shell render with excerpt prefill
+
+Spinner + “Loading…” text while full post loads
+
+Loading indicator appears directly under the byline
+
+Full content swaps in seamlessly
+
+Tags render correctly
+
+Categories are NOT shown as tags on detail
+
+Categories remain present in payload for filtering logic
+
+Author Box
+
+Avatar + name visible
+
+Bio renders HTML-safe
+
+Stable on desktop and mobile
+
+🧪 Data Safety Guarantees
+
+At this checkpoint, the following are verified intact:
+
+_embedded["wp:term"] exists in API responses
+
+Tags and categories are present in payload
+
+Category slugs remain detectable (cartoon filtering works)
+
+No payload reshaping in frontend or Worker
+
+⚠️ Known Gotcha
+
+Mobile browsers (especially iOS Safari / Chrome iOS) may show stale UI after deploys due to aggressive caching.
+
+If UI looks wrong on mobile:
+
+Clear site data
+
+Unregister Service Worker
+
+Reload the page
+
+Reload again
+
+This is expected behavior.
+
+🔒 Development Rules (Non-Negotiable)
+File Authority
+
+Never guess from memory
+
+Always work from freshly uploaded files
+
+Never refer to code that isn’t present
+
+Changes
+
+Every change must specify:
+
+File name
+
+Exact anchor text that exists
+
+Exact change (no vague language)
+
+Full-File Replacements
+
+Avoid unless absolutely necessary
+
+Must be explicitly justified
+
+Must use 🟢 / 🔴 filename markers inside comments only
+
+If interrupted, restart cleanly
+
+Service Worker
+
+Extremely fragile
+
+Be conservative
+
+Always bump cache versions
+
+Expect mobile caches to lie
+
+🚫 Out of Scope (By Default)
+
+Do not begin with:
+
+Worker refactors
+
+Payload filtering or reshaping
+
+Performance “optimizations” without measurement
+
+Header or grid redesigns
+
+Risky Service Worker changes
+
+✅ Safe Next Steps
+
+Allowed, low-risk work:
+
+Measurement-only performance analysis
+
+Minor CSS polish
+
+Documentation updates
+
+Editorial changes in WordPress
+
+Wrapper-based app packaging (TWA/WebView) without logic changes
+
+🏁 Deployment Checklist
+
+After any change:
+
+Bump ?v= cache-busting query strings
+
+Update Service Worker version if applicable
+
+Deploy to GitHub Pages
+
+Verify via DevTools:
+
+Network
+
+Console
+
+Expect mobile cache clearing to be required
+
+🧠 Baseline Truth
+
+Treat OkObserver Build 2026-02-03 as the baseline truth for all future work in this repository.
+
+When in doubt: stop, verify, and measure first.
