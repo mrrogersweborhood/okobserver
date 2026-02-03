@@ -408,7 +408,7 @@ function extractTags(post) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'post_tag') {
-            return termGroup;
+            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
           }
         }
       }
