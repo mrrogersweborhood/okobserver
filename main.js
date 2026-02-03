@@ -393,7 +393,7 @@ async function fetchPostById(id) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'category') {
-            return termGroup;
+            return termGroup.filter(t => t && t.taxonomy === 'category');
           }
         }
       }
@@ -408,7 +408,7 @@ function extractTags(post) {
       if (Array.isArray(termGroup)) {
         for (const term of termGroup) {
           if (term && term.taxonomy === 'post_tag') {
-            return termGroup.filter(t => t && t.taxonomy === 'category');
+            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
           }
         }
       }
@@ -416,6 +416,7 @@ function extractTags(post) {
   }
   return [];
 }
+
 
 
   function hasExcludedCategory(post) {
@@ -1603,12 +1604,6 @@ const tagsHtml = `<div class="post-tags" aria-label="Tags">
   }
 </div>`;
 
-// Categories optional (unchanged)
-const categoriesHtml = catNames.length
-  ? `<div class="post-tags" aria-label="Categories">
-       ${catNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')}
-     </div>`
-  : '';
 
 // ✅ taxHtml is now initialized BEFORE the template uses it
 const taxHtml = `<div class="post-tax">${tagsHtml}</div>`;
