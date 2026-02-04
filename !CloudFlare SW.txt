@@ -338,13 +338,19 @@ return new Response(upstreamResp.body, {
 /* ---------------- helpers ---------------- */
 
 async function handleFullPost(request, url, env) {
+  const __t0 = Date.now();
+  let __tEnv = 0, __tFetch = 0, __tJson = 0;
+
   try {
     const id = (url.searchParams.get("id") || "").trim();
     if (!id) {
       return json(400, { ok: false, error: "Missing id" }, { "cache-control": "no-store" }, request);
     }
 
+    const __tEnv0 = Date.now();
     const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
+    __tEnv = Date.now() - __tEnv0;
+
     if (!basic) {
       return json(500, { ok: false, error: "WP_BASIC_AUTH not configured" }, { "cache-control": "no-store" }, request);
     }
@@ -352,6 +358,8 @@ async function handleFullPost(request, url, env) {
     const upstream = new URL(`${ORIGIN}/wp-json/wp/v2/posts/${encodeURIComponent(id)}`);
     upstream.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
 
+
+    const __tFetch0 = Date.now();
     const resp = await fetch(upstream.toString(), {
       method: "GET",
       headers: {
@@ -359,24 +367,45 @@ async function handleFullPost(request, url, env) {
         "Accept": "application/json"
       }
     });
+    __tFetch = Date.now() - __tFetch0;
 
+
+    const __tJson0 = Date.now();
     const data = await resp.json().catch(() => null);
+    __tJson = Date.now() - __tJson0;
+
 
     if (!resp.ok) {
       return json(
         resp.status,
         { ok: false, status: resp.status, upstream: upstream.pathname + upstream.search, error: data || null },
-        { "cache-control": "no-store" },
+        {
+          "cache-control": "no-store",
+          "x-oo-env-ms": String(__tEnv),
+          "x-oo-origin-ms": String(__tFetch),
+          "x-oo-json-ms": String(__tJson),
+          "x-oo-total-ms": String(Date.now() - __t0),
+          "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+        },
         request
       );
     }
 
+
     return json(
       200,
       { ok: true, post: data },
-      { "cache-control": "no-store" },
+      {
+        "cache-control": "no-store",
+        "x-oo-env-ms": String(__tEnv),
+        "x-oo-origin-ms": String(__tFetch),
+        "x-oo-json-ms": String(__tJson),
+        "x-oo-total-ms": String(Date.now() - __t0),
+        "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+      },
       request
     );
+
   } catch (err) {
     return jsonError(500, "full-post failed", err, request);
   }
