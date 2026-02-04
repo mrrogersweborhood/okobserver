@@ -179,6 +179,8 @@ if (path !== '/login' && path !== '/logout') {
       }
     } else if (path === '/about') {
       renderAbout();
+    } else if (path === '/events') {
+      renderEvents();
     } else if (path === '/search') {
       renderSearch(params);
     } else if (path === '/login') {
@@ -1050,6 +1052,105 @@ if (posts.length > 0 && appendedCount === 0) {
         console.error("[OkObserver] About page error:", err);
         aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
       });
+  }
+     // Events view (Facebook Page Plugin: Events tab)
+  // Displays upcoming events from https://www.facebook.com/OkObserver
+  function ensureFacebookSdkLoaded() {
+    return new Promise((resolve) => {
+      // If FB is already available, we're done.
+      if (window.FB && window.FB.XFBML && typeof window.FB.XFBML.parse === 'function') {
+        resolve();
+        return;
+      }
+
+      // Ensure fb-root exists (Facebook SDK expects it)
+      if (!document.getElementById('fb-root')) {
+        const fbRoot = document.createElement('div');
+        fbRoot.id = 'fb-root';
+        document.body.insertBefore(fbRoot, document.body.firstChild);
+      }
+
+      // If script already injected, wait briefly for FB to initialize.
+      if (document.getElementById('facebook-jssdk')) {
+        const start = Date.now();
+        const t = setInterval(() => {
+          if (window.FB && window.FB.XFBML && typeof window.FB.XFBML.parse === 'function') {
+            clearInterval(t);
+            resolve();
+          } else if (Date.now() - start > 8000) {
+            clearInterval(t);
+            resolve(); // fail-soft: fallback link will remain
+          }
+        }, 150);
+        return;
+      }
+
+      // Load the SDK (XFBML mode)
+      const js = document.createElement('script');
+      js.id = 'facebook-jssdk';
+      js.async = true;
+      js.defer = true;
+      js.crossOrigin = 'anonymous';
+      js.src = 'https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v19.0';
+
+      js.onload = () => resolve();
+      js.onerror = () => resolve(); // fail-soft
+
+      const firstScript = document.getElementsByTagName('script')[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(js, firstScript);
+      } else {
+        document.head.appendChild(js);
+      }
+    });
+  }
+
+  function renderEvents() {
+    // Stop any TTS and go to top, like other views
+    stopTtsPlayback();
+    scrollToTop();
+
+    const appRoot = document.getElementById('app');
+    if (!appRoot) return;
+
+    appRoot.innerHTML = `
+      <section class="events-view">
+        <h1 class="events-title">Events</h1>
+        <p class="events-subtitle">Upcoming events from The Oklahoma Observer on Facebook.</p>
+
+        <div class="events-embed">
+          <div class="fb-page"
+               data-href="https://www.facebook.com/OkObserver"
+               data-tabs="events"
+               data-width=""
+               data-height=""
+               data-small-header="false"
+               data-adapt-container-width="true"
+               data-hide-cover="false"
+               data-show-facepile="false">
+            <blockquote cite="https://www.facebook.com/OkObserver" class="fb-xfbml-parse-ignore">
+              <a href="https://www.facebook.com/OkObserver">The Oklahoma Observer</a>
+            </blockquote>
+          </div>
+        </div>
+
+        <p class="events-fallback">
+          If the embedded events list doesn’t load on your device, use:
+          <a href="https://www.facebook.com/OkObserver/events" target="_blank" rel="noopener">View Events on Facebook</a>
+        </p>
+      </section>
+    `;
+
+    // Parse XFBML for this view (needed after SPA route changes)
+    ensureFacebookSdkLoaded().then(() => {
+      if (window.FB && window.FB.XFBML && typeof window.FB.XFBML.parse === 'function') {
+        try {
+          window.FB.XFBML.parse(appRoot);
+        } catch (e) {
+          console.warn('[OkObserver] FB.XFBML.parse failed:', e);
+        }
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
