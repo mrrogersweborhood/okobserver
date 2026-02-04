@@ -179,8 +179,6 @@ if (path !== '/login' && path !== '/logout') {
       }
     } else if (path === '/about') {
       renderAbout();
-    } else if (path === '/events') {
-      renderEvents();
     } else if (path === '/search') {
       renderSearch(params);
     } else if (path === '/login') {
@@ -1054,39 +1052,6 @@ if (posts.length > 0 && appendedCount === 0) {
       });
   }
 
-
-  
-  function renderEvents() {
-  stopTtsPlayback();
-  scrollToTop();
-
-  const appRoot = document.getElementById('app');
-  if (!appRoot) return;
-
-  appRoot.innerHTML = `
-    <section class="events-view">
-      <h1 class="events-title">Events</h1>
-      <p class="events-subtitle">Upcoming events are posted on our Facebook page.</p>
-
-      <div class="events-card">
-        <div class="events-card-title">The Oklahoma Observer — Facebook Events</div>
-        <div class="events-card-body">
-          View upcoming events and details on Facebook.
-        </div>
-
-        <div class="events-actions">
-          <a class="events-btn" href="https://www.facebook.com/OkObserver/events/">
-            View Upcoming Events
-          </a>
-          <a class="events-link" href="https://www.facebook.com/OkObserver/events" target="_blank" rel="noopener">
-            Open in new tab
-          </a>
-        </div>
-      </div>
-    </section>
-  `;
-}
-  
 
   // ---------------------------------------------------------------------------
   // Search view

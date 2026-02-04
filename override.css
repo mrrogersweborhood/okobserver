@@ -7090,35 +7090,3 @@ button.oo-hamburger:active {
   line-height: 1;
 }
 /* 🔴 Post detail inline loading text */
-/* Events view (Facebook Page Plugin) */
-.events-view{
-  max-width: 980px;
-  margin: 0 auto;
-  padding: 16px 12px 28px;
-}
-.events-title{
-  margin: 10px 0 6px;
-  font-size: 1.6rem;
-  line-height: 1.2;
-}
-.events-subtitle{
-  margin: 0 0 14px;
-  opacity: .85;
-}
-.events-embed{
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 8px 22px rgba(0,0,0,.08);
-  padding: 12px;
-  overflow: hidden;
-}
-.events-fallback{
-  margin: 14px 0 0;
-  font-size: .95rem;
-}
-.events-fallback a{
-  color: var(--oko-blue);
-  font-weight: 700;
-  text-decoration: none;
-}
-.events-fallback a:hover{ text-decoration: underline; }
