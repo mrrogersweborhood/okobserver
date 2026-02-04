@@ -1075,7 +1075,7 @@ if (posts.length > 0 && appendedCount === 0) {
         </div>
 
         <div class="events-actions">
-          <a class="events-btn" href="https://www.facebook.com/OkObserver/events">
+          <a class="events-btn" href="https://www.facebook.com/OkObserver/events/">
             View Upcoming Events
           </a>
           <a class="events-link" href="https://www.facebook.com/OkObserver/events" target="_blank" rel="noopener">
