@@ -876,7 +876,8 @@ grid.insertAdjacentElement('afterend', sentinel);
     if (isFetchingPosts || !hasMorePages) return;
 
     isFetchingPosts = true;
-    showPagingStatus();
+showPagingStatus(isInitialHomeLoad ? 'Loading news…' : 'Loading more…');
+
 
     const grid = app.querySelector('.home-view .posts-grid');
     if (!grid) {
@@ -948,16 +949,26 @@ if (posts.length > 0 && appendedCount === 0) {
     }
   }
 
-  function showPagingStatus() {
-    let status = document.querySelector('.paging-status');
-    if (!status) {
-      status = document.createElement('div');
-      status.className = 'paging-status';
-      status.textContent = 'Loading more…';
-      app.appendChild(status);
-    }
-    status.style.display = 'block';
+  function showPagingStatus(labelText) {
+  let status = document.querySelector('.paging-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.className = 'paging-status';
+    app.appendChild(status);
   }
+
+  const label = labelText || 'Loading more…';
+
+  status.innerHTML = `
+    <div class="oo-detail-loading-inline">
+      <span class="oo-loading-spinner" aria-hidden="true"></span>
+      <span class="oo-loading-text">${label}</span>
+    </div>
+  `;
+
+  status.style.display = 'block';
+}
+
 
   function hidePagingStatus() {
     const status = document.querySelector('.paging-status');
@@ -2321,7 +2332,8 @@ function renderNotFound() {
     }
 
     isFetchingSearchResults = true;
-    showPagingStatus();
+showPagingStatus('Loading more…');
+
 
     const view = document.querySelector('.search-view');
     if (!view) {
