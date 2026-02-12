@@ -7093,3 +7093,72 @@ button.oo-hamburger:active {
   line-height: 1;
 }
 /* 🔴 Post detail inline loading text */
+/* 🟢 Table of Contents view (loaded titles only) — OkObserver-ish styling */
+.toc-view{
+  max-width: 860px;
+  margin: 18px auto 64px;
+  padding: 0 var(--oo-gutter, 16px);
+}
+
+.toc-title{
+  margin: 18px 0 6px;
+  font-size: 1.6rem;
+  line-height: 1.15;
+  color: var(--oo-blue, #1E90FF);
+}
+
+.toc-subtitle{
+  margin: 0 0 14px;
+  color: var(--oo-muted, #667085);
+  font-size: 0.95rem;
+}
+
+.toc-list{
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.toc-item{
+  background: var(--oo-card, #fff);
+  border-radius: var(--oo-radius, 14px);
+  box-shadow: var(--oo-shadow, 0 6px 18px rgba(0,0,0,.10));
+  padding: 12px 14px;
+}
+
+.toc-link{
+  display: block;
+  font-weight: 800;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--oo-blue, #1E90FF);
+  text-decoration: none;
+}
+
+.toc-link:hover{
+  text-decoration: underline;
+}
+
+.toc-link:focus-visible{
+  outline: 2px solid rgba(30,144,255,.55);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.toc-meta{
+  margin-top: 6px;
+  font-size: 0.92rem;
+  color: var(--oo-muted, #667085);
+}
+
+.toc-empty{
+  padding: 10px 0;
+  color: var(--oo-muted, #667085);
+}
+.toc-empty a{
+  color: var(--oo-blue, #1E90FF);
+  font-weight: 700;
+}
+/* 🔴 Table of Contents view end */
