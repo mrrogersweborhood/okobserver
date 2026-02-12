@@ -6161,8 +6161,7 @@ body.is-menu-open .oo-hamburger{
 /* 🟢 override.css — :has() fallback for auth divider (2025-12-18) START */
 /* Append-only. CSS-only. */
 
-.oo-menu-list li:nth-last-child(2),
-.oo-menu-list li:last-child{
+.oo-menu-list li:last-child {
   margin-top: 6px;
   padding-top: 8px;
   border-top: 1px solid rgba(15, 23, 42, 0.10);
