@@ -6149,7 +6149,11 @@ body.is-menu-open .oo-menu{
   padding-top: 8px;
   border-top: 1px solid rgba(15, 23, 42, 0.10);
 }
-
+/* Fix double divider: prevent stacking with last-child divider */
+.oo-menu-list li:has(#ooSignOutLink),
+.oo-menu-list li:has(#ooSignInLink){
+  border-bottom: 0 !important;
+}
 /* Keep the hamburger button “pressed” feel when open */
 body.is-menu-open .oo-hamburger{
   filter: brightness(0.98);
