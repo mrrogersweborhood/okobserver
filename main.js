@@ -151,8 +151,8 @@ function updateAuthNav() {
 
      function onRouteChange() {
     const { path, params } = parseHashRoute();
-// Track last grid/search route for PostDetail "Back to posts"
-if (path === '/' || path === '/search') {
+// Track last list route for PostDetail "Back to posts"
+if (path === '/' || path === '/search' || path === '/toc') {
   lastListHash = window.location.hash || '#/';
 }
 
@@ -181,6 +181,8 @@ if (path !== '/login' && path !== '/logout') {
       renderAbout();
     } else if (path === '/search') {
       renderSearch(params);
+    } else if (path === '/toc') {
+      renderToc();
     } else if (path === '/login') {
       // NEW: dedicated login route
       renderLogin();
@@ -1165,6 +1167,79 @@ grid.innerHTML = '';
       navigateTo(`#/search?q=${enc}`);
     });
   }
+function renderToc() {
+  stopTtsPlayback();
+  scrollToTop();
+
+  // Ensure PostDetail "Back to posts" returns here if user came from TOC
+  lastListHash = '#/toc';
+
+  // Build from already-loaded posts (no new fetch)
+  const posts = [];
+  seenPostIds.forEach((id) => {
+    const p = postCache.get(id);
+    if (!p) return;
+    // Safety: keep cartoon filtering consistent (even though home already filters)
+    if (hasExcludedCategory(p)) return;
+    posts.push(p);
+  });
+
+  // Newest first (matches typical expectation)
+  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  app.innerHTML = `
+    <div class="toc-view">
+      <h1 class="toc-title">Table of Contents</h1>
+      <p class="toc-subtitle">Loaded titles only (from your current session).</p>
+      <ul class="toc-list"></ul>
+    </div>
+  `;
+
+  const list = app.querySelector('.toc-list');
+  if (!list) return;
+
+  if (!posts.length) {
+    list.innerHTML = `
+      <li class="toc-empty">
+        No posts loaded yet. Go back to <a href="#/">News</a> and let the feed load.
+      </li>
+    `;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  for (const post of posts) {
+    const li = document.createElement('li');
+    li.className = 'toc-item';
+
+    const a = document.createElement('a');
+    a.className = 'toc-link';
+    a.href = `#/post/${post.id}`;
+    a.innerHTML =
+      post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+
+    // Make detail prefill instant (same as clicking from grid)
+    a.addEventListener('click', () => {
+      lastClickedPostSummary = post;
+    });
+
+    const meta = document.createElement('div');
+    meta.className = 'toc-meta';
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    let metaText = '';
+    if (authorName) metaText += authorName;
+    if (dateStr) metaText += (metaText ? ' • ' : '') + dateStr;
+    meta.textContent = metaText;
+
+    li.appendChild(a);
+    if (metaText) li.appendChild(meta);
+    frag.appendChild(li);
+  }
+
+  list.appendChild(frag);
+}
 
 async function performSearch(term, statusEl, grid) {
   const statusTextEl = statusEl
