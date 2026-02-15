@@ -7162,3 +7162,20 @@ nav#oo-menu.oo-menu ul {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
+/* --- Mobile hamburger: ensure dropdown starts below sticky header --- */
+@media (max-width: 720px){
+  /* If your dropdown is the nav itself */
+  nav#oo-menu.oo-menu{
+    top: 120px !important; /* pushes menu below the stacked mobile header */
+  }
+
+  /* If you render an inner panel instead (covers both structures) */
+  nav#oo-menu.oo-menu .oo-menu-panel,
+  nav#oo-menu.oo-menu .oo-menu-content,
+  nav#oo-menu.oo-menu ul,
+  nav#oo-menu.oo-menu .oo-menu-list{
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+}
+/* --- End mobile hamburger fix --- */
