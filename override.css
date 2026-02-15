@@ -7162,3 +7162,18 @@ button.oo-hamburger:active {
   font-weight: 700;
 }
 /* 🔴 Table of Contents view end */
+/* 🟢 mobile white-gap fix — tighten space under header */
+@media (max-width: 720px){
+  .post-detail{
+    margin-top: 8px !important;   /* was effectively ~24px */
+    padding-top: 0 !important;
+  }
+}
+/* 🔴 mobile white-gap fix */
+/* 🟢 mobile header offset kill — remove phantom top gap */
+@media (max-width: 720px){
+  body{
+    padding-top: 0 !important;
+  }
+}
+/* 🔴 mobile header offset kill */
