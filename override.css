@@ -7179,3 +7179,18 @@ nav#oo-menu.oo-menu ul {
   }
 }
 /* --- End mobile hamburger fix --- */
+/* --- TTS speaker polish --- */
+.oo-tts-icon{
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  color: #1E90FF; /* OkObserver blue */
+}
+
+@media (max-width: 720px){
+  .oo-tts-icon{
+    width: 22px;
+    height: 22px;
+  }
+}
+/* --- end TTS polish --- */
