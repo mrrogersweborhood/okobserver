@@ -7222,3 +7222,39 @@ nav#oo-menu.oo-menu ul {
   }
 }
 /* --- end TTS polish --- */
+/* 🟢 TTS button mobile polish (2026-02-15) */
+.post-detail .tts-button {
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #fff;
+  border-radius: 999px;
+
+  /* make it a real tap target */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  /* make whatever glyph/SVG inside scale */
+  font-size: 26px;
+  line-height: 1;
+
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+}
+
+@media (max-width: 480px) {
+  .post-detail .tts-button {
+    width: 52px;
+    height: 52px;
+    font-size: 32px;
+  }
+}
+
+.post-detail .tts-button:active {
+  transform: scale(0.98);
+}
+/* 🔴 TTS button mobile polish */
