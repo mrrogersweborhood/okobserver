@@ -7265,3 +7265,30 @@ html, body{
   min-height: 100% !important;
 }
 /* === end stickyHeaderFixR1 === */
+/* === ttsStableBoxR1: prevent excerpt layout shift during prefill → full swap === */
+.post-detail .tts-button{
+  /* Fixed control box so line wrapping never changes */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+  line-height: 1;
+  font-size: 22px; /* stable default */
+}
+
+@media (max-width: 720px){
+  .post-detail .tts-button{
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 22px; /* DO NOT scale up on mobile; avoids shift */
+  }
+}
+/* === end ttsStableBoxR1 === */
