@@ -7258,3 +7258,10 @@ nav#oo-menu.oo-menu ul {
   transform: scale(0.98);
 }
 /* 🔴 TTS button mobile polish */
+/* === stickyHeaderFixR1: undo body height trap that limits position:sticky === */
+/* If html/body are forced to height:100%, sticky header can stop after ~1 viewport. */
+html, body{
+  height: auto !important;
+  min-height: 100% !important;
+}
+/* === end stickyHeaderFixR1 === */
