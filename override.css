@@ -7270,9 +7270,33 @@ html, body{
   }
 }
 /* === end ttsStableBoxR1 === */
-@media (min-width: 721px){
-  nav#oo-menu.oo-menu { padding-top: 120px !important; }
+/* 🟢 menuScrollMobileFix-2026-02-16
+   Make the hamburger menu panel scroll on mobile so top items (like “News”) never disappear. */
+:root{ --oo-menu-top: 120px; } /* desktop-ish header height */
+@media (max-width: 720px){
+  :root{ --oo-menu-top: 96px; }  /* mobile header height */
 }
+
+nav#oo-menu.oo-menu{
+  position: fixed !important;
+  left: 12px !important;
+  right: 12px !important;
+  top: var(--oo-menu-top) !important;
+  bottom: 12px !important;
+
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+
+  /* keep your “card” look */
+  background: #fff !important;
+  border-radius: 16px !important;
+
+  z-index: 3000 !important;
+}
+
+nav#oo-menu.oo-menu[hidden]{ display: none !important; }
+/* 🔴 menuScrollMobileFix-2026-02-16 */
+
 /* --- Hamburger submenu styling: TOC under News --- */
 .oo-menu-list li.oo-submenu a{
   padding-left: 28px !important;
