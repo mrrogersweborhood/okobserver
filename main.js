@@ -1697,7 +1697,7 @@ const tagsHtml = `<div class="post-tags" aria-label="Tags">
   ${
     tagNames.length
       ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
-      : `<span class="post-tag post-tag-empty">None</span>`
+      : ``
   }
 </div>`;
 
