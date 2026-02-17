@@ -7168,6 +7168,7 @@ nav#oo-menu.oo-menu {
   left: 0 !important;
   right: 0 !important;
   top: 0 !important;
+  padding-top: 156px !important;
 
   /* Keep it above content and above overlays */
   z-index: 3000 !important;
@@ -7292,3 +7293,6 @@ html, body{
   }
 }
 /* === end ttsStableBoxR1 === */
+@media (min-width: 721px){
+  nav#oo-menu.oo-menu { padding-top: 120px !important; }
+}
