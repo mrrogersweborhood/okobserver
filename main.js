@@ -636,22 +636,33 @@ function buildTtsTextFromHtml(html) {
     card.className = 'post-card';
 
     const imageUrl = getFeaturedImageUrl(post);
-    if (imageUrl) {
-      const imgWrapper = document.createElement('div');
-      imgWrapper.className = 'post-card-image-wrapper';
+if (imageUrl) {
+  const imgWrapper = document.createElement('div');
+  imgWrapper.className = 'post-card-image-wrapper';
 
-      const img = document.createElement('img');
-      img.className = 'post-card-image';
-      img.src = `${imageUrl}?cb=${post.id}`;
-      img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.fetchPriority = 'low';
+  const img = document.createElement('img');
+  img.className = 'post-card-image';
+  img.src = `${imageUrl}?cb=${post.id}`;
+  img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  img.fetchPriority = 'low';
+
+imgWrapper.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  // match the card click behavior
+  saveHomeScroll();
+  lastClickedPostSummary = post;
+  prefetchPostDetail(post.id);
+  navigateTo(`#/post/${post.id}`);
+});
 
 
-      imgWrapper.appendChild(img);
-      card.appendChild(imgWrapper);
-    }
+  card.appendChild(imgWrapper);
+}
+
 
     const content = document.createElement('div');
     content.className = 'post-card-content';
@@ -1440,7 +1451,7 @@ function escapeHtml(s) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(String(post.author))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(String(summaryPost.author || ''))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
     if (dateStr) metaParts.push(dateStr);
@@ -1625,7 +1636,7 @@ function linkifyPaywallLoginForSignedOut(html) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(post.author)}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(String(post.author || ''))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
 
@@ -1733,7 +1744,10 @@ const __author = post && post._embedded && Array.isArray(post._embedded.author)
   : null;
 
 const __authorName = __author && __author.name ? String(__author.name) : '';
-const __authorSearchHref = __authorName ? `#/search?q=${encodeURIComponent(__authorName)}` : '';
+const __authorSearchHref =
+  (__author && __author.id)
+    ? `#/search?author=${encodeURIComponent(String(__author.id))}&label=${encodeURIComponent(__authorName)}`
+    : '';
 
 const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
 const __authorBio = __authorBioRaw.trim();
