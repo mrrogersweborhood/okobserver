@@ -374,7 +374,7 @@ async function fetchSearchResults(term, page = 1) {
     const authorId = raw.replace('__author__', '').trim();
     const safeId = /^\d+$/.test(authorId) ? authorId : '';
     const url =
-      `${WP_API_BASE}/posts?author=${encodeURIComponent(safeId)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+      `${WP_API_BASE}/content/author-posts?author=${encodeURIComponent(safeId)}&per_page=${POSTS_PER_PAGE}&page=${page}`;
     return fetchJson(url);
   }
 
@@ -1196,9 +1196,24 @@ if (statusTextEl) {
 }
 grid.innerHTML = '';
 
-      performSearch(value, statusEl, grid);
-      const enc = encodeURIComponent(value);
-      navigateTo(`#/search?q=${enc}`);
+      // If we're in author-mode, run an author-id search and preserve label in the URL.
+if (isAuthorMode && currentSearchAuthorId && /^\d+$/.test(String(currentSearchAuthorId))) {
+  if (statusTextEl) statusTextEl.textContent = 'Loading author…';
+  grid.innerHTML = '';
+
+  const authorId = String(currentSearchAuthorId);
+  const label = encodeURIComponent(value);
+
+  performSearch(`__author__${authorId}`, statusEl, grid);
+  navigateTo(`#/search?author=${encodeURIComponent(authorId)}&label=${label}`);
+  return;
+}
+
+// Otherwise it's a normal keyword search
+performSearch(value, statusEl, grid);
+const enc = encodeURIComponent(value);
+navigateTo(`#/search?q=${enc}`);
+
     });
   }
 function renderToc() {
