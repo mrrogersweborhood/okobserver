@@ -1414,7 +1414,12 @@ function escapeHtml(s) {
     const dateStr = formatDate(summaryPost.date);
     const authorName = getAuthorName(summaryPost);
     const metaParts = [];
-    if (authorName) metaParts.push(authorName);
+    if (authorName) {
+  const safeAuthor = escapeAttr(authorName);
+  metaParts.push(
+    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+  );
+}
     if (dateStr) metaParts.push(dateStr);
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
@@ -1594,7 +1599,13 @@ function linkifyPaywallLoginForSignedOut(html) {
     const dateStr = formatDate(post.date);
     const authorName = getAuthorName(post);
     const metaParts = [];
-    if (authorName) metaParts.push(authorName);
+    if (authorName) {
+  const safeAuthor = escapeAttr(authorName);
+  metaParts.push(
+    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+  );
+}
+
     if (dateStr) metaParts.push(dateStr);
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
@@ -1699,7 +1710,8 @@ const __author = post && post._embedded && Array.isArray(post._embedded.author)
   : null;
 
 const __authorName = __author && __author.name ? String(__author.name) : '';
-const __authorLink = __author && __author.link ? String(__author.link) : '';
+const __authorSearchHref = __authorName ? `#/search?q=${encodeURIComponent(__authorName)}` : '';
+
 const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
 const __authorBio = __authorBioRaw.trim();
 
@@ -1712,12 +1724,13 @@ let authorBoxHtml = '';
 if (__authorName || __authorBio || __avatar) {
   const safeName = escapeHtml(__authorName || 'Author');
   const safeBio = __authorBio ? sanitizeAuthorBioHtml(__authorBio) : '';
-  const safeLink = __authorLink ? escapeAttr(__authorLink) : '';
+  
   const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
 
-  const nameHtml = safeLink
-    ? `<a class="author-box-name-link" href="${safeLink}" target="_blank" rel="noopener">${safeName}</a>`
-    : `<span class="author-box-name-link">${safeName}</span>`;
+const nameHtml = __authorSearchHref
+  ? `<a class="author-box-name-link" href="${escapeAttr(__authorSearchHref)}">${safeName}</a>`
+  : `<span class="author-box-name-link">${safeName}</span>`;
+
 
   authorBoxHtml = `
     <div class="author-box" aria-label="About the author">
