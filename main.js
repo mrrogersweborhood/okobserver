@@ -83,7 +83,8 @@
   let isFetchingSearchResults = false;
   let searchObserver = null;
   let searchScrollLoadTimeout = null;
-
+  let currentSearchAuthorId = null; // when set, search uses ?author= instead of ?search=
+  let currentSearchLabel = '';      // display label for author searches
 
   // Root app container & loader overlay
   const app = document.getElementById('app');
@@ -1439,7 +1440,7 @@ function escapeHtml(s) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(summaryPost.author)}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(String(post.author))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
     if (dateStr) metaParts.push(dateStr);
