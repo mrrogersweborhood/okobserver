@@ -204,7 +204,9 @@ if (path !== '/login' && path !== '/logout') {
       // Save scroll for the current search term
       searchState.scrollY = y;
       searchState.initialized = true;
-      searchState.term = (params && params.q) || '';
+      const authorParam = (params && params.author) || '';
+searchState.term = authorParam ? `__author__${authorParam}` : ((params && params.q) || '');
+
       console.debug(
         '[OkObserver] Saved search scrollY:',
         y,
@@ -362,13 +364,26 @@ async function fetchPostById(id) {
 
 
 
-  async function fetchSearchResults(term, page = 1) {
-    const enc = encodeURIComponent(term || '');
-    const url =
-  `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+async function fetchSearchResults(term, page = 1) {
+  const raw = String(term || '').trim();
 
+  // Special internal token for author searches:
+  // "__author__123"
+  if (raw.startsWith('__author__')) {
+    const authorId = raw.replace('__author__', '').trim();
+    const safeId = /^\d+$/.test(authorId) ? authorId : '';
+    const url =
+      `${WP_API_BASE}/posts?author=${encodeURIComponent(safeId)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
     return fetchJson(url);
   }
+
+  // Normal keyword search
+  const enc = encodeURIComponent(raw);
+  const url =
+    `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+  return fetchJson(url);
+}
+
 
 
   // Cached About page (contact-about-donate) so we only fetch once
@@ -1074,6 +1089,12 @@ if (posts.length > 0 && appendedCount === 0) {
     scrollToTop();
 
     const initialQuery = (params && params.q) || '';
+    const initialAuthor = (params && params.author) || '';
+    const initialLabel = (params && params.label) || '';
+    const isAuthorMode = !!initialAuthor && /^\d+$/.test(String(initialAuthor));
+    const authorToken = isAuthorMode ? `__author__${initialAuthor}` : '';
+    const inputValue = isAuthorMode ? (initialLabel || '') : initialQuery;
+
 
     app.innerHTML = `
       <div class="search-view">
@@ -1086,7 +1107,7 @@ if (posts.length > 0 && appendedCount === 0) {
               type="search"
               name="q"
               placeholder="Type keywords&hellip;"
-              value="${escapeAttr(initialQuery)}"
+              value="${escapeAttr(inputValue)}"
             />
           </label>
           <button class="search-submit" type="submit">Search</button>
@@ -1116,7 +1137,7 @@ const statusTextEl = statusEl
   // without disturbing scroll restore.
     // Auto-focus ONLY when entering Search with no query.
   // If q is present (e.g., after clicking Search), do NOT refocus (prevents mobile keyboard pop).
-  if (!initialQuery) {
+  if (!initialQuery && !isAuthorMode) {
     requestAnimationFrame(() => {
       if (document.body.contains(input)) {
         try {
@@ -1133,13 +1154,14 @@ const statusTextEl = statusEl
 
 
 
-        if (initialQuery) {
-      statusEl.classList.add('is-loading');
-      if (statusTextEl) {
-        statusTextEl.textContent = 'Searching…';
-      }
-      performSearch(initialQuery, statusEl, grid);
-    }
+       if (isAuthorMode || initialQuery) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = isAuthorMode ? 'Loading author…' : 'Searching…';
+  }
+  performSearch(isAuthorMode ? authorToken : initialQuery, statusEl, grid);
+}
+
 
 
     form.addEventListener('submit', (evt) => {
@@ -1417,7 +1439,7 @@ function escapeHtml(s) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(summaryPost.author)}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
     if (dateStr) metaParts.push(dateStr);
@@ -1602,7 +1624,7 @@ function linkifyPaywallLoginForSignedOut(html) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(post.author)}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
 
