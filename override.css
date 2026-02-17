@@ -7322,3 +7322,24 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
   padding: 0 !important;
 }
 /* 🔴 end hamburger scroll fix */
+/* 🟢 TTS placement: ensure it sits below embeds on detail pages */
+.post-detail-content .post-detail-tts-row{
+  display: block;
+  margin: 16px 0 8px;
+}
+
+.post-detail-content iframe,
+.post-detail-content video,
+.post-detail-content .wp-block-embed{
+  display: block;
+  margin-bottom: 12px;
+}
+
+/* force TTS to appear after leading embeds visually */
+.post-detail-content > .post-detail-tts-row{
+  order: 2;
+}
+
+.post-detail-content > *:first-child{
+  order: 1;
+}

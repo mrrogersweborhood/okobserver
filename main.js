@@ -1787,11 +1787,11 @@ app.innerHTML = `
     ${heroHtml}
     <h1 class="post-title">${titleHtml}</h1>
     ${metaHtml}
-    <div class="post-detail-tts-row">
-      ${ttsButtonHtml}
-    </div>
     <div class="post-content post-detail-content entry-content">
-      ${contentHtml}
+<div class="post-detail-tts-row">
+      ${ttsButtonHtml}
+    </div>      
+    ${contentHtml}
     </div>
     ${taxHtml}
     ${authorBoxHtml}
