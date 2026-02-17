@@ -7273,3 +7273,28 @@ html, body{
 @media (min-width: 721px){
   nav#oo-menu.oo-menu { padding-top: 120px !important; }
 }
+/* --- Hamburger submenu styling: TOC under News --- */
+.oo-menu-list li.oo-submenu a{
+  padding-left: 28px !important;
+  font-size: 0.98em;
+  opacity: 0.92;
+}
+.oo-menu-list li.oo-submenu a::before{
+  content: "↳";
+  display: inline-block;
+  margin-right: 8px;
+  opacity: 0.7;
+}
+/* 🟢 Hamburger menu: ensure scroll on mobile + desktop (2026-02-16) */
+body.is-menu-open nav#oo-menu.oo-menu{
+  max-height: calc(100vh - 80px) !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* prevent phantom spacing pushing items out */
+body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
+  margin: 0 !important;
+  padding: 0 !important;
+}
+/* 🔴 end hamburger scroll fix */
