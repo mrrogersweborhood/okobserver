@@ -647,7 +647,7 @@ if (imageUrl) {
   img.loading = 'lazy';
   img.decoding = 'async';
   img.fetchPriority = 'low';
-
+imgWrapper.appendChild(img);
 imgWrapper.addEventListener('click', (e) => {
   e.preventDefault();
   e.stopPropagation();
