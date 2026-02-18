@@ -283,11 +283,7 @@ const isAuthCall =
   url.includes('/auth/status') ||
   options.credentials === 'include';
 
-const shouldSendCreds =
-  isAuthCall ||
-  (typeof window !== 'undefined' &&
-   typeof window.isClientLoggedIn === 'function' &&
-   window.isClientLoggedIn());
+const shouldSendCreds = true;
 
 
   const response = await fetch(url, {
