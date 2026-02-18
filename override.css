@@ -7343,3 +7343,50 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
 .post-detail-content > *:first-child{
   order: 1;
 }
+/* 🟢 Speaker container stability fix */
+.oo-detail-header {
+  position: relative;
+}
+
+/* 🟢 Speaker button — remove from text flow */
+.oo-tts-btn,
+.oo-speaker-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+/* 🟢 Reserve safe padding so text never collides */
+.oo-detail-content,
+.oo-detail-body {
+  padding-right: 48px; /* adjust if your icon size differs */
+}
+.oo-tts-btn svg,
+.oo-speaker-btn svg {
+  width: 20px;
+  height: 20px;
+}
+/* ========================================
+   🟢 TTS BUTTON — layout stability fix
+   ======================================== */
+
+/* Anchor container */
+.post-detail-tts-row {
+  position: relative;
+  min-height: 44px; /* preserves vertical space */
+}
+
+/* Remove button from document flow */
+.post-detail-tts-row .tts-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+}
+
+/* Prevent text from sliding under button */
+.post-detail-content.entry-content {
+  padding-left: 56px; /* adjust if needed */
+}
