@@ -7423,3 +7423,39 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     height: 44px !important;
   }
 }
+/* ========================================
+   🟢 TTS BUTTON — MOBILE above-content, no-shift
+   ======================================== */
+@media (max-width: 640px) {
+
+  /* Anchor positioning + reserve vertical space from the start */
+  .post-detail-content.post-detail-content.entry-content {
+    position: relative !important;
+    padding-left: 0 !important;   /* undo the left gutter */
+    padding-top: 56px !important; /* reserve space for the icon above content */
+  }
+
+  /* Pull the row out of flow and place it above content */
+  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row {
+    position: absolute !important;
+    top: 8px !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 5 !important;
+    display: flex !important;
+    justify-content: flex-start !important; /* change to center if you want */
+    align-items: center !important;
+    pointer-events: none !important; /* row doesn't block text taps */
+  }
+
+  /* Button stays clickable */
+  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row .tts-button {
+    width: 44px !important;
+    height: 44px !important;
+    pointer-events: auto !important;
+  }
+}
