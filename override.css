@@ -7459,3 +7459,23 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     pointer-events: auto !important;
   }
 }
+/* ========================================
+   🟢 MOBILE: prevent excerpt→full “jump” (first-block margin collapse)
+   ======================================== */
+@media (max-width: 640px) {
+
+  /* Whatever the first block is (p, h2, figure, etc), kill top margin */
+  .post-detail-content.post-detail-content.entry-content > :first-child {
+    margin-top: 0 !important;
+  }
+
+  /* Also cover common Gutenberg wrappers */
+  .post-detail-content.post-detail-content.entry-content > .wp-block:first-child {
+    margin-top: 0 !important;
+  }
+
+  /* If WP injects inline styles or odd wrappers, this keeps the first paragraph from pushing down */
+  .post-detail-content.post-detail-content.entry-content p:first-child {
+    margin-top: 0 !important;
+  }
+}
