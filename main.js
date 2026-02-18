@@ -83,8 +83,7 @@
   let isFetchingSearchResults = false;
   let searchObserver = null;
   let searchScrollLoadTimeout = null;
-  let currentSearchAuthorId = null; // when set, search uses ?author= instead of ?search=
-  let currentSearchLabel = '';      // display label for author searches
+
 
   // Root app container & loader overlay
   const app = document.getElementById('app');
@@ -205,9 +204,7 @@ if (path !== '/login' && path !== '/logout') {
       // Save scroll for the current search term
       searchState.scrollY = y;
       searchState.initialized = true;
-      const authorParam = (params && params.author) || '';
-searchState.term = authorParam ? `__author__${authorParam}` : ((params && params.q) || '');
-
+      searchState.term = (params && params.q) || '';
       console.debug(
         '[OkObserver] Saved search scrollY:',
         y,
@@ -283,7 +280,7 @@ const isAuthCall =
   url.includes('/auth/status') ||
   options.credentials === 'include';
 
-const shouldSendCreds = true;
+const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' && isClientLoggedIn());
 
 
   const response = await fetch(url, {
@@ -365,26 +362,13 @@ async function fetchPostById(id) {
 
 
 
-async function fetchSearchResults(term, page = 1) {
-  const raw = String(term || '').trim();
-
-  // Special internal token for author searches:
-  // "__author__123"
-  if (raw.startsWith('__author__')) {
-    const authorId = raw.replace('__author__', '').trim();
-    const safeId = /^\d+$/.test(authorId) ? authorId : '';
+  async function fetchSearchResults(term, page = 1) {
+    const enc = encodeURIComponent(term || '');
     const url =
-      `${WP_API_BASE}/content/author-posts?author=${encodeURIComponent(safeId)}&per_page=${POSTS_PER_PAGE}&page=${page}`;
+  `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+
     return fetchJson(url);
   }
-
-  // Normal keyword search
-  const enc = encodeURIComponent(raw);
-  const url =
-    `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
-  return fetchJson(url);
-}
-
 
 
   // Cached About page (contact-about-donate) so we only fetch once
@@ -636,33 +620,22 @@ function buildTtsTextFromHtml(html) {
     card.className = 'post-card';
 
     const imageUrl = getFeaturedImageUrl(post);
-if (imageUrl) {
-  const imgWrapper = document.createElement('div');
-  imgWrapper.className = 'post-card-image-wrapper';
+    if (imageUrl) {
+      const imgWrapper = document.createElement('div');
+      imgWrapper.className = 'post-card-image-wrapper';
 
-  const img = document.createElement('img');
-  img.className = 'post-card-image';
-  img.src = `${imageUrl}?cb=${post.id}`;
-  img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.fetchPriority = 'low';
-imgWrapper.appendChild(img);
-imgWrapper.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-
-  // match the card click behavior
-  saveHomeScroll();
-  lastClickedPostSummary = post;
-  prefetchPostDetail(post.id);
-  navigateTo(`#/post/${post.id}`);
-});
+      const img = document.createElement('img');
+      img.className = 'post-card-image';
+      img.src = `${imageUrl}?cb=${post.id}`;
+      img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.fetchPriority = 'low';
 
 
-  card.appendChild(imgWrapper);
-}
-
+      imgWrapper.appendChild(img);
+      card.appendChild(imgWrapper);
+    }
 
     const content = document.createElement('div');
     content.className = 'post-card-content';
@@ -1101,12 +1074,6 @@ if (posts.length > 0 && appendedCount === 0) {
     scrollToTop();
 
     const initialQuery = (params && params.q) || '';
-    const initialAuthor = (params && params.author) || '';
-    const initialLabel = (params && params.label) || '';
-    const isAuthorMode = !!initialAuthor && /^\d+$/.test(String(initialAuthor));
-    const authorToken = isAuthorMode ? `__author__${initialAuthor}` : '';
-    const inputValue = isAuthorMode ? (initialLabel || '') : initialQuery;
-
 
     app.innerHTML = `
       <div class="search-view">
@@ -1119,7 +1086,7 @@ if (posts.length > 0 && appendedCount === 0) {
               type="search"
               name="q"
               placeholder="Type keywords&hellip;"
-              value="${escapeAttr(inputValue)}"
+              value="${escapeAttr(initialQuery)}"
             />
           </label>
           <button class="search-submit" type="submit">Search</button>
@@ -1149,7 +1116,7 @@ const statusTextEl = statusEl
   // without disturbing scroll restore.
     // Auto-focus ONLY when entering Search with no query.
   // If q is present (e.g., after clicking Search), do NOT refocus (prevents mobile keyboard pop).
-  if (!initialQuery && !isAuthorMode) {
+  if (!initialQuery) {
     requestAnimationFrame(() => {
       if (document.body.contains(input)) {
         try {
@@ -1166,14 +1133,13 @@ const statusTextEl = statusEl
 
 
 
-       if (isAuthorMode || initialQuery) {
-  statusEl.classList.add('is-loading');
-  if (statusTextEl) {
-    statusTextEl.textContent = isAuthorMode ? 'Loading author…' : 'Searching…';
-  }
-  performSearch(isAuthorMode ? authorToken : initialQuery, statusEl, grid);
-}
-
+        if (initialQuery) {
+      statusEl.classList.add('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'Searching…';
+      }
+      performSearch(initialQuery, statusEl, grid);
+    }
 
 
     form.addEventListener('submit', (evt) => {
@@ -1196,24 +1162,9 @@ if (statusTextEl) {
 }
 grid.innerHTML = '';
 
-      // If we're in author-mode, run an author-id search and preserve label in the URL.
-if (isAuthorMode && currentSearchAuthorId && /^\d+$/.test(String(currentSearchAuthorId))) {
-  if (statusTextEl) statusTextEl.textContent = 'Loading author…';
-  grid.innerHTML = '';
-
-  const authorId = String(currentSearchAuthorId);
-  const label = encodeURIComponent(value);
-
-  performSearch(`__author__${authorId}`, statusEl, grid);
-  navigateTo(`#/search?author=${encodeURIComponent(authorId)}&label=${label}`);
-  return;
-}
-
-// Otherwise it's a normal keyword search
-performSearch(value, statusEl, grid);
-const enc = encodeURIComponent(value);
-navigateTo(`#/search?q=${enc}`);
-
+      performSearch(value, statusEl, grid);
+      const enc = encodeURIComponent(value);
+      navigateTo(`#/search?q=${enc}`);
     });
   }
 function renderToc() {
@@ -1466,7 +1417,7 @@ function escapeHtml(s) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(String(summaryPost.author || ''))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
     if (dateStr) metaParts.push(dateStr);
@@ -1651,7 +1602,7 @@ function linkifyPaywallLoginForSignedOut(html) {
     if (authorName) {
   const safeAuthor = escapeAttr(authorName);
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(String(post.author || ''))}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
 
@@ -1759,10 +1710,7 @@ const __author = post && post._embedded && Array.isArray(post._embedded.author)
   : null;
 
 const __authorName = __author && __author.name ? String(__author.name) : '';
-const __authorSearchHref =
-  (__author && __author.id)
-    ? `#/search?author=${encodeURIComponent(String(__author.id))}&label=${encodeURIComponent(__authorName)}`
-    : '';
+const __authorSearchHref = __authorName ? `#/search?q=${encodeURIComponent(__authorName)}` : '';
 
 const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
 const __authorBio = __authorBioRaw.trim();
