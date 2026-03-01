@@ -7546,3 +7546,31 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     box-sizing: border-box;
   }
 }
+/* --- OkObserver: TTS + post body alignment (no indent) --- */
+
+/* Ensure the post body uses the same left edge as everything else */
+.post-detail .post-detail-content,
+.post-detail .entry-content,
+.post-detail .post-content {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Speaker row should NOT introduce horizontal offset */
+.post-detail .post-detail-tts-row {
+  display: block !important;      /* forces speaker above text */
+  width: 100% !important;
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Keep the button above the article text, aligned to the same left edge */
+.post-detail .post-detail-tts-row .tts-button {
+  display: inline-flex;
+  margin: 8px 0 10px 0 !important; /* space below button before text */
+}
+
+/* If any earlier rule tried to “make room” for the 44px button, kill it */
+.post-detail .post-detail-content > * {
+  margin-left: 0 !important;
+}
