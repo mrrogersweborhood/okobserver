@@ -7479,3 +7479,47 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     margin-top: 0 !important;
   }
 }
+/* ===============================
+   TTS layout stability (prevent “jerk” / reflow)
+   Insert at END of override.css
+   =============================== */
+
+/* Make the TTS row a stable block that never sits left of text */
+.post-detail-tts-row{
+  display: block;
+  width: 100%;
+  /* Reserve space so excerpt -> full content swap doesn't shift */
+  min-height: 56px; /* 44px button + breathing room */
+  margin: 10px 0 6px;
+}
+
+/* Keep the button from affecting text flow (no inline/float behavior) */
+.post-detail-tts-row .tts-button{
+  display: inline-flex;
+  vertical-align: top;
+}
+
+/* Kill “first paragraph top margin” jump under the TTS row */
+.post-detail-content > p:first-child,
+.post-detail-content .entry-content > p:first-child{
+  margin-top: 0 !important;
+}
+
+/* Mobile: force the speaker above content and align to left edge of content */
+@media (max-width: 640px){
+  .post-detail-tts-row{
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-height: 56px;
+    margin: 10px 0 6px;
+  }
+
+  /* If any earlier rules add left padding/margin to the row, neutralize it */
+  .post-detail-tts-row{
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+  }
+}
