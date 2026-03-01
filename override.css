@@ -7523,3 +7523,26 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     margin-left: 0 !important;
   }
 }
+/* --- Mobile: remove any reserved-left gutter for TTS (speaker is ABOVE text) --- */
+@media (max-width: 640px){
+
+  /* The content wrapper sometimes has extra left padding/margin to make room for the speaker.
+     Kill that so text starts normally. */
+  .post-detail-content,
+  .post-detail-content.entry-content,
+  .post-detail .post-detail-content,
+  .post-detail .post-detail-content.entry-content{
+    margin-left: 0 !important;
+    padding-left: 16px !important;   /* adjust to your normal mobile padding */
+    padding-right: 16px !important;
+    box-sizing: border-box;
+  }
+
+  /* Make the speaker row align EXACTLY with the text edge */
+  .post-detail-tts-row{
+    margin-left: 0 !important;
+    padding-left: 16px !important;   /* match the content padding */
+    padding-right: 16px !important;
+    box-sizing: border-box;
+  }
+}
