@@ -1175,38 +1175,63 @@ grid.innerHTML = '';
   }
 
 async function performAuthorSearch(authorId, statusEl, grid) {
+  const statusTextEl = statusEl
+    ? statusEl.querySelector('.search-status-text')
+    : null;
+
   try {
-    const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=12&page=1`;
+    const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=${POSTS_PER_PAGE}&page=1`;
 
     console.debug('[OkObserver] Author search URL:', url);
 
     const data = await fetchJson(url);
-    const posts = data && data.posts ? data.posts : [];
+    const posts = data && Array.isArray(data.posts) ? data.posts : [];
 
     if (!posts.length) {
       if (statusEl) statusEl.classList.remove('is-loading');
-      const txt = statusEl && statusEl.querySelector('.search-status-text');
-      if (txt) txt.textContent = 'No posts found for this author.';
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No posts found for this author.';
+      }
       grid.innerHTML = '';
       return;
     }
 
-    if (statusEl) statusEl.classList.remove('is-loading');
-    const txt = statusEl && statusEl.querySelector('.search-status-text');
-    if (txt) txt.textContent = '';
+    const frag = document.createDocumentFragment();
+    let rendered = 0;
 
-    renderPostsGrid(posts, grid);
+    posts.forEach((post) => {
+      if (hasExcludedCategory(post)) return;
+      const card = createPostCard(post);
+      frag.appendChild(card);
+      rendered++;
+    });
+
+    grid.innerHTML = '';
+
+    if (rendered > 0) {
+      grid.appendChild(frag);
+      if (statusEl) statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent =
+          `${rendered} post${rendered === 1 ? '' : 's'} by this author.`;
+      }
+    } else {
+      if (statusEl) statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No visible posts found for this author.';
+      }
+    }
 
   } catch (err) {
     console.error('[OkObserver] Author search failed:', err);
 
     if (statusEl) statusEl.classList.remove('is-loading');
-    const txt = statusEl && statusEl.querySelector('.search-status-text');
-    if (txt) txt.textContent = 'Error loading author posts.';
+    if (statusTextEl) {
+      statusTextEl.textContent = 'Error loading author posts.';
+    }
     grid.innerHTML = '';
   }
-}
-function renderToc() {
+}function renderToc() {
   stopTtsPlayback();
   scrollToTop();
 
