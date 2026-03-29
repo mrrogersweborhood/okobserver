@@ -1515,7 +1515,7 @@ if (authorName) {
     );
 
     app.innerHTML = `
-      <div class="post-detail">
+      <div class="post-detail oo-detail-prefill">
         ${heroHtml}
         <h1 class="post-title">${rawTitle}</h1>
         ${metaHtml}
@@ -1523,16 +1523,11 @@ if (authorName) {
           <div class="post-detail-tts-row">
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
           </div>
-          <div class="oo-detail-loading-inline" aria-live="polite">
-            <span class="oo-loading-spinner" aria-hidden="true"></span>
-            <span class="oo-loading-text">Loading…</span>
-          </div>
           ${excerptHtml}
         </div>
         <button class="back-btn" type="button">Back to posts</button>
       </div>
     `;
-
     // Keep back button working even during shell
     const back = app.querySelector('.back-btn');
     if (back) {
@@ -1956,8 +1951,13 @@ window.location.replace(target);
 
     wrapper.appendChild(iframe);
 
-    // Insert wrapper at the top of the article content
-    container.insertBefore(wrapper, container.firstChild);
+    // Insert wrapper after the TTS row so the article text does not jump vertically
+    const ttsRow = container.querySelector('.post-detail-tts-row');
+    if (ttsRow && ttsRow.parentNode === container) {
+      ttsRow.insertAdjacentElement('afterend', wrapper);
+    } else {
+      container.insertBefore(wrapper, container.firstChild);
+    }
 
     return;
   }
@@ -2100,10 +2100,16 @@ window.location.replace(target);
           ${videoEmbedHtml}
         </div>
       `;
-      // Insert the wrapper as the very first thing inside the content area
-      container.insertAdjacentHTML('afterbegin', wrapperHtml);
-    }
 
+      // Insert after the TTS row so the top text position stays stable
+      const ttsRow = container.querySelector('.post-detail-tts-row');
+      if (ttsRow && ttsRow.parentNode === container) {
+        ttsRow.insertAdjacentHTML('afterend', wrapperHtml);
+      } else {
+        container.insertAdjacentHTML('afterbegin', wrapperHtml);
+      }
+    }
+ }
 
     // After inserting embeds, remove stray empty paragraphs that
     // only add vertical white space under the player.
