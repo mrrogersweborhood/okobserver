@@ -7418,3 +7418,45 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
     margin: 10px 0 6px !important;
   }
 }
+/* ========================================
+   🟢 Mobile detail shell: make loading row non-layout
+   Reason:
+   - prefill shell currently inserts .oo-detail-loading-inline
+     above the excerpt
+   - final render does not
+   - same text ends up lower in shell, then jumps upward
+   ======================================== */
+@media (max-width: 640px) {
+  .oo-detail-prefill .post-detail-content {
+    position: relative !important;
+  }
+
+  .oo-detail-prefill .oo-detail-loading-inline {
+    position: absolute !important;
+    top: 8px !important;
+    right: 16px !important;
+    z-index: 6 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    pointer-events: none !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+
+    padding: 4px 8px !important;
+    border-radius: 999px !important;
+    background: rgba(255,255,255,0.92) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  }
+
+  .oo-detail-prefill .oo-loading-text {
+    font-size: 0.85rem !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .oo-detail-prefill .oo-loading-spinner {
+    flex: 0 0 auto !important;
+  }
+}
