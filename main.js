@@ -1519,12 +1519,14 @@ if (authorName) {
         ${heroHtml}
         <h1 class="post-title">${rawTitle}</h1>
         ${metaHtml}
-        <div class="oo-detail-loading-inline" aria-live="polite">
-        <span class="oo-loading-spinner" aria-hidden="true"></span>
-        <span class="oo-loading-text">Loading…</span>
-        </div>
-        <div class="post-detail-tts-row"></div>
         <div class="post-content post-detail-content entry-content">
+          <div class="post-detail-tts-row">
+            <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+          </div>
+          <div class="oo-detail-loading-inline" aria-live="polite">
+            <span class="oo-loading-spinner" aria-hidden="true"></span>
+            <span class="oo-loading-text">Loading…</span>
+          </div>
           ${excerptHtml}
         </div>
         <button class="back-btn" type="button">Back to posts</button>
@@ -1698,11 +1700,14 @@ if (authorName) {
         ${heroHtml}
         <h1 class="post-title">${titleHtml}</h1>
         ${metaHtml}
-        <div class="oo-detail-loading-inline" aria-live="polite">
-        <span class="oo-loading-spinner" aria-hidden="true"></span>
-        <span class="oo-loading-text">Loading…</span>
-        </div>
         <div class="post-content post-detail-content entry-content">
+          <div class="post-detail-tts-row">
+            <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+          </div>
+          <div class="oo-detail-loading-inline" aria-live="polite">
+            <span class="oo-loading-spinner" aria-hidden="true"></span>
+            <span class="oo-loading-text">Loading…</span>
+          </div>
           ${prefillContent}
         </div>
         <button class="back-btn" type="button">Back to News</button>
