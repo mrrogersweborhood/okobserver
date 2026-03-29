@@ -1073,8 +1073,9 @@ if (posts.length > 0 && appendedCount === 0) {
     stopTtsPlayback();
     scrollToTop();
 
- const initialQuery = (params && params.q) || '';
+const initialQuery = (params && params.q) || '';
 const authorId = (params && params.author) || null;
+const authorLabel = (params && params.label) ? decodeURIComponent(params.label) : '';
 
     app.innerHTML = `
       <div class="search-view">
@@ -1087,7 +1088,7 @@ const authorId = (params && params.author) || null;
               type="search"
               name="q"
               placeholder="Type keywords&hellip;"
-              value="${escapeAttr(initialQuery)}"
+              value="${escapeAttr(authorId ? authorLabel : initialQuery)}"
             />
           </label>
           <button class="search-submit" type="submit">Search</button>
@@ -1212,8 +1213,13 @@ async function performAuthorSearch(authorId, statusEl, grid) {
       grid.appendChild(frag);
       if (statusEl) statusEl.classList.remove('is-loading');
       if (statusTextEl) {
-        statusTextEl.textContent =
-          `${rendered} post${rendered === 1 ? '' : 's'} by this author.`;
+        const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+const label = urlParams.get('label');
+const decodedLabel = label ? decodeURIComponent(label) : '';
+
+statusTextEl.textContent = decodedLabel
+  ? `Posts by ${decodedLabel}`
+  : `${rendered} post${rendered === 1 ? '' : 's'} by this author.`;
       }
     } else {
       if (statusEl) statusEl.classList.remove('is-loading');
