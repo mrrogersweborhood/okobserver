@@ -1073,7 +1073,8 @@ if (posts.length > 0 && appendedCount === 0) {
     stopTtsPlayback();
     scrollToTop();
 
-    const initialQuery = (params && params.q) || '';
+ const initialQuery = (params && params.q) || '';
+const authorId = (params && params.author) || null;
 
     app.innerHTML = `
       <div class="search-view">
@@ -1133,13 +1134,19 @@ const statusTextEl = statusEl
 
 
 
-        if (initialQuery) {
-      statusEl.classList.add('is-loading');
-      if (statusTextEl) {
-        statusTextEl.textContent = 'Searching…';
-      }
-      performSearch(initialQuery, statusEl, grid);
-    }
+if (authorId) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Loading author posts…';
+  }
+  performAuthorSearch(authorId, statusEl, grid);
+} else if (initialQuery) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Searching…';
+  }
+  performSearch(initialQuery, statusEl, grid);
+}
 
 
     form.addEventListener('submit', (evt) => {
@@ -1162,11 +1169,43 @@ if (statusTextEl) {
 }
 grid.innerHTML = '';
 
-      performSearch(value, statusEl, grid);
       const enc = encodeURIComponent(value);
       navigateTo(`#/search?q=${enc}`);
     });
   }
+
+async function performAuthorSearch(authorId, statusEl, grid) {
+  try {
+    const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=12&page=1`;
+
+    console.debug('[OkObserver] Author search URL:', url);
+
+    const data = await fetchJson(url);
+    const posts = data && data.posts ? data.posts : [];
+
+    if (!posts.length) {
+      if (statusEl) statusEl.classList.remove('is-loading');
+      const txt = statusEl && statusEl.querySelector('.search-status-text');
+      if (txt) txt.textContent = 'No posts found for this author.';
+      grid.innerHTML = '';
+      return;
+    }
+
+    if (statusEl) statusEl.classList.remove('is-loading');
+    const txt = statusEl && statusEl.querySelector('.search-status-text');
+    if (txt) txt.textContent = '';
+
+    renderPostsGrid(posts, grid);
+
+  } catch (err) {
+    console.error('[OkObserver] Author search failed:', err);
+
+    if (statusEl) statusEl.classList.remove('is-loading');
+    const txt = statusEl && statusEl.querySelector('.search-status-text');
+    if (txt) txt.textContent = 'Error loading author posts.';
+    grid.innerHTML = '';
+  }
+}
 function renderToc() {
   stopTtsPlayback();
   scrollToTop();
@@ -1414,10 +1453,12 @@ function escapeHtml(s) {
     const dateStr = formatDate(summaryPost.date);
     const authorName = getAuthorName(summaryPost);
     const metaParts = [];
-    if (authorName) {
+if (authorName) {
   const safeAuthor = escapeAttr(authorName);
+  const authorId = summaryPost.author || (summaryPost._embedded?.author?.[0]?.id);
+
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
     if (dateStr) metaParts.push(dateStr);
@@ -1599,10 +1640,12 @@ function linkifyPaywallLoginForSignedOut(html) {
     const dateStr = formatDate(post.date);
     const authorName = getAuthorName(post);
     const metaParts = [];
-    if (authorName) {
+if (authorName) {
   const safeAuthor = escapeAttr(authorName);
+  const authorId = post.author || (post._embedded?.author?.[0]?.id);
+
   metaParts.push(
-    `<a href="#/search?author=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
   );
 }
 
@@ -1710,8 +1753,10 @@ const __author = post && post._embedded && Array.isArray(post._embedded.author)
   : null;
 
 const __authorName = __author && __author.name ? String(__author.name) : '';
-const __authorSearchHref = __authorName ? `#/search?q=${encodeURIComponent(__authorName)}` : '';
-
+const __authorId = post && post.author ? String(post.author) : (__author && __author.id ? String(__author.id) : '');
+const __authorSearchHref = (__authorName && __authorId)
+  ? `#/search?author=${encodeURIComponent(__authorId)}&label=${encodeURIComponent(__authorName)}`
+  : '';
 const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
 const __authorBio = __authorBioRaw.trim();
 
