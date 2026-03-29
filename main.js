@@ -1166,12 +1166,17 @@ if (!value) {
 // Show spinner + message
 statusEl.classList.add('is-loading');
 if (statusTextEl) {
-  statusTextEl.textContent = 'Searching…';
+  statusTextEl.textContent = authorId ? 'Loading author posts…' : 'Searching…';
 }
 grid.innerHTML = '';
 
       const enc = encodeURIComponent(value);
-      navigateTo(`#/search?q=${enc}`);
+
+      if (authorId) {
+        navigateTo(`#/search?author=${encodeURIComponent(authorId)}&label=${enc}`);
+      } else {
+        navigateTo(`#/search?q=${enc}`);
+      }
     });
   }
 
@@ -1179,7 +1184,6 @@ async function performAuthorSearch(authorId, statusEl, grid) {
   const statusTextEl = statusEl
     ? statusEl.querySelector('.search-status-text')
     : null;
-
   try {
     const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=${POSTS_PER_PAGE}&page=1`;
 
@@ -1730,7 +1734,7 @@ if (authorName) {
   }
 
 
-  function renderPostDetailInner(post) {
+    function renderPostDetailInner(post) {
   // --- FIX: prevent scroll restoration from hiding post tags ---
   window.scrollTo(0, 0);
 
@@ -1754,7 +1758,14 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     const dateStr = formatDate(post.date);
     const authorName = getAuthorName(post);
     const metaParts = [];
-    if (authorName) metaParts.push(authorName);
+if (authorName) {
+  const safeAuthor = escapeAttr(authorName);
+  const authorId = post.author || (post._embedded?.author?.[0]?.id);
+
+  metaParts.push(
+    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
+  );
+}
     if (dateStr) metaParts.push(dateStr);
     const metaHtml = metaParts.length
       ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
