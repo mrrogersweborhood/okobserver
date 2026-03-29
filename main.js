@@ -1140,19 +1140,8 @@ if (authorId) {
   if (statusTextEl) {
     statusTextEl.textContent = 'Loading author posts…';
   }
-
-  // 🔥 CRITICAL FIX: defer execution until DOM is stable
-  setTimeout(() => {
-    performAuthorSearch(authorId, statusEl, grid);
-  }, 0);
-
+  performAuthorSearch(authorId, statusEl, grid);
 } else if (initialQuery) {
-  statusEl.classList.add('is-loading');
-  if (statusTextEl) {
-    statusTextEl.textContent = 'Searching…';
-  }
-  performSearch(initialQuery, statusEl, grid);
-}
   statusEl.classList.add('is-loading');
   if (statusTextEl) {
     statusTextEl.textContent = 'Searching…';
@@ -1194,8 +1183,7 @@ grid.innerHTML = '';
 async function performAuthorSearch(authorId, statusEl, grid) {
   const statusTextEl = statusEl
     ? statusEl.querySelector('.search-status-text')
-    : null;
-  try {
+    : null;  try {
     const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=${POSTS_PER_PAGE}&page=1`;
 
     console.debug('[OkObserver] Author search URL:', url);
