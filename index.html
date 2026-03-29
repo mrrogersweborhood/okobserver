@@ -5,12 +5,17 @@
 <head>
   <meta charset="utf-8" />
   <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  name="viewport"
+  content="width=device-width, initial-scale=1, viewport-fit=cover"
+/>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Observer">
+<link rel="apple-touch-icon" href="logo.png">
   <title>The Oklahoma Observer</title>
-  <link rel="icon" href="favicon.ico" />
-  <meta name="theme-color" content="#1E90FF" />
+<link rel="icon" href="favicon.ico" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1E90FF" />
 
   <!-- Performance: preconnect to API proxy -->
   <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
@@ -19,23 +24,23 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-01-05R829"
+    href="override.css?v=2026-01-05R9290"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-01-05R829"
+    href="override.css?v=2026-01-05R9290"
   />
 
   <!-- Main SPA entry -->
-  <script
-    defer
-    src="main.js?v=2026-01-05R829"
-  ></script>
-  <script
-    defer
-    src="PostDetail.js?v=2026-01-05R829"
-  ></script>
+<script
+  defer
+  src="main.js?v=2026-01-05R9290"
+></script>
+<script
+  defer
+  src="PostDetail.js?v=2026-01-05R9290"
+></script>
 </head>
 <body>
   <header class="oo-header" role="banner" aria-label="Site header">
@@ -227,7 +232,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-01-05R829'; // bump when sw.js changes
+      var SW_BUILD = '2026-01-05R9290'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 

@@ -7323,254 +7323,98 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
 }
 /* 🔴 end hamburger scroll fix */
 /* 🟢 TTS placement: ensure it sits below embeds on detail pages */
-.post-detail-content .post-detail-tts-row{
-  display: block;
-  margin: 16px 0 8px;
-}
+/* ========================================
+   🟢 FINAL mobile detail no-jump TTS layout
+   Single strategy only:
+   - speaker row stays in normal flow
+   - no absolute positioning
+   - no left gutter reservation
+   - no padding-top reservation
+   ======================================== */
 
+/* Keep leading embeds stable above the speaker row */
 .post-detail-content iframe,
 .post-detail-content video,
-.post-detail-content .wp-block-embed{
+.post-detail-content .wp-block-embed {
   display: block;
   margin-bottom: 12px;
 }
 
-/* force TTS to appear after leading embeds visually */
-.post-detail-content > .post-detail-tts-row{
-  order: 2;
+/* Speaker row is a normal block in the flow */
+.post-detail .post-detail-tts-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  margin: 12px 0 8px !important;
+  padding: 0 !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
 }
 
-.post-detail-content > *:first-child{
-  order: 1;
-}
-/* 🟢 Speaker container stability fix */
-.oo-detail-header {
-  position: relative;
-}
-
-/* 🟢 Speaker button — remove from text flow */
-.oo-tts-btn,
-.oo-speaker-btn {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  flex-shrink: 0;
-  z-index: 5;
-}
-
-/* 🟢 Reserve safe padding so text never collides */
-.oo-detail-content,
-.oo-detail-body {
-  padding-right: 48px; /* adjust if your icon size differs */
-}
-.oo-tts-btn svg,
-.oo-speaker-btn svg {
-  width: 20px;
-  height: 20px;
-}
-/* ========================================
-   🟢 TTS BUTTON — layout stability fix
-   ======================================== */
-
-/* Anchor container */
-.post-detail-tts-row {
-  position: relative;
-  min-height: 44px; /* preserves vertical space */
+/* Button stays in normal flow too */
+.post-detail .post-detail-tts-row .tts-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 44px !important;
+  height: 44px !important;
+  margin: 0 !important;
+  padding: 8px !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: auto !important;
+  vertical-align: middle !important;
+  pointer-events: auto !important;
+  flex: 0 0 44px !important;
 }
 
-/* Remove button from document flow */
-.post-detail-tts-row .tts-button {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 5;
+/* Content wrapper must not reserve fake speaker space */
+.post-detail .post-detail-content,
+.post-detail .post-detail-content.entry-content,
+.post-detail .entry-content,
+.post-detail .post-content {
+  position: static !important;
+  margin-left: 0 !important;
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  box-sizing: border-box !important;
 }
 
-/* Prevent text from sliding under button */
-.post-detail-content.entry-content {
-  padding-left: 56px; /* adjust if needed */
-}
-/* ========================================
-   🟢 TTS BUTTON — MOBILE no-shift override
-   ======================================== */
-@media (max-width: 640px) {
-
-  /* Make the content block the positioning context + reserve space always */
-  .post-detail-content.post-detail-content.entry-content {
-    position: relative !important;
-    padding-left: 56px !important; /* reserve horizontal space for the icon */
-  }
-
-  /* Take the entire row out of flow (so insertion/hydration can't push text) */
-  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    z-index: 5 !important;
-  }
-
-  /* Pin the button inside the row */
-  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row .tts-button {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 44px !important;
-    height: 44px !important;
-  }
-}
-/* ========================================
-   🟢 TTS BUTTON — MOBILE above-content, no-shift
-   ======================================== */
-@media (max-width: 640px) {
-
-  /* Anchor positioning + reserve vertical space from the start */
-  .post-detail-content.post-detail-content.entry-content {
-    position: relative !important;
-    padding-left: 0 !important;   /* undo the left gutter */
-    padding-top: 56px !important; /* reserve space for the icon above content */
-  }
-
-  /* Pull the row out of flow and place it above content */
-  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row {
-    position: absolute !important;
-    top: 8px !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    z-index: 5 !important;
-    display: flex !important;
-    justify-content: flex-start !important; /* change to center if you want */
-    align-items: center !important;
-    pointer-events: none !important; /* row doesn't block text taps */
-  }
-
-  /* Button stays clickable */
-  .post-detail-content.post-detail-content.entry-content .post-detail-tts-row .tts-button {
-    width: 44px !important;
-    height: 44px !important;
-    pointer-events: auto !important;
-  }
-}
-/* ========================================
-   🟢 MOBILE: prevent excerpt→full “jump” (first-block margin collapse)
-   ======================================== */
-@media (max-width: 640px) {
-
-  /* Whatever the first block is (p, h2, figure, etc), kill top margin */
-  .post-detail-content.post-detail-content.entry-content > :first-child {
-    margin-top: 0 !important;
-  }
-
-  /* Also cover common Gutenberg wrappers */
-  .post-detail-content.post-detail-content.entry-content > .wp-block:first-child {
-    margin-top: 0 !important;
-  }
-
-  /* If WP injects inline styles or odd wrappers, this keeps the first paragraph from pushing down */
-  .post-detail-content.post-detail-content.entry-content p:first-child {
-    margin-top: 0 !important;
-  }
-}
-/* ===============================
-   TTS layout stability (prevent “jerk” / reflow)
-   Insert at END of override.css
-   =============================== */
-
-/* Make the TTS row a stable block that never sits left of text */
-.post-detail-tts-row{
-  display: block;
-  width: 100%;
-  /* Reserve space so excerpt -> full content swap doesn't shift */
-  min-height: 56px; /* 44px button + breathing room */
-  margin: 10px 0 6px;
-}
-
-/* Keep the button from affecting text flow (no inline/float behavior) */
-.post-detail-tts-row .tts-button{
-  display: inline-flex;
-  vertical-align: top;
-}
-
-/* Kill “first paragraph top margin” jump under the TTS row */
-.post-detail-content > p:first-child,
-.post-detail-content .entry-content > p:first-child{
+/* Prevent first real content block from adding a sudden top jump */
+.post-detail .post-detail-content > :not(.post-detail-tts-row):first-child,
+.post-detail .post-detail-content.entry-content > :not(.post-detail-tts-row):first-child {
   margin-top: 0 !important;
 }
 
-/* Mobile: force the speaker above content and align to left edge of content */
-@media (max-width: 640px){
-  .post-detail-tts-row{
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-    width: 100%;
-    min-height: 56px;
-    margin: 10px 0 6px;
-  }
-
-  /* If any earlier rules add left padding/margin to the row, neutralize it */
-  .post-detail-tts-row{
-    padding-left: 0 !important;
-    margin-left: 0 !important;
-  }
+.post-detail .post-detail-content > .wp-block:first-child,
+.post-detail .post-detail-content.entry-content > .wp-block:first-child,
+.post-detail .post-detail-content > p:first-of-type,
+.post-detail .post-detail-content.entry-content > p:first-of-type {
+  margin-top: 0 !important;
 }
-/* --- Mobile: remove any reserved-left gutter for TTS (speaker is ABOVE text) --- */
-@media (max-width: 640px){
 
-  /* The content wrapper sometimes has extra left padding/margin to make room for the speaker.
-     Kill that so text starts normally. */
-  .post-detail-content,
-  .post-detail-content.entry-content,
+/* Mobile content padding: one stable layout only */
+@media (max-width: 640px) {
   .post-detail .post-detail-content,
-  .post-detail .post-detail-content.entry-content{
-    margin-left: 0 !important;
-    padding-left: 16px !important;   /* adjust to your normal mobile padding */
+  .post-detail .post-detail-content.entry-content,
+  .post-detail .entry-content,
+  .post-detail .post-content {
+    padding-left: 16px !important;
     padding-right: 16px !important;
-    box-sizing: border-box;
   }
 
-  /* Make the speaker row align EXACTLY with the text edge */
-  .post-detail-tts-row{
-    margin-left: 0 !important;
-    padding-left: 16px !important;   /* match the content padding */
+  .post-detail .post-detail-tts-row {
+    padding-left: 16px !important;
     padding-right: 16px !important;
-    box-sizing: border-box;
+    margin: 10px 0 6px !important;
   }
-}
-/* --- OkObserver: TTS + post body alignment (no indent) --- */
-
-/* Ensure the post body uses the same left edge as everything else */
-.post-detail .post-detail-content,
-.post-detail .entry-content,
-.post-detail .post-content {
-  padding-left: 0 !important;
-  margin-left: 0 !important;
-}
-
-/* Speaker row should NOT introduce horizontal offset */
-.post-detail .post-detail-tts-row {
-  display: block !important;      /* forces speaker above text */
-  width: 100% !important;
-  padding-left: 0 !important;
-  margin-left: 0 !important;
-}
-
-/* Keep the button above the article text, aligned to the same left edge */
-.post-detail .post-detail-tts-row .tts-button {
-  display: inline-flex;
-  margin: 8px 0 10px 0 !important; /* space below button before text */
-}
-
-/* If any earlier rule tried to “make room” for the 44px button, kill it */
-.post-detail .post-detail-content > * {
-  margin-left: 0 !important;
 }
