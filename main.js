@@ -1484,16 +1484,11 @@ function escapeHtml(s) {
         ? summaryPost.title.rendered
         : '(Untitled)';
 
-    const dateStr = formatDate(summaryPost.date);
+     const dateStr = formatDate(summaryPost.date);
     const authorName = getAuthorName(summaryPost);
     const metaParts = [];
 if (authorName) {
-  const safeAuthor = escapeAttr(authorName);
-  const authorId = summaryPost.author || (summaryPost._embedded?.author?.[0]?.id);
-
-  metaParts.push(
-    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
-  );
+  metaParts.push(escapeHtml(authorName));
 }
     if (dateStr) metaParts.push(dateStr);
     const metaHtml = metaParts.length
@@ -1675,12 +1670,7 @@ function linkifyPaywallLoginForSignedOut(html) {
     const authorName = getAuthorName(post);
     const metaParts = [];
 if (authorName) {
-  const safeAuthor = escapeAttr(authorName);
-  const authorId = post.author || (post._embedded?.author?.[0]?.id);
-
-  metaParts.push(
-    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
-  );
+  metaParts.push(escapeHtml(authorName));
 }
 
     if (dateStr) metaParts.push(dateStr);
@@ -1758,12 +1748,7 @@ if (isClientLoggedIn && isClientLoggedIn()) {
     const authorName = getAuthorName(post);
     const metaParts = [];
 if (authorName) {
-  const safeAuthor = escapeAttr(authorName);
-  const authorId = post.author || (post._embedded?.author?.[0]?.id);
-
-  metaParts.push(
-    `<a href="#/search?author=${authorId}&label=${encodeURIComponent(authorName)}" class="oo-author-link">${safeAuthor}</a>`
-  );
+  metaParts.push(escapeHtml(authorName));
 }
     if (dateStr) metaParts.push(dateStr);
     const metaHtml = metaParts.length
@@ -1794,10 +1779,6 @@ const __author = post && post._embedded && Array.isArray(post._embedded.author)
   : null;
 
 const __authorName = __author && __author.name ? String(__author.name) : '';
-const __authorId = post && post.author ? String(post.author) : (__author && __author.id ? String(__author.id) : '');
-const __authorSearchHref = (__authorName && __authorId)
-  ? `#/search?author=${encodeURIComponent(__authorId)}&label=${encodeURIComponent(__authorName)}`
-  : '';
 const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
 const __authorBio = __authorBioRaw.trim();
 
@@ -1813,9 +1794,7 @@ if (__authorName || __authorBio || __avatar) {
   
   const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
 
-const nameHtml = __authorSearchHref
-  ? `<a class="author-box-name-link" href="${escapeAttr(__authorSearchHref)}">${safeName}</a>`
-  : `<span class="author-box-name-link">${safeName}</span>`;
+const nameHtml = `<span class="author-box-name-link">${safeName}</span>`;
 
 
   authorBoxHtml = `
