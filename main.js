@@ -2094,7 +2094,7 @@ window.location.replace(target);
     }
 
 
-    if (videoEmbedHtml) {
+        if (videoEmbedHtml) {
       const wrapperHtml = `
         <div class="video-embed-wrapper">
           ${videoEmbedHtml}
@@ -2109,7 +2109,6 @@ window.location.replace(target);
         container.insertAdjacentHTML('afterbegin', wrapperHtml);
       }
     }
- }
 
     // After inserting embeds, remove stray empty paragraphs that
     // only add vertical white space under the player.
