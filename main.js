@@ -1140,8 +1140,19 @@ if (authorId) {
   if (statusTextEl) {
     statusTextEl.textContent = 'Loading author posts…';
   }
-  performAuthorSearch(authorId, statusEl, grid);
+
+  // 🔥 CRITICAL FIX: defer execution until DOM is stable
+  setTimeout(() => {
+    performAuthorSearch(authorId, statusEl, grid);
+  }, 0);
+
 } else if (initialQuery) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Searching…';
+  }
+  performSearch(initialQuery, statusEl, grid);
+}
   statusEl.classList.add('is-loading');
   if (statusTextEl) {
     statusTextEl.textContent = 'Searching…';
