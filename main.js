@@ -878,8 +878,8 @@ grid.insertAdjacentElement('afterend', sentinel);
     if (isFetchingPosts || !hasMorePages) return;
 
     isFetchingPosts = true;
-showPagingStatus(isInitialHomeLoad ? 'Loading news…' : 'Loading more…');
-
+    app.setAttribute('aria-busy', 'true');
+    showPagingStatus(isInitialHomeLoad ? 'Loading news…' : 'Loading more…');
 
     const grid = app.querySelector('.home-view .posts-grid');
     if (!grid) {
@@ -977,6 +977,7 @@ if (posts.length > 0 && appendedCount === 0) {
     if (status) {
       status.style.display = 'none';
     }
+    app.removeAttribute('aria-busy');
   }
 
   // ---------------------------------------------------------------------------
