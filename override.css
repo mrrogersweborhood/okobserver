@@ -7322,6 +7322,26 @@ body.is-menu-open nav#oo-menu.oo-menu .oo-menu-list{
   padding: 0 !important;
 }
 /* 🔴 end hamburger scroll fix */
+/* 🟢 focus pass — small, production-safe accessibility polish */
+.oo-hamburger:focus-visible{
+  outline: 3px solid #ffffff !important;
+  outline-offset: 3px !important;
+}
+
+nav#oo-menu.oo-menu a:focus-visible,
+.post-card-title-link:focus-visible,
+.search-input:focus-visible,
+.search-submit:focus-visible{
+  outline: 2px solid #1E90FF !important;
+  outline-offset: 2px !important;
+  border-radius: 10px !important;
+  text-decoration: none !important;
+}
+
+nav#oo-menu.oo-menu a:focus-visible{
+  background: #eef4ff !important;
+}
+/* 🔴 focus pass */
 /* 🟢 TTS placement: ensure it sits below embeds on detail pages */
 /* ========================================
    🟢 FINAL mobile detail no-jump TTS layout
