@@ -73,9 +73,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
-        const match =
-          (await cache.match(req, { ignoreSearch: true })) ||
-          (await cache.match('/okobserver/index.html'));
+        const match = await cache.match('/okobserver/index.html');
+
         return (
           match ||
           new Response('<h1>Offline</h1>', {
@@ -92,17 +91,23 @@ self.addEventListener('fetch', (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
 
-      // Match ignoring querystrings, since you use ?v= cache-busters in HTML
-      const cached = await cache.match(req, { ignoreSearch: true });
+      // Match exact asset request so ?v= cache-busting continues to work
+      const cached = await cache.match(req);
       if (cached) return cached;
 
       try {
         const fresh = await fetch(req);
 
         // Guard cache.put
-        if (fresh && fresh.ok && fresh.status === 200 && fresh.type !== 'opaque') {
-          await cache.put(req, fresh.clone());
-        }
+       if (
+  fresh &&
+  fresh.ok &&
+  fresh.status === 200 &&
+  fresh.type !== 'opaque' &&
+  url.origin === location.origin
+) {
+  await cache.put(req, fresh.clone());
+}
         return fresh;
       } catch (err) {
         return new Response('', { status: 504 });

@@ -2328,9 +2328,9 @@ if (pwInput && pwToggle) {
 
       const formData = new FormData(form);
       const username = formData.get("username")?.trim();
-      const password = formData.get("password")?.trim();
+      const password = formData.get("password");
 
-      if (!username || !password) {
+      if (!username || !String(password || "").length) {
         errorBox.textContent = "Please enter both username and password.";
         return;
       }
@@ -2539,10 +2539,14 @@ showPagingStatus('Loading more…');
         grid.appendChild(frag);
 
         const total = grid.querySelectorAll('.post-card').length;
-        statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+        const statusTextEl = statusEl.querySelector('.search-status-text');
+        if (statusTextEl) {
+          statusTextEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+        } else {
+          statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+        }
 
         currentSearchPage = nextPage;
-
 
         if (appended < POSTS_PER_PAGE) {
           hasMoreSearchPages = false;
