@@ -553,12 +553,7 @@ function extractHeroLinkFromContent(post) {
     currentTtsPostId = null;
   }
 
-  async function speakChunksSequentially(text, postId) {
-    if (!window.speechSynthesis) {
-      alert('Text-to-speech is not supported in this browser.');
-      return;
-    }
-
+    async function speakChunksSequentially(text, postId) {
     stopTtsPlayback();
 
     const chunks = splitTextIntoChunks(text, TTS_CHUNK_SIZE);
@@ -567,6 +562,29 @@ function extractHeroLinkFromContent(post) {
     const localAbort = new AbortController();
     ttsAbortController = localAbort;
     currentTtsPostId = postId || null;
+
+    // Android app bridge: use native TTS when available.
+    if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
+      try {
+        window.AndroidTTS.speak(chunks.join(' '));
+      } catch (err) {
+        console.error('[OkObserver TTS] Android bridge error:', err);
+        alert('Text-to-speech failed in the Android app.');
+      } finally {
+        if (ttsAbortController === localAbort) {
+          ttsAbortController = null;
+          currentTtsPostId = null;
+        }
+      }
+      return;
+    }
+
+    if (!window.speechSynthesis) {
+      alert('Text-to-speech is not supported in this browser.');
+      ttsAbortController = null;
+      currentTtsPostId = null;
+      return;
+    }
 
     console.log('[OkObserver TTS] Speaking', chunks.length, 'chunks');
 
