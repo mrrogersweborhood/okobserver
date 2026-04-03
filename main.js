@@ -330,7 +330,6 @@ async function fetchPostById(id) {
   }
 
   // Use the Worker full-post endpoint for both signed-out and logged-in users.
-  // This keeps detail fetches on one optimized path.
   let data;
 
   const fullUrlObj = new URL(WP_API_BASE);
@@ -353,7 +352,6 @@ async function fetchPostById(id) {
   postCache.set(id, data);
   return data;
 }
-
 
 
   async function fetchSearchResults(term, page = 1) {
