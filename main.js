@@ -1962,28 +1962,38 @@ const ttsButtonHtml = `
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
 
 `;
-   
 
-
-app.innerHTML = `
-  <div class="post-detail">
-    ${heroHtml}
-    <h1 class="post-title">${titleHtml}</h1>
-    ${metaHtml}
-    <div class="post-content post-detail-content entry-content">
+const detailInnerHtml = `
+  ${heroHtml}
+  <h1 class="post-title">${titleHtml}</h1>
+  ${metaHtml}
+  <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
       ${ttsButtonHtml}
     </div>      
     ${contentHtml}
     </div>
-    ${taxHtml}
-    ${authorBoxHtml}
-    <button class="back-btn" type="button">Back to News</button>
-  </div>
+  ${taxHtml}
+  ${authorBoxHtml}
+  <button class="back-btn" type="button">Back to News</button>
 `;
 
+const existingPrefill = app.querySelector('.post-detail.oo-detail-prefill');
 
-    scrollToTop();
+if (existingPrefill) {
+  // Fast path: keep the already-painted shell node and hydrate it in place.
+  existingPrefill.classList.remove('oo-detail-prefill');
+  existingPrefill.innerHTML = detailInnerHtml;
+} else {
+  // Fallback for deep links / no prefill shell
+  app.innerHTML = `
+    <div class="post-detail">
+      ${detailInnerHtml}
+    </div>
+  `;
+}
+
+scrollToTop();
 
     const back = app.querySelector('.back-btn');
     if (back) {
