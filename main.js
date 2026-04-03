@@ -704,6 +704,27 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
     return card;
   }
 
+  async function appendCardsInChunks(grid, cards, chunkSize = 4) {
+    if (!grid || !Array.isArray(cards) || !cards.length) return;
+
+    let index = 0;
+
+    while (index < cards.length) {
+      const frag = document.createDocumentFragment();
+      const end = Math.min(index + chunkSize, cards.length);
+
+      for (; index < end; index++) {
+        frag.appendChild(cards[index]);
+      }
+
+      grid.appendChild(frag);
+
+      if (index < cards.length) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    }
+  }
+
   function stripHtml(html) {
     if (!html) return '';
     const tmp = document.createElement('div');
@@ -898,8 +919,8 @@ grid.insertAdjacentElement('afterend', sentinel);
         return;
       }
 
-      let appendedCount = 0;
-      const frag = document.createDocumentFragment();
+            let appendedCount = 0;
+      const cardsToAppend = [];
 
       for (const post of posts) {
         if (hasExcludedCategory(post)) {
@@ -914,12 +935,12 @@ grid.insertAdjacentElement('afterend', sentinel);
         postCache.set(post.id, post);
         seenPostIds.add(post.id);
         const card = createPostCard(post);
-        frag.appendChild(card);
+        cardsToAppend.push(card);
         appendedCount++;
       }
 
       if (appendedCount > 0) {
-        grid.appendChild(frag);
+        await appendCardsInChunks(grid, cardsToAppend, 4);
       }
 // If WP returned posts but all were filtered out (e.g., cartoons),
 // skip ahead to the next page automatically instead of “stalling” infinite scroll.
