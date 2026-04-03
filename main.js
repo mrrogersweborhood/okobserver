@@ -1692,7 +1692,10 @@ if (authorName) {
       lastClickedPostSummary && lastClickedPostSummary.id === id
         ? lastClickedPostSummary
         : null;
-
+  // 🟢 INSTANT RENDER (this is the missing piece)
+  if (summary) {
+    renderPostDetailShellFromSummary(summary);
+  }
     if (summary) {
       renderPostDetailShellFromSummary(summary);
     } else {
