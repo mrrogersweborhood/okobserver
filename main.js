@@ -547,6 +547,13 @@ function extractHeroLinkFromContent(post) {
       ttsAbortController.abort();
       ttsAbortController = null;
     }
+    if (window.AndroidTTS && typeof window.AndroidTTS.stop === 'function') {
+      try {
+        window.AndroidTTS.stop();
+      } catch (err) {
+        console.error('[OkObserver TTS] Android stop bridge error:', err);
+      }
+    }
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -570,7 +577,6 @@ function extractHeroLinkFromContent(post) {
       } catch (err) {
         console.error('[OkObserver TTS] Android bridge error:', err);
         alert('Text-to-speech failed in the Android app.');
-      } finally {
         if (ttsAbortController === localAbort) {
           ttsAbortController = null;
           currentTtsPostId = null;
@@ -1947,8 +1953,16 @@ window.location.replace(target);
     // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
     enhanceEmbedsInDetail(post);
 
-    // NEW: fix any lazy-loaded iframes (data-lazy-src → src) so the players actually render
-    removeLazyloadEmbeds();
+    // Let the full article paint first on mobile, then do heavier embed work.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
+        enhanceEmbedsInDetail(post);
+
+        // NEW: fix any lazy-loaded iframes (data-lazy-src → src) so the players actually render
+        removeLazyloadEmbeds();
+      }, 0);
+    });
   }
 
   function enhanceEmbedsInDetail(post) {
