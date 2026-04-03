@@ -312,13 +312,13 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
 
 async function fetchPostById(id) {
   const isLoggedIn = isClientLoggedIn();
-    console.debug('[OkObserver auth] fetchPostById:', {
+  console.debug('[OkObserver auth] fetchPostById:', {
     id,
     isLoggedIn,
     ooLoggedIn: (() => { try { return localStorage.getItem('ooLoggedIn'); } catch(e){ return 'ERR'; } })(),
     oo_logged_in: (() => { try { return localStorage.getItem('oo_logged_in'); } catch(e){ return 'ERR'; } })()
   });
- 
+
   if (postCache.has(id)) {
     const cached = postCache.get(id);
     const cachedAuth = !!(cached && cached._ooAuth);
@@ -329,28 +329,23 @@ async function fetchPostById(id) {
     }
   }
 
-  // If logged in, fetch the “full post” via the Worker endpoint (Option B).
-  // This avoids relying on WP REST context=edit, which may be blocked for members.
+  // Use the Worker full-post endpoint for both signed-out and logged-in users.
+  // This keeps detail fetches on one optimized path.
   let data;
 
-  if (isLoggedIn) {
-    const fullUrlObj = new URL(WP_API_BASE);
-    fullUrlObj.pathname = '/content/full-post';
-    fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
+  const fullUrlObj = new URL(WP_API_BASE);
+  fullUrlObj.pathname = '/content/full-post';
+  fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
 
-    console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
+  console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
 
-    const fullResp = await fetchJson(fullUrlObj.toString(), { credentials: 'include' });
+  const fullResp = await fetchJson(
+    fullUrlObj.toString(),
+    isLoggedIn ? { credentials: 'include' } : {}
+  );
 
-    // Worker returns { ok:true, post:{...} } — fall back if structure differs.
-    data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
-  } else {
-    const url = `${WP_API_BASE}/posts/${id}?_embed`;
-    console.debug('[OkObserver auth] fetchPostById url:', url);
-    data = await fetchJson(url, {});
-  }
-
-
+  // Worker returns { ok:true, post:{...} } — fall back if structure differs.
+  data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
 
   // Mark what auth state produced this cached payload.
   try { data._ooAuth = !!isLoggedIn; } catch (_) {}
@@ -358,7 +353,6 @@ async function fetchPostById(id) {
   postCache.set(id, data);
   return data;
 }
-
 
 
 
