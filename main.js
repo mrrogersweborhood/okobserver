@@ -343,6 +343,27 @@ async function fetchPostById(id) {
     isLoggedIn ? { credentials: 'include' } : {}
   );
 
+  // 🟢 Protected-content response from Worker
+  if (fullResp && fullResp.protected === true) {
+    const protectedPost = (fullResp && fullResp.post) ? fullResp.post : {
+      id,
+      title: { rendered: 'Members Only' },
+      date: '',
+      excerpt: { rendered: fullResp.excerpt || '' },
+      content: { rendered: '' },
+      _embedded: {}
+    };
+
+    protectedPost._ooProtected = true;
+    protectedPost._ooProtectedMessage =
+      fullResp.message || 'This content is for members only';
+
+    try { protectedPost._ooAuth = !!isLoggedIn; } catch (_) {}
+
+    postCache.set(id, protectedPost);
+    return protectedPost;
+  }
+
   // Worker returns { ok:true, post:{...} } — fall back if structure differs.
   data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
 
