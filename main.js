@@ -338,7 +338,7 @@ async function fetchPostById(id) {
 
   console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
 
-  const fullResp = await fetchJson(
+    const fullResp = await fetchJson(
     fullUrlObj.toString(),
     isLoggedIn ? { credentials: 'include' } : {}
   );
@@ -358,6 +358,22 @@ async function fetchPostById(id) {
     protectedPost._ooProtectedMessage =
       fullResp.message || 'This content is for members only';
 
+    // Ensure logged-out users see a warning + login link, not just a blank/teaser body.
+    const protectedExcerptHtml =
+      protectedPost.excerpt && typeof protectedPost.excerpt.rendered === 'string'
+        ? protectedPost.excerpt.rendered
+        : '';
+
+    protectedPost.content = {
+      rendered: `
+        <div class="oo-paywall-notice">
+          <p><strong>${protectedPost._ooProtectedMessage}</strong></p>
+          <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
+        </div>
+        ${protectedExcerptHtml}
+      `
+    };
+
     try { protectedPost._ooAuth = !!isLoggedIn; } catch (_) {}
 
     postCache.set(id, protectedPost);
@@ -366,6 +382,46 @@ async function fetchPostById(id) {
 
   // Worker returns { ok:true, post:{...} } — fall back if structure differs.
   data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
+
+  // Logged-out teaser detection:
+  // if the returned body is effectively just the excerpt (or empty), treat it as protected
+  // so the UI shows a clear members-only/login warning.
+  if (!isLoggedIn && data) {
+    const excerptHtml =
+      data.excerpt && typeof data.excerpt.rendered === 'string'
+        ? data.excerpt.rendered
+        : '';
+
+    const contentHtml =
+      data.content && typeof data.content.rendered === 'string'
+        ? data.content.rendered
+        : '';
+
+    const strippedExcerpt = stripHtml(excerptHtml).replace(/\s+/g, ' ').trim();
+    const strippedContent = stripHtml(contentHtml).replace(/\s+/g, ' ').trim();
+
+    const contentLooksLikeExcerptOnly =
+      !!strippedExcerpt &&
+      (
+        !strippedContent ||
+        strippedContent === strippedExcerpt ||
+        strippedContent.startsWith(strippedExcerpt)
+      );
+
+    if (contentLooksLikeExcerptOnly) {
+      data._ooProtected = true;
+      data._ooProtectedMessage = 'This content is for members only';
+      data.content = {
+        rendered: `
+          <div class="oo-paywall-notice">
+            <p><strong>${data._ooProtectedMessage}</strong></p>
+            <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
+          </div>
+          ${excerptHtml}
+        `
+      };
+    }
+  }
 
   // Mark what auth state produced this cached payload.
   try { data._ooAuth = !!isLoggedIn; } catch (_) {}
