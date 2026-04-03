@@ -35,6 +35,7 @@
   const POSTS_PER_PAGE = 12;
   const SCROLL_SENTRY_OFFSET = 0; // trigger as soon as sentinel intersects
   const SCROLL_ROOT_MARGIN = '400px 0px'; // start loading ~400px before bottom
+  const MAX_HOME_CARDS_IN_DOM = 48; // conservative cap to prevent long-session DOM bloat
 
 
   // Scroll restoration and routing
@@ -704,7 +705,7 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
     return card;
   }
 
-  async function appendCardsInChunks(grid, cards, chunkSize = 4) {
+    async function appendCardsInChunks(grid, cards, chunkSize = 4) {
     if (!grid || !Array.isArray(cards) || !cards.length) return;
 
     let index = 0;
@@ -721,6 +722,27 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
 
       if (index < cards.length) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    }
+  }
+
+  function getRecentSeenPostIds(limit = MAX_HOME_CARDS_IN_DOM) {
+    if (!seenPostIds || !seenPostIds.size) return [];
+    return Array.from(seenPostIds).slice(-limit);
+  }
+
+  function trimHomeGridDom(grid, maxCards = MAX_HOME_CARDS_IN_DOM) {
+    if (!grid) return;
+
+    const cards = grid.querySelectorAll('.post-card');
+    const overflow = cards.length - maxCards;
+
+    if (overflow <= 0) return;
+
+    for (let i = 0; i < overflow; i++) {
+      const card = cards[i];
+      if (card && card.parentNode === grid) {
+        grid.removeChild(card);
       }
     }
   }
@@ -811,7 +833,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     }
   }
 
-  function hydrateExistingHomeGrid(grid) {
+    function hydrateExistingHomeGrid(grid) {
     // If we don't have a remembered home state or any seen posts,
     // fall back to a fresh load as a safety net.
     if (!homeState.initialized || !seenPostIds || seenPostIds.size === 0) {
@@ -824,11 +846,12 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       return;
     }
 
-    // Normal path: rebuild the grid in the exact order we originally loaded posts,
-    // using the in-memory cache instead of refetching from the server.
+    // Rebuild only the most recent slice of cards to avoid rehydrating
+    // an unbounded home grid after returning from detail.
     const frag = document.createDocumentFragment();
+    const recentIds = getRecentSeenPostIds();
 
-    for (const id of seenPostIds) {
+    for (const id of recentIds) {
       const post = postCache.get(id);
       if (!post) continue;
 
@@ -841,11 +864,12 @@ function cleanExcerptForLoggedIn(excerptHtml) {
 
     grid.innerHTML = '';
     grid.appendChild(frag);
+    trimHomeGridDom(grid);
 
     console.debug(
       '[OkObserver] Rehydrated home grid from',
-      seenPostIds.size,
-      'cached posts'
+      recentIds.length,
+      'recent cached posts'
     );
   }
 
@@ -941,6 +965,7 @@ grid.insertAdjacentElement('afterend', sentinel);
 
       if (appendedCount > 0) {
         await appendCardsInChunks(grid, cardsToAppend, 4);
+        trimHomeGridDom(grid);
       }
 // If WP returned posts but all were filtered out (e.g., cartoons),
 // skip ahead to the next page automatically instead of “stalling” infinite scroll.
