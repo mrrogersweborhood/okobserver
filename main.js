@@ -55,6 +55,9 @@
   // Simple in-memory cache for posts (by ID) to avoid refetching
   const postCache = new Map();
 
+  // Deduplicate concurrent post fetches (prefetch + route load for same post)
+  const inflightPostFetches = new Map();
+
   // Perf: remember the last clicked summary post (so detail can render instantly if desired)
   let lastClickedPostSummary = null;
 
@@ -329,107 +332,128 @@ async function fetchPostById(id) {
     }
   }
 
-  // Use the Worker full-post endpoint for both signed-out and logged-in users.
-  let data;
+  // Deduplicate concurrent fetches for the same post ID + auth state.
+  const inflight = inflightPostFetches.get(id);
+  if (inflight && inflight.auth === isLoggedIn) {
+    return inflight.promise;
+  }
 
-  const fullUrlObj = new URL(WP_API_BASE);
-  fullUrlObj.pathname = '/content/full-post';
-  fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
+  const fetchPromise = (async () => {
+    // Use the Worker full-post endpoint for both signed-out and logged-in users.
+    let data;
 
-  console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
+    const fullUrlObj = new URL(WP_API_BASE);
+    fullUrlObj.pathname = '/content/full-post';
+    fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
+
+    console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
 
     const fullResp = await fetchJson(
-    fullUrlObj.toString(),
-    isLoggedIn ? { credentials: 'include' } : {}
-  );
+      fullUrlObj.toString(),
+      isLoggedIn ? { credentials: 'include' } : {}
+    );
 
-  // 🟢 Protected-content response from Worker
-  if (fullResp && fullResp.protected === true) {
-    const protectedPost = (fullResp && fullResp.post) ? fullResp.post : {
-      id,
-      title: { rendered: 'Members Only' },
-      date: '',
-      excerpt: { rendered: fullResp.excerpt || '' },
-      content: { rendered: '' },
-      _embedded: {}
-    };
+    // 🟢 Protected-content response from Worker
+    if (fullResp && fullResp.protected === true) {
+      const protectedPost = (fullResp && fullResp.post) ? fullResp.post : {
+        id,
+        title: { rendered: 'Members Only' },
+        date: '',
+        excerpt: { rendered: fullResp.excerpt || '' },
+        content: { rendered: '' },
+        _embedded: {}
+      };
 
-    protectedPost._ooProtected = true;
-    protectedPost._ooProtectedMessage =
-      fullResp.message || 'This content is for members only';
+      protectedPost._ooProtected = true;
+      protectedPost._ooProtectedMessage =
+        fullResp.message || 'This content is for members only';
 
-    // Ensure logged-out users see a warning + login link, not just a blank/teaser body.
-    const protectedExcerptHtml =
-      protectedPost.excerpt && typeof protectedPost.excerpt.rendered === 'string'
-        ? protectedPost.excerpt.rendered
-        : '';
+      // Ensure logged-out users see a warning + login link, not just a blank/teaser body.
+      const protectedExcerptHtml =
+        protectedPost.excerpt && typeof protectedPost.excerpt.rendered === 'string'
+          ? protectedPost.excerpt.rendered
+          : '';
 
-    protectedPost.content = {
-      rendered: `
-        <div class="oo-paywall-notice">
-          <p><strong>${protectedPost._ooProtectedMessage}</strong></p>
-          <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
-        </div>
-        ${protectedExcerptHtml}
-      `
-    };
-
-    try { protectedPost._ooAuth = !!isLoggedIn; } catch (_) {}
-
-    postCache.set(id, protectedPost);
-    return protectedPost;
-  }
-
-  // Worker returns { ok:true, post:{...} } — fall back if structure differs.
-  data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
-
-  // Logged-out teaser detection:
-  // if the returned body is effectively just the excerpt (or empty), treat it as protected
-  // so the UI shows a clear members-only/login warning.
-  if (!isLoggedIn && data) {
-    const excerptHtml =
-      data.excerpt && typeof data.excerpt.rendered === 'string'
-        ? data.excerpt.rendered
-        : '';
-
-    const contentHtml =
-      data.content && typeof data.content.rendered === 'string'
-        ? data.content.rendered
-        : '';
-
-    const strippedExcerpt = stripHtml(excerptHtml).replace(/\s+/g, ' ').trim();
-    const strippedContent = stripHtml(contentHtml).replace(/\s+/g, ' ').trim();
-
-    const contentLooksLikeExcerptOnly =
-      !!strippedExcerpt &&
-      (
-        !strippedContent ||
-        strippedContent === strippedExcerpt ||
-        strippedContent.startsWith(strippedExcerpt)
-      );
-
-    if (contentLooksLikeExcerptOnly) {
-      data._ooProtected = true;
-      data._ooProtectedMessage = 'This content is for members only';
-      data.content = {
+      protectedPost.content = {
         rendered: `
           <div class="oo-paywall-notice">
-            <p><strong>${data._ooProtectedMessage}</strong></p>
+            <p><strong>${protectedPost._ooProtectedMessage}</strong></p>
             <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
           </div>
-          ${excerptHtml}
+          ${protectedExcerptHtml}
         `
       };
+
+      try { protectedPost._ooAuth = !!isLoggedIn; } catch (_) {}
+
+      postCache.set(id, protectedPost);
+      return protectedPost;
+    }
+
+    // Worker returns { ok:true, post:{...} } — fall back if structure differs.
+    data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
+
+    // Logged-out teaser detection:
+    // if the returned body is effectively just the excerpt (or empty), treat it as protected
+    // so the UI shows a clear members-only/login warning.
+    if (!isLoggedIn && data) {
+      const excerptHtml =
+        data.excerpt && typeof data.excerpt.rendered === 'string'
+          ? data.excerpt.rendered
+          : '';
+
+      const contentHtml =
+        data.content && typeof data.content.rendered === 'string'
+          ? data.content.rendered
+          : '';
+
+      const strippedExcerpt = stripHtml(excerptHtml).replace(/\s+/g, ' ').trim();
+      const strippedContent = stripHtml(contentHtml).replace(/\s+/g, ' ').trim();
+
+      const contentLooksLikeExcerptOnly =
+        !!strippedExcerpt &&
+        (
+          !strippedContent ||
+          strippedContent === strippedExcerpt ||
+          strippedContent.startsWith(strippedExcerpt)
+        );
+
+      if (contentLooksLikeExcerptOnly) {
+        data._ooProtected = true;
+        data._ooProtectedMessage = 'This content is for members only';
+        data.content = {
+          rendered: `
+            <div class="oo-paywall-notice">
+              <p><strong>${data._ooProtectedMessage}</strong></p>
+              <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
+            </div>
+            ${excerptHtml}
+          `
+        };
+      }
+    }
+
+    // Mark what auth state produced this cached payload.
+    try { data._ooAuth = !!isLoggedIn; } catch (_) {}
+
+    postCache.set(id, data);
+    return data;
+  })();
+
+  inflightPostFetches.set(id, {
+    auth: isLoggedIn,
+    promise: fetchPromise
+  });
+
+  try {
+    return await fetchPromise;
+  } finally {
+    const current = inflightPostFetches.get(id);
+    if (current && current.promise === fetchPromise) {
+      inflightPostFetches.delete(id);
     }
   }
-
-  // Mark what auth state produced this cached payload.
-  try { data._ooAuth = !!isLoggedIn; } catch (_) {}
-
-  postCache.set(id, data);
-  return data;
 }
-
 
   async function fetchSearchResults(term, page = 1) {
     const enc = encodeURIComponent(term || '');
