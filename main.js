@@ -1950,10 +1950,7 @@ window.location.replace(target);
       });
     }
 
-    // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
-    enhanceEmbedsInDetail(post);
-
-    // Let the full article paint first on mobile, then do heavier embed work.
+        // Let the full article paint first on mobile, then do heavier embed work.
     requestAnimationFrame(() => {
       setTimeout(() => {
         // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
