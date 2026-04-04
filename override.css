@@ -3979,10 +3979,7 @@ main#app, #app {
   visibility: hidden;
 }
 
-/* Kill the old splash hero entirely */
-.oo-splash {
-  display: none !important;
-}
+
 /* Emergency: disable loader overlay completely – 2025-12-02 loaderOffR1 */
 .oo-loader,
 .oo-loader--hidden {
