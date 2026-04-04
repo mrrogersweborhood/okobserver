@@ -25,22 +25,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-04-02-0079"
+    href="override.css?v=2026-04-02-0089"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-04-02-0079"
+    href="override.css?v=2026-04-02-0089"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-04-02-0079"
+  src="main.js?v=2026-04-02-0089"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-04-02-0079"
+  src="PostDetail.js?v=2026-04-02-0089"
 ></script>
 </head>
 <body>
@@ -233,7 +233,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-04-02-0079'; // bump when sw.js changes
+      var SW_BUILD = '2026-04-02-0089'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 
@@ -268,13 +268,11 @@ syncAuthClass();
     })();
   </script>
 
-    <!-- Splash hide logic: show only on first real launch, then never replay on resume/reload -->
+     <!-- Splash hide logic: show on app/page launch, but do not replay within the same page session -->
   <script>
     (function () {
       var splash = document.querySelector('.oo-splash');
       if (!splash) return;
-
-      var SPLASH_SEEN_KEY = 'ooSplashSeen_v1';
 
       function stopAndUnloadSplashVideo() {
         var vid = document.getElementById('oo-splash-video');
@@ -287,36 +285,17 @@ syncAuthClass();
             sources[i].removeAttribute('src');
           }
           vid.removeAttribute('src');
-          vid.load(); // forces browser to release the media resource
+          vid.load();
         } catch (e2) {}
       }
 
-      function hasSeenSplashPersisted() {
-        try {
-          return localStorage.getItem(SPLASH_SEEN_KEY) === '1';
-        } catch (e) {
-          return false;
-        }
-      }
-
-      function markSplashSeenPersisted() {
-        try {
-          localStorage.setItem(SPLASH_SEEN_KEY, '1');
-        } catch (e) {}
-      }
-
-      function hideSplashInstantly() {
+      // If we've already shown splash in this page lifetime, hide instantly and never show again.
+      if (window.__OO_SPLASH_SHOWN_ONCE__) {
         splash.style.opacity = '0';
         splash.style.visibility = 'hidden';
         splash.style.pointerEvents = 'none';
         splash.__ooHidden = true;
         stopAndUnloadSplashVideo();
-      }
-
-      // If we've already shown splash before in this app/browser profile, hide instantly.
-      if (hasSeenSplashPersisted()) {
-        hideSplashInstantly();
-        window.__OO_SPLASH_SHOWN_ONCE__ = true;
         return;
       }
 
@@ -330,30 +309,25 @@ syncAuthClass();
         stopAndUnloadSplashVideo();
 
         window.__OO_SPLASH_SHOWN_ONCE__ = true;
-        markSplashSeenPersisted();
       }
 
       function checkGridReady() {
         var grid = document.querySelector('#app .posts-grid');
         if (!grid) return;
-
         var cards = grid.querySelectorAll('.post-card');
         if (cards.length > 0) {
           hideSplash();
         }
       }
 
-      // Watch #app for the first batch of post cards
       var appRoot = document.getElementById('app');
       if (appRoot && window.MutationObserver) {
         var observer = new MutationObserver(checkGridReady);
         observer.observe(appRoot, { childList: true, subtree: true });
       }
 
-      // Safety: never get stuck on splash – hide after 7s max
       setTimeout(hideSplash, 7000);
 
-      // Initial check when DOM is ready
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
         checkGridReady();
       } else {
