@@ -25,22 +25,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-04-02-0200"
+    href="override.css?v=2026-04-02-0203"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-04-02-0200"
+    href="override.css?v=2026-04-02-0203"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-04-02-0200"
+  src="main.js?v=2026-04-02-0203"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-04-02-0200"
+  src="PostDetail.js?v=2026-04-02-0203"
 ></script>
 </head>
 <body>
@@ -120,7 +120,7 @@
       controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"
     >
       <source
-        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-04-02-0200"
+        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-04-02-0203"
         type="video/mp4"
       />
     </video>
@@ -236,7 +236,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-04-02-0200'; // bump when sw.js changes
+      var SW_BUILD = '2026-04-02-0203'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 
@@ -273,7 +273,7 @@ syncAuthClass();
 
           <!-- Splash hide logic: show on app/page launch, but do not replay within the same page session -->
   <script>
-    (function () {
+        (function () {
       var splash = document.querySelector('.oo-splash');
       var vid = document.getElementById('oo-splash-video');
       if (!splash || !vid) return;
@@ -330,14 +330,7 @@ syncAuthClass();
         vid.style.opacity = '1';
       }, { once: true });
 
-      if (window.__OO_SPLASH_SHOWN_ONCE__) {
-        splash.style.opacity = '0';
-        splash.style.visibility = 'hidden';
-        splash.style.pointerEvents = 'none';
-        splash.__ooHidden = true;
-        stopAndUnloadSplashVideo();
-        return;
-      }
+
 
       function hideSplash() {
         if (!splash || splash.__ooHidden) return;
@@ -348,7 +341,7 @@ syncAuthClass();
         splash.style.pointerEvents = 'none';
         stopAndUnloadSplashVideo();
 
-        window.__OO_SPLASH_SHOWN_ONCE__ = true;
+        
       }
 
       function checkGridReady() {
