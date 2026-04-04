@@ -7480,7 +7480,7 @@ nav#oo-menu.oo-menu a:focus-visible{
     flex: 0 0 auto !important;
   }
 }
-/* === splashR1: full-screen splash === */
+/* === splashR2: full-screen splash, no cropping === */
 .oo-splash {
   position: fixed;
   inset: 0;
@@ -7495,6 +7495,9 @@ nav#oo-menu.oo-menu a:focus-visible{
 .oo-splash-video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  display: block;
 }
-/* === end splashR1 === */
+/* === end splashR2 === */
