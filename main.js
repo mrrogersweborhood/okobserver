@@ -821,7 +821,7 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
     return card;
   }
 
-    async function appendCardsInChunks(grid, cards, chunkSize = 4) {
+        async function appendCardsInChunks(grid, cards, chunkSize = 4) {
     if (!grid || !Array.isArray(cards) || !cards.length) return;
 
     let index = 0;
@@ -840,6 +840,27 @@ if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }
     }
+  }
+
+  async function buildPostCardsInChunks(posts, chunkSize = 4) {
+    if (!Array.isArray(posts) || !posts.length) return [];
+
+    const builtCards = [];
+    let index = 0;
+
+    while (index < posts.length) {
+      const end = Math.min(index + chunkSize, posts.length);
+
+      for (; index < end; index++) {
+        builtCards.push(createPostCard(posts[index]));
+      }
+
+      if (index < posts.length) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    }
+
+    return builtCards;
   }
 
 
@@ -1039,8 +1060,8 @@ grid.insertAdjacentElement('afterend', sentinel);
         return;
       }
 
-            let appendedCount = 0;
-      const cardsToAppend = [];
+                  let appendedCount = 0;
+      const postsToRender = [];
 
       for (const post of posts) {
         if (hasExcludedCategory(post)) {
@@ -1054,12 +1075,12 @@ grid.insertAdjacentElement('afterend', sentinel);
         // Cache this post so we can rebuild the grid when returning from detail.
         postCache.set(post.id, post);
         seenPostIds.add(post.id);
-        const card = createPostCard(post);
-        cardsToAppend.push(card);
+        postsToRender.push(post);
         appendedCount++;
       }
 
       if (appendedCount > 0) {
+        const cardsToAppend = await buildPostCardsInChunks(postsToRender, 4);
         await appendCardsInChunks(grid, cardsToAppend, 4);
       }
 // If WP returned posts but all were filtered out (e.g., cartoons),
