@@ -25,22 +25,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-04-02-0089"
+    href="override.css?v=2026-04-02-0099"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-04-02-0089"
+    href="override.css?v=2026-04-02-0099"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-04-02-0089"
+  src="main.js?v=2026-04-02-0099"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-04-02-0089"
+  src="PostDetail.js?v=2026-04-02-0099"
 ></script>
 </head>
 <body>
@@ -103,26 +103,7 @@
   <!-- App root -->
   <main id="app" role="main"></main>
 
-  <!-- Splash / hero video container -->
-  <div class="oo-splash" aria-hidden="false">
-    <video
-      id="oo-splash-video"
-      class="oo-splash-video"
-      preload="auto"
-      autoplay
-      muted
-      loop
-      playsinline
-    >
-      <!-- New splash video file -->
-      <source
-        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2025-12-06R1-splash"
-        type="video/mp4"
-      />
-      <!-- Fallback -->
-      Your browser does not support the video tag.
-    </video>
-  </div>
+<!-- Splash / hero video container -->
 
   <!-- MutationObserver grid enforcer (must remain) -->
   
@@ -233,7 +214,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-04-02-0089'; // bump when sw.js changes
+      var SW_BUILD = '2026-04-02-0099'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 
@@ -268,16 +249,17 @@ syncAuthClass();
     })();
   </script>
 
-     <!-- Splash hide logic: show on app/page launch, but do not replay within the same page session -->
+          <!-- Splash hide logic: show on app/page launch, but do not replay within the same page session -->
   <script>
     (function () {
       var splash = document.querySelector('.oo-splash');
-      if (!splash) return;
+      var vid = document.getElementById('oo-splash-video');
+      if (!splash || !vid) return;
+
+      splash.style.background = '#1E90FF';
+      vid.style.opacity = '0';
 
       function stopAndUnloadSplashVideo() {
-        var vid = document.getElementById('oo-splash-video');
-        if (!vid) return;
-
         try { vid.pause(); } catch (e) {}
         try {
           var sources = vid.querySelectorAll('source');
@@ -289,7 +271,43 @@ syncAuthClass();
         } catch (e2) {}
       }
 
-      // If we've already shown splash in this page lifetime, hide instantly and never show again.
+      function tryStartSplashVideo() {
+        var playPromise;
+        try {
+          playPromise = vid.play();
+        } catch (e) {
+          playPromise = null;
+        }
+
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(function () {
+            vid.style.opacity = '1';
+          }).catch(function () {
+            vid.muted = true;
+            try {
+              var retryPromise = vid.play();
+              if (retryPromise && typeof retryPromise.then === 'function') {
+                retryPromise.then(function () {
+                  vid.style.opacity = '1';
+                }).catch(function () {
+                  vid.style.opacity = '1';
+                });
+              } else {
+                vid.style.opacity = '1';
+              }
+            } catch (e2) {
+              vid.style.opacity = '1';
+            }
+          });
+        } else {
+          vid.style.opacity = '1';
+        }
+      }
+
+      vid.addEventListener('playing', function () {
+        vid.style.opacity = '1';
+      }, { once: true });
+
       if (window.__OO_SPLASH_SHOWN_ONCE__) {
         splash.style.opacity = '0';
         splash.style.visibility = 'hidden';
@@ -326,6 +344,7 @@ syncAuthClass();
         observer.observe(appRoot, { childList: true, subtree: true });
       }
 
+      tryStartSplashVideo();
       setTimeout(hideSplash, 7000);
 
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
