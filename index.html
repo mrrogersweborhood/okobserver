@@ -25,22 +25,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-04-02-0203"
+    href="override.css?v=2026-04-02-0204"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-04-02-0203"
+    href="override.css?v=2026-04-02-0204"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-04-02-0203"
+  src="main.js?v=2026-04-02-0204"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-04-02-0203"
+  src="PostDetail.js?v=2026-04-02-0204"
 ></script>
 </head>
 <body>
@@ -120,7 +120,7 @@
       controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"
     >
       <source
-        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-04-02-0203"
+        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-04-02-0204"
         type="video/mp4"
       />
     </video>
@@ -236,7 +236,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-04-02-0203'; // bump when sw.js changes
+      var SW_BUILD = '2026-04-02-0204'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 
@@ -332,6 +332,10 @@ syncAuthClass();
 
 
 
+            var splashStartedAt = Date.now();
+      var splashMinVisibleMs = 1800;
+      var splashHideTimer = null;
+
       function hideSplash() {
         if (!splash || splash.__ooHidden) return;
         splash.__ooHidden = true;
@@ -341,7 +345,27 @@ syncAuthClass();
         splash.style.pointerEvents = 'none';
         stopAndUnloadSplashVideo();
 
-        
+        window.__OO_SPLASH_SHOWN_ONCE__ = true;
+      }
+
+      function hideSplashWhenAllowed() {
+        if (!splash || splash.__ooHidden) return;
+
+        var elapsed = Date.now() - splashStartedAt;
+        var remaining = splashMinVisibleMs - elapsed;
+
+        if (remaining <= 0) {
+          hideSplash();
+          return;
+        }
+
+        if (splashHideTimer) {
+          clearTimeout(splashHideTimer);
+        }
+
+        splashHideTimer = setTimeout(function () {
+          hideSplash();
+        }, remaining);
       }
 
       function checkGridReady() {
@@ -349,7 +373,7 @@ syncAuthClass();
         if (!grid) return;
         var cards = grid.querySelectorAll('.post-card');
         if (cards.length > 0) {
-          hideSplash();
+          hideSplashWhenAllowed();
         }
       }
 
@@ -360,7 +384,7 @@ syncAuthClass();
       }
 
       tryStartSplashVideo();
-      setTimeout(hideSplash, 7000);
+      setTimeout(hideSplashWhenAllowed, 7000);
 
       if (document.readyState === 'complete' || document.readyState === 'interactive') {
         checkGridReady();
