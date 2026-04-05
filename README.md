@@ -1,156 +1,182 @@
-\# OkObserver — Production SPA + Android WebView App
+# OkObserver — Production SPA + Android WebView App
 
-
-
-\## Overview
-
+## Overview
 OkObserver is a lightweight, production-ready news application built as:
 
-
-
-\- A \*\*static SPA (Single Page Application)\*\* hosted on GitHub Pages  
-
-\- A \*\*Cloudflare Worker proxy\*\* for WordPress API access  
-
-\- An \*\*Android WebView app wrapper\*\*
-
-
+- Static SPA hosted on GitHub Pages
+- Cloudflare Worker proxy for WordPress API
+- Android WebView wrapper
 
 Live site:  
-
 https://mrrogersweborhood.github.io/okobserver/
 
+---
 
+## Architecture
 
-\---
+### Frontend (GitHub Pages)
+- No frameworks
+- No build tools
+- Plain JavaScript only
 
+Core files:
+- index.html → app shell
+- main.js → logic, routing, rendering
+- override.css → styling
+- PostDetail.js → detail view
+- sw.js → service worker
+- manifest.json → PWA config
+- logo.png / favicon.ico → assets
+- Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4 → splash
 
+---
 
-\## Architecture
+### Backend (Cloudflare Worker)
+- Proxy to WordPress REST API
+- Handles:
+  - CORS
+  - Auth passthrough
+  - Response shaping
 
+Endpoint:
+https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
 
+---
 
-\### Frontend (GitHub Pages)
+### Android App
+- WebView loads:
+  https://mrrogersweborhood.github.io/okobserver/
 
-\- Pure HTML / CSS / JavaScript (no frameworks, no build tools)
+Key rules:
+- Edge-to-edge via WindowInsets
+- Status bar = transparent (system-controlled)
+- No theme hacks for layout
+- Autoplay enabled
 
-\- Hosted at `/okobserver/`
+---
 
-\- Files:
+## Core Rules (DO NOT BREAK)
 
-&#x20; - `index.html` → App shell
+### 1. Worker is the ONLY data source
+- Never call WordPress directly
+- Always use the Worker
 
-&#x20; - `main.js` → Core logic, routing, fetch, rendering
+---
 
-&#x20; - `override.css` → Styling
+### 2. No build system
+- No bundlers
+- No ES modules
+- GitHub Pages compatible only
 
-&#x20; - `PostDetail.js` → Post detail handling
+---
 
-&#x20; - `sw.js` → Service Worker (caching + offline)
+### 3. Service Worker is critical
+- Controls caching
+- Can serve stale content if mismanaged
+- ALWAYS bump cache on updates
 
-&#x20; - `manifest.json` → PWA config
+---
 
-&#x20; - `logo.png`, `favicon.ico` → branding assets
+### 4. File set is intentionally minimal
 
-&#x20; - `Newspaper\_Rolls\_Into\_Cartoon\_Cell\_Phone.mp4` → splash animation
+Runtime files ONLY:
 
+.nojekyll  
+index.html  
+main.js  
+override.css  
+PostDetail.js  
+sw.js  
+manifest.json  
+logo.png  
+favicon.ico  
+Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4  
+offline.html  
+worker.js  
 
+---
 
-\---
+## Deployment Workflow
 
+After ANY change to:
+- main.js
+- index.html
+- sw.js
+- override.css
 
+### Required steps:
 
-\### Backend (Cloudflare Worker)
+1. Update cache-buster in index.html  
+   Example:
+   main.js?v=2026-04-05a
 
-\- Acts as a proxy to WordPress REST API
+2. Commit + push to GitHub
 
-\- Handles:
+3. Clear cache:
+   - Desktop: Ctrl + Shift + R
+   - Android: close app → reopen
 
-&#x20; - CORS
+4. Verify:
+   - DevTools → Network tab shows new version
+   - Service Worker updated
 
-&#x20; - Authentication passthrough
+---
 
-&#x20; - Response normalization
+## Performance Notes
 
-\- Example endpoint:
+- Infinite scroll optimized
+- Older posts may be trimmed
+- Scroll-back remains stable
 
-&#x20; https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2/
+---
 
+## Troubleshooting
 
+### App shows old content
+→ Service Worker cache issue  
+Fix:
+- Hard refresh
+- Unregister SW in DevTools
 
-\---
+---
 
+### Slow loading on page 2+
+→ Check:
+- Worker response speed
+- Duplicate fetches
 
+---
 
-\### Android App
+### Android layout issues
+→ Must use WindowInsets  
+→ Never rely on theme hacks
 
-\- WebView loads:
+---
 
-&#x20; https://mrrogersweborhood.github.io/okobserver/
+## Development Rules
 
-\- Features:
+- Never guess file contents
+- Never leave duplicate files
+- Never introduce unused scripts
+- Always keep repo clean
+- Always test after deploy
 
-&#x20; - Edge-to-edge layout with proper insets handling
+---
 
-&#x20; - Status bar integration (transparent, system-controlled)
+## Future Enhancements
 
-&#x20; - Splash experience handled natively or via web
+- Play Store release
+- Push notifications
+- Analytics
+- Offline improvements
 
-&#x20; - Autoplay enabled for video content
+---
 
+## Author
+Robert Rogers  
+The Oklahoma Observer
 
+---
 
-\---
-
-
-
-\## Core Rules (DO NOT BREAK)
-
-
-
-\### 1. Worker is the only data source
-
-\- NEVER call WordPress directly from the frontend
-
-\- ALWAYS use the Cloudflare Worker proxy
-
-
-
-\---
-
-
-
-\### 2. No build system
-
-\- No bundlers
-
-\- No ES modules
-
-\- Plain JavaScript only (GitHub Pages compatible)
-
-
-
-\---
-
-
-
-\### 3. Service Worker is critical
-
-\- Controls caching behavior
-
-\- Can cause stale content if mismanaged
-
-\- Always bump cache when updating core files
-
-
-
-\---
-
-
-
-\### 4. File set is intentionally minimal
-
-Only these files are part of the runtime:
-
-
-
+## License
+Private / Proprietary
