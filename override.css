@@ -7498,3 +7498,9 @@ nav#oo-menu.oo-menu a:focus-visible{
   display: block;
 }
 /* === end splashR2 === */
+.oo-tts-active-block {
+  background: rgba(30, 144, 255, 0.12);
+  border-left: 4px solid #1E90FF;
+  padding-left: 8px;
+  transition: background 0.2s ease, border 0.2s ease;
+}
