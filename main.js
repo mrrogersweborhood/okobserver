@@ -105,7 +105,9 @@
 
   let ttsAbortController = null;
   let currentTtsPostId = null;
-
+// 🟢 ACTIVE TTS SCROLL STATE
+let __okobsTtsActiveText = '';
+let __okobsTtsActiveNodes = [];
   // ---------------------------------------------------------------------------
   // Routing
   // ---------------------------------------------------------------------------
@@ -652,7 +654,63 @@ function extractHeroLinkFromContent(post) {
     }
     currentTtsPostId = null;
   }
+  window.__okobsTtsRange = function(start, end) {
+    try {
+      const container = app.querySelector('.post-detail-content');
+      if (!container) return;
 
+      const blocks = Array.from(container.querySelectorAll('p, h1, h2, h3, li'));
+      if (!blocks.length) return;
+
+      let runningStart = 0;
+      let activeBlock = null;
+
+      for (const block of blocks) {
+        const rawText = (block.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
+        if (!rawText) continue;
+
+        const blockStart = runningStart;
+        const blockEnd = runningStart + rawText.length + 1;
+
+        if (start >= blockStart && start < blockEnd) {
+          activeBlock = block;
+          break;
+        }
+
+        runningStart = blockEnd;
+      }
+
+      if (!activeBlock) return;
+
+      blocks.forEach((el) => el.classList.remove('oo-tts-active-block'));
+      activeBlock.classList.add('oo-tts-active-block');
+
+      activeBlock.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    } catch (err) {
+      console.error('[OkObserver TTS] __okobsTtsRange error:', err);
+    }
+  };
+
+  window.__okobsTtsDone = function() {
+    try {
+      ttsAbortController = null;
+      currentTtsPostId = null;
+      __okobsTtsActiveText = '';
+      __okobsTtsActiveNodes = [];
+
+      const container = app.querySelector('.post-detail-content');
+      if (container) {
+        container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
+          el.classList.remove('oo-tts-active-block');
+        });
+      }
+    } catch (err) {
+      console.error('[OkObserver TTS] __okobsTtsDone error:', err);
+    }
+  };
     async function speakChunksSequentially(text, postId) {
     stopTtsPlayback();
 
@@ -664,24 +722,39 @@ function extractHeroLinkFromContent(post) {
     currentTtsPostId = postId || null;
 
     // Android app bridge: use native TTS when available.
-    if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
-      try {
-        window.AndroidTTS.speak(chunks.join(' '));
-      } catch (err) {
-        console.error('[OkObserver TTS] Android bridge error:', err);
-        alert('Text-to-speech failed in the Android app.');
-        if (ttsAbortController === localAbort) {
-          ttsAbortController = null;
-          currentTtsPostId = null;
-        }
-      }
-      return;
-    }
+if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
+  try {
+    window.AndroidTTS.stop();
 
+    __okobsTtsActiveText = text || '';
+    currentTtsPostId = postId || null;
+
+    window.AndroidTTS.speak(text);
+  } catch (err) {
+    console.error('[OkObserver TTS] Android bridge error:', err);
+    alert('Text-to-speech failed in the Android app.');
+    if (ttsAbortController === localAbort) {
+      ttsAbortController = null;
+      currentTtsPostId = null;
+      __okobsTtsActiveText = '';
+      __okobsTtsActiveNodes = [];
+    }
+  }
+  return;
+}
     if (!window.speechSynthesis) {
       alert('Text-to-speech is not supported in this browser.');
       ttsAbortController = null;
       currentTtsPostId = null;
+    __okobsTtsActiveText = '';
+    __okobsTtsActiveNodes = [];
+
+    const container = app.querySelector('.post-detail-content');
+    if (container) {
+      container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
+        el.classList.remove('oo-tts-active-block');
+      });
+    }
       return;
     }
 
@@ -716,17 +789,45 @@ function extractHeroLinkFromContent(post) {
 
 function buildTtsTextFromHtml(html) {
   if (!html) return '';
+
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-  const text = tmp.textContent || tmp.innerText || '';
+  const blocks = tmp.querySelectorAll('p, h1, h2, h3, li');
 
-  // TTS: strip bare URLs (prevents reading raw podcast/file links like https://...mp3)
-  const noUrls = text.replace(/\bhttps?:\/\/[^\s]+/gi, '');
+  __okobsTtsActiveNodes = [];
+  __okobsTtsActiveText = '';
 
-  return noUrls.replace(/\s+/g, ' ').trim();
+  let combined = '';
+
+  blocks.forEach((el) => {
+    const text = (el.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').trim();
+    if (!text) return;
+
+    const start = combined.length;
+    combined += text + ' ';
+    const end = combined.length;
+
+    __okobsTtsActiveNodes.push({
+      start,
+      end,
+      text
+    });
+  });
+
+  __okobsTtsActiveText = combined.replace(/\s+/g, ' ').trim();
+
+  if (!__okobsTtsActiveText) {
+    const fallbackText = (tmp.textContent || tmp.innerText || '')
+      .replace(/\bhttps?:\/\/[^\s]+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    __okobsTtsActiveText = fallbackText;
+  }
+
+  return __okobsTtsActiveText;
 }
-
 
   // ---------------------------------------------------------------------------
   // Card creation (home/search grid)
