@@ -1818,7 +1818,7 @@ if (authorName) {
   }
 
     async function renderPostDetail(id) {
-    stopTtsPlayback({ native: true });
+    stopTtsPlayback({ native: false });
     scrollToTop();
 
     // Option A: if we have the clicked summary post, paint a fast shell immediately
