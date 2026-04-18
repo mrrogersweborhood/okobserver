@@ -2176,13 +2176,13 @@ window.location.replace(target);
       });
     }
 
-    const ttsButton = app.querySelector('.tts-button');
+     const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
       ttsButton.addEventListener('click', () => {
         const current = currentTtsPostId;
         const thisId = post.id;
         if (current && current === thisId) {
-          stopTtsPlayback();
+          stopTtsPlayback({ native: true });
         } else {
           const text = buildTtsTextFromHtml(contentHtml);
           speakChunksSequentially(text, thisId);
