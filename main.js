@@ -724,8 +724,6 @@ function extractHeroLinkFromContent(post) {
     // Android app bridge: use native TTS when available.
 if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
   try {
-    window.AndroidTTS.stop();
-
     __okobsTtsActiveText = text || '';
     currentTtsPostId = postId || null;
 
