@@ -638,7 +638,7 @@ function extractHeroLinkFromContent(post) {
   }
 
   function stopTtsPlayback(options = {}) {
-    const shouldStopNative = !!options.native;
+    const shouldStopNative = options.native !== false;
 
     if (ttsAbortController) {
       ttsAbortController.abort();
