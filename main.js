@@ -637,22 +637,36 @@ function extractHeroLinkFromContent(post) {
     return chunks;
   }
 
-  function stopTtsPlayback() {
+  function stopTtsPlayback(options = {}) {
+    const shouldStopNative = !!options.native;
+
     if (ttsAbortController) {
       ttsAbortController.abort();
       ttsAbortController = null;
     }
-    if (window.AndroidTTS && typeof window.AndroidTTS.stop === 'function') {
+
+    if (shouldStopNative && window.AndroidTTS && typeof window.AndroidTTS.stop === 'function') {
       try {
         window.AndroidTTS.stop();
       } catch (err) {
         console.error('[OkObserver TTS] Android stop bridge error:', err);
       }
     }
+
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+
     currentTtsPostId = null;
+    __okobsTtsActiveText = '';
+    __okobsTtsActiveNodes = [];
+
+    const container = app.querySelector('.post-detail-content');
+    if (container) {
+      container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
+        el.classList.remove('oo-tts-active-block');
+      });
+    }
   }
   window.__okobsTtsRange = function(start, end) {
     try {
@@ -711,15 +725,15 @@ function extractHeroLinkFromContent(post) {
       console.error('[OkObserver TTS] __okobsTtsDone error:', err);
     }
   };
-    async function speakChunksSequentially(text, postId) {
-    stopTtsPlayback();
+  async function speakChunksSequentially(text, postId) {
+  stopTtsPlayback({ native: false });
 
-    const chunks = splitTextIntoChunks(text, TTS_CHUNK_SIZE);
-    if (!chunks.length) return;
+  const chunks = splitTextIntoChunks(text, TTS_CHUNK_SIZE);
+  if (!chunks.length) return;
 
-    const localAbort = new AbortController();
-    ttsAbortController = localAbort;
-    currentTtsPostId = postId || null;
+  const localAbort = new AbortController();
+  ttsAbortController = localAbort;
+  currentTtsPostId = postId || null;
 
     // Android app bridge: use native TTS when available.
 if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
