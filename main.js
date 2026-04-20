@@ -696,13 +696,7 @@ function extractHeroLinkFromContent(post) {
 
       if (!activeBlock) return;
 
-      blocks.forEach((el) => el.classList.remove('oo-tts-active-block'));
-      activeBlock.classList.add('oo-tts-active-block');
 
-      activeBlock.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
     } catch (err) {
       console.error('[OkObserver TTS] __okobsTtsRange error:', err);
     }
@@ -715,12 +709,7 @@ function extractHeroLinkFromContent(post) {
       __okobsTtsActiveText = '';
       __okobsTtsActiveNodes = [];
 
-      const container = app.querySelector('.post-detail-content');
-      if (container) {
-        container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
-          el.classList.remove('oo-tts-active-block');
-        });
-      }
+
     } catch (err) {
       console.error('[OkObserver TTS] __okobsTtsDone error:', err);
     }
@@ -761,12 +750,7 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
     __okobsTtsActiveText = '';
     __okobsTtsActiveNodes = [];
 
-    const container = app.querySelector('.post-detail-content');
-    if (container) {
-      container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
-        el.classList.remove('oo-tts-active-block');
-      });
-    }
+ 
       return;
     }
 
