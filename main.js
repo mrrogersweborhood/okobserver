@@ -34,7 +34,7 @@
   // Infinite scroll / paging settings
   const POSTS_PER_PAGE = 12;
   const SCROLL_SENTRY_OFFSET = 0; // trigger as soon as sentinel intersects
-  const SCROLL_ROOT_MARGIN = '1200px 0px';
+  const SCROLL_ROOT_MARGIN = '600px 0px';
 
 
   // Scroll restoration and routing
