@@ -197,6 +197,10 @@ if (path !== '/login' && path !== '/logout') {
       renderSearch(params);
     } else if (path === '/toc') {
       renderToc();
+    } else if (path === '/saved') {
+      renderSaved();
+    } else if (path === '/following') {
+      renderFollowing();
     } else if (path === '/events') {
       renderEvents();
     } else if (path === '/browse') {
@@ -869,6 +873,23 @@ function buildTtsTextFromHtml(html) {
       card.appendChild(imgWrapper);
     }
 
+    // Save-for-later bookmark (top right of the card)
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'post-card-save';
+    saveBtn.setAttribute('data-save-id', String(post.id));
+    saveBtn.setAttribute('aria-label', 'Save for later');
+    saveBtn.innerHTML = ICON_SAVE;
+    card.appendChild(saveBtn);
+    wireSaveButton(saveBtn, post);
+    if (isSaved(post.id)) { saveBtn.classList.add('is-saved'); saveBtn.setAttribute('aria-pressed', 'true'); saveBtn.title = 'Remove from Saved'; }
+
+    // Warm the article when a finger rests on the card (not while scrolling past it)
+    let warmTimer = null;
+    card.addEventListener('touchstart', () => { clearTimeout(warmTimer); warmTimer = setTimeout(() => prefetchPostDetail(post.id), 140); }, { passive: true });
+    card.addEventListener('touchmove', () => clearTimeout(warmTimer), { passive: true });
+    card.addEventListener('touchend', () => clearTimeout(warmTimer), { passive: true });
+
     const content = document.createElement('div');
     content.className = 'post-card-content';
 
@@ -905,6 +926,7 @@ function buildTtsTextFromHtml(html) {
     card.appendChild(content);
 
     card.addEventListener('click', (evt) => {
+      if (evt.target && evt.target.closest && evt.target.closest('.post-card-save')) return;
       const clickedLink = (evt.target && evt.target.closest) ? evt.target.closest('a') : null;
 if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
   // If WP injected the paywall login redirect link, keep the user inside the SPA.
@@ -1040,6 +1062,9 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     const lead = app.querySelector('[data-oo="lead"]');
     if (!lead || lead.firstElementChild || !grid || !grid.firstElementChild) return;
     lead.appendChild(grid.firstElementChild);
+    // The lead photo is what people see first: load it right away, at high priority.
+    const leadImg = lead.querySelector('img.post-card-image');
+    if (leadImg) { leadImg.loading = 'eager'; leadImg.fetchPriority = 'high'; }
   }
 
   // Home: "National Columnists" row (posts in the Columnists category), fetched once.
@@ -1050,12 +1075,26 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     if (!section || !row) return;
     try {
       if (!columnistPosts) {
-        const cats = await fetchJson(`${WP_API_BASE}/categories?slug=columnists&_fields=id`);
-        const id = Array.isArray(cats) && cats.length ? cats[0].id : null;
-        if (!id) return;
+        // Instant: show the row from the last visit while fresh posts load.
+        const snap = LS.get('ooColSnap:' + SITE_KEY, null);
+        let paintedFromSnap = false;
+        if (snap && Array.isArray(snap.posts) && snap.posts.length && document.body.contains(row)) {
+          row.innerHTML = '';
+          snap.posts.forEach((p) => row.appendChild(createPostCard(p)));
+          section.hidden = false;
+          paintedFromSnap = true;
+        }
+        let id = LS.get('ooColCat:' + SITE_KEY, 0);
+        if (!id) {
+          const cats = await fetchJson(`${WP_API_BASE}/categories?slug=columnists&_fields=id`);
+          id = Array.isArray(cats) && cats.length ? cats[0].id : null;
+          if (!id) return;
+          LS.set('ooColCat:' + SITE_KEY, id);
+        }
         const posts = await fetchJson(`${WP_API_BASE}/posts?categories=${id}&per_page=6&_embed=author,wp:featuredmedia,wp:term`);
         columnistPosts = (Array.isArray(posts) ? posts : []).filter((p) => !hasExcludedCategory(p)).slice(0, 4);
         columnistPosts.forEach((p) => postCache.set(p.id, p));
+        LS.set('ooColSnap:' + SITE_KEY, { posts: columnistPosts.map(compactPost) });
       }
       if (!columnistPosts.length || !document.body.contains(row)) return;
       row.innerHTML = '';
@@ -1092,6 +1131,19 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       hasMorePages = true;
       seenPostIds.clear();
       window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+
+      // Instant start: draw the last visit's posts right away, then load fresh ones.
+      const snap = skipSnapshotOnce ? null : LS.get('ooHomeSnap:' + SITE_KEY, null);
+      skipSnapshotOnce = false;
+      homeSnapIds = null;
+      if (snap && Array.isArray(snap.posts) && snap.posts.length) {
+        homeSnapIds = snap.posts.map((p) => p.id);
+        snap.posts.forEach((p) => { seenPostIds.add(p.id); grid.appendChild(createPostCard(p)); });
+        promoteLead(grid);
+        hideInitialLoader();
+      } else {
+        grid.innerHTML = skeletonCards(6);
+      }
 
       setupInfiniteScroll(grid);
       loadMorePosts();
@@ -1210,9 +1262,40 @@ grid.insertAdjacentElement('afterend', sentinel);
       const posts = await fetchPostsPage(currentPage);
       if (!Array.isArray(posts) || posts.length === 0) {
         hasMorePages = false;
+        clearSkeletons(grid);
         hidePagingStatus();
         return;
       }
+
+      // Home was drawn from the last visit: if the fresh first page is the same posts, just keep it
+      // (and give the app the full posts); otherwise replace it with the fresh ones.
+      if (homeSnapIds && currentPage === 1) {
+        const freshIds = posts.filter((p) => !hasExcludedCategory(p)).map((p) => p.id);
+        const same = freshIds.length === homeSnapIds.length && freshIds.every((id, i) => id === homeSnapIds[i]);
+        posts.forEach((p) => { if (!hasExcludedCategory(p)) postCache.set(p.id, p); });
+        homeSnapIds = null;
+        if (same) {
+          // Rebuild the cards from the full posts so opening them is instant, without changing what is on screen.
+          const g = app.querySelector('.home-view .posts-grid');
+          const leadEl = app.querySelector('[data-oo="lead"]');
+          if (g) g.innerHTML = '';
+          if (leadEl) leadEl.innerHTML = '';
+          const fresh = posts.filter((p) => !hasExcludedCategory(p));
+          const frag2 = document.createDocumentFragment();
+          fresh.forEach((p) => frag2.appendChild(createPostCard(p)));
+          if (g) { g.appendChild(frag2); promoteLead(g); }
+          currentPage += 1;
+          hidePagingStatus();
+          isInitialHomeLoad = false;
+          hideInitialLoader();
+          return;
+        }
+        grid.innerHTML = '';
+        const leadEl2 = app.querySelector('[data-oo="lead"]');
+        if (leadEl2) leadEl2.innerHTML = '';
+        seenPostIds.clear();
+      }
+      clearSkeletons(grid);
 
                   let appendedCount = 0;
       const postsToRender = [];
@@ -1259,9 +1342,13 @@ if (posts.length > 0 && appendedCount === 0) {
       if (isInitialHomeLoad) {
         isInitialHomeLoad = false;
         hideInitialLoader();
+        if (currentPage === 2 && postsToRender.length) {
+          LS.set('ooHomeSnap:' + SITE_KEY, { t: Date.now(), posts: postsToRender.slice(0, 12).map(compactPost) });
+        }
       }
     } catch (err) {
       console.error('[OkObserver] Error loading more posts:', err);
+      clearSkeletons(grid);
       hidePagingStatus();
     } finally {
       isFetchingPosts = false;
@@ -1440,6 +1527,7 @@ const authorLabel = (params && params.label) ? decodeURIComponent(params.label) 
           </label>
           <button class="search-submit" type="submit">Search</button>
         </form>
+        <div class="search-recent browse-chips" hidden></div>
         <div class="search-status" aria-live="polite">
   <span class="search-status-spinner" aria-hidden="true"></span>
   <span class="search-status-text"></span>
@@ -1481,6 +1569,18 @@ const statusTextEl = statusEl
   }
 
 
+
+// Recent searches (shown when the box is empty)
+if (!initialQuery && !authorId) {
+  const recentEl = app.querySelector('.search-recent');
+  const recent = LS.get('ooRecentSearches', []);
+  if (recentEl && recent.length) {
+    recentEl.innerHTML = '<span class="browse-loading">Recent:</span>' + recent.map((t) =>
+      `<a class="browse-chip" href="#/search?q=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join('');
+    recentEl.hidden = false;
+  }
+}
+if (initialQuery && !authorId) rememberSearch(initialQuery);
 
 if (authorId) {
   statusEl.classList.add('is-loading');
@@ -1885,6 +1985,307 @@ function renderEvents() {
     });
 }
 
+// ===========================================================================
+// App extras: save for later, share, reader controls, follow + My Feed, recent searches,
+// pull-to-refresh, "new posts" pill, loading placeholders, instant home from the last visit.
+// Everything is stored on the phone (localStorage); no account needed.
+// ===========================================================================
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+};
+const SITE_KEY = String(window.OO_SITE_ORIGIN || 'prod'); // saved snapshots are per-site, so staging data never shows after launch
+let skipSnapshotOnce = false;
+let homeSnapIds = null;
+
+function toast(msg) {
+  let t = document.querySelector('.oo-toast');
+  if (!t) { t = document.createElement('div'); t.className = 'oo-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('is-on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('is-on'), 2200);
+}
+
+// Small copy of a post (enough to draw a card) for snapshots, Saved and offline-friendly lists.
+function compactPost(p) {
+  const img = getFeaturedImageUrl(p);
+  const list = p && p._embedded && Array.isArray(p._embedded.author) ? p._embedded.author : [];
+  const a = list[0] || null;
+  const wt = p && p._embedded && Array.isArray(p._embedded['wp:term'])
+    ? p._embedded['wp:term'].map((arr) => (arr || []).map((t) => ({ id: t.id, name: t.name, slug: t.slug, taxonomy: t.taxonomy })))
+    : [];
+  return {
+    id: p.id,
+    date: p.date,
+    link: p.link,
+    title: { rendered: (p.title && p.title.rendered) || '' },
+    excerpt: { rendered: (p.excerpt && p.excerpt.rendered) || '' },
+    author: p.author,
+    _embedded: {
+      author: a ? [{ id: a.id, name: a.name }] : [],
+      'wp:featuredmedia': img ? [{ source_url: img }] : [],
+      'wp:term': wt
+    }
+  };
+}
+
+const ICON_SAVE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-3.8-6.5 3.8v-16a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 15V3m0 0L8 7m4-4 4 4M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// ---- Saved ----
+const getSaved = () => LS.get('ooSaved', []);
+const isSaved = (id) => getSaved().some((p) => p.id === id);
+function toggleSaved(p) {
+  const list = getSaved();
+  const i = list.findIndex((x) => x.id === p.id);
+  if (i >= 0) { list.splice(i, 1); LS.set('ooSaved', list); return false; }
+  list.unshift(compactPost(p));
+  LS.set('ooSaved', list.slice(0, 100));
+  return true;
+}
+function syncSaveButtons(id) {
+  const on = isSaved(id);
+  document.querySelectorAll('[data-save-id="' + id + '"]').forEach((b) => {
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('is-saved', on);
+    b.title = on ? 'Remove from Saved' : 'Save for later';
+    const l = b.querySelector('.lbl');
+    if (l) l.textContent = on ? 'Saved' : 'Save';
+  });
+}
+function wireSaveButton(btn, post) {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const now = toggleSaved(post);
+    syncSaveButtons(post.id);
+    toast(now ? 'Saved for later' : 'Removed from Saved');
+    if (!now && parseHashRoute().path === '/saved') {
+      const card = btn.closest('.post-card');
+      if (card) card.remove();
+      if (!app.querySelector('.saved-grid .post-card')) renderSaved();
+    }
+  });
+}
+
+// ---- Share ----
+async function sharePost(post) {
+  const url = post.link || window.OO_SITE_ORIGIN || 'https://okobserver.org';
+  const title = stripHtml((post.title && post.title.rendered) || 'The Oklahoma Observer');
+  try {
+    if (navigator.share) { await navigator.share({ title, text: title, url }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Link copied');
+  } catch (_) {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (__) {}
+    ta.remove();
+    toast(ok ? 'Link copied' : url);
+  }
+}
+
+// ---- Reader controls (text size + line spacing, remembered) ----
+const READ_SIZES = [0.9, 1, 1.12, 1.25, 1.4];
+function applyReader() {
+  const root = document.documentElement;
+  root.style.setProperty('--oo-read-scale', String(LS.get('ooReadScale', 1)));
+  root.style.setProperty('--oo-read-leading', LS.get('ooReadLoose', 0) ? '2' : '1.72');
+}
+function stepReader(dir) {
+  const cur = LS.get('ooReadScale', 1);
+  let i = READ_SIZES.findIndex((x) => x >= cur - 0.001);
+  if (i < 0) i = 1;
+  i = Math.max(0, Math.min(READ_SIZES.length - 1, i + dir));
+  LS.set('ooReadScale', READ_SIZES[i]);
+  applyReader();
+  toast('Text size ' + Math.round(READ_SIZES[i] * 100) + '%');
+}
+function toggleReaderSpacing() {
+  const loose = LS.get('ooReadLoose', 0) ? 0 : 1;
+  LS.set('ooReadLoose', loose);
+  applyReader();
+  toast(loose ? 'Roomier line spacing' : 'Standard line spacing');
+}
+applyReader();
+
+// ---- Follow authors / topics / sections ----
+const getFollows = () => LS.get('ooFollows', []);
+const isFollowing = (type, id) => getFollows().some((f) => f.type === type && String(f.id) === String(id));
+function toggleFollow(type, id, label) {
+  let list = getFollows();
+  const i = list.findIndex((f) => f.type === type && String(f.id) === String(id));
+  if (i >= 0) { list.splice(i, 1); LS.set('ooFollows', list); return false; }
+  list.unshift({ type, id: String(id), label: label || '' });
+  LS.set('ooFollows', list.slice(0, 40));
+  return true;
+}
+
+// ---- Recent searches ----
+function rememberSearch(term) {
+  term = String(term || '').trim();
+  if (!term) return;
+  const list = LS.get('ooRecentSearches', []).filter((x) => x.toLowerCase() !== term.toLowerCase());
+  list.unshift(term);
+  LS.set('ooRecentSearches', list.slice(0, 8));
+}
+
+// ---- Loading placeholders ----
+function skeletonCards(n) {
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    html += '<article class="post-card is-skeleton" aria-hidden="true"><div class="post-card-image-wrapper"></div>'
+      + '<div class="post-card-content"><div class="sk-line sk-w90"></div><div class="sk-line sk-w60"></div><div class="sk-line sk-w40"></div></div></article>';
+  }
+  return html;
+}
+function clearSkeletons(root) {
+  (root || document).querySelectorAll('.is-skeleton').forEach((e) => e.remove());
+}
+
+// ---- Home refresh, pull-to-refresh, "new posts" pill ----
+function refreshHome() {
+  homeState.initialized = false;
+  homeState.scrollY = 0;
+  seenPostIds.clear();
+  columnistPosts = null;
+  skipSnapshotOnce = true;
+  const pill = document.querySelector('.oo-newpill');
+  if (pill) pill.hidden = true;
+  scrollToTop();
+  renderHome();
+}
+window.__ooRefreshHome = refreshHome;
+
+(function setupPullToRefresh() {
+  const el = document.createElement('div');
+  el.className = 'oo-ptr';
+  el.innerHTML = '<span class="oo-loading-spinner" aria-hidden="true"></span><span class="oo-ptr-text">Pull to refresh</span>';
+  document.body.appendChild(el);
+  const text = el.querySelector('.oo-ptr-text');
+  let startY = 0; let dy = 0; let active = false;
+  const menuOpen = () => !!document.querySelector('[data-oo="overlay"]:not([hidden])');
+  window.addEventListener('touchstart', (e) => {
+    if (parseHashRoute().path !== '/' || (window.scrollY || 0) > 0 || e.touches.length !== 1 || menuOpen()) { active = false; return; }
+    active = true; startY = e.touches[0].clientY; dy = 0;
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    if (!active) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { el.classList.remove('is-on'); el.style.transform = ''; return; }
+    const d = Math.min(dy * 0.5, 90);
+    el.classList.add('is-on');
+    el.style.transform = 'translate(-50%,' + (d - 56) + 'px)';
+    text.textContent = d >= 60 ? 'Release to refresh' : 'Pull to refresh';
+  }, { passive: true });
+  window.addEventListener('touchend', () => {
+    if (!active) return;
+    active = false;
+    const d = Math.min(dy * 0.5, 90);
+    el.classList.remove('is-on'); el.style.transform = '';
+    if (d >= 60 && (window.scrollY || 0) <= 0) { toast('Refreshing…'); refreshHome(); }
+  }, { passive: true });
+})();
+
+(function setupNewPostsPill() {
+  const pill = document.createElement('button');
+  pill.className = 'oo-newpill'; pill.type = 'button'; pill.hidden = true;
+  pill.textContent = 'New posts · tap to refresh';
+  document.body.appendChild(pill);
+  pill.addEventListener('click', () => { pill.hidden = true; refreshHome(); });
+  async function check() {
+    if (document.hidden) return;
+    if (parseHashRoute().path !== '/') { pill.hidden = true; return; }
+    if (!seenPostIds.size) return;
+    try {
+      const rows = await fetchJson(`${WP_API_BASE}/posts?per_page=4&_embed=wp:term&_fields=id,_links,_embedded&nocache=1`);
+      const newest = (Array.isArray(rows) ? rows : []).find((p) => !hasExcludedCategory(p));
+      if (newest && !seenPostIds.has(newest.id)) pill.hidden = false;
+    } catch (_) {}
+  }
+  setInterval(check, 180000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(check, 1500); });
+})();
+
+// ---- Saved screen ----
+function renderSaved() {
+  stopTtsPlayback();
+  scrollToTop();
+  lastListHash = '#/saved';
+  archiveToken += 1;
+  const list = getSaved();
+  app.innerHTML = `
+    <div class="archive-view saved-view">
+      <h1 class="toc-title">Saved</h1>
+      <p class="toc-subtitle">Posts you saved for later. They stay on this phone.</p>
+      <div class="posts-grid archive-grid saved-grid"></div>
+      <p class="saved-empty" hidden>Nothing saved yet. Tap the bookmark on any post to keep it here.</p>
+    </div>`;
+  const grid = app.querySelector('.saved-grid');
+  if (!list.length) { app.querySelector('.saved-empty').hidden = false; return; }
+  list.forEach((p) => grid.appendChild(createPostCard(p)));
+}
+
+// ---- My Feed screen ----
+async function renderFollowing() {
+  stopTtsPlayback();
+  scrollToTop();
+  lastListHash = '#/following';
+  const token = ++archiveToken;
+  const follows = getFollows();
+  const chips = follows.map((f) =>
+    `<span class="browse-chip follow-chip"><a href="${archiveHref(f.type, f.id, f.label)}">${escapeHtml(f.label || f.type)}</a>`
+    + `<button type="button" class="follow-x" data-unfollow="${escapeAttr(f.type + ':' + f.id)}" aria-label="Unfollow ${escapeAttr(f.label || '')}">&times;</button></span>`).join('');
+  app.innerHTML = `
+    <div class="archive-view following-view">
+      <h1 class="toc-title">My Feed</h1>
+      <p class="toc-subtitle">The newest posts from the authors, topics and sections you follow.</p>
+      <div class="browse-chips follow-chips">${chips}</div>
+      <div class="search-status" aria-live="polite"><span class="search-status-text"></span></div>
+      <div class="posts-grid archive-grid"></div>
+      <p class="archive-browse"><a href="#/browse">Find something to follow &rarr;</a></p>
+    </div>`;
+  const statusText = app.querySelector('.search-status-text');
+  const grid = app.querySelector('.archive-grid');
+  app.querySelector('.follow-chips').addEventListener('click', (e) => {
+    const x = e.target.closest && e.target.closest('[data-unfollow]');
+    if (!x) return;
+    const [t, ...rest] = x.getAttribute('data-unfollow').split(':');
+    toggleFollow(t, rest.join(':'), '');
+    renderFollowing();
+  });
+  if (!follows.length) {
+    statusText.textContent = 'You are not following anything yet. Open an author, topic or section in Archives and tap Follow.';
+    return;
+  }
+  grid.innerHTML = skeletonCards(4);
+  const embed = '_embed=author,wp:featuredmedia,wp:term';
+  const ids = (type) => follows.filter((f) => f.type === type).map((f) => encodeURIComponent(f.id)).join(',');
+  const reqs = [];
+  if (ids('tag')) reqs.push(fetchJson(`${WP_API_BASE}/posts?tags=${ids('tag')}&per_page=12&${embed}`).catch(() => []));
+  if (ids('category')) reqs.push(fetchJson(`${WP_API_BASE}/posts?categories=${ids('category')}&per_page=12&${embed}`).catch(() => []));
+  follows.filter((f) => f.type === 'author').slice(0, 6).forEach((f) => {
+    reqs.push(fetch(`${WORKER_BASE}/content/author-archive?author=${encodeURIComponent(f.id)}&per_page=8&page=1`)
+      .then((r) => (r.ok ? r.json() : { posts: [] })).then((d) => d.posts || []).catch(() => []));
+  });
+  const results = (await Promise.all(reqs)).flat();
+  if (token !== archiveToken) return;
+  const seen = new Set();
+  const posts = results
+    .filter((p) => p && p.id && !seen.has(p.id) && seen.add(p.id) && !hasExcludedCategory(p))
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 24);
+  clearSkeletons(grid);
+  if (!posts.length) { statusText.textContent = 'No recent posts from what you follow yet.'; return; }
+  statusText.textContent = `${posts.length} recent post${posts.length === 1 ? '' : 's'}, newest first.`;
+  posts.forEach((p) => { postCache.set(p.id, p); grid.appendChild(createPostCard(p)); });
+}
+
 const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories' };
 const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category' };
 let archiveToken = 0;
@@ -1909,6 +2310,7 @@ function renderArchive(params) {
       <div class="archive-kicker">${ARCHIVE_NOUN[type]} archive</div>
       <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
       <div class="archive-author" hidden></div>
+      <button class="btnSecondary archive-follow" type="button" hidden></button>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
         <span class="search-status-text">Loading posts…</span>
@@ -1927,6 +2329,29 @@ function renderArchive(params) {
   let totalPages = 1;
   let busy = false;
   let authorShown = false;
+  grid.innerHTML = skeletonCards(6);
+
+  // Follow / Following button (stored on this phone; feeds "My Feed")
+  const followBtn = app.querySelector('.archive-follow');
+  function setupFollow() {
+    if (!id || !followBtn) return;
+    const paint = () => {
+      const on = isFollowing(type, id);
+      followBtn.hidden = false;
+      followBtn.classList.toggle('is-on', on);
+      followBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      followBtn.textContent = on ? '✓ Following' : '+ Follow';
+    };
+    if (!followBtn.__wired) {
+      followBtn.__wired = true;
+      followBtn.addEventListener('click', () => {
+        const now = toggleFollow(type, id, label || ARCHIVE_NOUN[type]);
+        toast(now ? 'Following ' + (label || 'this') + ' – see My Feed in the menu' : 'Unfollowed');
+        paint();
+      });
+    }
+    paint();
+  }
 
   // Author pages: photo and bio, taken from the author details that come with the posts (no extra request).
   function showAuthorHeader(posts) {
@@ -2003,12 +2428,14 @@ function renderArchive(params) {
       page = Math.max(0, page - 1);
       moreBtn.hidden = false;
     } finally {
+      clearSkeletons(grid);
       busy = false;
     }
   }
 
   // Cartoon-category posts are hidden in the app, so a page can come back thin: keep going until a useful batch is shown.
   async function loadBatch() {
+    setupFollow();
     const before = shown;
     for (let i = 0; i < 5; i++) {
       await loadPage();
@@ -2661,7 +3088,13 @@ heroHtml = heroLink
 
 const ttsButtonHtml = `
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
-
+  <button class="oo-act" type="button" data-save-id="${post.id}" aria-pressed="false" title="Save for later">${ICON_SAVE}<span class="lbl">Save</span></button>
+  <button class="oo-act" type="button" data-act="share" title="Share">${ICON_SHARE}<span class="lbl">Share</span></button>
+  <span class="oo-act-group" role="group" aria-label="Reading size">
+    <button class="oo-act oo-act-sq" type="button" data-act="text-" aria-label="Smaller text">A&minus;</button>
+    <button class="oo-act oo-act-sq" type="button" data-act="text+" aria-label="Larger text">A+</button>
+    <button class="oo-act oo-act-sq" type="button" data-act="space" aria-label="Line spacing" title="Line spacing">&#8597;</button>
+  </span>
 `;
 
 const detailInnerHtml = `
@@ -2701,7 +3134,7 @@ scrollToTop();
       back.addEventListener('click', () => {
         // If user came from a grid view (home or search),
         // Return to last grid/search view safely (no auth routes in history)
-        if (homeState.initialized || searchState.initialized || /^#\/(archive|browse)/.test(lastListHash || '')) {
+        if (homeState.initialized || searchState.initialized || /^#\/(archive|browse|saved|following|events)/.test(lastListHash || '')) {
         const target =
   lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
     ? lastListHash
@@ -2715,6 +3148,21 @@ window.location.replace(target);
         }
       });
     }
+
+    // Save / share / reading size
+    const saveDetail = app.querySelector('.oo-act[data-save-id]');
+    if (saveDetail) { wireSaveButton(saveDetail, post); syncSaveButtons(post.id); }
+    const shareBtn = app.querySelector('.oo-act[data-act="share"]');
+    if (shareBtn) shareBtn.addEventListener('click', () => sharePost(post));
+    const readTools = app.querySelector('.oo-act-group');
+    if (readTools) readTools.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-act]');
+      if (!b) return;
+      const a = b.getAttribute('data-act');
+      if (a === 'text-') stepReader(-1);
+      else if (a === 'text+') stepReader(1);
+      else if (a === 'space') toggleReaderSpacing();
+    });
 
      const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
