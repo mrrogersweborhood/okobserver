@@ -1309,12 +1309,44 @@ if (posts.length > 0 && appendedCount === 0) {
     const appRoot = document.getElementById("app");
     if (!appRoot) return;
 
+    // Contact details and social links (same as the website footer). The contact form lives on the website.
+    const socials = [
+      ['Facebook', 'https://www.facebook.com/OkObserver'],
+      ['Instagram', 'https://www.instagram.com/okobserver/'],
+      ['X', 'https://twitter.com/okobs'],
+      ['YouTube', 'https://www.youtube.com/channel/UCYFEScFmybw5fboZKQuOzjQ'],
+      ['Bluesky', 'https://bsky.app/profile/okobserver.bsky.social'],
+      ['Threads', 'https://www.threads.com/@okobserver'],
+      ['Substack', 'https://oklahomaobserver.substack.com/']
+    ];
+    const socialChips = socials.map(([n, u]) =>
+      `<a class="browse-chip" href="${u}" target="_blank" rel="noopener">${n}</a>`).join('');
+
     appRoot.innerHTML = `
     <article class="about-view">
       <h1 class="about-title">About The Oklahoma Observer</h1>
       <div class="about-content">
         <div class="about-html"></div>
       </div>
+      <section class="about-contact" id="contact">
+        <h2 class="browse-heading">Contact us</h2>
+        <address class="about-address">
+          The Oklahoma Observer<br>PO Box 14275<br>Oklahoma City, OK 73113
+        </address>
+        <div class="browse-chips">
+          <a class="browse-chip" href="tel:+14054788700">Call (405) 478-8700</a>
+          <a class="browse-chip" href="mailto:admin@okobserver.org">admin@okobserver.org</a>
+          <a class="browse-chip" href="${OO_SITE_ORIGIN}/contact/" target="_blank" rel="noopener">Contact form</a>
+        </div>
+      </section>
+      <section class="about-contact">
+        <h2 class="browse-heading">Follow &amp; review us</h2>
+        <div class="browse-chips">
+          ${socialChips}
+          <a class="browse-chip" href="https://g.page/r/CRe_wjNu6kwOEAg/review" target="_blank" rel="noopener">Review us on Google</a>
+          <a class="browse-chip" href="https://www.facebook.com/OkObserver/reviews" target="_blank" rel="noopener">Review us on Facebook</a>
+        </div>
+      </section>
     </article>
   `;
 
@@ -1866,7 +1898,8 @@ function renderArchive(params) {
   stopTtsPlayback();
   scrollToTop();
   const type = ARCHIVE_PARAM[params && params.type] ? params.type : 'tag';
-  const id = (params && params.id) || '';
+  let id = (params && params.id) || '';
+  const slug = (params && params.slug) || '';   // menu shortcuts use the category name, not a number
   const label = (params && params.label) || '';
   const token = ++archiveToken;
   lastListHash = window.location.hash || '#/browse';
@@ -1875,6 +1908,7 @@ function renderArchive(params) {
     <div class="archive-view">
       <div class="archive-kicker">${ARCHIVE_NOUN[type]} archive</div>
       <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
+      <div class="archive-author" hidden></div>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
         <span class="search-status-text">Loading posts…</span>
@@ -1892,6 +1926,28 @@ function renderArchive(params) {
   let shown = 0;
   let totalPages = 1;
   let busy = false;
+  let authorShown = false;
+
+  // Author pages: photo and bio, taken from the author details that come with the posts (no extra request).
+  function showAuthorHeader(posts) {
+    if (type !== 'author' || authorShown) return;
+    for (const p of posts) {
+      const list = p && p._embedded && Array.isArray(p._embedded.author) ? p._embedded.author : [];
+      const a = list.find((x) => x && String(x.id) === String(id));
+      if (!a) continue;
+      const av = a.avatar_urls ? (a.avatar_urls['96'] || a.avatar_urls['48'] || '') : '';
+      const bio = a.description ? sanitizeAuthorBioHtml(String(a.description).trim()) : '';
+      if (!av && !bio) return;
+      const box = app.querySelector('.archive-author');
+      if (!box) return;
+      box.innerHTML = `
+        ${av ? `<img class="author-box-avatar archive-author-avatar" src="${escapeAttr(av)}" alt="${escapeAttr(a.name || label)}" />` : ''}
+        <div class="archive-author-bio">${bio || ''}</div>`;
+      box.hidden = false;
+      authorShown = true;
+      return;
+    }
+  }
 
   async function loadPage() {
     if (busy) return;
@@ -1925,6 +1981,7 @@ function renderArchive(params) {
       }
       {
         const frag = document.createDocumentFragment();
+        showAuthorHeader(Array.isArray(posts) ? posts : []);
         (Array.isArray(posts) ? posts : []).forEach((p) => {
           if (hasExcludedCategory(p)) return;
           postCache.set(p.id, p);
@@ -1959,6 +2016,17 @@ function renderArchive(params) {
     }
   }
   moreBtn.addEventListener('click', loadBatch);
+  if (!id && slug && type === 'category') {
+    fetchJson(`${WP_API_BASE}/categories?slug=${encodeURIComponent(slug)}&_fields=id`)
+      .then((rows) => {
+        if (token !== archiveToken) return;
+        id = rows && rows[0] ? rows[0].id : '';
+        if (!id) { statusEl.classList.remove('is-loading'); statusText.textContent = 'This section was not found.'; return; }
+        loadBatch();
+      })
+      .catch(() => { statusEl.classList.remove('is-loading'); statusText.textContent = 'Could not load this section. Please try again.'; });
+    return;
+  }
   if (!id) {
     statusEl.classList.remove('is-loading');
     statusText.textContent = 'Choose an archive from the Browse page.';
