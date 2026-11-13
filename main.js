@@ -1654,6 +1654,8 @@ function renderEvents() {
         <span class="search-status-text">Loading events…</span>
       </div>
       <div class="events-list"></div>
+      <h2 class="browse-heading cal-heading" hidden>The full month</h2>
+      <div class="cal-wrap" hidden></div>
       <details class="events-past" hidden><summary>Past events</summary><div class="events-past-list"></div></details>
     </div>`;
 
@@ -1725,10 +1727,111 @@ function renderEvents() {
     return el;
   }
 
+  // ---- Month grid (same events as the list; days are Central time) ----
+  const ymdCT = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  function buildMonth(events) {
+    const wrap = app.querySelector('.cal-wrap');
+    const heading = app.querySelector('.cal-heading');
+    if (!wrap) return;
+    wrap.hidden = false;
+    heading.hidden = false;
+
+    // events by Central calendar day (multi-day events fill each day)
+    const byDay = {};
+    events.forEach((ev) => {
+      const s = new Date(ev.start);
+      const e = new Date(Math.max(new Date(ev.end).getTime() - 1, s.getTime()));
+      let key = ymdCT(s);
+      const last = ymdCT(e);
+      for (let i = 0; i < 14; i++) {
+        (byDay[key] = byDay[key] || []).push(ev);
+        if (key >= last) break;
+        const d = new Date(key + 'T12:00:00Z');
+        d.setUTCDate(d.getUTCDate() + 1);
+        key = d.toISOString().slice(0, 10);
+      }
+    });
+
+    const todayKey = ymdCT(new Date());
+    let year = parseInt(todayKey.slice(0, 4), 10);
+    let month = parseInt(todayKey.slice(5, 7), 10) - 1;
+    let selected = '';
+
+    function shortTime(ev) {
+      if (ev.allDay) return '';
+      return fmt(new Date(ev.start), { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(' ', '').toLowerCase();
+    }
+
+    function draw() {
+      const first = new Date(Date.UTC(year, month, 1));
+      const lead = first.getUTCDay();
+      const daysIn = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      const rows = Math.ceil((lead + daysIn) / 7);
+      const monthName = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(first);
+      let cells = '';
+      for (let i = 0; i < rows * 7; i++) {
+        const d = new Date(Date.UTC(year, month, 1 - lead + i, 12));
+        const key = d.toISOString().slice(0, 10);
+        const out = d.getUTCMonth() !== month;
+        const list = byDay[key] || [];
+        const cls = ['cal-day', out ? 'cal-out' : '', key === todayKey ? 'cal-today' : '', list.length ? 'cal-has' : '', key === selected ? 'cal-sel' : ''].filter(Boolean).join(' ');
+        const chips = list.slice(0, 2).map((ev) => `<span class="cal-ev">${escapeHtml((shortTime(ev) ? shortTime(ev) + ' ' : '') + ev.title)}</span>`).join('');
+        const more = list.length > 2 ? `<span class="cal-more">+${list.length - 2} more</span>` : '';
+        const dot = list.length ? '<span class="cal-dot" aria-hidden="true"></span>' : '';
+        const label = `${d.getUTCDate()}${list.length ? ', ' + list.length + ' event' + (list.length === 1 ? '' : 's') : ''}`;
+        cells += `<button type="button" class="${cls}" data-key="${key}" aria-label="${escapeAttr(label)}"><span class="cal-num">${d.getUTCDate()}</span>${dot}${chips}${more}</button>`;
+      }
+      wrap.innerHTML = `
+        <div class="cal-head">
+          <button type="button" class="cal-nav" data-nav="-1" aria-label="Previous month">&lsaquo;</button>
+          <div class="cal-title">${escapeHtml(monthName)}</div>
+          <button type="button" class="cal-nav" data-nav="1" aria-label="Next month">&rsaquo;</button>
+        </div>
+        <div class="cal-wd">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((n) => `<span>${n}</span>`).join('')}</div>
+        <div class="cal-grid">${cells}</div>
+        <div class="cal-foot"><button type="button" class="cal-today-btn">Today</button></div>
+        <div class="cal-detail"></div>`;
+      const detail = wrap.querySelector('.cal-detail');
+      if (selected && byDay[selected]) {
+        const sd = new Date(selected + 'T12:00:00Z');
+        detail.innerHTML = `<h3 class="cal-detail-title">${escapeHtml(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(sd))}</h3>`;
+        byDay[selected].forEach((ev) => detail.appendChild(eventCard(ev)));
+      }
+    }
+
+    wrap.addEventListener('click', (evt) => {
+      const nav = evt.target.closest && evt.target.closest('.cal-nav');
+      if (nav) {
+        month += parseInt(nav.getAttribute('data-nav'), 10);
+        if (month < 0) { month = 11; year -= 1; }
+        if (month > 11) { month = 0; year += 1; }
+        selected = '';
+        draw();
+        return;
+      }
+      if (evt.target.closest && evt.target.closest('.cal-today-btn')) {
+        year = parseInt(todayKey.slice(0, 4), 10);
+        month = parseInt(todayKey.slice(5, 7), 10) - 1;
+        selected = '';
+        draw();
+        return;
+      }
+      const day = evt.target.closest && evt.target.closest('.cal-day');
+      if (day && day.classList.contains('cal-has')) {
+        selected = day.getAttribute('data-key');
+        draw();
+        const dt = wrap.querySelector('.cal-detail');
+        if (dt && dt.scrollIntoView) dt.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+    draw();
+  }
+
   fetchJson(`${WORKER_BASE}/content/events`)
     .then((data) => {
       if (token !== archiveToken) return;
       const events = (data && Array.isArray(data.events)) ? data.events : [];
+      buildMonth(events);
       const now = Date.now();
       const upcoming = events.filter((ev) => new Date(ev.end).getTime() >= now);
       const past = events.filter((ev) => new Date(ev.end).getTime() < now).reverse().slice(0, 12);
