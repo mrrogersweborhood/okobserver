@@ -700,3 +700,18 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .oof .oo-app-ios-t b{font-size:19px;font-weight:600}
 @media (min-width:761px){.oof .oo-app{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px 40px;margin-top:28px;padding-top:24px;text-align:left}.oof .oo-app-copy{flex:1 1 320px}.oof .oo-app-msg{margin:0;max-width:40em}.oof .oo-app-t{font-size:26px}.oof .oo-app-badges{flex:none;justify-content:flex-end}}
 html[data-oo-theme~="light"] .oof .oo-app-ios{opacity:.9}
+
+/* app reader bar: single +/- text size button, Back button, playback box */
+.oo-act-pm { gap: 6px; padding: 0 14px; min-width: 76px; justify-content: space-between; }
+.oo-act-pm b { font: 700 16px/1 var(--oo-font-ui); }
+.oo-act-pm span { font: 700 18px/1 var(--oo-font-ui); opacity: .85; }
+.oo-listen-box {
+  display: flex; flex: 1 0 100%; align-items: center; gap: 12px; margin: 2px 0 0; padding: 8px 10px; box-sizing: border-box; border-radius: 999px;
+  background: var(--oo-field); border: .8px solid var(--oo-panel-line); color: var(--oo-title);
+}
+.oo-listen-box .oo-lb-pp, .oo-listen-box .oo-lb-x {
+  width: 40px; height: 40px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;
+  border: 0; background: var(--oo-accent); color: var(--oo-accent-ink); font: 700 14px/1 var(--oo-font-ui); letter-spacing: -1px; -webkit-tap-highlight-color: transparent;
+}
+.oo-listen-box .oo-lb-x { background: transparent; color: inherit; font-size: 24px; letter-spacing: 0; border: 1.5px solid var(--oo-panel-line); }
+.oo-listen-box .oo-lb-txt { flex: 1; font: 700 14px/1.2 var(--oo-font-ui); }

@@ -684,6 +684,9 @@ function extractHeroLinkFromContent(post) {
     currentTtsPostId = null;
     __okobsTtsActiveText = '';
     __okobsTtsActiveNodes = [];
+    __okobsTtsPaused = false;
+    __okobsTtsPos = 0;
+    hideListenBox();
 
     const container = app.querySelector('.post-detail-content');
     if (container) {
@@ -694,6 +697,7 @@ function extractHeroLinkFromContent(post) {
   }
   window.__okobsTtsRange = function(start, end) {
     try {
+      if (typeof start === 'number') __okobsTtsPos = start + (__okobsTtsBase || 0);
       const container = app.querySelector('.post-detail-content');
       if (!container) return;
 
@@ -728,6 +732,8 @@ function extractHeroLinkFromContent(post) {
 
   window.__okobsTtsDone = function() {
     try {
+      if (__okobsTtsPaused) return;
+      hideListenBox();
       ttsAbortController = null;
       currentTtsPostId = null;
       __okobsTtsActiveText = '';
@@ -803,8 +809,53 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
       if (ttsAbortController === localAbort) {
         ttsAbortController = null;
         currentTtsPostId = null;
+        hideListenBox();
       }
     }
+  }
+
+  // ---- Playback box (matches the website Listen box): play/pause, closes when you tap elsewhere ----
+  let __okobsTtsPaused = false;
+  let __okobsTtsPos = 0;
+  let __okobsTtsBase = 0;
+  function hideListenBox() {
+    const old = document.querySelector('.oo-listen-box');
+    if (old) old.remove();
+  }
+  function showListenBox() {
+    hideListenBox();
+    __okobsTtsPaused = false;
+    const row = app.querySelector('.post-detail-tts-row');
+    if (!row) return;
+    const box = document.createElement('div');
+    box.className = 'oo-listen-box';
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Reading aloud');
+    box.innerHTML = '<button type="button" class="oo-lb-pp" aria-label="Pause">&#10074;&#10074;</button><span class="oo-lb-txt">Reading aloud</span><button type="button" class="oo-lb-x" aria-label="Stop and close">&times;</button>';
+    row.appendChild(box);
+    const pp = box.querySelector('.oo-lb-pp');
+    const txt = box.querySelector('.oo-lb-txt');
+    pp.addEventListener('click', () => {
+      const native = window.AndroidTTS && typeof window.AndroidTTS.speak === 'function';
+      if (!__okobsTtsPaused) {
+        __okobsTtsPaused = true;
+        if (native) { try { window.AndroidTTS.stop(); } catch (err) {} }
+        else if (window.speechSynthesis) window.speechSynthesis.pause();
+        pp.innerHTML = '&#9654;'; pp.setAttribute('aria-label', 'Play'); txt.textContent = 'Paused';
+      } else {
+        __okobsTtsPaused = false;
+        if (native) {
+          const full = __okobsTtsActiveText || '';
+          let from = Math.max(0, Math.min(__okobsTtsPos || 0, full.length - 1));
+          const dot = full.lastIndexOf('. ', from);
+          from = dot >= 0 ? dot + 2 : 0;
+          __okobsTtsBase = from;
+          try { window.AndroidTTS.speak(full.slice(from)); } catch (err) {}
+        } else if (window.speechSynthesis) window.speechSynthesis.resume();
+        pp.innerHTML = '&#10074;&#10074;'; pp.setAttribute('aria-label', 'Pause'); txt.textContent = 'Reading aloud';
+      }
+    });
+    box.querySelector('.oo-lb-x').addEventListener('click', () => stopTtsPlayback({ native: true }));
   }
 
 function __okobsTtsBlocks(root) {
@@ -3561,13 +3612,12 @@ heroHtml = heroLink
 
 
 const ttsButtonHtml = `
+  <button class="oo-act oo-act-sq" type="button" data-act="back" aria-label="Back" title="Back">&larr;</button>
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
   <button class="oo-act" type="button" data-save-id="${post.id}" aria-pressed="false" title="Save for later">${ICON_SAVE}<span class="lbl">Save</span></button>
   <button class="oo-act" type="button" data-act="share" title="Share">${ICON_SHARE}<span class="lbl">Share</span></button>
   <span class="oo-act-group" role="group" aria-label="Reading size">
-    <button class="oo-act oo-act-sq" type="button" data-act="text-" aria-label="Smaller text">A&minus;</button>
-    <button class="oo-act oo-act-sq" type="button" data-act="text+" aria-label="Larger text">A+</button>
-    <button class="oo-act oo-act-sq" type="button" data-act="space" aria-label="Line spacing" title="Line spacing">&#8597;</button>
+    <button class="oo-act oo-act-pm" type="button" data-act="textpm" aria-label="Text size: left half smaller, right half larger" title="Text size"><span aria-hidden="true">&minus;</span><b aria-hidden="true">A</b><span aria-hidden="true">+</span></button>
     <button class="oo-act oo-act-sq" type="button" data-act="theme" aria-label="Switch light or dark mode" title="Light / dark mode">&#9680;</button>
   </span>
 `;
@@ -3632,14 +3682,17 @@ window.location.replace(target);
     if (saveDetail) { wireSaveButton(saveDetail, post); syncSaveButtons(post.id); }
     const shareBtn = app.querySelector('.oo-act[data-act="share"]');
     if (shareBtn) shareBtn.addEventListener('click', () => sharePost(post));
+    const backBar = app.querySelector('.oo-act[data-act="back"]');
+    if (backBar) backBar.addEventListener('click', () => { const bb = app.querySelector('.back-btn'); if (bb) bb.click(); });
     const readTools = app.querySelector('.oo-act-group');
     if (readTools) readTools.addEventListener('click', (e) => {
       const b = e.target.closest && e.target.closest('[data-act]');
       if (!b) return;
       const a = b.getAttribute('data-act');
-      if (a === 'text-') stepReader(-1);
-      else if (a === 'text+') stepReader(1);
-      else if (a === 'space') toggleReaderSpacing();
+      if (a === 'textpm') {
+        const rc = b.getBoundingClientRect();
+        stepReader(e.clientX < rc.left + rc.width / 2 ? -1 : 1);
+      }
       else if (a === 'theme') {
         const root = document.documentElement;
         const next = root.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
@@ -3654,7 +3707,7 @@ window.location.replace(target);
       window.__okobsTtsOutsideStop = true;
       document.addEventListener('click', (e) => {
         if (!currentTtsPostId) return;
-        if (e.target && e.target.closest && e.target.closest('.tts-button')) return;
+        if (e.target && e.target.closest && e.target.closest('.tts-button, .oo-listen-box')) return;
         stopTtsPlayback({ native: true });
       }, true);
     }
@@ -3669,6 +3722,7 @@ window.location.replace(target);
         } else {
           const text = buildTtsTextFromHtml(contentHtml);
           speakChunksSequentially(text, thisId);
+          showListenBox();
         }
       });
     }
