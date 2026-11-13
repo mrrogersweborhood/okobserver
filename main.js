@@ -3649,6 +3649,16 @@ window.location.replace(target);
       }
     });
 
+    // Tapping anywhere other than the speaker button stops the reading.
+    if (!window.__okobsTtsOutsideStop) {
+      window.__okobsTtsOutsideStop = true;
+      document.addEventListener('click', (e) => {
+        if (!currentTtsPostId) return;
+        if (e.target && e.target.closest && e.target.closest('.tts-button')) return;
+        stopTtsPlayback({ native: true });
+      }, true);
+    }
+
      const ttsButton = app.querySelector('.tts-button');
     if (ttsButton) {
       ttsButton.addEventListener('click', () => {
