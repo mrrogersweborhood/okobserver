@@ -60,17 +60,15 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--oo-bg);
-  background-image: var(--oo-bg-image);
-  background-attachment: fixed;
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
   color: var(--oo-ink);
   font-family: var(--oo-font-ui);
   font-size: 16px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+/* Backdrop: a fixed layer, because background-attachment:fixed is ignored on phones and the photo scrolled with the page (reskin36) */
+body::before { content: ""; position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; background-image: var(--oo-bg-image); background-size: cover; background-position: center top; background-repeat: no-repeat; }
+@supports (height: 100lvh) { body::before { height: 100lvh; } }
 body.is-menu-open { overflow: hidden; }
 img { max-width: 100%; height: auto; }
 a { color: var(--oo-link); }
@@ -595,6 +593,8 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .oo-slide .oo-lead .post-card-title { font-size: clamp(21px, 6vw, 28px); }
 .oo-slide .oo-lead .post-card-excerpt { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; }
 .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: 230px; }
+/* tablet and desktop: the wide lead card grows with its width so the artwork is not cropped to a strip (reskin36) */
+@media (min-width: 700px) { .oo-slide .oo-lead .post-card, .oo-slide .oo-lead .post-card-content, .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: min(54vw, 600px); } }
 
 /* ---- Menu groups, like the website's menu (reskin17) ---- */
 .oo-menu-list .oo-group > ul { list-style: none; margin: 0; padding: 0; display: none; }
@@ -675,10 +675,11 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 #ooSignOutLink{display:none}
 .oo-logged-in #ooSignOutLink{display:inline-flex}
 .oo-logged-in #ooSignInLink{display:none}
-.oof .oo-app{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);text-align:center}
-.oof .oo-app-t{margin:0 0 6px;font:italic 400 23px/1.1 Georgia,"Times New Roman",serif;letter-spacing:-.01em;color:var(--head)}
+.oof .oo-app{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:22px;padding-top:20px;border-top:1px solid var(--line);text-align:center}
+.oof .oo-app-copy{min-width:0}
+.oof .oo-app-t{margin:0 0 6px;font:italic 400 24px/1.1 Georgia,"Times New Roman",serif;letter-spacing:-.01em;color:var(--head)}
 .oof .oo-app-t em{font-style:italic;color:var(--gold2)}
-.oof .oo-app-msg{margin:0 auto 14px;max-width:34em;font-size:16px;line-height:1.5;color:var(--soft)}
+.oof .oo-app-msg{margin:0 auto;max-width:34em;font-size:16px;line-height:1.5;color:var(--soft);text-wrap:pretty}
 .oof .oo-app-badges{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px 16px}
 .oof .oo-app-gp{display:block;line-height:0;border-radius:10px}
 .oof .oo-app-gp img{display:block;height:64px;width:auto;margin:-8px -10px}
@@ -688,4 +689,5 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .oof .oo-app-ios-t{display:flex;flex-direction:column;line-height:1.05}
 .oof .oo-app-ios-t small{font-size:10px;letter-spacing:.02em}
 .oof .oo-app-ios-t b{font-size:19px;font-weight:600}
+@media (min-width:761px){.oof .oo-app{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px 40px;margin-top:28px;padding-top:24px;text-align:left}.oof .oo-app-copy{flex:1 1 320px}.oof .oo-app-msg{margin:0;max-width:40em}.oof .oo-app-t{font-size:26px}.oof .oo-app-badges{flex:none;justify-content:flex-end}}
 html[data-oo-theme~="light"] .oof .oo-app-ios{opacity:.9}
