@@ -697,7 +697,7 @@ function extractHeroLinkFromContent(post) {
       const container = app.querySelector('.post-detail-content');
       if (!container) return;
 
-      const blocks = Array.from(container.querySelectorAll('p, h1, h2, h3, li'));
+      const blocks = __okobsTtsBlocks(container);
       if (!blocks.length) return;
 
       let runningStart = 0;
@@ -807,13 +807,19 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
     }
   }
 
+function __okobsTtsBlocks(root) {
+  // Innermost text blocks, so posts built from <div>s (pasted from Facebook) are read in full, nothing twice.
+  const inner = 'p, h1, h2, h3, h4, h5, h6, li, div, ul, ol, blockquote, table';
+  return Array.from(root.querySelectorAll('p, h1, h2, h3, h4, li, div, blockquote')).filter((el) => !el.querySelector(inner));
+}
+
 function buildTtsTextFromHtml(html) {
   if (!html) return '';
 
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-  const blocks = tmp.querySelectorAll('p, h1, h2, h3, li');
+  const blocks = __okobsTtsBlocks(tmp);
 
   __okobsTtsActiveNodes = [];
   __okobsTtsActiveText = '';
