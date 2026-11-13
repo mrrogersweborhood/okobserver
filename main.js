@@ -1142,11 +1142,12 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     return posts;
   }
 
-  function homeSectionEl(key, title, extraClass) {
+  function homeSectionEl(key, title, extraClass, slug) {
     const sec = document.createElement('section');
     sec.className = 'oo-home-sec oo-sec-' + key + (extraClass ? ' ' + extraClass : '');
     sec.setAttribute('data-oo-sec', key);
-    sec.innerHTML = `<h2 class="oo-section-title">${escapeHtml(title)}</h2><div class="oo-snap" data-oo="track"></div>
+    const titleHtml = slug ? `<a class="oo-section-link" href="#/archive?type=category&slug=${encodeURIComponent(slug)}&label=${encodeURIComponent(title)}"><span>${escapeHtml(title)}</span><span class="oo-ln-arrow" aria-hidden="true"><svg viewBox="0 0 40 16" width="40" height="16" focusable="false"><path d="M2 8h35M31 4l6 4-6 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></a>` : escapeHtml(title);
+    sec.innerHTML = `<h2 class="oo-section-title">${titleHtml}</h2><div class="oo-snap" data-oo="track"></div>
       <div class="oo-pager"><button type="button" class="oo-pg oo-pg-prev" aria-label="Previous">${ARROW_L}</button><button type="button" class="oo-pg oo-pg-next" aria-label="Next">${ARROW_R}</button></div>`;
     const track = sec.querySelector('.oo-snap');
     const prev = sec.querySelector('.oo-pg-prev');
@@ -1343,8 +1344,8 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       ['cartoon', 'Featured Cartoon', 'cartoon', 8]
     ];
     const secs = {};
-    defs.forEach(([key, title]) => {
-      const sec = homeSectionEl(key, title);
+    defs.forEach(([key, title, slug]) => {
+      const sec = homeSectionEl(key, title, "", slug);
       secs[key] = sec;
       view.appendChild(sec);
     });
