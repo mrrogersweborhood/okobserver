@@ -1,0 +1,3150 @@
+// 🟢 main.js
+// 🟢 main.js — start of file
+// OkObserver Main JS
+// Build 2025-12-08R2-perf2-gridRehydrate (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce + grid rehydrate)
+// NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
+//       It must remain plain JS (no modules) for GitHub Pages compatibility.
+//
+// File markers for ChatGPT sessions:
+// 🟢 main.js — start of file
+// 🔴 main.js — end of file
+//
+// When editing this file in future chats:
+// - Always work from the latest user-uploaded version.
+// - Never guess or reconstruct from memory.
+// - Preserve this header and footer marker comments.
+// - Keep the routing/header/grid/service worker logic consistent with the baseline instructions.
+
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------------
+  // Global configuration and flags
+  // ---------------------------------------------------------------------------
+  const OO_DEBUG_EMBEDS = false;
+  const APP_BUILD_TAG = '2025-12-08R6-vimeoPattern';
+  const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R6-vimeoPattern — Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix';
+
+  // Proxy base (must always be used instead of direct WP origin)
+  // The app always reads through the Cloudflare Worker. WHICH website the Worker reads (staging now, okobserver.org at launch)
+  // is set in worker.js (ORIGIN); the website links in the menu use OO_SITE_ORIGIN in index.html.
+  // Local preview only (localhost): until the updated Worker is deployed, read the new staging site directly
+  // (add ?src=worker to the address to test through the Worker instead). This never runs on the real app.
+  const OO_SITE_ORIGIN = String(window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '');
+  const OO_LOCAL_DIRECT = location.hostname === 'localhost' && !/[?&]src=worker/.test(location.search);
+  const WP_API_BASE = OO_LOCAL_DIRECT
+    ? OO_SITE_ORIGIN + '/wp-json/wp/v2'
+    : 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+
+  // Category name(s) that should be filtered out (e.g., cartoons)
+  const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
+  const EXCLUDED_CATEGORY_SLUGS = ['cartoon'];
+
+  // Infinite scroll / paging settings
+  const POSTS_PER_PAGE = 12;
+  const SCROLL_SENTRY_OFFSET = 0; // trigger as soon as sentinel intersects
+  const SCROLL_ROOT_MARGIN = '600px 0px';
+
+
+  // Scroll restoration and routing
+  const homeState = {
+    scrollY: 0,
+    initialized: false
+  };
+
+  const searchState = {
+    scrollY: 0,
+    initialized: false,
+    term: ''
+  };
+
+  // Last non-login route hash (for “go back to where I was before login”)
+  let lastNonLoginHash = '#/';
+  let lastListHash = '#/'; // remembers last grid/search page only 
+  // Simple in-memory cache for posts (by ID) to avoid refetching
+  const postCache = new Map();
+
+  // Deduplicate concurrent post fetches (prefetch + route load for same post)
+  const inflightPostFetches = new Map();
+
+  // Perf: remember the last clicked summary post (so detail can render instantly if desired)
+  let lastClickedPostSummary = null;
+
+
+
+  // Seen IDs for duplicate-guard in infinite scroll
+  const seenPostIds = new Set();
+
+  // TTS chunking configuration
+  const TTS_CHUNK_SIZE = 600; // characters per chunk
+  const TTS_MAX_CHUNKS = 20;  // safety cap
+
+  // Internal flags
+  let isFetchingPosts = false;
+  let isInitialHomeLoad = true;
+  let currentPage = 1;
+  let hasMorePages = true;
+  let infiniteObserver = null;
+  let infiniteScrollLoadTimeout = null;
+  // ---------------------------------------------------------------------------
+  // Search paging state (added 2025-12-10)
+  // ---------------------------------------------------------------------------
+  let currentSearchTerm = '';
+  let currentSearchPage = 1;
+  let hasMoreSearchPages = false;
+  let isFetchingSearchResults = false;
+  let searchObserver = null;
+  let searchScrollLoadTimeout = null;
+
+
+  // Root app container & loader overlay
+  const app = document.getElementById('app');
+  const loaderEl = document.getElementById('oo-loader');
+
+  if (!app) {
+    console.error('[OkObserver] #app container not found. Aborting.');
+    return;
+  }
+
+  console.info('[OkObserver] main.js loaded — build tag:', APP_BUILD_TAG);
+  window.__OKOBS_MAIN_BUILD__ = APP_BUILD_TAG;
+
+  // Small global to help debugging duplicate-guard behavior
+  window.__OKOBS_DUP_GUARD_ENABLED__ = false;
+
+  let ttsAbortController = null;
+  let currentTtsPostId = null;
+// 🟢 ACTIVE TTS SCROLL STATE
+let __okobsTtsActiveText = '';
+let __okobsTtsActiveNodes = [];
+  // ---------------------------------------------------------------------------
+  // Routing
+  // ---------------------------------------------------------------------------
+
+  function parseHashRoute() {
+    const hash = window.location.hash || '#/';
+    if (!hash || hash === '#') return { path: '/', params: {} };
+
+    const raw = hash.substring(1);
+    const [path, queryString] = raw.split('?');
+    const params = {};
+
+    if (queryString) {
+      const usp = new URLSearchParams(queryString);
+      for (const [k, v] of usp.entries()) params[k] = v;
+    }
+
+    return { path, params };
+  }
+
+  function navigateTo(hash) {
+    if (window.location.hash === hash) {
+      onRouteChange();
+    } else {
+      window.location.hash = hash;
+    }
+  }
+function updateAuthNav() {
+  const signIn = document.getElementById('ooSignInLink');
+  const signOut = document.getElementById('ooSignOutLink');
+
+  const loggedIn = (() => {
+    try { return localStorage.getItem('ooLoggedIn') === '1'; } catch (_) { return false; }
+  })();
+
+  try { document.body.classList.toggle('oo-logged-in', loggedIn); } catch (_) {}
+
+  if (signIn) signIn.style.display = loggedIn ? 'none' : '';
+  if (signOut) signOut.style.display = loggedIn ? '' : 'none';
+}
+
+
+  window.addEventListener('hashchange', () => {
+    onRouteChange();
+  });
+
+     function onRouteChange() {
+    const { path, params } = parseHashRoute();
+// Track last list route for PostDetail "Back to posts"
+if (path === '/' || path === '/search' || path === '/toc') {
+  lastListHash = window.location.hash || '#/';
+}
+
+    console.info('[OkObserver] Route change:', path, params);
+updateAuthNav();
+
+    // Remember the last non-login hash so we can return after login/logout
+// (Don't overwrite it with /login or /logout)
+if (path !== '/login' && path !== '/logout') {
+  lastNonLoginHash = window.location.hash || '#/';
+}
+
+
+    if (path === '/' || path === '') {
+      renderHome();
+    } else if (path.startsWith('/post/')) {
+      const idStr = path.replace('/post/', '').split('/')[0];
+      const id = parseInt(idStr, 10);
+      if (!Number.isNaN(id)) {
+        renderPostDetail(id);
+      } else {
+        console.warn('[OkObserver] Invalid post ID in route:', idStr);
+        renderNotFound();
+      }
+    } else if (path === '/about') {
+      renderAbout();
+    } else if (path === '/search') {
+      renderSearch(params);
+    } else if (path === '/toc') {
+      renderToc();
+    } else if (path === '/browse') {
+      renderBrowse();
+    } else if (path === '/archive') {
+      renderArchive(params);
+    } else if (path === '/login') {
+      // NEW: dedicated login route
+      renderLogin();
+    } else if (path === '/logout') {
+      renderLogout();
+    } else {
+      renderNotFound();
+    }
+  }
+
+
+
+  // Scroll helpers
+  function saveHomeScroll() {
+    const y = window.scrollY || window.pageYOffset || 0;
+    const { path, params } = parseHashRoute();
+
+    if (path === '/search') {
+      // Save scroll for the current search term
+      searchState.scrollY = y;
+      searchState.initialized = true;
+      searchState.term = (params && params.q) || '';
+      console.debug(
+        '[OkObserver] Saved search scrollY:',
+        y,
+        'for term:',
+        searchState.term
+      );
+    } else if (path === '/') {
+      // Normal home grid
+      homeState.scrollY = y;
+      homeState.initialized = true;
+      console.debug('[OkObserver] Saved home scrollY:', homeState.scrollY);
+} else {
+  // Intentionally do nothing.
+  // Only save scroll state for #/ (home) and #/search.
+}
+
+  }
+
+  function restoreSearchScroll(expectedTerm) {
+    if (!searchState.initialized) return;
+    if (expectedTerm && searchState.term && expectedTerm !== searchState.term) {
+      // Different search term → don't restore old scroll
+      return;
+    }
+
+    const y = searchState.scrollY || 0;
+    requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      console.debug(
+        '[OkObserver] Restored search scrollY:',
+        y,
+        'for term:',
+        searchState.term
+      );
+    });
+  }
+
+  function restoreHomeScroll() {
+    if (!homeState.initialized) return;
+    const y = homeState.scrollY || 0;
+    requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+      console.debug('[OkObserver] Restored home scrollY:', y);
+    });
+  }
+
+  function scrollToTop() {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+    });
+  }
+
+  function hideInitialLoader() {
+    if (!loaderEl) return;
+    loaderEl.classList.add('oo-loader--hidden');
+    setTimeout(() => {
+      if (loaderEl && loaderEl.parentNode) {
+        loaderEl.parentNode.removeChild(loaderEl);
+      }
+    }, 400);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fetch helpers (all via proxy)
+  // ---------------------------------------------------------------------------
+
+async function fetchJson(url, options = {}) {
+  console.debug('[OkObserver] fetchJson:', url);
+
+const isAuthCall =
+  url.includes('/auth/login') ||
+  url.includes('/auth/logout') ||
+  url.includes('/auth/status') ||
+  options.credentials === 'include';
+
+const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' && isClientLoggedIn());
+
+
+  const response = await fetch(url, {
+    ...options,
+    ...(shouldSendCreds ? { credentials: 'include' } : {})
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} for ${url}`);
+  }
+
+  return response.json();
+}
+
+
+  async function fetchPostsPage(page) {
+    const url = `${WP_API_BASE}/posts?per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+
+    return fetchJson(url);
+  }
+  function prefetchPostDetail(postId) {
+    try {
+      if (!postId) return;
+
+      // Don't block UI—just warm cache in the background.
+      fetchPostById(postId).catch(() => {});
+    } catch (_) {}
+  }
+
+async function fetchPostById(id) {
+  const isLoggedIn = isClientLoggedIn();
+  console.debug('[OkObserver auth] fetchPostById:', {
+    id,
+    isLoggedIn,
+    ooLoggedIn: (() => { try { return localStorage.getItem('ooLoggedIn'); } catch(e){ return 'ERR'; } })(),
+    oo_logged_in: (() => { try { return localStorage.getItem('oo_logged_in'); } catch(e){ return 'ERR'; } })()
+  });
+
+  if (postCache.has(id)) {
+    const cached = postCache.get(id);
+    const cachedAuth = !!(cached && cached._ooAuth);
+
+    // If login state changed since this post was cached, refetch.
+    if (cachedAuth === isLoggedIn) {
+      return cached;
+    }
+  }
+
+  // Deduplicate concurrent fetches for the same post ID + auth state.
+  const inflight = inflightPostFetches.get(id);
+  if (inflight && inflight.auth === isLoggedIn) {
+    return inflight.promise;
+  }
+
+  const fetchPromise = (async () => {
+    // Use the Worker full-post endpoint for both signed-out and logged-in users.
+    let data;
+
+    const fullUrlObj = new URL(WP_API_BASE);
+    fullUrlObj.pathname = '/content/full-post';
+    fullUrlObj.search = `?id=${encodeURIComponent(id)}`;
+
+    console.debug('[OkObserver auth] fetchPostById fullUrl:', fullUrlObj.toString());
+
+    const fullResp = await fetchJson(
+      fullUrlObj.toString(),
+      isLoggedIn ? { credentials: 'include' } : {}
+    );
+
+    // 🟢 Protected-content response from Worker
+    if (fullResp && fullResp.protected === true) {
+      const protectedPost = (fullResp && fullResp.post) ? fullResp.post : {
+        id,
+        title: { rendered: 'Members Only' },
+        date: '',
+        excerpt: { rendered: fullResp.excerpt || '' },
+        content: { rendered: '' },
+        _embedded: {}
+      };
+
+      protectedPost._ooProtected = true;
+      protectedPost._ooProtectedMessage =
+        fullResp.message || 'This content is for members only';
+
+      // Ensure logged-out users see a warning + login link, not just a blank/teaser body.
+      const protectedExcerptHtml =
+        protectedPost.excerpt && typeof protectedPost.excerpt.rendered === 'string'
+          ? protectedPost.excerpt.rendered
+          : '';
+
+      protectedPost.content = {
+        rendered: `
+          <div class="oo-paywall-notice">
+            <p><strong>${protectedPost._ooProtectedMessage}</strong></p>
+            <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
+          </div>
+          ${protectedExcerptHtml}
+        `
+      };
+
+      try { protectedPost._ooAuth = !!isLoggedIn; } catch (_) {}
+
+      postCache.set(id, protectedPost);
+      return protectedPost;
+    }
+
+    // Worker returns { ok:true, post:{...} } — fall back if structure differs.
+    data = (fullResp && fullResp.post) ? fullResp.post : fullResp;
+
+    // Logged-out teaser detection:
+    // if the returned body is effectively just the excerpt (or empty), treat it as protected
+    // so the UI shows a clear members-only/login warning.
+    if (!isLoggedIn && data) {
+      const excerptHtml =
+        data.excerpt && typeof data.excerpt.rendered === 'string'
+          ? data.excerpt.rendered
+          : '';
+
+      const contentHtml =
+        data.content && typeof data.content.rendered === 'string'
+          ? data.content.rendered
+          : '';
+
+      const strippedExcerpt = stripHtml(excerptHtml).replace(/\s+/g, ' ').trim();
+      const strippedContent = stripHtml(contentHtml).replace(/\s+/g, ' ').trim();
+
+      const contentLooksLikeExcerptOnly =
+        !!strippedExcerpt &&
+        (
+          !strippedContent ||
+          strippedContent === strippedExcerpt ||
+          strippedContent.startsWith(strippedExcerpt)
+        );
+
+      if (contentLooksLikeExcerptOnly) {
+        data._ooProtected = true;
+        data._ooProtectedMessage = 'This content is for members only';
+        data.content = {
+          rendered: `
+            <div class="oo-paywall-notice">
+              <p><strong>${data._ooProtectedMessage}</strong></p>
+              <p><a href="#/login" class="oo-inline-login">Log in</a> to read the full article.</p>
+            </div>
+            ${excerptHtml}
+          `
+        };
+      }
+    }
+
+    // Mark what auth state produced this cached payload.
+    try { data._ooAuth = !!isLoggedIn; } catch (_) {}
+
+    postCache.set(id, data);
+    return data;
+  })();
+
+  inflightPostFetches.set(id, {
+    auth: isLoggedIn,
+    promise: fetchPromise
+  });
+
+  try {
+    return await fetchPromise;
+  } finally {
+    const current = inflightPostFetches.get(id);
+    if (current && current.promise === fetchPromise) {
+      inflightPostFetches.delete(id);
+    }
+  }
+}
+
+  async function fetchSearchResults(term, page = 1) {
+    const enc = encodeURIComponent(term || '');
+    const url =
+  `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+
+    return fetchJson(url);
+  }
+
+
+  // Cached About page (contact-about-donate) so we only fetch once
+  let aboutPageCache = null;
+
+  async function fetchAboutPage() {
+    if (aboutPageCache) return aboutPageCache;
+
+    let page = null;
+    for (const slug of ['about', 'contact-about-donate']) {
+      const pages = await fetchJson(`${WP_API_BASE}/pages?slug=${slug}&_embed`);
+      page = Array.isArray(pages) && pages.length ? pages[0] : null;
+      if (page) break;
+    }
+
+    aboutPageCache = page;
+    return page;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Content helpers
+  // ---------------------------------------------------------------------------
+
+  function extractCategories(post) {
+  if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
+    for (const termGroup of post._embedded['wp:term']) {
+      if (Array.isArray(termGroup)) {
+        for (const term of termGroup) {
+          if (term && term.taxonomy === 'category') {
+            return termGroup.filter(t => t && t.taxonomy === 'category');
+          }
+        }
+      }
+    }
+  }
+  return [];
+}
+
+function extractTags(post) {
+  if (post._embedded && Array.isArray(post._embedded['wp:term'])) {
+    for (const termGroup of post._embedded['wp:term']) {
+      if (Array.isArray(termGroup)) {
+        for (const term of termGroup) {
+          if (term && term.taxonomy === 'post_tag') {
+            return termGroup.filter(t => t && t.taxonomy === 'post_tag');
+          }
+        }
+      }
+    }
+  }
+  return [];
+}
+
+
+
+  function hasExcludedCategory(post) {
+    const cats = extractCategories(post);
+    if (!cats || !cats.length) return false;
+    return cats.some(cat => {
+      if (!cat || !cat.slug) return false;
+      return EXCLUDED_CATEGORY_SLUGS.includes(cat.slug.toLowerCase());
+    });
+  }
+
+  function getFeaturedMedia(post) {
+    if (!post || !post._embedded) return null;
+    const media = post._embedded['wp:featuredmedia'];
+    if (Array.isArray(media) && media.length > 0) {
+      return media[0];
+    }
+    return null;
+  }
+
+  function getFeaturedImageUrl(post) {
+    const media = getFeaturedMedia(post);
+    if (!media) return null;
+
+    if (media.media_details && media.media_details.sizes) {
+      const sizes = media.media_details.sizes;
+      if (sizes.medium_large && sizes.medium_large.source_url) {
+        return sizes.medium_large.source_url;
+      }
+      if (sizes.large && sizes.large.source_url) {
+        return sizes.large.source_url;
+      }
+    }
+
+    return media.source_url || null;
+  }
+function getFirstLinkedImageHrefFromContent(post) {
+  try {
+    const html = post && post.content && post.content.rendered ? post.content.rendered : "";
+    if (!html) return "";
+
+    // Find: <a href="..."><img ...></a> (first occurrence)
+    const m = html.match(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i);
+    if (!m || !m[1]) return "";
+
+    // Make relative links absolute (WP site base)
+    const href = m[1].trim();
+    try {
+      return new URL(href, (window.OO_SITE_ORIGIN || "https://okobserver.org") + "/").toString();
+    } catch (_) {
+      return href;
+    }
+  } catch (_) {
+    return "";
+  }
+}
+function extractHeroLinkFromContent(post) {
+  const html = post && post.content && post.content.rendered
+    ? post.content.rendered
+    : '';
+
+  if (!html) return null;
+
+  // ONLY accept: <a href="..."><img ...></a>
+  const m = html.match(
+    /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>\s*<img\b[^>]*>/i
+  );
+
+  return (m && m[1]) ? m[1] : null;
+}
+
+
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  function getAuthorName(post) {
+    if (!post || !post._embedded) return '';
+    const authors = post._embedded.author;
+    if (Array.isArray(authors) && authors.length > 0 && authors[0] && authors[0].name) {
+      return authors[0].name;
+    }
+    return '';
+  }
+
+  // ---------------------------------------------------------------------------
+  // TTS helpers
+  // ---------------------------------------------------------------------------
+
+  function splitTextIntoChunks(text, chunkSize) {
+    const chunks = [];
+    let remaining = text || '';
+    let safetyCounter = 0;
+
+    while (remaining.length > 0 && safetyCounter < TTS_MAX_CHUNKS) {
+      let idx = remaining.lastIndexOf('.', chunkSize);
+      if (idx === -1) idx = remaining.lastIndexOf(' ', chunkSize);
+      if (idx === -1 || idx < chunkSize * 0.5) {
+        idx = Math.min(chunkSize, remaining.length);
+      } else {
+        idx += 1;
+      }
+      const part = remaining.slice(0, idx).trim();
+      if (part) chunks.push(part);
+      remaining = remaining.slice(idx);
+      safetyCounter++;
+    }
+
+    if (remaining.trim()) {
+      chunks.push(remaining.trim());
+    }
+
+    return chunks;
+  }
+
+  function stopTtsPlayback(options = {}) {
+    const shouldStopNative = options.native !== false;
+
+    if (ttsAbortController) {
+      ttsAbortController.abort();
+      ttsAbortController = null;
+    }
+
+    if (shouldStopNative && window.AndroidTTS && typeof window.AndroidTTS.stop === 'function') {
+      try {
+        window.AndroidTTS.stop();
+      } catch (err) {
+        console.error('[OkObserver TTS] Android stop bridge error:', err);
+      }
+    }
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    currentTtsPostId = null;
+    __okobsTtsActiveText = '';
+    __okobsTtsActiveNodes = [];
+
+    const container = app.querySelector('.post-detail-content');
+    if (container) {
+      container.querySelectorAll('.oo-tts-active-block').forEach((el) => {
+        el.classList.remove('oo-tts-active-block');
+      });
+    }
+  }
+  window.__okobsTtsRange = function(start, end) {
+    try {
+      const container = app.querySelector('.post-detail-content');
+      if (!container) return;
+
+      const blocks = Array.from(container.querySelectorAll('p, h1, h2, h3, li'));
+      if (!blocks.length) return;
+
+      let runningStart = 0;
+      let activeBlock = null;
+
+      for (const block of blocks) {
+        const rawText = (block.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
+        if (!rawText) continue;
+
+        const blockStart = runningStart;
+        const blockEnd = runningStart + rawText.length + 1;
+
+        if (start >= blockStart && start < blockEnd) {
+          activeBlock = block;
+          break;
+        }
+
+        runningStart = blockEnd;
+      }
+
+      if (!activeBlock) return;
+
+
+    } catch (err) {
+      console.error('[OkObserver TTS] __okobsTtsRange error:', err);
+    }
+  };
+
+  window.__okobsTtsDone = function() {
+    try {
+      ttsAbortController = null;
+      currentTtsPostId = null;
+      __okobsTtsActiveText = '';
+      __okobsTtsActiveNodes = [];
+
+
+    } catch (err) {
+      console.error('[OkObserver TTS] __okobsTtsDone error:', err);
+    }
+  };
+  async function speakChunksSequentially(text, postId) {
+  stopTtsPlayback({ native: false });
+
+  const chunks = splitTextIntoChunks(text, TTS_CHUNK_SIZE);
+  if (!chunks.length) return;
+
+  const localAbort = new AbortController();
+  ttsAbortController = localAbort;
+  currentTtsPostId = postId || null;
+
+    // Android app bridge: use native TTS when available.
+if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
+  try {
+    __okobsTtsActiveText = text || '';
+    currentTtsPostId = postId || null;
+
+    window.AndroidTTS.speak(text);
+  } catch (err) {
+    console.error('[OkObserver TTS] Android bridge error:', err);
+    alert('Text-to-speech failed in the Android app.');
+    if (ttsAbortController === localAbort) {
+      ttsAbortController = null;
+      currentTtsPostId = null;
+      __okobsTtsActiveText = '';
+      __okobsTtsActiveNodes = [];
+    }
+  }
+  return;
+}
+    if (!window.speechSynthesis) {
+      alert('Text-to-speech is not supported in this browser.');
+      ttsAbortController = null;
+      currentTtsPostId = null;
+    __okobsTtsActiveText = '';
+    __okobsTtsActiveNodes = [];
+
+ 
+      return;
+    }
+
+    console.log('[OkObserver TTS] Speaking', chunks.length, 'chunks');
+
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        if (localAbort.signal.aborted) break;
+
+        const utter = new SpeechSynthesisUtterance(chunks[i]);
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        utter.volume = 1.0;
+
+        await new Promise((resolve, reject) => {
+          utter.onend = () => resolve();
+          utter.onerror = (e) => reject(e.error || e);
+          window.speechSynthesis.speak(utter);
+        });
+      }
+    } catch (err) {
+      if (!localAbort.signal.aborted) {
+        console.error('[OkObserver TTS] Error while speaking chunks:', err);
+      }
+    } finally {
+      if (ttsAbortController === localAbort) {
+        ttsAbortController = null;
+        currentTtsPostId = null;
+      }
+    }
+  }
+
+function buildTtsTextFromHtml(html) {
+  if (!html) return '';
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+
+  const blocks = tmp.querySelectorAll('p, h1, h2, h3, li');
+
+  __okobsTtsActiveNodes = [];
+  __okobsTtsActiveText = '';
+
+  let combined = '';
+
+  blocks.forEach((el) => {
+    const text = (el.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').trim();
+    if (!text) return;
+
+    const start = combined.length;
+    combined += text + ' ';
+    const end = combined.length;
+
+    __okobsTtsActiveNodes.push({
+      start,
+      end,
+      text
+    });
+  });
+
+  __okobsTtsActiveText = combined.replace(/\s+/g, ' ').trim();
+
+  if (!__okobsTtsActiveText) {
+    const fallbackText = (tmp.textContent || tmp.innerText || '')
+      .replace(/\bhttps?:\/\/[^\s]+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    __okobsTtsActiveText = fallbackText;
+  }
+
+  return __okobsTtsActiveText;
+}
+
+  // ---------------------------------------------------------------------------
+  // Card creation (home/search grid)
+  // ---------------------------------------------------------------------------
+
+  function createPostCard(post) {
+    const card = document.createElement('article');
+    card.className = 'post-card';
+
+    const imageUrl = getFeaturedImageUrl(post);
+    if (imageUrl) {
+      const imgWrapper = document.createElement('div');
+      imgWrapper.className = 'post-card-image-wrapper';
+
+      const img = document.createElement('img');
+      img.className = 'post-card-image';
+      img.src = `${imageUrl}?cb=${post.id}`;
+      img.alt = (post && post.title && post.title.rendered) ? stripHtml(post.title.rendered) : 'Post image';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.fetchPriority = 'low';
+
+
+      imgWrapper.appendChild(img);
+      card.appendChild(imgWrapper);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'post-card-content';
+
+    const titleEl = document.createElement('h2');
+    titleEl.className = 'post-card-title';
+
+    const titleLink = document.createElement('a');
+    titleLink.href = `#/post/${post.id}`;
+    titleLink.className = 'post-card-title-link';
+    titleLink.innerHTML = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+
+    titleEl.appendChild(titleLink);
+
+    const meta = document.createElement('div');
+    meta.className = 'post-card-meta';
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    let metaText = '';
+    if (authorName) metaText += authorName;
+    if (dateStr) {
+      metaText += (metaText ? ' • ' : '') + dateStr;
+    }
+    meta.textContent = metaText;
+
+    const excerptEl = document.createElement('div');
+    excerptEl.className = 'post-card-excerpt';
+    excerptEl.innerHTML = cleanExcerptForLoggedIn(
+  post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : '' );
+
+    content.appendChild(titleEl);
+    content.appendChild(meta);
+    content.appendChild(excerptEl);
+
+    card.appendChild(content);
+
+    card.addEventListener('click', (evt) => {
+      const clickedLink = (evt.target && evt.target.closest) ? evt.target.closest('a') : null;
+if (clickedLink && !clickedLink.classList.contains('post-card-title-link')) {
+  // If WP injected the paywall login redirect link, keep the user inside the SPA.
+  const href = (clickedLink.getAttribute('href') || '').trim();
+
+  if (
+    href &&
+    href.includes('my-account') &&
+    href.includes('wcm_redirect_to=post')
+  ) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    navigateTo('#/login');
+    return;
+  }
+
+  // Otherwise, let links inside the excerpt behave like normal links.
+  return;
+}
+
+      evt.preventDefault();
+      saveHomeScroll();
+// Option A: remember the clicked summary post so we can render detail shell immediately
+      lastClickedPostSummary = post;
+      prefetchPostDetail(post.id);
+      navigateTo(`#/post/${post.id}`);
+    });
+
+    return card;
+  }
+
+        async function appendCardsInChunks(grid, cards, chunkSize = 4) {
+    if (!grid || !Array.isArray(cards) || !cards.length) return;
+
+    let index = 0;
+
+    while (index < cards.length) {
+      const frag = document.createDocumentFragment();
+      const end = Math.min(index + chunkSize, cards.length);
+
+      for (; index < end; index++) {
+        frag.appendChild(cards[index]);
+      }
+
+      grid.appendChild(frag);
+
+      if (index < cards.length) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    }
+  }
+
+  async function buildPostCardsInChunks(posts, chunkSize = 4) {
+    if (!Array.isArray(posts) || !posts.length) return [];
+
+    const builtCards = [];
+    let index = 0;
+
+    while (index < posts.length) {
+      const end = Math.min(index + chunkSize, posts.length);
+
+      for (; index < end; index++) {
+        builtCards.push(createPostCard(posts[index]));
+      }
+
+      if (index < posts.length) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    }
+
+    return builtCards;
+  }
+
+
+
+  function stripHtml(html) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || tmp.innerText || '').trim();
+  }
+  // Logged-in excerpt cleanup: remove paywall boilerplate from excerpts only
+function isClientLoggedIn() {
+  try {
+    return (
+      localStorage.getItem('ooLoggedIn') === '1' ||
+      localStorage.getItem('oo_logged_in') === '1' ||      // legacy restore key (if any)
+      localStorage.getItem('ooLoggedIn') === 'true'        // defensive
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+
+function cleanExcerptForLoggedIn(excerptHtml) {
+  if (!excerptHtml) return '';
+  if (!isClientLoggedIn()) return excerptHtml;
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = excerptHtml;
+  // PERF: prevent heavy media from loading in grid/search excerpts
+  // Keep excerpts text-only (media belongs on the post detail page).
+  tmp.querySelectorAll('img, picture, source, video, iframe, figure').forEach((el) => el.remove());
+
+
+  // Remove common paywall/login boilerplate (client-side only)
+  const killPhrases = [
+    'you must log in',
+    'purchase',
+    'subscription',
+    'sign in',
+    'log in to continue'
+  ];
+
+  // Remove paragraphs/divs that are basically just the boilerplate message
+  tmp.querySelectorAll('p, div').forEach((el) => {
+    const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!t) return;
+    if (killPhrases.some(p => t.includes(p))) el.remove();
+  });
+
+  const cleaned = tmp.innerHTML.trim();
+  return cleaned || '';
+}
+
+  // ---------------------------------------------------------------------------
+  // Home view
+  // ---------------------------------------------------------------------------
+
+  // Home: the newest post becomes the big "Latest News" lead card, like the website.
+  function promoteLead(grid) {
+    const lead = app.querySelector('[data-oo="lead"]');
+    if (!lead || lead.firstElementChild || !grid || !grid.firstElementChild) return;
+    lead.appendChild(grid.firstElementChild);
+  }
+
+  // Home: "National Columnists" row (posts in the Columnists category), fetched once.
+  let columnistPosts = null;
+  async function loadColumnists() {
+    const section = app.querySelector('[data-oo="columnists"]');
+    const row = app.querySelector('[data-oo="col-row"]');
+    if (!section || !row) return;
+    try {
+      if (!columnistPosts) {
+        const cats = await fetchJson(`${WP_API_BASE}/categories?slug=columnists&_fields=id`);
+        const id = Array.isArray(cats) && cats.length ? cats[0].id : null;
+        if (!id) return;
+        const posts = await fetchJson(`${WP_API_BASE}/posts?categories=${id}&per_page=6&_embed=author,wp:featuredmedia,wp:term`);
+        columnistPosts = (Array.isArray(posts) ? posts : []).filter((p) => !hasExcludedCategory(p)).slice(0, 4);
+        columnistPosts.forEach((p) => postCache.set(p.id, p));
+      }
+      if (!columnistPosts.length || !document.body.contains(row)) return;
+      row.innerHTML = '';
+      columnistPosts.forEach((p) => row.appendChild(createPostCard(p)));
+      section.hidden = false;
+    } catch (err) {
+      console.warn('[OkObserver] Columnists row unavailable:', err);
+    }
+  }
+
+  function renderHome() {
+    stopTtsPlayback();
+
+    app.innerHTML = `
+      <div class="home-view">
+        <h2 class="oo-section-title">Latest News</h2>
+        <div class="oo-lead" data-oo="lead"></div>
+        <section class="oo-columnists" data-oo="columnists" hidden>
+          <h2 class="oo-section-title">National Columnists</h2>
+          <div class="oo-row" data-oo="col-row"></div>
+        </section>
+        <h2 class="oo-section-title">More News</h2>
+        <div class="posts-grid"></div>
+      </div>
+    `;
+
+    const grid = app.querySelector('.posts-grid');
+    if (!grid) return;
+    loadColumnists();
+
+    if (!homeState.initialized) {
+      isInitialHomeLoad = true;
+      currentPage = 1;
+      hasMorePages = true;
+      seenPostIds.clear();
+      window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+
+      setupInfiniteScroll(grid);
+      loadMorePosts();
+    } else {
+      // Returning from a post detail view:
+      //  - rebuild grid from cached posts
+      //  - then reattach infinite scroll
+      hydrateExistingHomeGrid(grid);
+      setupInfiniteScroll(grid);
+      restoreHomeScroll();
+    }
+  }
+
+    function hydrateExistingHomeGrid(grid) {
+    // If we don't have a remembered home state or any seen posts,
+    // fall back to a fresh load as a safety net.
+    if (!homeState.initialized || !seenPostIds || seenPostIds.size === 0) {
+      grid.innerHTML = '';
+      currentPage = 1;
+      hasMorePages = true;
+      seenPostIds.clear();
+      window.__OKOBS_DUP_GUARD_ENABLED__ = true;
+      loadMorePosts();
+      return;
+    }
+
+    // Rebuild only the most recent slice of cards to avoid rehydrating
+    // an unbounded home grid after returning from detail.
+    const frag = document.createDocumentFragment();
+
+    for (const id of seenPostIds) {
+      const post = postCache.get(id);
+      if (!post) continue;
+
+      // Still respect excluded categories, just in case.
+      if (hasExcludedCategory(post)) continue;
+
+      const card = createPostCard(post);
+      frag.appendChild(card);
+    }
+
+    grid.innerHTML = '';
+    grid.appendChild(frag);
+    promoteLead(grid);
+
+    console.debug(
+      '[OkObserver] Rehydrated home grid from',
+            seenPostIds.size,
+      'recent cached posts'
+    );
+  }
+
+  function setupInfiniteScroll(grid) {
+    if (infiniteObserver) {
+      infiniteObserver.disconnect();
+      infiniteObserver = null;
+    }
+
+    const sentinel = document.createElement('div');
+    sentinel.className = 'scroll-sentinel';
+    sentinel.setAttribute('aria-hidden', 'true');
+// Ensure the sentinel has real dimensions so IntersectionObserver can reach
+// intersectionRatio >= SCROLL_SENTRY_OFFSET (0.). A 0-height sentinel can “stall” scrolling.
+sentinel.style.display = 'block';
+sentinel.style.width = '100%';
+sentinel.style.height = '1px';
+    
+grid.insertAdjacentElement('afterend', sentinel);
+
+    infiniteObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+  requestMorePostsViaScroll();
+}
+
+      }
+    }, {
+  root: null,
+  rootMargin: SCROLL_ROOT_MARGIN,
+  threshold: [SCROLL_SENTRY_OFFSET]
+});
+
+
+    infiniteObserver.observe(sentinel);
+  }
+
+  function requestMorePostsViaScroll() {
+    if (isFetchingPosts || !hasMorePages) return;
+    if (infiniteScrollLoadTimeout) {
+      clearTimeout(infiniteScrollLoadTimeout);
+    }
+    infiniteScrollLoadTimeout = setTimeout(() => {
+      if (!isFetchingPosts && hasMorePages) {
+        loadMorePosts();
+      }
+    }, 120);
+  }
+
+  async function loadMorePosts() {
+    if (isFetchingPosts || !hasMorePages) return;
+
+    isFetchingPosts = true;
+    app.setAttribute('aria-busy', 'true');
+    showPagingStatus(isInitialHomeLoad ? 'Loading news…' : 'Loading more…');
+
+    const grid = app.querySelector('.home-view .posts-grid');
+    if (!grid) {
+      isFetchingPosts = false;
+      hidePagingStatus();
+      return;
+    }
+
+    try {
+      console.debug('[OkObserver] Fetching page', currentPage);
+
+      const posts = await fetchPostsPage(currentPage);
+      if (!Array.isArray(posts) || posts.length === 0) {
+        hasMorePages = false;
+        hidePagingStatus();
+        return;
+      }
+
+                  let appendedCount = 0;
+      const postsToRender = [];
+
+      for (const post of posts) {
+        if (hasExcludedCategory(post)) {
+          continue;
+        }
+
+        if (seenPostIds.has(post.id)) {
+          continue;
+        }
+
+        // Cache this post so we can rebuild the grid when returning from detail.
+        postCache.set(post.id, post);
+        seenPostIds.add(post.id);
+        postsToRender.push(post);
+        appendedCount++;
+      }
+
+      if (appendedCount > 0) {
+        const cardsToAppend = await buildPostCardsInChunks(postsToRender, 4);
+        await appendCardsInChunks(grid, cardsToAppend, 4);
+        promoteLead(grid);
+      }
+// If WP returned posts but all were filtered out (e.g., cartoons),
+// skip ahead to the next page automatically instead of “stalling” infinite scroll.
+if (posts.length > 0 && appendedCount === 0) {
+  currentPage += 1;
+  hidePagingStatus();
+
+  // Let the current call unwind (so finally runs) before fetching the next page.
+  setTimeout(() => {
+    loadMorePosts();
+  }, 0);
+
+  return;
+}
+
+
+      currentPage += 1;
+      hidePagingStatus();
+
+      if (isInitialHomeLoad) {
+        isInitialHomeLoad = false;
+        hideInitialLoader();
+      }
+    } catch (err) {
+      console.error('[OkObserver] Error loading more posts:', err);
+      hidePagingStatus();
+    } finally {
+      isFetchingPosts = false;
+    }
+  }
+
+  function showPagingStatus(labelText) {
+  let status = document.querySelector('.paging-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.className = 'paging-status';
+    app.appendChild(status);
+  }
+
+  const label = labelText || 'Loading more…';
+
+  status.innerHTML = `
+    <div class="oo-detail-loading-inline">
+      <span class="oo-loading-spinner" aria-hidden="true"></span>
+      <span class="oo-loading-text">${label}</span>
+    </div>
+  `;
+
+  status.style.display = 'block';
+}
+
+
+  function hidePagingStatus() {
+    const status = document.querySelector('.paging-status');
+    if (status) {
+      status.style.display = 'none';
+    }
+    app.removeAttribute('aria-busy');
+  }
+
+  // ---------------------------------------------------------------------------
+  // About view
+  // ---------------------------------------------------------------------------
+
+  function renderAbout() {
+    // Stop any TTS and go to top, like other views
+    stopTtsPlayback();
+    scrollToTop();
+
+    const appRoot = document.getElementById("app");
+    if (!appRoot) return;
+
+    appRoot.innerHTML = `
+    <article class="about-view">
+      <h1 class="about-title">About The Oklahoma Observer</h1>
+      <div class="about-content">
+        <div class="about-html"></div>
+      </div>
+    </article>
+  `;
+
+    const aboutHtmlEl = document.querySelector(".about-html");
+    if (!aboutHtmlEl) return;
+
+    fetchAboutPage()
+      .then((page) => {
+        const rawHtml =
+          page && page.content && page.content.rendered
+            ? page.content.rendered
+            : "";
+
+        if (!rawHtml) {
+          aboutHtmlEl.innerHTML = "<p>Unable to load About content.</p>";
+          return;
+        }
+
+        const tmp = document.createElement("div");
+        tmp.innerHTML = rawHtml;
+
+        // TagDiv layout: three columns using td-pb-span4 / td-pb-span8
+        const wpColumns = tmp.querySelectorAll(".td-pb-span4, .td-pb-span8");
+
+        if (wpColumns.length) {
+          aboutHtmlEl.innerHTML = "";
+
+          wpColumns.forEach((col) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "about-column";
+            wrapper.innerHTML = col.innerHTML;
+            aboutHtmlEl.appendChild(wrapper);
+          });
+
+          // Fix lazy-loaded images so About photos actually show
+          aboutHtmlEl.querySelectorAll("img").forEach((img) => {
+            const src =
+              img.getAttribute("data-src") ||
+              img.getAttribute("data-lazy-src") ||
+              img.getAttribute("data-original");
+            const srcset = img.getAttribute("data-srcset");
+
+            if (src) img.src = src;
+            if (srcset) img.srcset = srcset;
+
+            img.removeAttribute("data-src");
+            img.removeAttribute("data-lazy-src");
+            img.removeAttribute("data-original");
+            img.removeAttribute("data-srcset");
+            img.removeAttribute("data-sizes");
+
+            img.classList.remove("lazyload", "lazyloaded");
+            img.classList.add("about-image-full");
+          });
+        } else {
+          // Fallback: just show the whole HTML if we can't find specific columns
+          aboutHtmlEl.innerHTML = rawHtml;
+        }
+      })
+      .catch((err) => {
+        console.error("[OkObserver] About page error:", err);
+        aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
+      });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Search view
+  // ---------------------------------------------------------------------------
+
+  function renderSearch(params) {
+    stopTtsPlayback();
+    scrollToTop();
+
+const initialQuery = (params && params.q) || '';
+const authorId = (params && params.author) || null;
+const authorLabel = (params && params.label) ? decodeURIComponent(params.label) : '';
+
+    app.innerHTML = `
+      <div class="search-view">
+        <h1 class="search-title">Search News</h1>
+        <form class="search-form" novalidate>
+          <label class="search-label">
+            <span class="search-label-text">Search term</span>
+            <input
+              class="search-input"
+              type="search"
+              name="q"
+              placeholder="Type keywords&hellip;"
+              value="${escapeAttr(authorId ? authorLabel : initialQuery)}"
+            />
+          </label>
+          <button class="search-submit" type="submit">Search</button>
+        </form>
+        <div class="search-status" aria-live="polite">
+  <span class="search-status-spinner" aria-hidden="true"></span>
+  <span class="search-status-text"></span>
+</div>
+
+        <div class="search-results">
+          <div class="posts-grid search-grid"></div>
+        </div>
+      </div>
+    `;
+
+    const form = app.querySelector('.search-form');
+    const input = app.querySelector('.search-input');
+    const statusEl = app.querySelector('.search-status');
+    const grid = app.querySelector('.search-grid');
+
+    if (!form || !input || !grid) return;
+const statusTextEl = statusEl
+  ? statusEl.querySelector('.search-status-text')
+  : null;
+
+  // Auto-focus the search box when the search view is shown,
+  // without disturbing scroll restore.
+    // Auto-focus ONLY when entering Search with no query.
+  // If q is present (e.g., after clicking Search), do NOT refocus (prevents mobile keyboard pop).
+  if (!initialQuery) {
+    requestAnimationFrame(() => {
+      if (document.body.contains(input)) {
+        try {
+          input.focus({ preventScroll: true });
+        } catch (e) {
+          // Fallback for older browsers
+          try {
+            input.focus();
+          } catch (_) {}
+        }
+      }
+    });
+  }
+
+
+
+if (authorId) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Loading author posts…';
+  }
+  performAuthorSearch(authorId, statusEl, grid);
+} else if (initialQuery) {
+  statusEl.classList.add('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Searching…';
+  }
+  performSearch(initialQuery, statusEl, grid);
+}
+
+
+    form.addEventListener('submit', (evt) => {
+      evt.preventDefault();
+      const value = input.value.trim();
+if (!value) {
+  statusEl.classList.remove('is-loading');
+  if (statusTextEl) {
+    statusTextEl.textContent = 'Please enter a search term.';
+  }
+  grid.innerHTML = '';
+  navigateTo('#/search');
+  return;
+}
+
+// Show spinner + message
+statusEl.classList.add('is-loading');
+if (statusTextEl) {
+  statusTextEl.textContent = authorId ? 'Loading author posts…' : 'Searching…';
+}
+grid.innerHTML = '';
+
+      const enc = encodeURIComponent(value);
+
+      if (authorId) {
+        navigateTo(`#/search?author=${encodeURIComponent(authorId)}&label=${enc}`);
+      } else {
+        navigateTo(`#/search?q=${enc}`);
+      }
+    });
+  }
+
+async function performAuthorSearch(authorId, statusEl, grid) {
+  const statusTextEl = statusEl
+    ? statusEl.querySelector('.search-status-text')
+    : null;  try {
+    const url = `${WP_API_BASE.replace('/wp-json/wp/v2','')}/content/author-posts?author=${encodeURIComponent(authorId)}&per_page=${POSTS_PER_PAGE}&page=1`;
+
+    console.debug('[OkObserver] Author search URL:', url);
+
+    const data = await fetchJson(url);
+    const posts = data && Array.isArray(data.posts) ? data.posts : [];
+
+    if (!posts.length) {
+      if (statusEl) statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No posts found for this author.';
+      }
+      grid.innerHTML = '';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    let rendered = 0;
+
+    posts.forEach((post) => {
+      if (hasExcludedCategory(post)) return;
+      const card = createPostCard(post);
+      frag.appendChild(card);
+      rendered++;
+    });
+
+    grid.innerHTML = '';
+
+    if (rendered > 0) {
+      grid.appendChild(frag);
+      if (statusEl) statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+const label = urlParams.get('label');
+const decodedLabel = label ? decodeURIComponent(label) : '';
+
+statusTextEl.textContent = decodedLabel
+  ? `Posts by ${decodedLabel}`
+  : `${rendered} post${rendered === 1 ? '' : 's'} by this author.`;
+      }
+    } else {
+      if (statusEl) statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No visible posts found for this author.';
+      }
+    }
+
+  } catch (err) {
+    console.error('[OkObserver] Author search failed:', err);
+
+    if (statusEl) statusEl.classList.remove('is-loading');
+    if (statusTextEl) {
+      statusTextEl.textContent = 'Error loading author posts.';
+    }
+    grid.innerHTML = '';
+  }
+}function renderToc() {
+  stopTtsPlayback();
+  scrollToTop();
+
+  // Ensure PostDetail "Back to posts" returns here if user came from TOC
+  lastListHash = '#/toc';
+
+  // Build from already-loaded posts (no new fetch)
+  const posts = [];
+  seenPostIds.forEach((id) => {
+    const p = postCache.get(id);
+    if (!p) return;
+    // Safety: keep cartoon filtering consistent (even though home already filters)
+    if (hasExcludedCategory(p)) return;
+    posts.push(p);
+  });
+
+  // Newest first (matches typical expectation)
+  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  app.innerHTML = `
+    <div class="toc-view">
+      <h1 class="toc-title">Table of Contents</h1>
+      <p class="toc-subtitle">Loaded titles only (from your current session).</p>
+      <ul class="toc-list"></ul>
+    </div>
+  `;
+
+  const list = app.querySelector('.toc-list');
+  if (!list) return;
+
+  if (!posts.length) {
+    list.innerHTML = `
+      <li class="toc-empty">
+        No posts loaded yet. Go back to <a href="#/">News</a> and let the feed load.
+      </li>
+    `;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  for (const post of posts) {
+    const li = document.createElement('li');
+    li.className = 'toc-item';
+
+    const a = document.createElement('a');
+    a.className = 'toc-link';
+    a.href = `#/post/${post.id}`;
+    a.innerHTML =
+      post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+
+    // Make detail prefill instant (same as clicking from grid)
+    a.addEventListener('click', () => {
+      lastClickedPostSummary = post;
+    });
+
+    const meta = document.createElement('div');
+    meta.className = 'toc-meta';
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    let metaText = '';
+    if (authorName) metaText += authorName;
+    if (dateStr) metaText += (metaText ? ' • ' : '') + dateStr;
+    meta.textContent = metaText;
+
+    li.appendChild(a);
+    if (metaText) li.appendChild(meta);
+    frag.appendChild(li);
+  }
+
+  list.appendChild(frag);
+}
+
+// ---------------------------------------------------------------------------
+// Archives: author / topic (tag) / category pages + the "Browse" hub
+//   #/browse                                  -> hub (authors, topics, categories)
+//   #/archive?type=author|tag|category&id=N&label=Name
+// Uses the standard WordPress REST list endpoints (same data the website archives use).
+// ---------------------------------------------------------------------------
+const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories' };
+const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category' };
+let archiveToken = 0;
+let authorListCache = null;
+
+function archiveHref(type, id, label) {
+  return `#/archive?type=${type}&id=${encodeURIComponent(id)}&label=${encodeURIComponent(label || '')}`;
+}
+
+function renderArchive(params) {
+  stopTtsPlayback();
+  scrollToTop();
+  const type = ARCHIVE_PARAM[params && params.type] ? params.type : 'tag';
+  const id = (params && params.id) || '';
+  const label = (params && params.label) || '';
+  const token = ++archiveToken;
+  lastListHash = window.location.hash || '#/browse';
+
+  app.innerHTML = `
+    <div class="archive-view">
+      <div class="archive-kicker">${ARCHIVE_NOUN[type]} archive</div>
+      <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
+      <div class="search-status is-loading" aria-live="polite">
+        <span class="search-status-spinner" aria-hidden="true"></span>
+        <span class="search-status-text">Loading posts…</span>
+      </div>
+      <div class="posts-grid archive-grid"></div>
+      <div class="archive-more-wrap"><button class="btnSecondary archive-more" type="button" hidden>Load more</button></div>
+      <p class="archive-browse"><a href="#/browse">&larr; All archives</a></p>
+    </div>`;
+
+  const grid = app.querySelector('.archive-grid');
+  const statusEl = app.querySelector('.search-status');
+  const statusText = app.querySelector('.search-status-text');
+  const moreBtn = app.querySelector('.archive-more');
+  let page = 0;
+  let shown = 0;
+  let totalPages = 1;
+  let busy = false;
+
+  async function loadPage() {
+    if (busy) return;
+    busy = true;
+    moreBtn.hidden = true;
+    statusEl.classList.add('is-loading');
+    statusText.textContent = shown ? 'Loading more…' : 'Loading posts…';
+    try {
+      page += 1;
+      let posts = [];
+      if (type === 'author') {
+        // WordPress blocks anonymous ?author= requests, so authors come through the Worker route.
+        const res = await fetch(`${WORKER_BASE}/content/author-archive?author=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}`);
+        if (token !== archiveToken) return;
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        posts = Array.isArray(data.posts) ? data.posts : [];
+        totalPages = parseInt(data.total_pages || 1, 10) || 1;
+      } else {
+        const url = `${WP_API_BASE}/posts?${ARCHIVE_PARAM[type]}=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+        const res = await fetch(url);
+        if (token !== archiveToken) return;
+        if (!res.ok) {
+          // WordPress answers 400 when we ask for a page past the end.
+          totalPages = page - 1;
+          if (page === 1) throw new Error('HTTP ' + res.status);
+        } else {
+          totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10) || 1;
+          posts = await res.json();
+        }
+      }
+      {
+        const frag = document.createDocumentFragment();
+        (Array.isArray(posts) ? posts : []).forEach((p) => {
+          if (hasExcludedCategory(p)) return;
+          postCache.set(p.id, p);
+          frag.appendChild(createPostCard(p));
+          shown += 1;
+        });
+        grid.appendChild(frag);
+      }
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = shown
+        ? `${shown} post${shown === 1 ? '' : 's'} shown, newest first.`
+        : 'No posts found in this archive.';
+      moreBtn.hidden = page >= totalPages;
+    } catch (err) {
+      console.error('[OkObserver] Archive load failed:', err);
+      if (token !== archiveToken) return;
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = 'Could not load this archive. Please try again.';
+      page = Math.max(0, page - 1);
+      moreBtn.hidden = false;
+    } finally {
+      busy = false;
+    }
+  }
+
+  // Cartoon-category posts are hidden in the app, so a page can come back thin: keep going until a useful batch is shown.
+  async function loadBatch() {
+    const before = shown;
+    for (let i = 0; i < 5; i++) {
+      await loadPage();
+      if (token !== archiveToken || moreBtn.hidden || shown - before >= 8) break;
+    }
+  }
+  moreBtn.addEventListener('click', loadBatch);
+  if (!id) {
+    statusEl.classList.remove('is-loading');
+    statusText.textContent = 'Choose an archive from the Browse page.';
+    return;
+  }
+  loadBatch();
+}
+
+async function fetchAllAuthors() {
+  if (authorListCache) return authorListCache;
+  const res = await fetch(`${WORKER_BASE}/content/authors`);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const all = (Array.isArray(data.authors) ? data.authors : []).filter((u) => u && u.id && u.name);
+  all.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  authorListCache = all;
+  return all;
+}
+
+function renderBrowse() {
+  stopTtsPlayback();
+  scrollToTop();
+  lastListHash = '#/browse';
+  const token = ++archiveToken;
+
+  app.innerHTML = `
+    <div class="browse-view">
+      <h1 class="toc-title">Archives</h1>
+      <p class="toc-subtitle">Browse by author, topic or section. Newest posts first.</p>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Sections</h2>
+        <div class="browse-chips browse-cats"><span class="browse-loading">Loading…</span></div>
+      </section>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Topics</h2>
+        <label class="search-label"><span class="search-label-text">Find a topic</span>
+          <input class="search-input browse-tag-input" type="search" placeholder="Type a topic, e.g. Medicaid" /></label>
+        <div class="browse-chips browse-tags"><span class="browse-loading">Loading…</span></div>
+      </section>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Authors</h2>
+        <label class="search-label"><span class="search-label-text">Find an author</span>
+          <input class="search-input browse-author-input" type="search" placeholder="Type a name" /></label>
+        <div class="browse-chips browse-authors"><span class="browse-loading">Loading…</span></div>
+      </section>
+    </div>`;
+
+  const catsEl = app.querySelector('.browse-cats');
+  const tagsEl = app.querySelector('.browse-tags');
+  const authorsEl = app.querySelector('.browse-authors');
+  const chip = (type, item) =>
+    `<a class="browse-chip" href="${archiveHref(type, item.id, item.name)}">${escapeHtml(item.name)}</a>`;
+  const decode = (s) => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+
+  // Sections (categories) - hide the excluded cartoon category and empty ones
+  fetchJson(`${WP_API_BASE}/categories?per_page=100&orderby=count&order=desc&_fields=id,name,slug,count`)
+    .then((rows) => {
+      if (token !== archiveToken) return;
+      const list = (Array.isArray(rows) ? rows : [])
+        .filter((c) => c.count > 0 && !EXCLUDED_CATEGORY_SLUGS.includes(String(c.slug).toLowerCase()) && c.slug !== 'uncategorized')
+        .map((c) => ({ id: c.id, name: decode(c.name) }));
+      catsEl.innerHTML = list.map((c) => chip('category', c)).join('') || '<span class="browse-loading">None found.</span>';
+    })
+    .catch(() => { catsEl.innerHTML = '<span class="browse-loading">Could not load sections.</span>'; });
+
+  // Topics (tags): most-used by default, live search for the rest
+  const showTags = (rows) => {
+    const list = (Array.isArray(rows) ? rows : []).map((t) => ({ id: t.id, name: decode(t.name) }));
+    tagsEl.innerHTML = list.map((t) => chip('tag', t)).join('') || '<span class="browse-loading">No topics match.</span>';
+  };
+  const tagBase = `${WP_API_BASE}/tags?per_page=60&_fields=id,name,count`;
+  fetchJson(`${tagBase}&orderby=count&order=desc`)
+    .then((rows) => { if (token === archiveToken) showTags(rows); })
+    .catch(() => { tagsEl.innerHTML = '<span class="browse-loading">Could not load topics.</span>'; });
+  const tagInput = app.querySelector('.browse-tag-input');
+  let tagTimer = null;
+  tagInput.addEventListener('input', () => {
+    clearTimeout(tagTimer);
+    const q = tagInput.value.trim();
+    tagTimer = setTimeout(() => {
+      const url = q ? `${tagBase}&search=${encodeURIComponent(q)}&orderby=count&order=desc` : `${tagBase}&orderby=count&order=desc`;
+      fetchJson(url).then((rows) => { if (token === archiveToken) showTags(rows); }).catch(() => {});
+    }, 250);
+  });
+
+  // Authors: full list, filtered as you type
+  let authors = [];
+  const showAuthors = () => {
+    const q = app.querySelector('.browse-author-input').value.trim().toLowerCase();
+    const list = q ? authors.filter((a) => a.name.toLowerCase().includes(q)) : authors;
+    authorsEl.innerHTML = list.map((a) => chip('author', a)).join('') || '<span class="browse-loading">No authors match.</span>';
+  };
+  fetchAllAuthors()
+    .then((list) => { if (token !== archiveToken) return; authors = list; showAuthors(); })
+    .catch(() => { authorsEl.innerHTML = '<span class="browse-loading">Could not load authors.</span>'; });
+  app.querySelector('.browse-author-input').addEventListener('input', showAuthors);
+}
+
+async function performSearch(term, statusEl, grid) {
+  const statusTextEl = statusEl
+    ? statusEl.querySelector('.search-status-text')
+    : null;
+
+  try {
+    // Reset paging for new search term
+    currentSearchTerm = term || '';
+    currentSearchPage = 1;
+    hasMoreSearchPages = true;
+    isFetchingSearchResults = false;
+    teardownSearchInfiniteScroll();
+
+    // Always fetch first page explicitly
+    const results = await fetchSearchResults(term, 1);
+    if (!Array.isArray(results) || results.length === 0) {
+      hasMoreSearchPages = false;
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent = 'No results found.';
+      }
+      grid.innerHTML = '';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    let rendered = 0;
+
+    results.forEach((post) => {
+      if (hasExcludedCategory(post)) return;
+      const card = createPostCard(post);
+      frag.appendChild(card);
+      rendered++;
+    });
+
+    if (rendered > 0) {
+      grid.innerHTML = '';
+      grid.appendChild(frag);
+
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent =
+          `${rendered} result${rendered === 1 ? '' : 's'} found.`;
+      }
+
+      // Enable infinite scroll ONLY if a full page came back
+      if (rendered >= POSTS_PER_PAGE) {
+        hasMoreSearchPages = true;
+        setupSearchInfiniteScroll(grid);
+      } else {
+        hasMoreSearchPages = false;
+        teardownSearchInfiniteScroll();
+      }
+
+      // If we came back from a search detail view, restore search scroll
+      restoreSearchScroll(term);
+    } else {
+      hasMoreSearchPages = false;
+      teardownSearchInfiniteScroll();
+      statusEl.classList.remove('is-loading');
+      if (statusTextEl) {
+        statusTextEl.textContent =
+          'No visible results (some posts may be filtered).';
+      }
+      grid.innerHTML = '';
+    }
+
+  } catch (err) {
+    console.error('[OkObserver] Search error:', err);
+    hasMoreSearchPages = false;
+    teardownSearchInfiniteScroll();
+    statusEl.classList.remove('is-loading');
+    if (statusTextEl) {
+      statusTextEl.textContent = 'An error occurred while searching.';
+    }
+    grid.innerHTML = '';
+  }
+}
+
+  function escapeAttr(value) {
+    if (!value) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+function sanitizeAuthorBioHtml(rawHtml) {
+  try {
+    if (!rawHtml) return '';
+
+    // Parse + let the browser fix broken/misaligned tags
+    const root = document.createElement('div');
+    root.innerHTML = String(rawHtml);
+
+    const ALLOWED = new Set(['A', 'STRONG', 'EM', 'B', 'I', 'BR', 'P']);
+
+    // Snapshot all elements (TreeWalker live traversal can be tricky while mutating)
+    const elements = Array.from(root.querySelectorAll('*'));
+
+    for (const el of elements) {
+      const tag = el.tagName;
+
+      if (!ALLOWED.has(tag)) {
+        // Replace disallowed tag with its text content
+        const txt = document.createTextNode(el.textContent || '');
+        el.replaceWith(txt);
+        continue;
+      }
+
+      if (tag === 'A') {
+        // Keep only safe href; force external-safe behavior
+        const href = (el.getAttribute('href') || '').trim();
+        const isSafe =
+          href.startsWith('http://') ||
+          href.startsWith('https://') ||
+          href.startsWith('/');
+
+        if (!isSafe) {
+          // Strip unsafe link but keep readable text
+          const txt = document.createTextNode(el.textContent || '');
+          el.replaceWith(txt);
+          continue;
+        }
+
+        // Remove all attributes first, then add back the safe ones
+        const safeHref = href;
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+
+        el.setAttribute('href', safeHref);
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      } else {
+        // For STRONG/EM/etc, remove all attributes
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+      }
+    }
+
+    // Convert newlines in text nodes to <br> (optional, helps when WP stores plain line breaks)
+    // If you don't want this, you can delete this block.
+    root.innerHTML = root.innerHTML.replace(/\n/g, '<br>');
+
+    return root.innerHTML.trim();
+  } catch (e) {
+    // Fallback: treat as plain text if anything goes sideways
+    return escapeHtml(String(rawHtml || '')).replace(/\n/g, '<br>');
+  }
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+  // ---------------------------------------------------------------------------
+  // Post detail view
+  // ---------------------------------------------------------------------------
+  // Option A helper: render a fast “detail shell” from the clicked summary post
+  function renderPostDetailShellFromSummary(summaryPost) {
+    if (!summaryPost) return;
+
+    const rawTitle =
+      summaryPost.title && summaryPost.title.rendered
+        ? summaryPost.title.rendered
+        : '(Untitled)';
+
+     const dateStr = formatDate(summaryPost.date);
+    const authorName = getAuthorName(summaryPost);
+    const metaParts = [];
+if (authorName) {
+  metaParts.push(escapeHtml(authorName));
+}
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+
+    const featuredImageUrl = getFeaturedImageUrl(summaryPost);
+    let heroHtml = '';
+    if (featuredImageUrl) {
+      const safeAlt = escapeAttr(stripHtml(rawTitle || ''));
+      const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+      heroHtml = `
+        <div class="post-hero">
+          <img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${summaryPost.id}" alt="${safeAlt}" />
+        </div>
+      `;
+    }
+
+    // Use the excerpt as a placeholder body (fast paint), cleaned for logged-in users
+    const excerptHtml = cleanExcerptForLoggedIn(
+      summaryPost.excerpt && summaryPost.excerpt.rendered
+        ? summaryPost.excerpt.rendered
+        : ''
+    );
+
+    app.innerHTML = `
+      <div class="post-detail oo-detail-prefill">
+        ${heroHtml}
+        <h1 class="post-title">${rawTitle}</h1>
+        ${metaHtml}
+        <div class="post-content post-detail-content entry-content">
+          <div class="post-detail-tts-row">
+            <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+          </div>
+          ${excerptHtml}
+        </div>
+        <button class="back-btn" type="button">Back to posts</button>
+      </div>
+    `;
+    // Keep back button working even during shell
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        const target =
+          lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+            ? lastListHash
+            : '#/';
+        window.location.replace(target);
+      });
+    }
+  }
+
+    async function renderPostDetail(id) {
+    stopTtsPlayback({ native: false });
+    scrollToTop();
+
+    // Option A: if we have the clicked summary post, paint a fast shell immediately
+    const summary =
+      lastClickedPostSummary && lastClickedPostSummary.id === id
+        ? lastClickedPostSummary
+        : null;
+  // 🟢 INSTANT RENDER (this is the missing piece)
+  if (summary) {
+    renderPostDetailShellFromSummary(summary);
+  }
+    if (summary) {
+      renderPostDetailShellFromSummary(summary);
+    } else {
+      app.innerHTML = `
+        <div class="post-detail-loading">
+          <p>Loading article…</p>
+        </div>
+      `;
+    }
+
+    try {
+      const post = await fetchPostById(id);
+      renderPostDetailInner(post);
+    } catch (err) {
+      console.error('[OkObserver] Error loading post detail:', err);
+      renderNotFound();
+    }
+  }
+
+
+function removePaywallNoticeFromDetail(html) {
+  if (!html) return html;
+
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    const killPhrases = [
+      'to access this content',
+      'print only',
+      'digital only',
+      'total access'
+    ];
+
+    const nodes = tmp.querySelectorAll('p, div');
+    nodes.forEach((el) => {
+      const t = (el.textContent || '').toLowerCase();
+      if (!t) return;
+
+      const hasAccessLine = t.includes(killPhrases[0]);
+      const planHits =
+        (t.includes(killPhrases[1]) ? 1 : 0) +
+        (t.includes(killPhrases[2]) ? 1 : 0) +
+        (t.includes(killPhrases[3]) ? 1 : 0);
+
+      if (hasAccessLine || planHits >= 2) {
+        el.remove();
+      }
+    });
+
+    return tmp.innerHTML;
+  } catch (e) {
+    return html;
+  }
+}
+function linkifyPaywallLoginForSignedOut(html) {
+  if (!html) return html;
+
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    const isWpPaywallLoginHref = (href) => {
+      if (!href) return false;
+      const h = String(href).trim();
+      return h.includes('my-account') && h.includes('wcm_redirect_to=post');
+    };
+
+    // 1) Rewrite WP-injected paywall login links ("log in" or "sign in") to SPA login.
+    const links = Array.from(tmp.querySelectorAll('a'));
+    for (const a of links) {
+      const text = (a.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const href = (a.getAttribute('href') || '').trim();
+
+      if ((text === 'log in' || text === 'sign in') && isWpPaywallLoginHref(href)) {
+        a.setAttribute('href', '#/login');
+        a.removeAttribute('target');
+        a.removeAttribute('rel');
+        a.classList.add('oo-inline-login');
+        return tmp.innerHTML;
+      }
+    }
+
+    // 2) Plain-text fallback: if the words exist without a link, linkify them.
+    // (Does not change any other content.)
+    if (/\bsign in\b/i.test(html)) {
+      return html.replace(/\bsign in\b/i, `<a href="#/login" class="oo-inline-login">sign in</a>`);
+    }
+    if (/\blog in\b/i.test(html)) {
+      return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    }
+
+    return html;
+  } catch (_) {
+    // Safe fallback
+    if (/\bsign in\b/i.test(html)) {
+      return html.replace(/\bsign in\b/i, `<a href="#/login" class="oo-inline-login">sign in</a>`);
+    }
+    if (/\blog in\b/i.test(html)) {
+      return html.replace(/\blog in\b/i, `<a href="#/login" class="oo-inline-login">log in</a>`);
+    }
+    return html;
+  }
+}
+  // Option A helper: render a fast “prefill” detail view using the clicked summary post
+  // This avoids a blank/jarring transition while the full post is fetched.
+  function renderPostDetailPrefillFromSummary(post) {
+    if (!post) return;
+
+    const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+    const titleHtml = rawTitle;
+
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    const metaParts = [];
+if (authorName) {
+  metaParts.push(escapeHtml(authorName));
+}
+
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+
+    // Use the summary excerpt as temporary content (kept lightweight)
+    const excerptHtml =
+      post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : '';
+    const prefillContent = cleanExcerptForLoggedIn(excerptHtml);
+
+    // Hero image (same logic as detail)
+    let heroHtml = '';
+    const featuredImageUrl = getFeaturedImageUrl(post);
+    if (featuredImageUrl) {
+      const safeAlt = escapeAttr(stripHtml(post.title && post.title.rendered ? post.title.rendered : ''));
+      const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+      const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
+      heroHtml = `<div class="post-hero">${heroImg}</div>`;
+    }
+
+    app.innerHTML = `
+      <div class="post-detail oo-detail-prefill">
+        ${heroHtml}
+        <h1 class="post-title">${titleHtml}</h1>
+        ${metaHtml}
+        <div class="post-content post-detail-content entry-content">
+          <div class="post-detail-tts-row">
+            <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+          </div>
+          <div class="oo-detail-loading-inline" aria-live="polite">
+            <span class="oo-loading-spinner" aria-hidden="true"></span>
+            <span class="oo-loading-text">Loading…</span>
+          </div>
+          ${prefillContent}
+        </div>
+        <button class="back-btn" type="button">Back to News</button>
+      </div>
+    `;
+
+    // Back button should work even during prefill
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        const target =
+          lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+            ? lastListHash
+            : '#/';
+        window.location.replace(target);
+      });
+    }
+  }
+
+
+    function renderPostDetailInner(post) {
+  // --- FIX: prevent scroll restoration from hiding post tags ---
+  window.scrollTo(0, 0);
+
+    if (!post) {
+      renderNotFound();
+      return;
+    }
+
+    const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
+    const titleHtml = rawTitle;
+let contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
+
+if (isClientLoggedIn && isClientLoggedIn()) {
+  contentHtml = removePaywallNoticeFromDetail(contentHtml);
+} else {
+  contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
+}
+
+
+
+    const dateStr = formatDate(post.date);
+    const authorName = getAuthorName(post);
+    const metaParts = [];
+if (authorName) {
+  metaParts.push(escapeHtml(authorName));
+}
+    if (dateStr) metaParts.push(dateStr);
+    const metaHtml = metaParts.length
+      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
+      : '';
+// --- DETAIL TAGS/CATEGORIES (restore) ---
+const cats = extractCategories(post) || [];
+const tags = extractTags(post) || [];
+
+const catNames = cats.map(c => (c && c.name ? String(c.name) : '')).filter(Boolean);
+const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boolean);
+
+// Always show "Tags" (even if empty)
+const tagsHtml = `<div class="post-tags" aria-label="Tags">
+  ${
+    tagNames.length
+      ? tags.filter(t => t && t.name).map(t => `<a class="post-tag" href="${archiveHref('tag', t.id, String(t.name))}">${escapeHtml(String(t.name))}</a>`).join('')
+      : ``
+  }
+</div>`;
+
+
+// ✅ taxHtml is now initialized BEFORE the template uses it
+const taxHtml = `<div class="post-tax">${tagsHtml}</div>`;
+// --- AUTHOR BOX (bottom on detail) ---
+const __author = post && post._embedded && Array.isArray(post._embedded.author)
+  ? post._embedded.author[0]
+  : null;
+
+const __authorName = __author && __author.name ? String(__author.name) : '';
+const __authorBioRaw = __author && __author.description ? String(__author.description) : '';
+const __authorBio = __authorBioRaw.trim();
+
+const __avatar =
+  __author && __author.avatar_urls
+    ? (__author.avatar_urls['96'] || __author.avatar_urls['48'] || __author.avatar_urls['24'] || '')
+    : '';
+
+let authorBoxHtml = '';
+if (__authorName || __authorBio || __avatar) {
+  const safeName = escapeHtml(__authorName || 'Author');
+  const safeBio = __authorBio ? sanitizeAuthorBioHtml(__authorBio) : '';
+  
+  const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
+
+const nameHtml = __author && __author.id
+  ? `<a class="author-box-name-link" href="${archiveHref('author', __author.id, __authorName)}">${safeName}</a>`
+  : `<span class="author-box-name-link">${safeName}</span>`;
+
+
+  authorBoxHtml = `
+    <div class="author-box" aria-label="About the author">
+      <div class="author-box-inner">
+        ${safeAvatar ? `<img class="author-box-avatar" src="${safeAvatar}" alt="${safeName}" />` : ''}
+        <div class="author-box-text">
+          <div class="author-box-title">About the author</div>
+          <div class="author-box-name">${nameHtml}</div>
+          ${safeBio ? `<div class="author-box-bio">${safeBio}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let heroHtml = '';
+const featuredImageUrl = getFeaturedImageUrl(post);
+
+// Prefer a meaningful link wrapped around an image in post content (NOT the image file itself).
+const heroLinkRaw = extractHeroLinkFromContent(post);
+const heroLink =
+  heroLinkRaw && !/\.(jpe?g|png|gif|webp)$/i.test(heroLinkRaw)
+    ? heroLinkRaw
+    : null;
+
+if (featuredImageUrl) {
+  const safeAlt = escapeAttr(stripHtml(post.title.rendered || ''));
+  const cbJoin = featuredImageUrl.includes('?') ? '&' : '?';
+  const heroImg = `<img class="oo-media" src="${featuredImageUrl}${cbJoin}cb=${post.id}" alt="${safeAlt}" />`;
+
+  const isFacebookHeroLink =
+  !!heroLink && /(facebook\.com|m\.facebook\.com|fb\.watch)\//i.test(heroLink);
+
+heroHtml = heroLink
+  ? `<a class="post-hero-link${isFacebookHeroLink ? ' post-hero-facebook' : ''}"
+        href="${heroLink}" target="_blank" rel="noopener">
+        ${heroImg}
+        ${isFacebookHeroLink ? `<span class="fb-watch-overlay" aria-label="Watch on Facebook">Watch on Facebook</span>` : ''}
+     </a>`
+  : `<div class="post-hero">${heroImg}</div>`;
+
+}
+
+
+const ttsButtonHtml = `
+  <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
+
+`;
+
+const detailInnerHtml = `
+  ${heroHtml}
+  <h1 class="post-title">${titleHtml}</h1>
+  ${metaHtml}
+  <div class="post-content post-detail-content entry-content">
+<div class="post-detail-tts-row">
+      ${ttsButtonHtml}
+    </div>      
+    ${contentHtml}
+    </div>
+  ${taxHtml}
+  ${authorBoxHtml}
+  <button class="back-btn" type="button">Back to News</button>
+`;
+
+const existingPrefill = app.querySelector('.post-detail.oo-detail-prefill');
+
+if (existingPrefill) {
+  // Fast path: keep the already-painted shell node and hydrate it in place.
+  existingPrefill.classList.remove('oo-detail-prefill');
+  existingPrefill.innerHTML = detailInnerHtml;
+} else {
+  // Fallback for deep links / no prefill shell
+  app.innerHTML = `
+    <div class="post-detail">
+      ${detailInnerHtml}
+    </div>
+  `;
+}
+
+scrollToTop();
+
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        // If user came from a grid view (home or search),
+        // Return to last grid/search view safely (no auth routes in history)
+        if (homeState.initialized || searchState.initialized || /^#\/(archive|browse)/.test(lastListHash || '')) {
+        const target =
+  lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
+    ? lastListHash
+    : '#/';
+
+window.location.replace(target);
+        } else {
+          // Deep-linked directly to a post
+          window.location.replace('#/');
+
+        }
+      });
+    }
+
+     const ttsButton = app.querySelector('.tts-button');
+    if (ttsButton) {
+      ttsButton.addEventListener('click', () => {
+        const current = currentTtsPostId;
+        const thisId = post.id;
+        if (current && current === thisId) {
+          stopTtsPlayback({ native: true });
+        } else {
+          const text = buildTtsTextFromHtml(contentHtml);
+          speakChunksSequentially(text, thisId);
+        }
+      });
+    }
+
+        // Let the full article paint first on mobile, then do heavier embed work.
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Insert top-of-article embeds (YouTube/Vimeo/Facebook, overrides, etc.)
+        enhanceEmbedsInDetail(post);
+
+        // NEW: fix any lazy-loaded iframes (data-lazy-src → src) so the players actually render
+        removeLazyloadEmbeds();
+      }, 0);
+    });
+  }
+
+  function enhanceEmbedsInDetail(post) {
+    const container = app.querySelector('.post-detail-content');
+    if (!container || !post) return;
+
+    const html = container.innerHTML || '';
+    if (!html) return;
+
+ 
+
+   // Hard overrides for posts whose embeds are too weird to parse reliably
+  const videoOverrides = {
+    '383136': 'https://player.vimeo.com/video/1137090361',
+    "381733": "https://player.vimeo.com/video/1126193804",
+    '374604': 'https://player.vimeo.com/video/1126193804',
+
+    // Added 2025-12-10 — explicit Vimeo override for post 372002
+    // This stabilizes a non-standard Vimeo link the regex cannot extract.
+    '372002': 'https://player.vimeo.com/video/1093051934?dnt=1&app_id=122963',
+
+    // Added 2025-12-10 — explicit Vimeo override for Sept ’19 Newsmakers (post 38883)
+    '38883': 'https://player.vimeo.com/video/360644361'
+  };
+
+
+  const overrideSrc = videoOverrides[post.id];
+  if (overrideSrc) {
+    console.log('[OkObserver debug] Using videoOverrides for post', post.id, overrideSrc);
+
+    // REMOVE all existing iframes first — they include the broken WP Vimeo embed
+    container.querySelectorAll('iframe').forEach(el => el.remove());
+
+    // Create the same wrapper we use for auto-detected embeds
+    const wrapper = document.createElement('div');
+    wrapper.className = 'video-embed-wrapper';
+
+    const iframe = document.createElement('iframe');
+    iframe.src = overrideSrc;
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('frameborder', '0');
+    iframe.className = 'video-embed video-embed-vimeo';
+
+    wrapper.appendChild(iframe);
+
+    // Insert wrapper after the TTS row so the article text does not jump vertically
+    const ttsRow = container.querySelector('.post-detail-tts-row');
+    if (ttsRow && ttsRow.parentNode === container) {
+      ttsRow.insertAdjacentElement('afterend', wrapper);
+    } else {
+      container.insertBefore(wrapper, container.firstChild);
+    }
+
+    return;
+  }
+
+
+    // Otherwise, try to detect embeds from the post HTML
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    let videoEmbedHtml = '';
+
+    // 1) Direct iframe (classic WP and many block themes)
+    const iframeEl = tmp.querySelector('iframe');
+    if (iframeEl) {
+      videoEmbedHtml = iframeEl.outerHTML;
+    } else {
+      // 2) HTML5 <video> tag (Gutenberg video blocks, etc.)
+      const videoEl = tmp.querySelector('video');
+      if (videoEl) {
+        videoEmbedHtml = videoEl.outerHTML;
+      } else {
+        // 3) Links that point to video providers
+        const links = tmp.querySelectorAll('a');
+        for (const a of links) {
+          const href = a.getAttribute('href') || '';
+          const text = (a.textContent || '').trim().toLowerCase();
+
+          // YouTube: standard watch or youtu.be links
+          if (/youtube\.com\/watch\?v=/.test(href) || /youtu\.be\//.test(href)) {
+            videoEmbedHtml = buildYouTubeEmbedFromUrl(href);
+            break;
+          }
+
+          // Vimeo: handle vimeo.com/123456789 and vimeo.com/123456789?share=copy, etc.
+          if (href.includes('vimeo.com')) {
+             const idMatch = href.match(/vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/);
+
+
+            if (idMatch && idMatch[1]) {
+              videoEmbedHtml = `
+                <iframe
+                  class="video-embed video-embed-vimeo"
+                  src="https://player.vimeo.com/video/${idMatch[1]}"
+                  frameborder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+              `;
+              // We definitely have a playable Vimeo ID now.
+              break;
+            }
+            // If href has vimeo.com but regex fails, DO NOT break.
+            // Keep scanning other links (like "Click here to listen in").
+          }
+
+          // Special case: "Click here to listen in" pointing at Vimeo, even if href is weird
+          if (!videoEmbedHtml &&
+              text.includes('click here to listen in') &&
+              href.includes('vimeo.com')) {
+            const candidate = buildVimeoEmbedFromUrl(href);
+            if (candidate) {
+              videoEmbedHtml = candidate;
+              break;
+            }
+          }
+
+          // Facebook: use "Watch on Facebook" overlay instead of embedding
+          if (/facebook\.com\/.*\/videos\//.test(href)) {
+            addFacebookWatchOverlay(href);
+            // No embedded Facebook iframe; overlay only.
+            break;
+          }
+        }
+
+        // 4) Plain-text URLs inside the HTML (like 381733, 377530, etc.)
+        if (!videoEmbedHtml) {
+          const htmlText = html;
+
+          // Look for any bare Vimeo, YouTube or Facebook URL in the HTML.
+            const vimeoMatch = htmlText.match(
+            /https?:\/\/(?:www\.)?vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/
+          );
+
+          const ytMatch = htmlText.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[^"'<\s]+|youtu\.be\/[A-Za-z0-9_-]+)/);
+          const fbMatch = htmlText.match(/https?:\/\/(?:www\.)?facebook\.com\/[^"'<\s]+\/videos\/\d+/);
+
+          const urlMatch = vimeoMatch || ytMatch || fbMatch;
+          if (urlMatch) {
+            const url = urlMatch[0];
+
+            if (vimeoMatch && vimeoMatch[1]) {
+              // Build Vimeo embed directly from the captured ID
+              const id = vimeoMatch[1];
+              videoEmbedHtml = `
+                <iframe
+                  class="video-embed video-embed-vimeo"
+                  src="https://player.vimeo.com/video/${id}"
+                  frameborder="0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowfullscreen
+                ></iframe>
+              `;
+            } else if (ytMatch) {
+              videoEmbedHtml = buildYouTubeEmbedFromUrl(url);
+            } else if (fbMatch) {
+              // Again: overlay only, no embedded Facebook player.
+              addFacebookWatchOverlay(url);
+            }
+          }
+        }
+      }
+    }
+
+
+    // FINAL safety net: scan the raw HTML string for any Vimeo URL,
+    // even if it has ?share=copy, fbclid, etc., and turn it into a player.
+    if (!videoEmbedHtml) {
+      const rawVimeo = html.match(
+  /https?:\/\/[^"'<\s]*vimeo\.com\/(?:.*\/)?(\d{6,12})(?:\D|$)/i
+);
+
+      if (rawVimeo && rawVimeo[1]) {
+        const vimeoId = rawVimeo[1];
+        videoEmbedHtml = `
+          <iframe
+            class="video-embed video-embed-vimeo"
+            src="https://player.vimeo.com/video/${vimeoId}"
+            frameborder="0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen
+          ></iframe>
+        `;
+      }
+    }
+
+
+        if (videoEmbedHtml) {
+      const wrapperHtml = `
+        <div class="video-embed-wrapper">
+          ${videoEmbedHtml}
+        </div>
+      `;
+
+      // Insert after the TTS row so the top text position stays stable
+      const ttsRow = container.querySelector('.post-detail-tts-row');
+      if (ttsRow && ttsRow.parentNode === container) {
+        ttsRow.insertAdjacentHTML('afterend', wrapperHtml);
+      } else {
+        container.insertAdjacentHTML('afterbegin', wrapperHtml);
+      }
+    }
+
+    // After inserting embeds, remove stray empty paragraphs that
+    // only add vertical white space under the player.
+    const paragraphs = container.querySelectorAll('p');
+    paragraphs.forEach((p) => {
+      const hasMediaChild = p.querySelector('img, iframe, video, figure');
+      if (!hasMediaChild && !p.textContent.trim()) {
+        p.remove();
+      }
+    });
+  }
+
+
+  function buildYouTubeEmbedFromUrl(url) {
+    try {
+      const u = new URL(url);
+      let videoId = '';
+      if (u.hostname.includes('youtu.be')) {
+        videoId = u.pathname.replace('/', '');
+      } else {
+        videoId = u.searchParams.get('v') || '';
+      }
+      if (!videoId) return '';
+      return `
+        <iframe
+          class="video-embed video-embed-youtube"
+          src="https://www.youtube.com/embed/${videoId}"
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+        ></iframe>
+      `;
+    } catch (e) {
+      console.warn('[OkObserver] Unable to parse YouTube URL:', url, e);
+      return '';
+    }
+  }
+
+  function buildVimeoEmbedFromUrl(url) {
+    const match = url.match(/vimeo\.com\/(\d+)/);
+    const videoId = match && match[1];
+    if (!videoId) return '';
+    return `
+      <iframe
+        class="video-embed video-embed-vimeo"
+        src="https://player.vimeo.com/video/${videoId}"
+        frameborder="0"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    `;
+  }
+
+  function buildFacebookEmbedFromUrl(url) {
+    const enc = encodeURIComponent(url);
+    return `
+      <iframe
+        class="video-embed video-embed-facebook"
+        src="https://www.facebook.com/plugins/video.php?href=${enc}&show_text=0"
+        frameborder="0"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+        allowfullscreen
+      ></iframe>
+    `;
+  }
+
+  function addFacebookWatchOverlay(url) {
+    try {
+      const hero = document.querySelector('.post-hero, .post-detail-hero');
+      if (!hero) return;
+
+      // Avoid duplicates if we re-render
+      if (hero.querySelector('.fb-watch-overlay')) return;
+
+      // Ensure hero can host absolutely positioned children
+      const currentPosition = window.getComputedStyle(hero).position;
+      if (!currentPosition || currentPosition === 'static') {
+        hero.style.position = 'relative';
+      }
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'fb-watch-overlay';
+      link.textContent = 'Watch on Facebook';
+
+      hero.appendChild(link);
+
+      // Remove any existing Facebook iframes from the article content
+      const fbIframes = document.querySelectorAll(
+        '.post-detail-content iframe[src*="facebook.com"], ' +
+        '.post-detail-content iframe[data-lazy-src*="facebook.com"]'
+      );
+      fbIframes.forEach((el) => el.remove());
+    } catch (err) {
+      console.warn('[OkObserver] Failed to add Facebook watch overlay', err);
+    }
+  }
+  // ---------------------------------------------------------------------------
+  // Auth helpers (login via Cloudflare Worker)
+  // ---------------------------------------------------------------------------
+
+  async function loginUser(username, password) {
+    try {
+      const resp = await fetch(
+        'https://okobserver-proxy.bob-b5c.workers.dev/auth/login',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password })
+        }
+      );
+
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok || !data || !data.success) {
+        console.warn('[OkObserver] Login failed response:', data);
+        return false;
+      }
+
+console.info(
+  '[OkObserver] Login successful for:',
+  (data.user && (data.user.email || data.user.name)) || username
+);
+
+// ✅ persist logged-in state for authenticated fetches
+try {
+  localStorage.setItem('ooLoggedIn', '1');
+  if (data.token) {
+    localStorage.setItem('ooJwt', data.token);
+  }
+} catch (_) {}
+
+return true;
+
+    } catch (err) {
+      console.error('[OkObserver] Login error:', err);
+      return false;
+    }
+  }
+async function logoutUser() {
+  try {
+    await fetch('https://okobserver-proxy.bob-b5c.workers.dev/auth/logout', {
+  method: 'POST',
+  credentials: 'include'
+});
+
+    return true;
+  } catch (e) {
+    console.warn('[auth] logout failed', e);
+    return false;
+  }
+}
+
+  // ---------------------------------------------------------------------------
+  // Login view (new)
+  // ---------------------------------------------------------------------------
+
+  function renderLogin() {
+    stopTtsPlayback();
+    scrollToTop();
+
+    app.innerHTML = `
+      <div class="login-view">
+        <h1 class="login-title">Member Login</h1>
+
+        <form class="login-form" novalidate>
+          <label class="login-label">
+            <span class="login-label-text">Email or Username</span>
+            <input class="login-input" type="text" name="username" required />
+          </label>
+
+          <label class="login-label">
+            <span class="login-label-text">Password</span>
+            <div class="login-password-wrap">
+  <input class="login-input" id="ooLoginPassword" type="password" name="password" required autocomplete="current-password" />
+  <button class="login-password-toggle" type="button" aria-label="Show password" aria-pressed="false" aria-controls="ooLoginPassword">👁</button>
+</div>
+          </label>
+
+          <button class="login-submit" type="submit">Sign In</button>
+
+          <div class="login-error" aria-live="polite"></div>
+        </form>
+      </div>
+    `;
+
+    const form = app.querySelector(".login-form");
+    const errorBox = app.querySelector(".login-error");
+// Password peek (eye toggle)
+const pwInput = app.querySelector("#ooLoginPassword");
+const pwToggle = app.querySelector(".login-password-toggle");
+
+if (pwInput && pwToggle) {
+  pwToggle.addEventListener("click", () => {
+    const showing = pwInput.type === "text";
+    pwInput.type = showing ? "password" : "text";
+
+    pwToggle.setAttribute("aria-pressed", String(!showing));
+    pwToggle.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+    pwToggle.textContent = showing ? "👁" : "🙈";
+
+    // Keep focus in the field for usability
+    pwInput.focus({ preventScroll: true });
+    try { pwInput.setSelectionRange(pwInput.value.length, pwInput.value.length); } catch (_) {}
+  });
+}
+
+    form.addEventListener("submit", async (evt) => {
+      evt.preventDefault();
+      errorBox.textContent = "";
+
+      const formData = new FormData(form);
+      const username = formData.get("username")?.trim();
+      const password = formData.get("password");
+
+      if (!username || !String(password || "").length) {
+        errorBox.textContent = "Please enter both username and password.";
+        return;
+      }
+
+      try {
+                const ok = await loginUser(username, password);
+        if (ok) {
+          try { localStorage.setItem('ooLoggedIn', '1'); } catch (_) {}
+          try { document.body.classList.add('oo-logged-in'); } catch (_) {}
+
+          // IMPORTANT: throw away any paywalled/teaser post responses cached before login
+          try { postCache.clear(); } catch (_) {}
+          homeState.initialized = false;
+          searchState.initialized = false;
+          updateAuthNav();
+          window.location.replace(lastNonLoginHash || "#/");
+        } else {
+          errorBox.textContent = "Invalid login. Please try again.";
+        }
+
+
+      } catch (err) {
+        console.error("Login error:", err);
+        errorBox.textContent = "Unable to login. Please try again later.";
+      }
+    });
+  }
+function renderLogout() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  app.innerHTML = `
+    <div class="logout-wrap">
+      <h1>Sign out</h1>
+      <p>You’ll be signed out on this device. You can sign back in anytime.</p>
+      <div class="logout-actions">
+        <button id="btnConfirmLogout" class="btnPrimary">Sign out</button>
+        <button id="btnCancelLogout" class="btnSecondary">Stay signed in</button>
+      </div>
+      <div id="logoutMsg" class="login-msg" aria-live="polite"></div>
+    </div>
+  `;
+
+  const msgEl = document.getElementById('logoutMsg');
+  const btnCancel = document.getElementById('btnCancelLogout');
+  const btnConfirm = document.getElementById('btnConfirmLogout');
+  let busy = false;
+
+  btnCancel?.addEventListener('click', () => {
+    if (busy) return;
+    window.location.replace(lastNonLoginHash || '#/');
+  });
+
+  btnConfirm?.addEventListener('click', async () => {
+    if (busy) return;
+    busy = true;
+    if (btnCancel) btnCancel.disabled = true;
+    if (btnConfirm) btnConfirm.disabled = true;
+
+    if (msgEl) msgEl.textContent = 'Signing out…';
+
+    const ok = await logoutUser();
+    try { localStorage.removeItem('ooLoggedIn'); } catch (_) {}
+    updateAuthNav();
+// Clear any cached authenticated content so UI cannot look logged-in
+try { postCache.clear(); } catch (_) {}
+try { document.body.classList.remove('oo-logged-in'); } catch (_) {}
+
+    if (msgEl) msgEl.textContent =
+      ok ? 'Signed out.' : 'Sign out failed (you may already be signed out).';
+
+    setTimeout(() => window.location.replace(lastNonLoginHash || '#/'), 450);
+  });
+}
+
+
+  // ---------------------------------------------------------------------------
+  // Not found view
+  // ---------------------------------------------------------------------------
+
+function renderNotFound() {
+    scrollToTop();
+    app.innerHTML = `
+      <div class="not-found-view">
+        <h1>Not found</h1>
+        <p>We couldn’t find that page. Please return to the latest news.</p>
+        <button class="back-btn" type="button">Back to News</button>
+      </div>
+    `;
+    const back = app.querySelector('.back-btn');
+    if (back) {
+      back.addEventListener('click', () => {
+        window.location.replace('#/');
+
+      });
+    }
+  }
+
+
+  
+    // ---------------------------------------------------------------------------
+  // Search Infinite Scroll Helpers (added 2025-12-10, Option C inside-IIFE)
+  // ---------------------------------------------------------------------------
+
+  function teardownSearchInfiniteScroll() {
+    if (searchObserver) {
+      searchObserver.disconnect();
+      searchObserver = null;
+    }
+    if (searchScrollLoadTimeout) {
+      clearTimeout(searchScrollLoadTimeout);
+      searchScrollLoadTimeout = null;
+    }
+    const sentinel = document.querySelector('.search-scroll-sentinel');
+    if (sentinel && sentinel.parentNode) {
+      sentinel.parentNode.removeChild(sentinel);
+    }
+  }
+
+  function setupSearchInfiniteScroll(grid) {
+    teardownSearchInfiniteScroll();
+
+    if (!currentSearchTerm) return;
+
+    const sentinel = document.createElement('div');
+    sentinel.className = 'search-scroll-sentinel';
+    sentinel.setAttribute('aria-hidden', 'true');
+    grid.insertAdjacentElement('afterend', sentinel);
+
+    searchObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_SENTRY_OFFSET) {
+            requestMoreSearchResults();
+          }
+        }
+      },
+      {
+        root: null,
+        threshold: [SCROLL_SENTRY_OFFSET],
+      }
+    );
+
+    searchObserver.observe(sentinel);
+  }
+
+  function requestMoreSearchResults() {
+    if (isFetchingSearchResults || !hasMoreSearchPages) return;
+    if (searchScrollLoadTimeout) {
+      clearTimeout(searchScrollLoadTimeout);
+    }
+    searchScrollLoadTimeout = setTimeout(() => {
+      if (!isFetchingSearchResults && hasMoreSearchPages) {
+        loadMoreSearchResults();
+      }
+    }, 120);
+  }
+
+  async function loadMoreSearchResults() {
+    if (isFetchingSearchResults || !hasMoreSearchPages || !currentSearchTerm) {
+      return;
+    }
+
+    isFetchingSearchResults = true;
+showPagingStatus('Loading more…');
+
+
+    const view = document.querySelector('.search-view');
+    if (!view) {
+      hidePagingStatus();
+      isFetchingSearchResults = false;
+      return;
+    }
+
+    const grid = view.querySelector('.search-grid');
+    const statusEl = view.querySelector('.search-status');
+    if (!grid || !statusEl) {
+      hidePagingStatus();
+      isFetchingSearchResults = false;
+      return;
+    }
+
+    try {
+      const nextPage = currentSearchPage + 1;
+      console.debug('[OkObserver] Fetching search page', nextPage, 'for term', currentSearchTerm);
+
+      const results = await fetchSearchResults(currentSearchTerm, nextPage);
+      if (!Array.isArray(results) || results.length === 0) {
+        hasMoreSearchPages = false;
+        teardownSearchInfiniteScroll();
+        hidePagingStatus();
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      let appended = 0;
+
+      for (const post of results) {
+        if (hasExcludedCategory(post)) continue;
+        const card = createPostCard(post);
+        frag.appendChild(card);
+        appended++;
+      }
+
+      if (appended > 0) {
+        grid.appendChild(frag);
+
+        const total = grid.querySelectorAll('.post-card').length;
+        const statusTextEl = statusEl.querySelector('.search-status-text');
+        if (statusTextEl) {
+          statusTextEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+        } else {
+          statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+        }
+
+        currentSearchPage = nextPage;
+
+        if (appended < POSTS_PER_PAGE) {
+          hasMoreSearchPages = false;
+          teardownSearchInfiniteScroll();
+        }
+      } else {
+        hasMoreSearchPages = false;
+        teardownSearchInfiniteScroll();
+      }
+
+      hidePagingStatus();
+    } catch (err) {
+      console.error('[OkObserver] Error loading more search results:', err);
+      hidePagingStatus();
+    } finally {
+      isFetchingSearchResults = false;
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  // Initialization
+  // ---------------------------------------------------------------------------
+
+  function init() {
+    console.log('[OkObserver] Initializing app, build:', APP_BUILD_LABEL);
+
+    onRouteChange();
+
+    document.addEventListener('okobs:route', (ev) => {
+      const path =
+        (ev && ev.detail && ev.detail.hash) || parseHashRoute();
+      if (path !== '/' && !path.startsWith('/post/')) return;
+      setTimeout(removeLazyloadEmbeds, 800);
+    });
+  }
+
+  function removeLazyloadEmbeds() {
+    const iframes = document.querySelectorAll('iframe[data-lazy-src]');
+    iframes.forEach((iframe) => {
+      const lazySrc = iframe.getAttribute('data-lazy-src');
+      if (lazySrc) {
+        iframe.removeAttribute('data-lazy-src');
+        iframe.setAttribute('src', lazySrc);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    init();
+  });
+})();
+
+// 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix)
+// 🔴 main.js

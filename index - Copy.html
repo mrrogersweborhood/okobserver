@@ -1,0 +1,439 @@
+<!-- 🟢 index.html -->
+<!-- 🟢 index.html — start of file -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, viewport-fit=cover"
+/>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Observer">
+<link rel="apple-touch-icon" href="logo.png">
+  <title>The Oklahoma Observer</title>
+<link rel="icon" href="favicon.ico" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#2f68c9" />
+
+  <!-- Where "the website" lives. Menu links and relative links inside posts use this.
+       Testing: new staging site. AT LAUNCH change this ONE line to https://okobserver.org -->
+  <script>window.OO_SITE_ORIGIN = 'https://okobserverstaging.tempurl.host';</script>
+  <!-- Theme (dark/blue default, light = cream). Runs before first paint so there is no flash. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('ooTheme');
+        document.documentElement.setAttribute('data-oo-theme', t === 'light' ? 'light' : 'dark');
+      } catch (e) { document.documentElement.setAttribute('data-oo-theme', 'dark'); }
+    })();
+  </script>
+  <!-- Motto font (same as the website); falls back to system sans if offline -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" />
+
+  <!-- Performance: preconnect to API proxy -->
+  <link rel="preconnect" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+  <link rel="dns-prefetch" href="https://okobserver-proxy.bob-b5c.workers.dev" />
+
+  <!-- CSS -->
+  <link
+    rel="preload"
+    href="override.css?v=2026-11-13-reskin6"
+    as="style"
+  />
+  <link
+    rel="stylesheet"
+    href="override.css?v=2026-11-13-reskin6"
+  />
+
+  <!-- Main SPA entry -->
+<script
+  defer
+  src="main.js?v=2026-11-13-reskin6"
+></script>
+<script
+  defer
+  src="PostDetail.js?v=2026-11-13-reskin6"
+></script>
+</head>
+<body>
+  <header class="oo-header" role="banner" aria-label="Site header">
+    <div class="oo-header-inner">
+      <!-- Left spacer so the center column can truly center the brand -->
+      <div aria-hidden="true"></div>
+
+      <a class="oo-brand" href="#/">
+        <img class="oo-logo" src="logo.png" alt="The Oklahoma Observer" />
+        <div class="oo-motto">
+          To Comfort The Afflicted And Afflict The Comfortable
+        </div>
+      </a>
+
+      <button
+        class="oo-hamburger"
+        data-oo="hamburger"
+        aria-label="Menu"
+        aria-expanded="false"
+        aria-controls="oo-menu"
+      >
+        ≡
+      </button>
+    </div>
+  </header>
+
+  <!-- Overlay + Menu (hamburger) -->
+  <div class="oo-overlay" data-oo="overlay" hidden></div>
+  <nav 
+    class="oo-menu"
+    id="oo-menu"
+    data-oo="menu"
+    aria-label="Main navigation"
+  >
+    <ul class="oo-menu-list">
+      <li><a href="#/">News</a></li>
+      <li class="oo-submenu"><a href="#/toc">Table of Contents</a></li>
+      <li><a href="#/browse">Archives</a></li>
+      <li><a data-oo-site="/calendar/" href="/calendar/" target="_blank" rel="noopener">Events Calendar</a></li>
+
+
+
+
+
+      <li><a href="#/search">Search</a></li>
+      <li><a href="#/about">About &amp; Contact</a></li>
+      <li><a data-oo-site="/join/" href="/join/" target="_blank" rel="noopener">Subscribe &amp; Account</a></li>
+      <li><a data-oo-site="/terms-and-policies/" href="/terms-and-policies/" target="_blank" rel="noopener">Terms &amp; Policies</a></li>
+      <li><button type="button" class="oo-menu-btn" data-oo="theme-toggle">Light mode</button></li>
+      <li><a id="ooSignInLink" href="#/login" class="menuLink">Sign In</a></li>
+               <li><a id="ooSignOutLink" href="#/logout" class="menuLink">Sign Out</a></li>
+              <li><a data-oo-site="/" href="/" target="_blank" rel="noopener">Go to Website</a></li>
+
+    </ul>
+  </nav>
+
+  <!-- App root -->
+  <main id="app" role="main"></main>
+
+  <!-- 🟢 Splash / hero video container (RESTORED) -->
+  <div class="oo-splash" aria-hidden="false">
+    <video
+      id="oo-splash-video"
+      class="oo-splash-video"
+      preload="auto"
+      autoplay
+      muted
+      loop
+      playsinline
+      webkit-playsinline="true"
+      x5-playsinline="true"
+      disablepictureinpicture
+      disableremoteplayback
+      controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"
+    >
+      <source
+        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-11-13-reskin6"
+        type="video/mp4"
+      />
+    </video>
+  </div>
+  <!-- 🔴 Splash restored -->
+
+  <!-- MutationObserver grid enforcer (must remain) -->
+  
+  <script>
+    // 🟢 index.html — inline header script start
+    (function () {
+      function initHeader() {
+        var hamburger = document.querySelector('[data-oo="hamburger"]');
+        var overlay = document.querySelector('[data-oo="overlay"]');
+        var menu = document.querySelector('[data-oo="menu"]');
+
+        if (!hamburger || !overlay || !menu) {
+          console.warn('[OkObserver] Header script: elements not found');
+          return;
+        }
+
+        function setOpen(isOpen) {
+  document.body.classList.toggle('is-menu-open', isOpen);
+  hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  overlay.hidden = !isOpen;
+
+  if (isOpen) {
+    // Focus first link for keyboard users
+    var firstLink = menu.querySelector('a');
+    if (firstLink) firstLink.focus();
+  } else {
+    // Return focus to hamburger
+    hamburger.focus();
+  }
+}
+function syncAuthClass() {
+  try {
+    var isLoggedIn = localStorage.getItem('ooLoggedIn') === '1';
+    document.body.classList.toggle('oo-logged-in', isLoggedIn);
+  } catch (e) {
+    document.body.classList.remove('oo-logged-in');
+  }
+}
+
+
+       hamburger.addEventListener('click', function (evt) {
+  evt.preventDefault();
+  syncAuthClass();
+  var isOpen = !document.body.classList.contains('is-menu-open');
+  setOpen(isOpen);
+});
+
+
+        overlay.addEventListener('click', function () {
+          setOpen(false);
+        });
+
+        menu.addEventListener('click', function (evt) {
+          var target = evt.target;
+          if (target && target.tagName === 'A') {
+            setOpen(false);
+          }
+        });
+
+        
+window.addEventListener('hashchange', function () {
+  syncAuthClass();
+  setOpen(false);
+});
+syncAuthClass();
+
+        console.log('[OkObserver] Header script initialized.');
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initHeader);
+      } else {
+        initHeader();
+      }
+    })();
+    // 🔴 index.html — inline header script end
+  </script>
+
+  <script>
+    // Point the menu's website links at OO_SITE_ORIGIN (set once, near the top of this file).
+    document.addEventListener('DOMContentLoaded', function () {
+      var origin = String(window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '');
+      document.querySelectorAll('a[data-oo-site]').forEach(function (a) { a.href = origin + a.getAttribute('data-oo-site'); });
+    });
+    // Theme toggle (menu item). Saves the choice on this device.
+    (function () {
+      function label(btn, theme) { btn.textContent = theme === 'light' ? 'Dark mode' : 'Light mode'; }
+      function init() {
+        var btn = document.querySelector('[data-oo="theme-toggle"]');
+        if (!btn) return;
+        var root = document.documentElement;
+        label(btn, root.getAttribute('data-oo-theme'));
+        btn.addEventListener('click', function () {
+          var next = root.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+          root.setAttribute('data-oo-theme', next);
+          try { localStorage.setItem('ooTheme', next); } catch (e) {}
+          label(btn, next);
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+    })();
+  </script>
+
+  <script>
+    // 🟢 index.html — grid-enforcer start of file
+    (function () {
+      function enforceGrid() {
+        const grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.post-card').forEach(function (card) {
+          card.classList.add('post-card');
+        });
+      }
+
+      const app = document.getElementById('app');
+      if (app) {
+        const mo = new MutationObserver(enforceGrid);
+        mo.observe(app, { childList: true, subtree: true });
+      }
+
+      window.addEventListener('hashchange', enforceGrid);
+      document.addEventListener('okobs:route', enforceGrid);
+      setInterval(enforceGrid, 1500);
+    })();
+    // 🔴 index.html — grid-enforcer end of file
+  </script>
+
+  <!-- Service worker registration (must stay in index.html, not main.js) -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) {
+        console.log('[OkObserver] SW not supported in this browser.');
+        return;
+      }
+
+      var SW_BUILD = '2026-11-13-reskin6'; // bump when sw.js changes
+      var SW_URL = '/okobserver/sw.js';
+      var SCOPE = '/okobserver/';
+
+            window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .getRegistration(SCOPE)
+          .then(function (reg) {
+            if (!reg) return;
+            if (!reg.active) return;
+            if (!reg.active.scriptURL) return;
+            if (reg.active.scriptURL.indexOf(SW_BUILD) === -1) {
+              console.log('[OkObserver] SW build mismatch, unregistering…');
+              return reg.unregister();
+            }
+          })
+          .catch(function (err) {
+            console.warn('[OkObserver] SW getRegistration error:', err);
+          })
+          .then(function () {
+            return navigator.serviceWorker.register(SW_URL + '?v=' + SW_BUILD, {
+              scope: SCOPE,
+              updateViaCache: 'none'
+            });
+          })
+          .then(function (reg) {
+            if (reg) console.log('[OkObserver] SW registered:', reg.scope);
+          })
+          .catch(function (err) {
+            console.warn('[OkObserver] SW register error:', err);
+          });
+      });
+    })();
+  </script>
+
+          <!-- Splash hide logic: show on app/page launch, but do not replay within the same page session -->
+  <script>
+        (function () {
+      var splash = document.querySelector('.oo-splash');
+      var vid = document.getElementById('oo-splash-video');
+      if (!splash || !vid) return;
+
+      splash.style.background = '#1E90FF';
+      vid.style.opacity = '0';
+
+      function stopAndUnloadSplashVideo() {
+        try { vid.pause(); } catch (e) {}
+        try {
+          var sources = vid.querySelectorAll('source');
+          for (var i = 0; i < sources.length; i++) {
+            sources[i].removeAttribute('src');
+          }
+          vid.removeAttribute('src');
+          vid.load();
+        } catch (e2) {}
+      }
+
+      function tryStartSplashVideo() {
+        var playPromise;
+        try {
+          playPromise = vid.play();
+        } catch (e) {
+          playPromise = null;
+        }
+
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise.then(function () {
+            vid.style.opacity = '1';
+          }).catch(function () {
+            vid.muted = true;
+            try {
+              var retryPromise = vid.play();
+              if (retryPromise && typeof retryPromise.then === 'function') {
+                retryPromise.then(function () {
+                  vid.style.opacity = '1';
+                }).catch(function () {
+                  vid.style.opacity = '1';
+                });
+              } else {
+                vid.style.opacity = '1';
+              }
+            } catch (e2) {
+              vid.style.opacity = '1';
+            }
+          });
+        } else {
+          vid.style.opacity = '1';
+        }
+      }
+
+      vid.addEventListener('playing', function () {
+        vid.style.opacity = '1';
+      }, { once: true });
+
+
+
+            var splashStartedAt = Date.now();
+      var splashMinVisibleMs = 1800;
+      var splashHideTimer = null;
+
+      function hideSplash() {
+        if (!splash || splash.__ooHidden) return;
+        splash.__ooHidden = true;
+
+        splash.style.opacity = '0';
+        splash.style.visibility = 'hidden';
+        splash.style.pointerEvents = 'none';
+        stopAndUnloadSplashVideo();
+
+        window.__OO_SPLASH_SHOWN_ONCE__ = true;
+      }
+
+      function hideSplashWhenAllowed() {
+        if (!splash || splash.__ooHidden) return;
+
+        var elapsed = Date.now() - splashStartedAt;
+        var remaining = splashMinVisibleMs - elapsed;
+
+        if (remaining <= 0) {
+          hideSplash();
+          return;
+        }
+
+        if (splashHideTimer) {
+          clearTimeout(splashHideTimer);
+        }
+
+        splashHideTimer = setTimeout(function () {
+          hideSplash();
+        }, remaining);
+      }
+
+      function checkGridReady() {
+        var grid = document.querySelector('#app .posts-grid');
+        if (!grid) return;
+        var cards = grid.querySelectorAll('.post-card');
+        if (cards.length > 0) {
+          hideSplashWhenAllowed();
+        }
+      }
+
+      var appRoot = document.getElementById('app');
+      if (appRoot && window.MutationObserver) {
+        var observer = new MutationObserver(checkGridReady);
+        observer.observe(appRoot, { childList: true, subtree: true });
+      }
+
+      tryStartSplashVideo();
+      setTimeout(hideSplashWhenAllowed, 7000);
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        checkGridReady();
+      } else {
+        document.addEventListener('DOMContentLoaded', checkGridReady);
+      }
+    })();
+  </script>
+</body>
+</html>
+<!-- 🔴 index.html — end of file -->
+<!-- 🔴 index.html -->
