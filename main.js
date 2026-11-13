@@ -198,10 +198,9 @@ if (path !== '/login' && path !== '/logout') {
     } else if (path === '/toc') {
       // Table of Contents was removed from the app; old links go home.
       window.location.replace('#/');
-    } else if (path === '/saved') {
-      renderSaved();
-    } else if (path === '/following') {
-      renderFollowing();
+    } else if (path === '/saved' || path === '/following') {
+      // Saved and My Feed were retired; old links go home.
+      window.location.replace('#/');
     } else if (path === '/events') {
       renderEvents();
     } else if (path === '/browse') {
@@ -2742,7 +2741,7 @@ async function fetchAllAuthors() {
   const res = await fetch(`${WORKER_BASE}/content/authors`);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
-  const all = (Array.isArray(data.authors) ? data.authors : []).filter((u) => u && u.id && u.name);
+  const all = (Array.isArray(data.authors) ? data.authors : []).filter((u) => u && u.id && u.name && !/^admix$/i.test(String(u.name).trim()));
   all.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   authorListCache = all;
   return all;
@@ -2757,7 +2756,7 @@ function renderBrowse() {
   app.innerHTML = `
     <div class="browse-view">
       <h1 class="toc-title">Archives</h1>
-      <p class="toc-subtitle">Browse by author, topic or section. Newest posts first.</p>
+      <p class="toc-subtitle">Browse by section, topic or author. Newest posts first.</p>
 
       <section class="browse-section">
         <h2 class="browse-heading">Sections</h2>
@@ -2779,20 +2778,22 @@ function renderBrowse() {
       </section>
     </div>`;
 
-  const catsEl = app.querySelector('.browse-cats');
   const tagsEl = app.querySelector('.browse-tags');
   const authorsEl = app.querySelector('.browse-authors');
   const chip = (type, item) =>
     `<a class="browse-chip" href="${archiveHref(type, item.id, item.name)}">${escapeHtml(item.name)}</a>`;
   const decode = (s) => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
 
-  // Sections (categories) - hide the excluded cartoon category and empty ones
-  fetchJson(`${WP_API_BASE}/categories?per_page=100&orderby=count&order=desc&_fields=id,name,slug,count`)
+  // Sections (categories): only these four are offered
+  const catsEl = app.querySelector('.browse-cats');
+  const SECTION_LABELS = { columnists: 'Columnists', newsmakers: 'Newsmakers', observercast: 'ObserverCast', substack: 'Substack' };
+  fetchJson(`${WP_API_BASE}/categories?slug=${Object.keys(SECTION_LABELS).join(',')}&per_page=20&_fields=id,slug`)
     .then((rows) => {
       if (token !== archiveToken) return;
       const list = (Array.isArray(rows) ? rows : [])
-        .filter((c) => c.count > 0 && !EXCLUDED_CATEGORY_SLUGS.includes(String(c.slug).toLowerCase()) && c.slug !== 'uncategorized')
-        .map((c) => ({ id: c.id, name: decode(c.name) }));
+        .filter((c) => SECTION_LABELS[c.slug])
+        .sort((a, b) => Object.keys(SECTION_LABELS).indexOf(a.slug) - Object.keys(SECTION_LABELS).indexOf(b.slug))
+        .map((c) => ({ id: c.id, name: SECTION_LABELS[c.slug] }));
       catsEl.innerHTML = list.map((c) => chip('category', c)).join('') || '<span class="browse-loading">None found.</span>';
     })
     .catch(() => { catsEl.innerHTML = '<span class="browse-loading">Could not load sections.</span>'; });
