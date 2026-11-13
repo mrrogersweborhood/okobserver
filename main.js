@@ -197,6 +197,8 @@ if (path !== '/login' && path !== '/logout') {
       renderSearch(params);
     } else if (path === '/toc') {
       renderToc();
+    } else if (path === '/events') {
+      renderEvents();
     } else if (path === '/browse') {
       renderBrowse();
     } else if (path === '/archive') {
@@ -1633,6 +1635,121 @@ statusTextEl.textContent = decodedLabel
 //   #/archive?type=author|tag|category&id=N&label=Name
 // Uses the standard WordPress REST list endpoints (same data the website archives use).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Events: the Observer's public Google Calendar, read through the Worker (/content/events)
+// ---------------------------------------------------------------------------
+function renderEvents() {
+  stopTtsPlayback();
+  scrollToTop();
+  lastListHash = '#/events';
+  const token = ++archiveToken;
+  const TZ = 'America/Chicago';
+
+  app.innerHTML = `
+    <div class="events-view">
+      <h1 class="toc-title">Events</h1>
+      <p class="toc-subtitle">Upcoming Oklahoma Observer events. Times are Central.</p>
+      <div class="search-status is-loading" aria-live="polite">
+        <span class="search-status-spinner" aria-hidden="true"></span>
+        <span class="search-status-text">Loading events…</span>
+      </div>
+      <div class="events-list"></div>
+      <details class="events-past" hidden><summary>Past events</summary><div class="events-past-list"></div></details>
+    </div>`;
+
+  const statusEl = app.querySelector('.search-status');
+  const statusText = app.querySelector('.search-status-text');
+  const listEl = app.querySelector('.events-list');
+  const pastWrap = app.querySelector('.events-past');
+  const pastList = app.querySelector('.events-past-list');
+
+  const fmt = (d, opts) => new Intl.DateTimeFormat('en-US', Object.assign({ timeZone: TZ }, opts)).format(d);
+  const gcalStamp = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+  function whenText(ev, s, e) {
+    if (ev.allDay) return fmt(s, { weekday: 'long', month: 'long', day: 'numeric' });
+    const day = fmt(s, { weekday: 'long', month: 'long', day: 'numeric' });
+    const t1 = fmt(s, { hour: 'numeric', minute: '2-digit' }).replace(':00', '');
+    const t2 = fmt(e, { hour: 'numeric', minute: '2-digit' }).replace(':00', '');
+    return `${day}, ${t1}${e > s ? ' – ' + t2 : ''}`;
+  }
+
+  function decodeEntities(s) { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; }
+
+  // Some calendar descriptions contain a little web-page code (<br>, an RSVP link). Pull out the https links
+  // as buttons and turn everything else into plain text.
+  function splitDescription(raw) {
+    const links = [];
+    let text = String(raw || '').replace(/<a\s[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, href, label) => {
+      if (/^https:\/\//i.test(href)) links.push({ href: decodeEntities(href), label: (/^https?:\/\//i.test(decodeEntities(String(label).replace(/<[^>]*>/g, '')).trim()) ? '' : decodeEntities(String(label).replace(/<[^>]*>/g, '')).trim()) || 'More info' });
+      return '\n';
+    });
+    text = text.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]*>/g, '');
+    return { text: decodeEntities(text), links };
+  }
+
+  function descHtml(text) {
+    // The calendar text repeats place/date/time on emoji lines; the card already shows those, so drop them.
+    return String(text || '').split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/^[\u{1F4CD}\u{1F4C5}\u{1F555}\u{1F550}-\u{1F55B}]/u.test(l))
+      .map((l) => `<p>${escapeHtml(l)}</p>`).join('');
+  }
+
+  function eventCard(ev) {
+    const s = new Date(ev.start);
+    const e = new Date(ev.end);
+    const addUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent(ev.title)
+      + '&dates=' + gcalStamp(s) + '/' + gcalStamp(e)
+      + '&location=' + encodeURIComponent(ev.location || '');
+    const parts = splitDescription(ev.description);
+    const linkBtns = parts.links.map((l) =>
+      `<a class="btnPrimary event-add" href="${escapeAttr(l.href)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`).join(' ');
+    const el = document.createElement('article');
+    el.className = 'event-card';
+    el.innerHTML = `
+      <div class="event-date" aria-hidden="true">
+        <span class="event-mon">${escapeHtml(fmt(s, { month: 'short' }))}</span>
+        <span class="event-day">${escapeHtml(fmt(s, { day: 'numeric' }))}</span>
+        <span class="event-wd">${escapeHtml(fmt(s, { weekday: 'short' }))}</span>
+      </div>
+      <div class="event-body">
+        <h2 class="event-title">${escapeHtml(ev.title)}</h2>
+        <div class="event-when">${escapeHtml(whenText(ev, s, e))}</div>
+        ${ev.location ? `<div class="event-loc">${escapeHtml(ev.location.replace(/,\s*USA$/, ''))}</div>` : ''}
+        <div class="event-desc">${descHtml(parts.text)}</div>
+        ${linkBtns}
+        <a class="btnSecondary event-add" href="${escapeAttr(addUrl)}" target="_blank" rel="noopener">Add to calendar</a>
+      </div>`;
+    return el;
+  }
+
+  fetchJson(`${WORKER_BASE}/content/events`)
+    .then((data) => {
+      if (token !== archiveToken) return;
+      const events = (data && Array.isArray(data.events)) ? data.events : [];
+      const now = Date.now();
+      const upcoming = events.filter((ev) => new Date(ev.end).getTime() >= now);
+      const past = events.filter((ev) => new Date(ev.end).getTime() < now).reverse().slice(0, 12);
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = upcoming.length
+        ? `${upcoming.length} upcoming event${upcoming.length === 1 ? '' : 's'}.`
+        : 'No upcoming events are scheduled right now. Check back soon.';
+      upcoming.forEach((ev) => listEl.appendChild(eventCard(ev)));
+      if (past.length) {
+        pastWrap.hidden = false;
+        past.forEach((ev) => pastList.appendChild(eventCard(ev)));
+      }
+    })
+    .catch((err) => {
+      console.error('[OkObserver] Events load failed:', err);
+      if (token !== archiveToken) return;
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = 'Could not load events. Please try again.';
+    });
+}
+
 const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories' };
 const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category' };
 let archiveToken = 0;

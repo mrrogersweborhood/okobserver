@@ -265,6 +265,10 @@ if (url.pathname === "/auth/status" && request.method === "GET") {
 if (url.pathname === "/content/author-posts" && request.method === "GET") {
   return handleAuthorPosts(request, url, env);
 }
+/* ------------------ EVENTS (Observer's public Google Calendar; must come before API_ALLOW gate) ------------------ */
+if (url.pathname === "/content/events" && request.method === "GET") {
+  return handleEvents(request);
+}
 /* ------------------ AUTHOR ARCHIVES (app Archives screens; must come before API_ALLOW gate) ------------------ */
 // WordPress/the host firewall block anonymous /users and ?author= requests, so these two read-only routes
 // build author lists from ordinary public post lists instead (no login needed; summary fields only, no post body).
@@ -442,6 +446,60 @@ function basicAuthHeaders(env) {
   const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
   if (!basic) return null;
   return { "Authorization": `Basic ${basic}`, "Accept": "application/json" };
+}
+
+// ---- Events: the Observer's public Google Calendar, turned into simple JSON for the app ----
+// Same calendar the website's /calendar page uses. Works the same before and after launch.
+const EVENTS_ICS_URL =
+  "https://calendar.google.com/calendar/ical/c_022aa19feddf5005040e15ca786f4ad617a31388f97a591846f5efc32464080c%40group.calendar.google.com/public/basic.ics";
+
+function icsUnescape(s) {
+  return String(s || "").replace(/\\n/gi, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+}
+function icsDate(v) {
+  // 20261114T000000Z  or  20261114 (all-day)
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z?)?$/.exec(String(v || "").trim());
+  if (!m) return null;
+  if (m[4] === undefined) return { iso: `${m[1]}-${m[2]}-${m[3]}T12:00:00Z`, allDay: true };
+  return { iso: `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`, allDay: false };
+}
+function parseIcs(text) {
+  const unfolded = String(text || "").replace(/\r?\n[ \t]/g, "");
+  const events = [];
+  const blocks = unfolded.split("BEGIN:VEVENT").slice(1);
+  for (const raw of blocks) {
+    const body = raw.split("END:VEVENT")[0];
+    const f = {};
+    for (const line of body.split(/\r?\n/)) {
+      const i = line.indexOf(":");
+      if (i < 1) continue;
+      const name = line.slice(0, i).split(";")[0].toUpperCase();
+      if (!(name in f)) f[name] = line.slice(i + 1);
+    }
+    const start = icsDate(f["DTSTART"]);
+    if (!start || /CANCELLED/i.test(f["STATUS"] || "")) continue;
+    const end = icsDate(f["DTEND"]) || start;
+    events.push({
+      title: icsUnescape(f["SUMMARY"]) || "Event",
+      start: start.iso,
+      end: end.iso,
+      allDay: start.allDay,
+      location: icsUnescape(f["LOCATION"]),
+      description: icsUnescape(f["DESCRIPTION"])
+    });
+  }
+  events.sort((a, b) => new Date(a.start) - new Date(b.start));
+  return events;
+}
+async function handleEvents(request) {
+  try {
+    const resp = await fetch(EVENTS_ICS_URL, { headers: { "Accept": "text/calendar" } });
+    if (!resp.ok) return json(502, { ok: false, error: "Calendar feed unavailable", status: resp.status }, NO_STORE, request);
+    const events = parseIcs(await resp.text());
+    return json(200, { ok: true, events }, { "cache-control": "public, max-age=600" }, request);
+  } catch (err) {
+    return jsonError(500, "events failed", err, request);
+  }
 }
 
 // Author archives WITHOUT /users or ?author= (the site firewall blocks those for anyone not logged in).
@@ -954,6 +1012,7 @@ function corsHeaders(req) {
     path.startsWith("/wp-json/") ||
     path.startsWith("/content/full-post") ||
     path.startsWith("/content/author-posts") ||
+    path.startsWith("/content/events") ||
     path === "/" ||
     path === "/status";
 
