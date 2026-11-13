@@ -715,3 +715,5 @@ html[data-oo-theme~="light"] .oof .oo-app-ios{opacity:.9}
 }
 .oo-listen-box .oo-lb-x { background: transparent; color: inherit; font-size: 24px; letter-spacing: 0; border: 1.5px solid var(--oo-panel-line); }
 .oo-listen-box .oo-lb-txt { flex: 1; font: 700 14px/1.2 var(--oo-font-ui); }
+
+.oo-ln-arrow { display: none !important; }
