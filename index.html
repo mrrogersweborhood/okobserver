@@ -52,22 +52,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-11-13-reskin19"
+    href="override.css?v=2026-11-13-reskin24"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-11-13-reskin19"
+    href="override.css?v=2026-11-13-reskin24"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-11-13-reskin19"
+  src="main.js?v=2026-11-13-reskin24"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-11-13-reskin19"
+  src="PostDetail.js?v=2026-11-13-reskin24"
 ></script>
 </head>
 <body>
@@ -113,7 +113,7 @@
           <li><a href="#/browse">Archive</a></li>
           <li><a href="#/events">Calendar</a></li>
           <li><a href="#/archive?type=category&amp;slug=columnists&amp;label=Columnists">Columnists</a></li>
-          <li><a data-oo-site="/index/" href="/index/" target="_blank" rel="noopener">Topic Index</a></li>
+          <li><a href="#/browse?section=topics">Topic Index</a></li>
           <li><a href="#/archive?type=category&amp;slug=issues&amp;label=Magazine">Magazine</a></li>
           <li><a href="#/archive?type=category&amp;slug=newsmakers&amp;label=Newsmakers">Newsmakers</a></li>
           <li><a href="#/archive?type=category&amp;slug=observercast&amp;label=ObserverCast">ObserverCast</a></li>
@@ -124,11 +124,15 @@
         <button type="button" class="oo-group-btn" aria-expanded="false">Reader Services</button>
         <ul class="oo-group-list">
           <li><a href="#/about">About the Observer</a></li>
-          <li><a data-oo-site="/donate/" href="/donate/" target="_blank" rel="noopener">Donate</a></li>
+          <li><a href="#/page?slug=donate&amp;label=Donate">Donate</a></li>
           <li><a data-oo-site="/shop/" href="/shop/" target="_blank" rel="noopener">Gift Subscription</a></li>
           <li><a data-oo-site="/my-account/" href="/my-account/" target="_blank" rel="noopener">My Account</a></li>
           <li><a data-oo-site="/shop/" href="/shop/" target="_blank" rel="noopener">Shop</a></li>
           <li><a data-oo-site="/shop/" href="/shop/" target="_blank" rel="noopener">Subscribe</a></li>
+          
+          
+          
+          
         </ul>
       </li>
 
@@ -144,10 +148,10 @@
       <li class="oo-group">
         <button type="button" class="oo-group-btn" aria-expanded="false">Terms &amp; Policies</button>
         <ul class="oo-group-list">
-          <li><a data-oo-site="/terms-and-policies/#terms-conditions" href="/terms-and-policies/#terms-conditions" target="_blank" rel="noopener">Terms of Use</a></li>
-          <li><a data-oo-site="/terms-and-policies/#privacy" href="/terms-and-policies/#privacy" target="_blank" rel="noopener">Privacy Policy</a></li>
-          <li><a data-oo-site="/terms-and-policies/#subscription-agreement" href="/terms-and-policies/#subscription-agreement" target="_blank" rel="noopener">Subscription Agreement</a></li>
-          <li><a data-oo-site="/terms-and-policies/#returns-refunds" href="/terms-and-policies/#returns-refunds" target="_blank" rel="noopener">Returns &amp; Refunds</a></li>
+          <li><a href="#/page?slug=terms-and-policies&amp;section=terms-conditions&amp;label=Terms and Policies">Terms of Use</a></li>
+          <li><a href="#/page?slug=terms-and-policies&amp;section=privacy&amp;label=Terms and Policies">Privacy Policy</a></li>
+          <li><a href="#/page?slug=terms-and-policies&amp;section=subscription-agreement&amp;label=Terms and Policies">Subscription Agreement</a></li>
+          <li><a href="#/page?slug=terms-and-policies&amp;section=returns-refunds&amp;label=Terms and Policies">Returns &amp; Refunds</a></li>
         </ul>
       </li>
 
@@ -197,7 +201,7 @@
       controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"
     >
       <source
-        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-11-13-reskin19"
+        src="Newspaper_Rolls_Into_Cartoon_Cell_Phone.mp4?v=2026-11-13-reskin24"
         type="video/mp4"
       />
     </video>
@@ -209,7 +213,7 @@
       <div class="oo-splash-motto">To Comfort The Afflicted And Afflict The Comfortable</div>
       <div class="oo-splash-tag">Independent journalism since 1968</div>
       <div class="oo-splash-bar"><span></span></div>
-      <div class="oo-splash-ver">Version 2026-11-13-reskin19</div>
+      <div class="oo-splash-ver">Version 2026-11-13-reskin24</div>
     </div>
   </div>
   <!-- 🔴 Splash restored -->
@@ -356,7 +360,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-11-13-reskin19'; // bump when sw.js changes
+      var SW_BUILD = '2026-11-13-reskin24'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 

@@ -142,7 +142,7 @@ a { color: var(--oo-link); }
 /* splash branding (logo top; motto, tagline, loading bar, version bottom) */
 .oo-splash-brand, .oo-splash-foot { position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none; text-align: center; }
 .oo-splash-brand { top: 0; padding: max(env(safe-area-inset-top, 0px), 18px) 20px 38px; background: linear-gradient(rgba(5, 22, 58, .78), rgba(5, 22, 58, 0)); }
-.oo-splash-logo { height: clamp(46px, 9vh, 84px); width: auto; filter: brightness(0) invert(1); }
+.oo-splash-logo { width: min(210px, 56vw); height: auto; max-width: none; filter: brightness(0) invert(1); }
 .oo-splash-foot { bottom: 0; padding: 46px 22px max(env(safe-area-inset-bottom, 0px), 18px); background: linear-gradient(rgba(5, 22, 58, 0), rgba(5, 22, 58, .82)); display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .oo-splash-motto { font: 700 clamp(10px, 2.9vw, 14px)/1.4 var(--oo-font-motto, "Montserrat", sans-serif); letter-spacing: .2em; text-transform: uppercase; color: #fff; max-width: 560px; }
 .oo-splash-motto::before { content: ""; display: block; width: 44px; height: 2px; margin: 0 auto 10px; background: #f7d56a; }
@@ -644,3 +644,15 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .post-pn-next:only-child { grid-column: 2 / 3; }
 .post-pn-dir { font: 700 12px/1 var(--oo-font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--oo-accent); }
 .post-pn-title { font: 700 15px/1.25 var(--oo-font-head); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* "You're leaving the app" notice (reskin22) */
+.oo-leave { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4, 18, 52, .72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.oo-leave-card { width: min(380px, 100%); padding: 22px 22px 18px; text-align: center; background: var(--oo-panel-strong); border: .8px solid var(--oo-panel-line); border-radius: 8px; box-shadow: var(--oo-shadow); color: var(--oo-ink); }
+:root:not([data-oo-theme="light"]) .oo-leave-card { background: #0b2a66; }
+.oo-leave-card h2 { margin: 0 0 10px; font: 900 21px/1.2 var(--oo-font-head); color: var(--oo-title); }
+.oo-leave-card p { margin: 0 0 8px; font: 400 16px/1.45 var(--oo-font-body); }
+.oo-leave-hint { color: var(--oo-ink-dim); font-size: 14px !important; }
+.oo-leave-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+.oo-leave-btns button { padding: 12px 20px; border-radius: 6px; font: 700 15px/1 var(--oo-font-ui); cursor: pointer; border: 1px solid var(--oo-accent); }
+.oo-leave-go { background: var(--oo-accent); color: var(--oo-accent-ink); }
+.oo-leave-stay { background: transparent; color: var(--oo-accent); }

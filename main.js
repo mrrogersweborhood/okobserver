@@ -191,6 +191,8 @@ if (path !== '/login' && path !== '/logout') {
         console.warn('[OkObserver] Invalid post ID in route:', idStr);
         renderNotFound();
       }
+    } else if (path === '/page') {
+      renderWpPage(params);
     } else if (path === '/about') {
       renderAbout();
     } else if (path === '/search') {
@@ -204,7 +206,7 @@ if (path !== '/login' && path !== '/logout') {
     } else if (path === '/events') {
       renderEvents();
     } else if (path === '/browse') {
-      renderBrowse();
+      renderBrowse(params);
     } else if (path === '/archive') {
       renderArchive(params);
     } else if (path === '/login') {
@@ -1660,6 +1662,72 @@ if (posts.length > 0 && appendedCount === 0) {
   // About view
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Website pages shown inside the app (Donate, Terms & Policies). Text comes from the website's own pages.
+  // ---------------------------------------------------------------------------
+  function wpFixContent(root) {
+    root.querySelectorAll('style, script, noscript, iframe, object, embed').forEach((n) => n.remove());
+    const absolutize = (u) => (u && /^\/(?!\/)/.test(u) ? OO_SITE_ORIGIN + u : u);
+    root.querySelectorAll('img, source').forEach((el) => {
+      const ds = el.getAttribute('data-src') || el.getAttribute('data-lazy-src') || el.getAttribute('data-original');
+      const dss = el.getAttribute('data-srcset');
+      if (ds) el.setAttribute('src', ds);
+      if (dss) el.setAttribute('srcset', dss);
+      ['data-src', 'data-lazy-src', 'data-original', 'data-srcset', 'data-sizes'].forEach((n) => el.removeAttribute(n));
+      el.classList.remove('lazyload', 'lazyloaded');
+      const s = el.getAttribute('src');
+      if (s) el.setAttribute('src', absolutize(s));
+      const ss = el.getAttribute('srcset');
+      if (ss) el.setAttribute('srcset', ss.split(',').map((part) => { const t = part.trim().split(/\s+/); t[0] = absolutize(t[0]); return t.join(' '); }).join(', '));
+      if (el.tagName === 'IMG') { el.removeAttribute('loading'); el.setAttribute('decoding', 'async'); el.classList.add('about-image-full'); }
+    });
+    root.querySelectorAll('a[href]').forEach((a) => {
+      const h = a.getAttribute('href') || '';
+      if (h.startsWith('#')) return; // in-page jump
+      if (/^\/(?!\/)/.test(h)) a.setAttribute('href', absolutize(h));
+      a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener');
+    });
+    root.querySelectorAll('form').forEach((f) => {
+      const act = f.getAttribute('action') || '';
+      if (/^\/(?!\/)/.test(act)) f.setAttribute('action', absolutize(act));
+      f.setAttribute('target', '_blank'); f.setAttribute('rel', 'noopener');
+    });
+  }
+
+  const pageCache = {};
+  async function renderWpPage(params) {
+    stopTtsPlayback();
+    const slug = String((params && params.slug) || '').replace(/[^a-z0-9-]/gi, '');
+    const section = String((params && params.section) || '').replace(/[^a-z0-9_-]/gi, '');
+    const label = (params && params.label) || '';
+    lastListHash = window.location.hash || '#/';
+    app.innerHTML = `<article class="about-view page-view"><h1 class="toc-title">${escapeHtml(label)}</h1><div class="about-html"><p>Loading…</p></div></article>`;
+    if (!section) scrollToTop();
+    const box = app.querySelector('.about-html');
+    try {
+      if (!pageCache[slug]) {
+        const rows = await fetchJson(`${WP_API_BASE}/pages?slug=${encodeURIComponent(slug)}&_fields=id,title,content`);
+        pageCache[slug] = Array.isArray(rows) && rows.length ? rows[0] : null;
+      }
+      const page = pageCache[slug];
+      if (!document.body.contains(box)) return;
+      if (!page || !page.content || !page.content.rendered) { box.innerHTML = '<p>This page isn’t available right now.</p>'; return; }
+      box.innerHTML = page.content.rendered;
+      // the page's own big title, if it repeats ours
+      wpFixContent(box);
+      const h = app.querySelector('.toc-title');
+      if (h && !h.textContent.trim()) h.textContent = stripHtml((page.title && page.title.rendered) || '');
+      if (section) {
+        const target = box.querySelector('#' + CSS.escape(section));
+        if (target) requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+        else scrollToTop();
+      }
+    } catch (err) {
+      console.warn('[OkObserver] Page failed:', slug, err);
+      if (document.body.contains(box)) box.innerHTML = '<p>Couldn’t load this page. Check your connection and try again.</p>';
+    }
+  }
+
   function renderAbout() {
     // Stop any TTS and go to top, like other views
     stopTtsPlayback();
@@ -1764,6 +1832,32 @@ if (posts.length > 0 && appendedCount === 0) {
           // Fallback: just show the whole HTML if we can't find specific columns
           aboutHtmlEl.innerHTML = rawHtml;
         }
+
+        // The page's own pictures and links are written relative to the website ("/wp-content/..."),
+        // which point nowhere from inside the app. Make them point at the website.
+        const absolutize = (u) => (u && /^\/(?!\/)/.test(u) ? OO_SITE_ORIGIN + u : u);
+        aboutHtmlEl.querySelectorAll('img, source').forEach((el) => {
+          // Smush "lazy load" leaves a 1-pixel placeholder in src and the real picture in data-src
+          const ds = el.getAttribute('data-src') || el.getAttribute('data-lazy-src') || el.getAttribute('data-original');
+          const dss = el.getAttribute('data-srcset');
+          if (ds) el.setAttribute('src', ds);
+          if (dss) el.setAttribute('srcset', dss);
+          ['data-src', 'data-lazy-src', 'data-original', 'data-srcset', 'data-sizes'].forEach((n) => el.removeAttribute(n));
+          el.classList.remove('lazyload', 'lazyloaded');
+          const s = el.getAttribute('src');
+          if (s) el.setAttribute('src', absolutize(s));
+          const ss = el.getAttribute('srcset');
+          if (ss) el.setAttribute('srcset', ss.split(',').map((part) => {
+            const t = part.trim().split(/\s+/);
+            t[0] = absolutize(t[0]);
+            return t.join(' ');
+          }).join(', '));
+          if (el.tagName === 'IMG') { el.removeAttribute('loading'); el.setAttribute('decoding', 'async'); }
+        });
+        aboutHtmlEl.querySelectorAll('a[href]').forEach((a) => {
+          const h = a.getAttribute('href');
+          if (h && /^\/(?!\/)/.test(h)) { a.setAttribute('href', absolutize(h)); a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener'); }
+        });
       })
       .catch((err) => {
         console.error("[OkObserver] About page error:", err);
@@ -2486,6 +2580,76 @@ window.__ooRefreshHome = refreshHome;
   document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(check, 1500); });
 })();
 
+// ---- "You're leaving the app" notice for every link that goes to another website ----
+(function setupLeaveNotice() {
+  let box = null; let pending = null; let openedAt = 0;
+  function hostOf(u) { try { return new URL(u, location.href); } catch (_) { return null; } }
+  function isExternal(href) {
+    if (!href) return false;
+    const u = hostOf(href);
+    if (!u || !/^https?:$/.test(u.protocol)) return false; // mailto:, tel:, #/ routes stay as they are
+    return u.origin !== location.origin;
+  }
+  function close() {
+    if (box) { box.remove(); box = null; }
+    document.removeEventListener('keydown', onKey, true);
+    pending = null;
+  }
+  function go() {
+    const p = pending;
+    close();
+    if (!p) return;
+    if (p.form) { try { p.form.submit(); } catch (_) {} return; }
+    const a = document.createElement('a');
+    a.href = p.url; a.target = '_blank'; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function onKey(e) {
+    if (!box || e.repeat || Date.now() - openedAt < 250) return;
+    e.preventDefault(); e.stopPropagation();
+    go();
+  }
+  function show(p) {
+    close();
+    pending = p;
+    openedAt = Date.now();
+    // if the menu is open, close it behind the notice
+    document.body.classList.remove('is-menu-open');
+    const ov = document.querySelector('[data-oo="overlay"]'); if (ov) ov.hidden = true;
+    const u = hostOf(p.url);
+    box = document.createElement('div');
+    box.className = 'oo-leave';
+    box.setAttribute('role', 'alertdialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Leaving the app');
+    box.innerHTML = '<div class="oo-leave-card"><h2>You’re leaving the app</h2>'
+      + '<p>This opens <strong></strong> in your browser.</p>'
+      + '<p class="oo-leave-hint">Press any key to continue.</p>'
+      + '<div class="oo-leave-btns"><button type="button" class="oo-leave-go">Continue</button><button type="button" class="oo-leave-stay">Stay in the app</button></div></div>';
+    box.querySelector('strong').textContent = u ? u.hostname.replace(/^www\./, '') : 'a website';
+    box.querySelector('.oo-leave-go').addEventListener('click', go);
+    box.querySelector('.oo-leave-stay').addEventListener('click', close);
+    box.addEventListener('click', (e) => { if (e.target === box) go(); });
+    document.body.appendChild(box);
+    box.querySelector('.oo-leave-go').focus();
+    document.addEventListener('keydown', onKey, true);
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || box) return;
+    const href = a.getAttribute('href');
+    if (!isExternal(a.href)) return;
+    e.preventDefault(); e.stopPropagation();
+    show({ url: a.href });
+  }, true);
+  document.addEventListener('submit', (e) => {
+    const f = e.target;
+    if (!f || f.tagName !== 'FORM' || !isExternal(f.action)) return;
+    e.preventDefault(); e.stopPropagation();
+    show({ url: f.action, form: f });
+  }, true);
+})();
+
 // ---- Saved screen ----
 function renderSaved() {
   stopTtsPlayback();
@@ -2747,7 +2911,7 @@ async function fetchAllAuthors() {
   return all;
 }
 
-function renderBrowse() {
+function renderBrowse(params) {
   stopTtsPlayback();
   scrollToTop();
   lastListHash = '#/browse';
@@ -2785,6 +2949,9 @@ function renderBrowse() {
   const decode = (s) => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
 
   // Sections (categories): only these four are offered
+  if (params && params.section === 'topics') {
+    setTimeout(() => { const el = app.querySelector('.browse-tag-input'); if (el && el.closest('.browse-section')) el.closest('.browse-section').scrollIntoView({ block: 'start' }); }, 120);
+  }
   const catsEl = app.querySelector('.browse-cats');
   const SECTION_LABELS = { columnists: 'Columnists', newsmakers: 'Newsmakers', observercast: 'ObserverCast', substack: 'Substack' };
   fetchJson(`${WP_API_BASE}/categories?slug=${Object.keys(SECTION_LABELS).join(',')}&per_page=20&_fields=id,slug`)
