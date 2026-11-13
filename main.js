@@ -26,9 +26,18 @@
   const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R6-vimeoPattern — Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix';
 
   // Proxy base (must always be used instead of direct WP origin)
-  const WP_API_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
+  // The app always reads through the Cloudflare Worker. WHICH website the Worker reads (staging now, okobserver.org at launch)
+  // is set in worker.js (ORIGIN); the website links in the menu use OO_SITE_ORIGIN in index.html.
+  // Local preview only (localhost): until the updated Worker is deployed, read the new staging site directly
+  // (add ?src=worker to the address to test through the Worker instead). This never runs on the real app.
+  const OO_SITE_ORIGIN = String(window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '');
+  const OO_LOCAL_DIRECT = location.hostname === 'localhost' && !/[?&]src=worker/.test(location.search);
+  const WP_API_BASE = OO_LOCAL_DIRECT
+    ? OO_SITE_ORIGIN + '/wp-json/wp/v2'
+    : 'https://okobserver-proxy.bob-b5c.workers.dev/wp-json/wp/v2';
 
   // Category name(s) that should be filtered out (e.g., cartoons)
+  const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
   const EXCLUDED_CATEGORY_SLUGS = ['cartoon'];
 
   // Infinite scroll / paging settings
@@ -188,6 +197,10 @@ if (path !== '/login' && path !== '/logout') {
       renderSearch(params);
     } else if (path === '/toc') {
       renderToc();
+    } else if (path === '/browse') {
+      renderBrowse();
+    } else if (path === '/archive') {
+      renderArchive(params);
     } else if (path === '/login') {
       // NEW: dedicated login route
       renderLogin();
@@ -472,9 +485,12 @@ async function fetchPostById(id) {
   async function fetchAboutPage() {
     if (aboutPageCache) return aboutPageCache;
 
-    const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
-    const pages = await fetchJson(url);
-    const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+    let page = null;
+    for (const slug of ['about', 'contact-about-donate']) {
+      const pages = await fetchJson(`${WP_API_BASE}/pages?slug=${slug}&_embed`);
+      page = Array.isArray(pages) && pages.length ? pages[0] : null;
+      if (page) break;
+    }
 
     aboutPageCache = page;
     return page;
@@ -562,7 +578,7 @@ function getFirstLinkedImageHrefFromContent(post) {
     // Make relative links absolute (WP site base)
     const href = m[1].trim();
     try {
-      return new URL(href, "https://okobserver.org/").toString();
+      return new URL(href, (window.OO_SITE_ORIGIN || "https://okobserver.org") + "/").toString();
     } catch (_) {
       return href;
     }
@@ -1017,17 +1033,56 @@ function cleanExcerptForLoggedIn(excerptHtml) {
   // Home view
   // ---------------------------------------------------------------------------
 
+  // Home: the newest post becomes the big "Latest News" lead card, like the website.
+  function promoteLead(grid) {
+    const lead = app.querySelector('[data-oo="lead"]');
+    if (!lead || lead.firstElementChild || !grid || !grid.firstElementChild) return;
+    lead.appendChild(grid.firstElementChild);
+  }
+
+  // Home: "National Columnists" row (posts in the Columnists category), fetched once.
+  let columnistPosts = null;
+  async function loadColumnists() {
+    const section = app.querySelector('[data-oo="columnists"]');
+    const row = app.querySelector('[data-oo="col-row"]');
+    if (!section || !row) return;
+    try {
+      if (!columnistPosts) {
+        const cats = await fetchJson(`${WP_API_BASE}/categories?slug=columnists&_fields=id`);
+        const id = Array.isArray(cats) && cats.length ? cats[0].id : null;
+        if (!id) return;
+        const posts = await fetchJson(`${WP_API_BASE}/posts?categories=${id}&per_page=6&_embed=author,wp:featuredmedia,wp:term`);
+        columnistPosts = (Array.isArray(posts) ? posts : []).filter((p) => !hasExcludedCategory(p)).slice(0, 4);
+        columnistPosts.forEach((p) => postCache.set(p.id, p));
+      }
+      if (!columnistPosts.length || !document.body.contains(row)) return;
+      row.innerHTML = '';
+      columnistPosts.forEach((p) => row.appendChild(createPostCard(p)));
+      section.hidden = false;
+    } catch (err) {
+      console.warn('[OkObserver] Columnists row unavailable:', err);
+    }
+  }
+
   function renderHome() {
     stopTtsPlayback();
 
     app.innerHTML = `
       <div class="home-view">
+        <h2 class="oo-section-title">Latest News</h2>
+        <div class="oo-lead" data-oo="lead"></div>
+        <section class="oo-columnists" data-oo="columnists" hidden>
+          <h2 class="oo-section-title">National Columnists</h2>
+          <div class="oo-row" data-oo="col-row"></div>
+        </section>
+        <h2 class="oo-section-title">More News</h2>
         <div class="posts-grid"></div>
       </div>
     `;
 
     const grid = app.querySelector('.posts-grid');
     if (!grid) return;
+    loadColumnists();
 
     if (!homeState.initialized) {
       isInitialHomeLoad = true;
@@ -1078,7 +1133,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
 
     grid.innerHTML = '';
     grid.appendChild(frag);
-    
+    promoteLead(grid);
 
     console.debug(
       '[OkObserver] Rehydrated home grid from',
@@ -1179,6 +1234,7 @@ grid.insertAdjacentElement('afterend', sentinel);
       if (appendedCount > 0) {
         const cardsToAppend = await buildPostCardsInChunks(postsToRender, 4);
         await appendCardsInChunks(grid, cardsToAppend, 4);
+        promoteLead(grid);
       }
 // If WP returned posts but all were filtered out (e.g., cartoons),
 // skip ahead to the next page automatically instead of “stalling” infinite scroll.
@@ -1263,11 +1319,8 @@ if (posts.length > 0 && appendedCount === 0) {
     const aboutHtmlEl = document.querySelector(".about-html");
     if (!aboutHtmlEl) return;
 
-    const url = `${WP_API_BASE}/pages?slug=contact-about-donate&_embed`;
-
-    fetchJson(url)
-      .then((pages) => {
-        const page = Array.isArray(pages) && pages.length ? pages[0] : null;
+    fetchAboutPage()
+      .then((page) => {
         const rawHtml =
           page && page.content && page.content.rendered
             ? page.content.rendered
@@ -1572,6 +1625,219 @@ statusTextEl.textContent = decodedLabel
   }
 
   list.appendChild(frag);
+}
+
+// ---------------------------------------------------------------------------
+// Archives: author / topic (tag) / category pages + the "Browse" hub
+//   #/browse                                  -> hub (authors, topics, categories)
+//   #/archive?type=author|tag|category&id=N&label=Name
+// Uses the standard WordPress REST list endpoints (same data the website archives use).
+// ---------------------------------------------------------------------------
+const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories' };
+const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category' };
+let archiveToken = 0;
+let authorListCache = null;
+
+function archiveHref(type, id, label) {
+  return `#/archive?type=${type}&id=${encodeURIComponent(id)}&label=${encodeURIComponent(label || '')}`;
+}
+
+function renderArchive(params) {
+  stopTtsPlayback();
+  scrollToTop();
+  const type = ARCHIVE_PARAM[params && params.type] ? params.type : 'tag';
+  const id = (params && params.id) || '';
+  const label = (params && params.label) || '';
+  const token = ++archiveToken;
+  lastListHash = window.location.hash || '#/browse';
+
+  app.innerHTML = `
+    <div class="archive-view">
+      <div class="archive-kicker">${ARCHIVE_NOUN[type]} archive</div>
+      <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
+      <div class="search-status is-loading" aria-live="polite">
+        <span class="search-status-spinner" aria-hidden="true"></span>
+        <span class="search-status-text">Loading posts…</span>
+      </div>
+      <div class="posts-grid archive-grid"></div>
+      <div class="archive-more-wrap"><button class="btnSecondary archive-more" type="button" hidden>Load more</button></div>
+      <p class="archive-browse"><a href="#/browse">&larr; All archives</a></p>
+    </div>`;
+
+  const grid = app.querySelector('.archive-grid');
+  const statusEl = app.querySelector('.search-status');
+  const statusText = app.querySelector('.search-status-text');
+  const moreBtn = app.querySelector('.archive-more');
+  let page = 0;
+  let shown = 0;
+  let totalPages = 1;
+  let busy = false;
+
+  async function loadPage() {
+    if (busy) return;
+    busy = true;
+    moreBtn.hidden = true;
+    statusEl.classList.add('is-loading');
+    statusText.textContent = shown ? 'Loading more…' : 'Loading posts…';
+    try {
+      page += 1;
+      let posts = [];
+      if (type === 'author') {
+        // WordPress blocks anonymous ?author= requests, so authors come through the Worker route.
+        const res = await fetch(`${WORKER_BASE}/content/author-archive?author=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}`);
+        if (token !== archiveToken) return;
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        posts = Array.isArray(data.posts) ? data.posts : [];
+        totalPages = parseInt(data.total_pages || 1, 10) || 1;
+      } else {
+        const url = `${WP_API_BASE}/posts?${ARCHIVE_PARAM[type]}=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+        const res = await fetch(url);
+        if (token !== archiveToken) return;
+        if (!res.ok) {
+          // WordPress answers 400 when we ask for a page past the end.
+          totalPages = page - 1;
+          if (page === 1) throw new Error('HTTP ' + res.status);
+        } else {
+          totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10) || 1;
+          posts = await res.json();
+        }
+      }
+      {
+        const frag = document.createDocumentFragment();
+        (Array.isArray(posts) ? posts : []).forEach((p) => {
+          if (hasExcludedCategory(p)) return;
+          postCache.set(p.id, p);
+          frag.appendChild(createPostCard(p));
+          shown += 1;
+        });
+        grid.appendChild(frag);
+      }
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = shown
+        ? `${shown} post${shown === 1 ? '' : 's'} shown, newest first.`
+        : 'No posts found in this archive.';
+      moreBtn.hidden = page >= totalPages;
+    } catch (err) {
+      console.error('[OkObserver] Archive load failed:', err);
+      if (token !== archiveToken) return;
+      statusEl.classList.remove('is-loading');
+      statusText.textContent = 'Could not load this archive. Please try again.';
+      page = Math.max(0, page - 1);
+      moreBtn.hidden = false;
+    } finally {
+      busy = false;
+    }
+  }
+
+  // Cartoon-category posts are hidden in the app, so a page can come back thin: keep going until a useful batch is shown.
+  async function loadBatch() {
+    const before = shown;
+    for (let i = 0; i < 5; i++) {
+      await loadPage();
+      if (token !== archiveToken || moreBtn.hidden || shown - before >= 8) break;
+    }
+  }
+  moreBtn.addEventListener('click', loadBatch);
+  if (!id) {
+    statusEl.classList.remove('is-loading');
+    statusText.textContent = 'Choose an archive from the Browse page.';
+    return;
+  }
+  loadBatch();
+}
+
+async function fetchAllAuthors() {
+  if (authorListCache) return authorListCache;
+  const res = await fetch(`${WORKER_BASE}/content/authors`);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const all = (Array.isArray(data.authors) ? data.authors : []).filter((u) => u && u.id && u.name);
+  all.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  authorListCache = all;
+  return all;
+}
+
+function renderBrowse() {
+  stopTtsPlayback();
+  scrollToTop();
+  lastListHash = '#/browse';
+  const token = ++archiveToken;
+
+  app.innerHTML = `
+    <div class="browse-view">
+      <h1 class="toc-title">Archives</h1>
+      <p class="toc-subtitle">Browse by author, topic or section. Newest posts first.</p>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Sections</h2>
+        <div class="browse-chips browse-cats"><span class="browse-loading">Loading…</span></div>
+      </section>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Topics</h2>
+        <label class="search-label"><span class="search-label-text">Find a topic</span>
+          <input class="search-input browse-tag-input" type="search" placeholder="Type a topic, e.g. Medicaid" /></label>
+        <div class="browse-chips browse-tags"><span class="browse-loading">Loading…</span></div>
+      </section>
+
+      <section class="browse-section">
+        <h2 class="browse-heading">Authors</h2>
+        <label class="search-label"><span class="search-label-text">Find an author</span>
+          <input class="search-input browse-author-input" type="search" placeholder="Type a name" /></label>
+        <div class="browse-chips browse-authors"><span class="browse-loading">Loading…</span></div>
+      </section>
+    </div>`;
+
+  const catsEl = app.querySelector('.browse-cats');
+  const tagsEl = app.querySelector('.browse-tags');
+  const authorsEl = app.querySelector('.browse-authors');
+  const chip = (type, item) =>
+    `<a class="browse-chip" href="${archiveHref(type, item.id, item.name)}">${escapeHtml(item.name)}</a>`;
+  const decode = (s) => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+
+  // Sections (categories) - hide the excluded cartoon category and empty ones
+  fetchJson(`${WP_API_BASE}/categories?per_page=100&orderby=count&order=desc&_fields=id,name,slug,count`)
+    .then((rows) => {
+      if (token !== archiveToken) return;
+      const list = (Array.isArray(rows) ? rows : [])
+        .filter((c) => c.count > 0 && !EXCLUDED_CATEGORY_SLUGS.includes(String(c.slug).toLowerCase()) && c.slug !== 'uncategorized')
+        .map((c) => ({ id: c.id, name: decode(c.name) }));
+      catsEl.innerHTML = list.map((c) => chip('category', c)).join('') || '<span class="browse-loading">None found.</span>';
+    })
+    .catch(() => { catsEl.innerHTML = '<span class="browse-loading">Could not load sections.</span>'; });
+
+  // Topics (tags): most-used by default, live search for the rest
+  const showTags = (rows) => {
+    const list = (Array.isArray(rows) ? rows : []).map((t) => ({ id: t.id, name: decode(t.name) }));
+    tagsEl.innerHTML = list.map((t) => chip('tag', t)).join('') || '<span class="browse-loading">No topics match.</span>';
+  };
+  const tagBase = `${WP_API_BASE}/tags?per_page=60&_fields=id,name,count`;
+  fetchJson(`${tagBase}&orderby=count&order=desc`)
+    .then((rows) => { if (token === archiveToken) showTags(rows); })
+    .catch(() => { tagsEl.innerHTML = '<span class="browse-loading">Could not load topics.</span>'; });
+  const tagInput = app.querySelector('.browse-tag-input');
+  let tagTimer = null;
+  tagInput.addEventListener('input', () => {
+    clearTimeout(tagTimer);
+    const q = tagInput.value.trim();
+    tagTimer = setTimeout(() => {
+      const url = q ? `${tagBase}&search=${encodeURIComponent(q)}&orderby=count&order=desc` : `${tagBase}&orderby=count&order=desc`;
+      fetchJson(url).then((rows) => { if (token === archiveToken) showTags(rows); }).catch(() => {});
+    }, 250);
+  });
+
+  // Authors: full list, filtered as you type
+  let authors = [];
+  const showAuthors = () => {
+    const q = app.querySelector('.browse-author-input').value.trim().toLowerCase();
+    const list = q ? authors.filter((a) => a.name.toLowerCase().includes(q)) : authors;
+    authorsEl.innerHTML = list.map((a) => chip('author', a)).join('') || '<span class="browse-loading">No authors match.</span>';
+  };
+  fetchAllAuthors()
+    .then((list) => { if (token !== archiveToken) return; authors = list; showAuthors(); })
+    .catch(() => { authorsEl.innerHTML = '<span class="browse-loading">Could not load authors.</span>'; });
+  app.querySelector('.browse-author-input').addEventListener('input', showAuthors);
 }
 
 async function performSearch(term, statusEl, grid) {
@@ -2028,7 +2294,7 @@ const tagNames = tags.map(t => (t && t.name ? String(t.name) : '')).filter(Boole
 const tagsHtml = `<div class="post-tags" aria-label="Tags">
   ${
     tagNames.length
-      ? tagNames.map(n => `<span class="post-tag">${escapeHtml(n)}</span>`).join('')
+      ? tags.filter(t => t && t.name).map(t => `<a class="post-tag" href="${archiveHref('tag', t.id, String(t.name))}">${escapeHtml(String(t.name))}</a>`).join('')
       : ``
   }
 </div>`;
@@ -2057,7 +2323,9 @@ if (__authorName || __authorBio || __avatar) {
   
   const safeAvatar = __avatar ? escapeAttr(__avatar) : '';
 
-const nameHtml = `<span class="author-box-name-link">${safeName}</span>`;
+const nameHtml = __author && __author.id
+  ? `<a class="author-box-name-link" href="${archiveHref('author', __author.id, __authorName)}">${safeName}</a>`
+  : `<span class="author-box-name-link">${safeName}</span>`;
 
 
   authorBoxHtml = `
@@ -2145,7 +2413,7 @@ scrollToTop();
       back.addEventListener('click', () => {
         // If user came from a grid view (home or search),
         // Return to last grid/search view safely (no auth routes in history)
-        if (homeState.initialized || searchState.initialized) {
+        if (homeState.initialized || searchState.initialized || /^#\/(archive|browse)/.test(lastListHash || '')) {
         const target =
   lastListHash && lastListHash !== '#/login' && lastListHash !== '#/logout'
     ? lastListHash

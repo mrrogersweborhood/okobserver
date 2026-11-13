@@ -5,7 +5,7 @@
 
 /**
  * OkObserver Cloudflare Worker — FULL REPLACEMENT (v2025-12-13a)
- * - Proxies WordPress REST JSON from https://okobserver.org
+ * - Proxies WordPress REST JSON from ORIGIN (see the ORIGIN setting below)
  * - Adds /auth/login + /auth/logout for JWT cookie sessions
  * - Injects Authorization: Bearer <jwt> to upstream when cookie present
  * - Never caches authenticated requests
@@ -14,7 +14,10 @@
  * - Friendly / root text for Cloudflare preview
  */
 
-const ORIGIN = "https://okobserver.org";
+// WHICH WEBSITE THE APP READS (the ONE place to change it):
+//   TESTING (app not public yet): the new staging site.
+//   AT LAUNCH: change to "https://okobserver.org" and redeploy this Worker.
+const ORIGIN = "https://okobserverstaging.tempurl.host";
 const API_ALLOW = ["/wp-json/", "/content/full-post", "/content/author-posts"]; // allow WP API + full-post helper + author-posts helper
 
 
@@ -262,9 +265,18 @@ if (url.pathname === "/auth/status" && request.method === "GET") {
 if (url.pathname === "/content/author-posts" && request.method === "GET") {
   return handleAuthorPosts(request, url, env);
 }
+/* ------------------ AUTHOR ARCHIVES (app Archives screens; must come before API_ALLOW gate) ------------------ */
+// WordPress/the host firewall block anonymous /users and ?author= requests, so these two read-only routes
+// build author lists from ordinary public post lists instead (no login needed; summary fields only, no post body).
+if (url.pathname === "/content/authors" && request.method === "GET") {
+  return handleAuthorsList(request, env);
+}
+if (url.pathname === "/content/author-archive" && request.method === "GET") {
+  return handleAuthorArchive(request, url, env);
+}
 /* ------------------ FULL POST (must come before API_ALLOW gate) ------------------ */
 if (url.pathname === "/content/full-post" && request.method === "GET") {
-  return handleFullPost(request, url, env);
+  return handleFullPost(request, url, env, ctx);
 }
 
 /* ---------------------- CORS Preflight ---------------------- */
@@ -424,6 +436,106 @@ return new Response(upstreamResp.body, {
 };
 
 /* ---------------- helpers ---------------- */
+const NO_STORE = { "cache-control": "no-store", "pragma": "no-cache", "expires": "0" };
+
+function basicAuthHeaders(env) {
+  const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
+  if (!basic) return null;
+  return { "Authorization": `Basic ${basic}`, "Accept": "application/json" };
+}
+
+// Author archives WITHOUT /users or ?author= (the site firewall blocks those for anyone not logged in).
+// Method: read ordinary public post lists (not blocked), look at each post's author, and work from that.
+// Window: the most recent AUTHOR_SCAN_PAGES x 100 posts, so very old posts by an author may not appear.
+// Results are remembered for 15 minutes (Cloudflare cache) so only the first request after that is slow.
+async function cachedValue(key, producer) {
+  const cache = caches.default;
+  const req = new Request("https://oo-cache.invalid/" + key);
+  const hit = await cache.match(req);
+  if (hit) { try { return await hit.json(); } catch (_) {} }
+  const value = await producer();
+  if (!Array.isArray(value) || value.length === 0) return value; // never remember an empty answer
+  await cache.put(req, new Response(JSON.stringify(value), { headers: { "content-type": "application/json", "cache-control": "max-age=900" } }));
+  return value;
+}
+const AUTHOR_SCAN_PAGES = 10;
+
+async function fetchScanPages(query, env) {
+  // Same login the app's author-posts route already uses (the host firewall lets it through).
+  const headers = basicAuthHeaders(env) || { "Accept": "application/json" };
+  const pages = [];
+  for (let p = 1; p <= AUTHOR_SCAN_PAGES; p++) pages.push(p);
+  const results = await Promise.all(
+    pages.map(async (p) => {
+      const u = `${ORIGIN}/wp-json/wp/v2/posts?per_page=100&page=${p}&status=publish&${query}`;
+      const resp = await fetch(u, { headers });
+      if (!resp.ok) return [];
+      const rows = await resp.json().catch(() => []);
+      return Array.isArray(rows) ? rows : [];
+    })
+  );
+  return results.flat();
+}
+
+// GET /content/authors  ->  { ok, authors: [{ id, name }] }  (authors of the recent posts, A-Z)
+async function handleAuthorsList(request, env) {
+  try {
+    const authors = await cachedValue("authors-v2", async () => {
+      const rows = await fetchScanPages("_embed=author&_fields=author,_links,_embedded", env);
+      const seen = new Map();
+      for (const post of rows) {
+        const a = post && post._embedded && Array.isArray(post._embedded.author) ? post._embedded.author[0] : null;
+        if (a && a.id && a.name && !seen.has(a.id)) seen.set(a.id, String(a.name));
+      }
+      return Array.from(seen, ([id, name]) => ({ id, name }));
+    });
+    return json(200, { ok: true, authors }, authors.length ? { "cache-control": "public, max-age=900" } : NO_STORE, request);
+  } catch (err) {
+    return jsonError(500, "authors failed", err, request);
+  }
+}
+
+// GET /content/author-archive?author=ID&page=N&per_page=12
+//   -> { ok, posts: [...summary posts with _embedded...], total, total_pages }
+async function handleAuthorArchive(request, url, env) {
+  try {
+    const author = (url.searchParams.get("author") || "").trim();
+    const perPage = Math.max(1, Math.min(30, parseInt(url.searchParams.get("per_page") || "12", 10) || 12));
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+    if (!author || !/^\d+$/.test(author)) {
+      return json(400, { ok: false, error: "Missing or invalid author" }, NO_STORE, request);
+    }
+
+    const pairs = await cachedValue("author-pairs-v2", async () => {
+      const rows = await fetchScanPages("_fields=id,author", env);
+      return rows.map((r) => [r.id, r.author]);
+    });
+    const ids = pairs.filter((r) => String(r[1]) === author).map((r) => r[0]);
+    const total = ids.length;
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const slice = ids.slice((page - 1) * perPage, page * perPage);
+    if (!slice.length) {
+      return json(200, { ok: true, posts: [], total, total_pages: totalPages }, NO_STORE, request);
+    }
+
+    const upstream = new URL(`${ORIGIN}/wp-json/wp/v2/posts`);
+    upstream.searchParams.set("include", slice.join(","));
+    upstream.searchParams.set("orderby", "include");
+    upstream.searchParams.set("per_page", String(slice.length));
+    upstream.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
+    // Summary fields only: the post body ("content") is never requested.
+    upstream.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
+    const resp = await fetch(upstream.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+    if (!resp.ok) {
+      return json(resp.status, { ok: false, status: resp.status, error: "Upstream posts request failed" }, NO_STORE, request);
+    }
+    const posts = await resp.json().catch(() => []);
+    return json(200, { ok: true, posts: Array.isArray(posts) ? posts : [], total, total_pages: totalPages }, NO_STORE, request);
+  } catch (err) {
+    return jsonError(500, "author-archive failed", err, request);
+  }
+}
+
 async function handleAuthorPosts(request, url, env) {
   try {
     const author = (url.searchParams.get("author") || "").trim();
@@ -564,7 +676,7 @@ return json(
   }
 }
 
-async function handleFullPost(request, url, env) {
+async function handleFullPost(request, url, env, ctx) {
   const __t0 = Date.now();
   let __tEnv = 0, __tFetch = 0, __tJson = 0;
 
@@ -583,55 +695,146 @@ async function handleFullPost(request, url, env) {
       );
     }
 
+    const jwt = getJwtFromCookie(request);
+    const isAuthenticated = !!(jwt && jwt.trim());
+
     const __tEnv0 = Date.now();
-    const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
     __tEnv = Date.now() - __tEnv0;
 
-    if (!basic) {
-      return json(
-        500,
-        { ok: false, error: "WP_BASIC_AUTH not configured" },
-        {
-          "cache-control": "no-store",
-          "pragma": "no-cache",
-          "expires": "0"
-        },
-        request
-      );
-    }
     const upstream = new URL(`${ORIGIN}/wp-json/wp/v2/posts/${encodeURIComponent(id)}`);
     upstream.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
 
+    const publicCacheable =
+      request.method === "GET" &&
+      !isAuthenticated &&
+      !url.searchParams.has(NOCACHE_QS);
+
+    const cacheKey = new Request(`https://cache.okobserver/full-post?id=${encodeURIComponent(id)}`, {
+      method: "GET"
+    });
+
+    if (!isAuthenticated) {
+      const cached = await caches.default.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set("x-oo-cache", "hit");
+        headers.set("x-oo-debug-cache-key", cacheKey.url);
+        headers.set("x-oo-debug-public-cacheable", "1");
+        headers.set("x-oo-debug-authenticated", "0");
+        return new Response(cached.body, {
+          status: cached.status,
+          headers
+        });
+      }
+    }
+
+    const requestHeaders = {
+      "Accept": "application/json"
+    };
+
+    if (isAuthenticated) {
+      requestHeaders["Authorization"] = `Bearer ${jwt.trim()}`;
+    }
 
     const __tFetch0 = Date.now();
-    const resp = await fetch(upstream.toString(), {
+    let resp = await fetch(upstream.toString(), {
       method: "GET",
-      headers: {
-        "Authorization": `Basic ${basic}`,
-        "Accept": "application/json"
-      }
+      headers: requestHeaders,
+      cf: publicCacheable
+        ? {
+            cacheEverything: true,
+            cacheTtlByStatus: {
+              "200-299": 300,
+              "300-399": 60,
+              "401": 0,
+              "403": 0,
+              "404": 0,
+              "500-599": 0
+            }
+          }
+        : undefined
     });
+
+    if (isAuthenticated && resp.status === 401) {
+      resp = await fetch(upstream.toString(), {
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        },
+        cf: undefined
+      });
+    }
+
     __tFetch = Date.now() - __tFetch0;
 
-
-       const __tJson0 = Date.now();
+    const __tJson0 = Date.now();
     const data = await resp.json().catch(() => null);
     __tJson = Date.now() - __tJson0;
 
+    const timingHeaders = {
+      "x-oo-env-ms": String(__tEnv),
+      "x-oo-origin-ms": String(__tFetch),
+      "x-oo-json-ms": String(__tJson),
+      "x-oo-total-ms": String(Date.now() - __t0),
+      "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+    };
 
     if (!resp.ok) {
+      const upstreamMessage =
+        (data && typeof data === "object" && (
+          data.message ||
+          data.error ||
+          (data.data && data.data.message)
+        )) || "";
+
+      const looksProtected =
+        resp.status === 401 ||
+        resp.status === 403 ||
+        /members?\s*only/i.test(String(upstreamMessage)) ||
+        /protected/i.test(String(upstreamMessage)) ||
+        /forbidden/i.test(String(upstreamMessage)) ||
+        /not allowed/i.test(String(upstreamMessage));
+
+      if (looksProtected) {
+        return json(
+          200,
+          {
+            ok: true,
+            protected: true,
+            id: Number(id),
+            excerpt: "",
+            message: "This content is for members only"
+          },
+          {
+            "cache-control": "no-store",
+            "pragma": "no-cache",
+            "expires": "0",
+            "x-oo-cache": "bypass",
+            "x-oo-debug-cache-key": cacheKey.url,
+            "x-oo-debug-public-cacheable": publicCacheable ? "1" : "0",
+            "x-oo-debug-authenticated": isAuthenticated ? "1" : "0",
+            ...timingHeaders
+          },
+          request
+        );
+      }
+
       return json(
         resp.status,
-        { ok: false, status: resp.status, upstream: upstream.pathname + upstream.search, error: data || null },
+        {
+          ok: false,
+          status: resp.status,
+          upstream: upstream.pathname + upstream.search,
+          error: data || null
+        },
         {
           "cache-control": "no-store",
           "pragma": "no-cache",
           "expires": "0",
-          "x-oo-env-ms": String(__tEnv),
-          "x-oo-origin-ms": String(__tFetch),
-          "x-oo-json-ms": String(__tJson),
-          "x-oo-total-ms": String(Date.now() - __t0),
-          "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+          "x-oo-debug-cache-key": cacheKey.url,
+          "x-oo-debug-public-cacheable": publicCacheable ? "1" : "0",
+          "x-oo-debug-authenticated": isAuthenticated ? "1" : "0",
+          ...timingHeaders
         },
         request
       );
@@ -649,37 +852,80 @@ async function handleFullPost(request, url, env) {
           "cache-control": "no-store",
           "pragma": "no-cache",
           "expires": "0",
-          "x-oo-env-ms": String(__tEnv),
-          "x-oo-origin-ms": String(__tFetch),
-          "x-oo-json-ms": String(__tJson),
-          "x-oo-total-ms": String(Date.now() - __t0),
-          "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+          "x-oo-debug-cache-key": cacheKey.url,
+          "x-oo-debug-public-cacheable": publicCacheable ? "1" : "0",
+          "x-oo-debug-authenticated": isAuthenticated ? "1" : "0",
+          ...timingHeaders
         },
         request
       );
     }
 
-    return json(
+    const protectedFlag =
+      !!data.password ||
+      !!data.content?.protected ||
+      !!data.excerpt?.protected;
+
+    if (protectedFlag) {
+      return json(
+        200,
+        {
+          ok: true,
+          protected: true,
+          id: data.id || Number(id),
+          excerpt:
+            (data.excerpt && typeof data.excerpt.rendered === "string")
+              ? data.excerpt.rendered
+              : "",
+          message: "This content is for members only",
+          post: {
+            id: data.id || Number(id),
+            title: data.title || { rendered: "" },
+            date: data.date || "",
+            excerpt: data.excerpt || { rendered: "" },
+            _embedded: data._embedded || {}
+          }
+        },
+        {
+          "cache-control": "no-store",
+          "pragma": "no-cache",
+          "expires": "0",
+          "x-oo-cache": "bypass",
+          "x-oo-debug-cache-key": cacheKey.url,
+          "x-oo-debug-public-cacheable": publicCacheable ? "1" : "0",
+          "x-oo-debug-authenticated": isAuthenticated ? "1" : "0",
+          ...timingHeaders
+        },
+        request
+      );
+    }
+
+    const response = json(
       200,
       { ok: true, post: data },
       {
-        "cache-control": "no-store",
-        "pragma": "no-cache",
-        "expires": "0",
-        "x-oo-env-ms": String(__tEnv),
-        "x-oo-origin-ms": String(__tFetch),
-        "x-oo-json-ms": String(__tJson),
-        "x-oo-total-ms": String(Date.now() - __t0),
-        "server-timing": `env;dur=${__tEnv}, origin;dur=${__tFetch}, json;dur=${__tJson}, total;dur=${Date.now() - __t0}`
+        "cache-control": publicCacheable ? "public, max-age=300" : "no-store",
+        "pragma": publicCacheable ? "public" : "no-cache",
+        "expires": publicCacheable ? new Date(Date.now() + 300000).toUTCString() : "0",
+        "x-oo-cache": publicCacheable ? "miss" : "bypass",
+        "x-oo-debug-cache-key": cacheKey.url,
+        "x-oo-debug-public-cacheable": publicCacheable ? "1" : "0",
+        "x-oo-debug-authenticated": isAuthenticated ? "1" : "0",
+        ...timingHeaders
       },
       request
     );
+
+    if (response.ok && !isAuthenticated && ctx && typeof ctx.waitUntil === "function") {
+      ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+    }
+
+    return response;
 
   } catch (err) {
     return jsonError(500, "full-post failed", err, request);
   }
 }
-
 function corsHeaders(req) {
   const reqOrigin = req.headers.get("Origin") || "";
   const allowedOrigin = "https://mrrogersweborhood.github.io";
