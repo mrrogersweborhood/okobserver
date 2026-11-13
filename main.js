@@ -2615,6 +2615,7 @@ window.__ooRefreshHome = refreshHome;
     openedAt = Date.now();
     // if the menu is open, close it behind the notice
     document.body.classList.remove('is-menu-open');
+    const mdlg = document.querySelector('dialog.oo-nm'); if (mdlg && mdlg.open) { try { mdlg.close(); } catch (e) {} }
     const ov = document.querySelector('[data-oo="overlay"]'); if (ov) ov.hidden = true;
     const hb = document.querySelector('[data-oo="hamburger"]'); if (hb) hb.setAttribute('aria-expanded', 'false');
     const u = hostOf(p.url);
