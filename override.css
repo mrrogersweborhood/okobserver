@@ -702,9 +702,9 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 html[data-oo-theme~="light"] .oof .oo-app-ios{opacity:.9}
 
 /* app reader bar: single +/- text size button, Back button, playback box */
-.oo-act-pm { gap: 6px; padding: 0 14px; min-width: 76px; justify-content: space-between; }
-.oo-act-pm b { font: 700 16px/1 var(--oo-font-ui); }
-.oo-act-pm span { font: 700 18px/1 var(--oo-font-ui); opacity: .85; }
+.oo-act-pm { gap: 0; padding: 0; min-width: 0; width: 64px; justify-content: stretch; overflow: hidden; }
+.oo-act-pm span { flex: 1; display: flex; align-items: center; justify-content: center; height: 100%; font: 700 18px/1 var(--oo-font-ui); }
+.oo-act-pm i { width: 1.5px; height: 18px; background: var(--oo-panel-line); flex: none; }
 .oo-listen-box {
   display: flex; flex: 1 0 100%; align-items: center; gap: 12px; margin: 2px 0 0; padding: 8px 10px; box-sizing: border-box; border-radius: 999px;
   background: var(--oo-field); border: .8px solid var(--oo-panel-line); color: var(--oo-title);

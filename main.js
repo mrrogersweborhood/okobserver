@@ -3617,7 +3617,7 @@ const ttsButtonHtml = `
   <button class="oo-act" type="button" data-save-id="${post.id}" aria-pressed="false" title="Save for later">${ICON_SAVE}<span class="lbl">Save</span></button>
   <button class="oo-act" type="button" data-act="share" title="Share">${ICON_SHARE}<span class="lbl">Share</span></button>
   <span class="oo-act-group" role="group" aria-label="Reading size">
-    <button class="oo-act oo-act-pm" type="button" data-act="textpm" aria-label="Text size: left half smaller, right half larger" title="Text size"><span aria-hidden="true">&minus;</span><b aria-hidden="true">A</b><span aria-hidden="true">+</span></button>
+    <button class="oo-act oo-act-pm" type="button" data-act="textpm" aria-label="Text size: minus is smaller, plus is larger" title="Text size"><span aria-hidden="true">&minus;</span><i aria-hidden="true"></i><span aria-hidden="true">+</span></button>
     <button class="oo-act oo-act-sq" type="button" data-act="theme" aria-label="Switch light or dark mode" title="Light / dark mode">&#9680;</button>
   </span>
 `;
