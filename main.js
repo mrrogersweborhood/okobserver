@@ -3559,6 +3559,7 @@ const ttsButtonHtml = `
     <button class="oo-act oo-act-sq" type="button" data-act="text-" aria-label="Smaller text">A&minus;</button>
     <button class="oo-act oo-act-sq" type="button" data-act="text+" aria-label="Larger text">A+</button>
     <button class="oo-act oo-act-sq" type="button" data-act="space" aria-label="Line spacing" title="Line spacing">&#8597;</button>
+    <button class="oo-act oo-act-sq" type="button" data-act="theme" aria-label="Switch light or dark mode" title="Light / dark mode">&#9680;</button>
   </span>
 `;
 
@@ -3630,6 +3631,13 @@ window.location.replace(target);
       if (a === 'text-') stepReader(-1);
       else if (a === 'text+') stepReader(1);
       else if (a === 'space') toggleReaderSpacing();
+      else if (a === 'theme') {
+        const root = document.documentElement;
+        const next = root.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+        root.setAttribute('data-oo-theme', next);
+        try { localStorage.setItem('ooTheme', next); } catch (err) {}
+        toast(next === 'light' ? 'Light mode' : 'Dark mode');
+      }
     });
 
      const ttsButton = app.querySelector('.tts-button');
