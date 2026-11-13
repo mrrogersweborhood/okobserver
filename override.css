@@ -735,7 +735,7 @@ nav.oo-menu .oo-dir-icons a, .oo-footer .oo-dir-icons a { display: flex; align-i
 .oo-dir-icons svg { width: 24px; height: 24px; }
 
 /* reskin28: portrait splash video fills phone screens */
-@media (max-width: 720px) { .oo-splash { background: #0a2a63; } .oo-splash-video { object-fit: contain; width: 100%; height: 100%; max-width: 100vw; max-height: 100vh; } }
+@media (max-width: 720px) { .oo-splash { background: #0a2a63; } .oo-splash-video { object-fit: cover; width: 100%; height: 100%; max-width: none; max-height: none; } }
 
 /* reskin29: splash logo + motto lockup matches the header (phone sizes) */
 .oo-splash-brand { background: none; text-align: left; padding: max(env(safe-area-inset-top, 0px), 10px) 14px 6px; }
