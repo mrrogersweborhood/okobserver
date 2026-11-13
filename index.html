@@ -52,22 +52,22 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2026-11-13-reskin28"
+    href="override.css?v=2026-11-13-reskin31"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2026-11-13-reskin28"
+    href="override.css?v=2026-11-13-reskin31"
   />
 
   <!-- Main SPA entry -->
 <script
   defer
-  src="main.js?v=2026-11-13-reskin28"
+  src="main.js?v=2026-11-13-reskin31"
 ></script>
 <script
   defer
-  src="PostDetail.js?v=2026-11-13-reskin28"
+  src="PostDetail.js?v=2026-11-13-reskin31"
 ></script>
 </head>
 <body>
@@ -202,19 +202,20 @@
       controlslist="nodownload noplaybackrate noremoteplayback nofullscreen"
     >
       <source
-        src="oo-splash-portrait.mp4?v=2026-11-13-reskin28"
+        src="oo-splash-portrait.mp4?v=2026-11-13-reskin31"
         type="video/mp4"
       />
     </video>
     <!-- Branding over the video: white logo on top; motto, tagline, loading bar and version at the bottom -->
     <div class="oo-splash-brand" aria-hidden="true">
       <img class="oo-splash-logo" src="logo.png" alt="" />
+      <div class="oo-splash-motto"><span>To Comfort The Afflicted</span> <span>And Afflict The Comfortable</span></div>
     </div>
     <div class="oo-splash-foot" aria-hidden="true">
-      <div class="oo-splash-motto"><span>To Comfort The Afflicted</span><span>And Afflict The Comfortable</span></div>
+      
       <div class="oo-splash-tag">Independent journalism since 1968</div>
       <div class="oo-splash-bar"><span></span></div>
-      <div class="oo-splash-ver">Version 2026-11-13-reskin28</div>
+      <div class="oo-splash-ver">Version 2026-11-13-reskin31</div>
     </div>
   </div>
   <!-- 🔴 Splash restored -->
@@ -323,6 +324,18 @@ syncAuthClass();
       var origin = String(window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '');
       document.querySelectorAll('a[data-oo-site]').forEach(function (a) { a.href = origin + a.getAttribute('data-oo-site'); });
     });
+    // Page footer: same directory block as the menu (contact, reviews, support, social), on the rotunda, like the website footer.
+    document.addEventListener('DOMContentLoaded', function () {
+      var dir = document.querySelector('nav.oo-menu .oo-dir');
+      var app = document.getElementById('app');
+      if (!dir || !app || document.querySelector('.oo-footer')) return;
+      var f = document.createElement('footer');
+      f.className = 'oo-footer';
+      f.innerHTML = '<img class="oo-nm-bg" src="oo-menu-dome.webp" alt="" aria-hidden="true" loading="lazy" />' +
+        '<div class="oo-nm-bar oo-foot-bar">' + dir.outerHTML.split('oo-ig-app').join('oo-ig-ft') +
+        '<p class="oo-foot-legal">© ' + new Date().getFullYear() + ' The Oklahoma Observer.<br />All rights reserved.<br /><a href="https://mrrogersweborhood.com/" target="_blank" rel="noopener">Website by Mr Rogers’ Weborhood</a></p></div>';
+      app.parentNode.insertBefore(f, app.nextSibling);
+    });
     // Theme toggle (menu item). Saves the choice on this device.
     (function () {
       function label(btn, theme) { btn.textContent = theme === 'light' ? 'Dark mode' : 'Light mode'; }
@@ -374,7 +387,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2026-11-13-reskin28'; // bump when sw.js changes
+      var SW_BUILD = '2026-11-13-reskin31'; // bump when sw.js changes
       var SW_URL = '/okobserver/sw.js';
       var SCOPE = '/okobserver/';
 

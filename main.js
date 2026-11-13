@@ -2616,6 +2616,7 @@ window.__ooRefreshHome = refreshHome;
     // if the menu is open, close it behind the notice
     document.body.classList.remove('is-menu-open');
     const ov = document.querySelector('[data-oo="overlay"]'); if (ov) ov.hidden = true;
+    const hb = document.querySelector('[data-oo="hamburger"]'); if (hb) hb.setAttribute('aria-expanded', 'false');
     const u = hostOf(p.url);
     box = document.createElement('div');
     box.className = 'oo-leave';
