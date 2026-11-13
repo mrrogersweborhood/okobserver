@@ -3177,6 +3177,28 @@ function linkifyPaywallLoginForSignedOut(html) {
 }
   // Option A helper: render a fast “prefill” detail view using the clicked summary post
   // This avoids a blank/jarring transition while the full post is fetched.
+  // Previous / Next story links at the end of a post (older / newer, by date), like the website
+async function loadPostNav(post) {
+  const nav = app.querySelector('[data-post-nav]');
+  if (!nav || !post || !post.date) return;
+  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}&_fields=id,title,date`;
+  try {
+    const [older, newer] = await Promise.all([fetchJson(q(true)).catch(() => []), fetchJson(q(false)).catch(() => [])]);
+    if (!document.body.contains(nav)) return;
+    const link = (row, cls, dir) => {
+      const r = Array.isArray(row) ? row[0] : null;
+      if (!r || !r.id) return '';
+      const title = stripHtml((r.title && r.title.rendered) || '');
+      return '<a class="post-pn-link ' + cls + '" href="#/post/' + r.id + '"><span class="post-pn-dir">' + dir + '</span><span class="post-pn-title">' + escapeHtml(title) + '</span></a>';
+    };
+    const html = link(older, 'post-pn-prev', '← Previous') + link(newer, 'post-pn-next', 'Next →');
+    if (!html) return;
+    nav.innerHTML = html;
+    nav.hidden = false;
+  } catch (_) {}
+}
+
+
   function renderPostDetailPrefillFromSummary(post) {
     if (!post) return;
 
@@ -3385,6 +3407,7 @@ const detailInnerHtml = `
     </div>
   ${taxHtml}
   ${authorBoxHtml}
+  <nav class="post-pn" data-post-nav aria-label="More stories" hidden></nav>
   <button class="back-btn" type="button">Back to News</button>
 `;
 
@@ -3402,6 +3425,8 @@ if (existingPrefill) {
     </div>
   `;
 }
+
+loadPostNav(post);
 
 scrollToTop();
 

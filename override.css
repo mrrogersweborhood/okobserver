@@ -629,3 +629,18 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
   }
 }
 @media (max-width: 720px) { :root { --oo-header-h: 108px; } }
+
+/* Previous / Next story at the end of a post (reskin19) */
+.post-pn { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0 8px; }
+.post-pn[hidden] { display: none; }
+.post-pn-link {
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 14px; text-decoration: none;
+  background: var(--oo-panel); border: .6px solid var(--oo-panel-line); border-radius: var(--oo-radius); box-shadow: var(--oo-shadow);
+  color: var(--oo-title);
+}
+.post-pn-prev { grid-column: 1; }
+.post-pn-next { grid-column: 2; text-align: right; }
+.post-pn-prev:only-child { grid-column: 1 / 2; }
+.post-pn-next:only-child { grid-column: 2 / 3; }
+.post-pn-dir { font: 700 12px/1 var(--oo-font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--oo-accent); }
+.post-pn-title { font: 700 15px/1.25 var(--oo-font-head); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
