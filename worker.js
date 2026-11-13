@@ -269,6 +269,10 @@ if (url.pathname === "/content/author-posts" && request.method === "GET") {
 if (url.pathname === "/content/events" && request.method === "GET") {
   return handleEvents(request);
 }
+/* ------------------ HOME EXTRAS (sponsor strip + Featured Columnists, read from the site's home page) ------------------ */
+if (url.pathname === "/content/home-extras" && request.method === "GET") {
+  return handleHomeExtras(request, env);
+}
 /* ------------------ AUTHOR ARCHIVES (app Archives screens; must come before API_ALLOW gate) ------------------ */
 // WordPress/the host firewall block anonymous /users and ?author= requests, so these two read-only routes
 // build author lists from ordinary public post lists instead (no login needed; summary fields only, no post body).
@@ -499,6 +503,75 @@ async function handleEvents(request) {
     return json(200, { ok: true, events }, { "cache-control": "public, max-age=600" }, request);
   } catch (err) {
     return jsonError(500, "events failed", err, request);
+  }
+}
+
+// GET /content/home-extras -> { ok, sponsors:[{name,href,img}], columnists:[{name,href,img}] }
+// The sponsor strip and Featured Columnists grid are built by the website, so the app reads them from the home
+// page's HTML (one fetch, remembered 15 minutes) and the app always shows exactly what the website shows.
+function htmlAttr(tag, name) {
+  const m = tag.match(new RegExp("\\b" + name + "\\s*=\\s*(\"([^\"]*)\"|'([^']*)')", "i"));
+  return m ? (m[2] !== undefined ? m[2] : m[3]) : "";
+}
+function htmlText(s) {
+  return String(s || "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&#8217;|&#039;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
+}
+function absUrl(u) {
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("//")) return "https:" + u;
+  return ORIGIN + (u.startsWith("/") ? "" : "/") + u;
+}
+function parseHomeExtras(html) {
+  const sponsors = [];
+  const sRe = /<a\b[^>]*okobserver-sponsor-card[^>]*>[\s\S]*?<\/a>/gi;
+  let m;
+  while ((m = sRe.exec(html))) {
+    const block = m[0];
+    const tag = block.slice(0, block.indexOf(">") + 1);
+    const imgTag = (block.match(/<img\b[^>]*>/i) || [""])[0];
+    const img = htmlAttr(imgTag, "data-src") || htmlAttr(imgTag, "src");
+    if (!img || img.startsWith("data:")) continue;
+    sponsors.push({ name: htmlAttr(tag, "aria-label") || htmlAttr(imgTag, "alt"), href: htmlAttr(tag, "href"), img: absUrl(img) });
+  }
+  const columnists = [];
+  const seen = new Set();
+  const cRe = /<a\b[^>]*okobserver-author-card-inner[^>]*>[\s\S]*?<\/a>/gi;
+  while ((m = cRe.exec(html))) {
+    const block = m[0];
+    const tag = block.slice(0, block.indexOf(">") + 1);
+    const imgTag = (block.match(/<img\b[^>]*>/i) || [""])[0];
+    const nameM = block.match(/okobserver-author-name[^>]*>([\s\S]*?)<\/span>/i);
+    const name = htmlText(nameM ? nameM[1] : "");
+    const href = htmlAttr(tag, "href");
+    const img = htmlAttr(imgTag, "data-src") || htmlAttr(imgTag, "src");
+    if (!name || !href || seen.has(href)) continue;
+    seen.add(href);
+    columnists.push({ name, href, img: img && !img.startsWith("data:") ? absUrl(img) : "" });
+  }
+  // "Shop the Observer" picture + page
+  const shopImg = (html.match(/https?:[^"'\s)]*Observer-Shop-booth[^"'\s)]*?\.(?:webp|jpe?g|png)/i) || [""])[0];
+  const shop = shopImg ? { img: shopImg, href: ORIGIN + "/shop-for-subscriptions-and-clothing/" } : null;
+  return { sponsors, columnists, shop };
+}
+async function handleHomeExtras(request, env) {
+  try {
+    const cache = caches.default;
+    const key = new Request("https://oo-cache.invalid/home-extras-v2");
+    const hit = await cache.match(key);
+    if (hit) {
+      return json(200, await hit.json(), { "cache-control": "public, max-age=900" }, request);
+    }
+    const headers = basicAuthHeaders(env) || { "Accept": "text/html" };
+    const resp = await fetch(ORIGIN + "/", { headers });
+    if (!resp.ok) return json(502, { ok: false, error: "Home page unavailable", status: resp.status }, NO_STORE, request);
+    const data = Object.assign({ ok: true }, parseHomeExtras(await resp.text()));
+    if (data.sponsors.length || data.columnists.length) {
+      await cache.put(key, new Response(JSON.stringify(data), { headers: { "content-type": "application/json", "cache-control": "max-age=900" } }));
+    }
+    return json(200, data, data.sponsors.length || data.columnists.length ? { "cache-control": "public, max-age=900" } : NO_STORE, request);
+  } catch (err) {
+    return jsonError(500, "home extras failed", err, request);
   }
 }
 
@@ -1013,6 +1086,7 @@ function corsHeaders(req) {
     path.startsWith("/content/full-post") ||
     path.startsWith("/content/author-posts") ||
     path.startsWith("/content/events") ||
+    path.startsWith("/content/home-extras") ||
     path === "/" ||
     path === "/status";
 

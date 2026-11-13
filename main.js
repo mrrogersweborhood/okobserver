@@ -196,7 +196,8 @@ if (path !== '/login' && path !== '/logout') {
     } else if (path === '/search') {
       renderSearch(params);
     } else if (path === '/toc') {
-      renderToc();
+      // Table of Contents was removed from the app; old links go home.
+      window.location.replace('#/');
     } else if (path === '/saved') {
       renderSaved();
     } else if (path === '/following') {
@@ -1105,7 +1106,279 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Home, in the website's order: Latest News, National Columnists, The Magazine, ObserverCast,
+  // Newsmakers, Featured Cartoon, Advertisers, Shop the Observer, Featured Columnists.
+  // Every post section is a swipe row (snaps into place, arrows underneath like the website).
+  // ---------------------------------------------------------------------------
+  let homeData = Object.create(null);   // this visit's section data (cleared by pull-to-refresh)
+  let homePos = Object.create(null);    // each row's sideways position, so coming back from a story keeps your place
+  let homeTimer = null;                 // sponsor rotation
+  const HOME_SLUGS = ['substack', 'columnists', 'issues', 'observercast', 'newsmakers', 'cartoon'];
+  const ARROW_L = '<svg viewBox="0 0 28 12" width="28" height="12" aria-hidden="true"><path d="M27 6H2M6 1.5 1.5 6 6 10.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ARROW_R = '<svg viewBox="0 0 28 12" width="28" height="12" aria-hidden="true"><path d="M1 6h25M22 1.5 26.5 6 22 10.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  async function homeCatIds() {
+    let ids = LS.get('ooHomeCats:' + SITE_KEY, null);
+    if (ids && ids.columnists) return ids;
+    const rows = await fetchJson(`${WP_API_BASE}/categories?slug=${HOME_SLUGS.join(',')}&per_page=20&_fields=id,slug`);
+    ids = {};
+    (Array.isArray(rows) ? rows : []).forEach((c) => { if (c && c.slug) ids[c.slug] = c.id; });
+    if (Object.keys(ids).length) LS.set('ooHomeCats:' + SITE_KEY, ids);
+    return ids;
+  }
+
+  async function homeSectionPosts(key, slug, perPage) {
+    if (homeData[key]) return homeData[key];
+    const ids = await homeCatIds();
+    const id = ids[slug];
+    if (!id && key !== 'latest') return [];
+    const rows = await fetchJson(`${WP_API_BASE}/posts?${id ? 'categories=' + id + '&' : ''}per_page=${perPage}&_embed=author,wp:featuredmedia,wp:term`);
+    const posts = (Array.isArray(rows) ? rows : []).filter((p) => key !== 'columnists' || !hasExcludedCategory(p));
+    posts.forEach((p) => { postCache.set(p.id, p); seenPostIds.add(p.id); });
+    homeData[key] = posts;
+    LS.set('ooHomeSec:' + SITE_KEY + ':' + key, posts.map(compactPost));
+    return posts;
+  }
+
+  function homeSectionEl(key, title, extraClass) {
+    const sec = document.createElement('section');
+    sec.className = 'oo-home-sec oo-sec-' + key + (extraClass ? ' ' + extraClass : '');
+    sec.setAttribute('data-oo-sec', key);
+    sec.innerHTML = `<h2 class="oo-section-title">${escapeHtml(title)}</h2><div class="oo-snap" data-oo="track"></div>
+      <div class="oo-pager"><button type="button" class="oo-pg oo-pg-prev" aria-label="Previous">${ARROW_L}</button><button type="button" class="oo-pg oo-pg-next" aria-label="Next">${ARROW_R}</button></div>`;
+    const track = sec.querySelector('.oo-snap');
+    const prev = sec.querySelector('.oo-pg-prev');
+    const next = sec.querySelector('.oo-pg-next');
+    const pager = sec.querySelector('.oo-pager');
+    const update = () => {
+      const max = track.scrollWidth - track.clientWidth - 2;
+      pager.hidden = max <= 2;
+      prev.classList.toggle('is-dim', track.scrollLeft <= 2);
+      next.classList.toggle('is-dim', track.scrollLeft >= max);
+    };
+    track.addEventListener('scroll', () => { homePos[key] = track.scrollLeft; requestAnimationFrame(update); }, { passive: true });
+    prev.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' }));
+    next.addEventListener('click', () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' }));
+    sec._update = () => {
+      track.scrollLeft = homePos[key] || 0;
+      update();
+      // pictures change a row's width after they load
+      track.querySelectorAll('img').forEach((im) => { if (!im.complete) im.addEventListener('load', update, { once: true }); });
+    };
+    return sec;
+  }
+
+  function seeAllSlide(slug, label) {
+    const a = document.createElement('a');
+    a.className = 'oo-seeall';
+    a.href = `#/archive?type=category&slug=${encodeURIComponent(slug)}&label=${encodeURIComponent(label)}`;
+    a.innerHTML = `<span>See all</span><span class="oo-seeall-sub">${escapeHtml(label)}</span>${ARROW_R}`;
+    return a;
+  }
+
+  function fillHomeSection(sec, key, posts) {
+    const track = sec.querySelector('.oo-snap');
+    track.innerHTML = '';
+    if (!posts.length) { sec.hidden = true; return; }
+    sec.hidden = false;
+    if (key === 'latest') {
+      for (let i = 0; i < posts.length; i += 3) {
+        const slide = document.createElement('div');
+        slide.className = 'oo-slide';
+        const lead = document.createElement('div');
+        lead.className = 'oo-lead';
+        lead.appendChild(createPostCard(posts[i]));
+        slide.appendChild(lead);
+        const pair = document.createElement('div');
+        pair.className = 'oo-pair';
+        posts.slice(i + 1, i + 3).forEach((p) => pair.appendChild(createPostCard(p)));
+        if (pair.children.length) slide.appendChild(pair);
+        track.appendChild(slide);
+      }
+      const first = track.querySelector('.oo-lead img.post-card-image');
+      if (first) { first.loading = 'eager'; first.fetchPriority = 'high'; }
+      const end = document.createElement('div'); end.className = 'oo-slide oo-slide-end'; end.appendChild(seeAllSlide('substack', 'Latest News')); track.appendChild(end);
+      posts.forEach((p) => seenPostIds.add(p.id));
+    } else if (key === 'columnists') {
+      posts.forEach((p) => { const w = document.createElement('div'); w.className = 'oo-item'; w.appendChild(createPostCard(p)); track.appendChild(w); });
+      const end = document.createElement('div'); end.className = 'oo-item oo-item-end'; end.appendChild(seeAllSlide('columnists', 'National Columnists')); track.appendChild(end);
+    } else if (key === 'magazine') {
+      posts.forEach((p) => {
+        const img = getFeaturedImageUrl(p);
+        const a = document.createElement('a');
+        a.className = 'oo-item oo-cover';
+        a.href = `#/post/${p.id}`;
+        a.innerHTML = `${img ? `<img src="${escapeAttr(img)}" alt="" loading="lazy" decoding="async" />` : ''}<span>${escapeHtml(stripHtml((p.title && p.title.rendered) || ''))}</span>`;
+        track.appendChild(a);
+      });
+      const end = document.createElement('div'); end.className = 'oo-item oo-item-end'; end.appendChild(seeAllSlide('issues', 'The Magazine')); track.appendChild(end);
+    } else if (key === 'observercast' || key === 'newsmakers') {
+      posts.forEach((p) => { const w = document.createElement('div'); w.className = 'oo-slide oo-lead oo-wide'; w.appendChild(createPostCard(p)); track.appendChild(w); });
+      const end = document.createElement('div'); end.className = 'oo-slide oo-slide-end'; end.appendChild(seeAllSlide(key, key === 'observercast' ? 'ObserverCast' : 'Newsmakers')); track.appendChild(end);
+    } else if (key === 'cartoon') {
+      posts.forEach((p) => {
+        const img = getFeaturedImageUrl(p);
+        if (!img) return;
+        const a = document.createElement('a');
+        a.className = 'oo-slide oo-cartoon';
+        a.href = `#/post/${p.id}`;
+        a.innerHTML = `<img src="${escapeAttr(img)}" alt="${escapeAttr(stripHtml((p.title && p.title.rendered) || 'Cartoon'))}" loading="lazy" decoding="async" /><span>${escapeHtml(stripHtml((p.title && p.title.rendered) || ''))}</span>`;
+        track.appendChild(a);
+      });
+      const end = document.createElement('div'); end.className = 'oo-slide oo-slide-end'; end.appendChild(seeAllSlide('cartoon', 'Cartoons')); track.appendChild(end);
+    }
+    sec._update();
+  }
+
+  async function loadHomeSection(sec, key, slug, perPage) {
+    // Instant: last visit's copy while fresh posts load.
+    let painted = false;
+    const snap = homeData[key] ? null : LS.get('ooHomeSec:' + SITE_KEY + ':' + key, null);
+    if (snap && Array.isArray(snap) && snap.length) { fillHomeSection(sec, key, snap); painted = true; }
+    try {
+      const fresh = await homeSectionPosts(key, slug, perPage);
+      if (!document.body.contains(sec)) return;
+      const same = painted && snap.length === fresh.length && snap.every((p, i) => p.id === fresh[i].id);
+      if (!same) fillHomeSection(sec, key, fresh);
+      if (key === 'latest') hideInitialLoader();
+    } catch (err) {
+      console.warn('[OkObserver] Home section failed:', key, err);
+      if (key === 'latest') {
+        hideInitialLoader();
+        if (!painted) sec.querySelector('.oo-snap').innerHTML = '<p class="oo-home-error">Couldn’t load the news. Pull down to try again.</p>';
+      } else if (!painted) sec.hidden = true;
+    }
+  }
+
+  async function loadHomeExtras() {
+    if (homeData.extras) return homeData.extras;
+    const cached = LS.get('ooHomeExtras:' + SITE_KEY, null);
+    if (cached && !homeData.extrasTried) { homeData.extrasTried = true; homeData.extras = cached; }
+    try {
+      const res = await fetch(`${WORKER_BASE}/content/home-extras`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data && data.ok) { homeData.extras = data; LS.set('ooHomeExtras:' + SITE_KEY, data); }
+    } catch (err) { console.warn('[OkObserver] Home extras unavailable:', err); }
+    return homeData.extras || null;
+  }
+
+  function buildSponsors(sec, sponsors) {
+    const track = sec.querySelector('.oo-snap');
+    track.innerHTML = '';
+    sponsors.forEach((s) => {
+      const a = document.createElement('a');
+      a.className = 'oo-slide oo-sponsor';
+      a.href = s.href || '#';
+      a.target = '_blank'; a.rel = 'noopener sponsored';
+      a.setAttribute('aria-label', s.name || 'Sponsor');
+      a.innerHTML = `<img src="${escapeAttr(s.img)}" alt="${escapeAttr(s.name || 'Sponsor')}" loading="lazy" decoding="async" />`;
+      track.appendChild(a);
+    });
+    const cta = sec.querySelector('.oo-advertise');
+    if (!cta) {
+      const b = document.createElement('a');
+      b.className = 'oo-advertise';
+      b.href = 'mailto:admin@okobserver.org';
+      b.textContent = 'Advertise with us';
+      sec.appendChild(b);
+    }
+    sec.hidden = !sponsors.length;
+    sec._update();
+    // Gentle rotation (like the website), paused while a finger is on it or the app is in the background
+    clearInterval(homeTimer);
+    if (sponsors.length > 1) {
+      let lastTouch = 0;
+      track.addEventListener('touchstart', () => { lastTouch = Date.now(); }, { passive: true });
+      homeTimer = setInterval(() => {
+        if (!document.body.contains(track)) { clearInterval(homeTimer); return; }
+        if (document.hidden || Date.now() - lastTouch < 12000) return;
+        const w = track.clientWidth;
+        const atEnd = track.scrollLeft >= track.scrollWidth - w - 4;
+        track.scrollTo({ left: atEnd ? 0 : track.scrollLeft + w, behavior: 'smooth' });
+      }, 6000);
+    }
+  }
+
+  function buildFeaturedColumnists(sec, people) {
+    const grid = sec.querySelector('.oo-snap');
+    sec.classList.add('oo-people');
+    grid.className = 'oo-people-grid';
+    grid.innerHTML = '';
+    people.forEach((p) => {
+      const a = document.createElement('a');
+      a.className = 'oo-person';
+      a.href = p.href; a.target = '_blank'; a.rel = 'noopener';
+      a.setAttribute('data-name', p.name);
+      a.innerHTML = `${p.img ? `<img src="${escapeAttr(p.img)}" alt="" loading="lazy" decoding="async" />` : '<span class="oo-person-blank"></span>'}<span class="oo-person-name">${escapeHtml(p.name)}</span>`;
+      grid.appendChild(a);
+    });
+    sec.querySelector('.oo-pager').hidden = true;
+    sec.hidden = !people.length;
+    // Open each person's page inside the app when we can match them to an author
+    fetchAllAuthors().then((authors) => {
+      const byName = new Map(authors.map((u) => [u.name.toLowerCase().replace(/^(rep\.|sen\.|dr\.)\s+/, ''), u]));
+      grid.querySelectorAll('.oo-person').forEach((a) => {
+        const nm = (a.getAttribute('data-name') || '').toLowerCase().replace(/^(rep\.|sen\.|dr\.)\s+/, '');
+        const u = byName.get(nm);
+        if (u) { a.href = `#/archive?type=author&id=${u.id}&label=${encodeURIComponent(u.name)}`; a.removeAttribute('target'); a.removeAttribute('rel'); }
+      });
+    }).catch(() => {});
+  }
+
   function renderHome() {
+    stopTtsPlayback();
+    clearInterval(homeTimer);
+    app.innerHTML = '<div class="home-view oo-home"></div>';
+    const view = app.querySelector('.oo-home');
+
+    const defs = [
+      ['latest', 'Latest News', 'substack', 15],
+      ['columnists', 'National Columnists', 'columnists', 10],
+      ['magazine', 'The Magazine', 'issues', 12],
+      ['observercast', 'ObserverCast', 'observercast', 8],
+      ['newsmakers', 'Newsmakers', 'newsmakers', 8],
+      ['cartoon', 'Featured Cartoon', 'cartoon', 8]
+    ];
+    const secs = {};
+    defs.forEach(([key, title]) => {
+      const sec = homeSectionEl(key, title);
+      secs[key] = sec;
+      view.appendChild(sec);
+    });
+    // Website-built sections (need the Worker's home-extras route; they stay hidden until it answers)
+    const sponsorSec = homeSectionEl('sponsors', 'Advertisers'); sponsorSec.hidden = true;
+    const shopSec = homeSectionEl('shop', 'Shop the Observer'); shopSec.hidden = true;
+    shopSec.querySelector('.oo-pager').remove();
+    const peopleSec = homeSectionEl('people', 'Featured Columnists'); peopleSec.hidden = true;
+    view.append(sponsorSec, shopSec, peopleSec);
+
+    // First paint: skeleton for the lead while the (usually instant) snapshot or network answers
+    if (!homeData.latest && !LS.get('ooHomeSec:' + SITE_KEY + ':latest', null)) {
+      secs.latest.querySelector('.oo-snap').innerHTML = `<div class="oo-slide">${skeletonCards(3)}</div>`;
+    }
+    defs.forEach(([key, , slug, perPage]) => {
+      if (key !== 'latest') secs[key].hidden = true;
+      loadHomeSection(secs[key], key, slug, perPage);
+    });
+
+    loadHomeExtras().then((x) => {
+      if (!x || !document.body.contains(view)) return;
+      if (Array.isArray(x.sponsors) && x.sponsors.length) buildSponsors(sponsorSec, x.sponsors);
+      if (x.shop && x.shop.img) {
+        const track = shopSec.querySelector('.oo-snap');
+        track.className = 'oo-shop';
+        track.innerHTML = `<a href="${escapeAttr(x.shop.href)}" target="_blank" rel="noopener"><img src="${escapeAttr(x.shop.img)}" alt="Shop the Observer" loading="lazy" decoding="async" /></a>`;
+        shopSec.hidden = false;
+      }
+      if (Array.isArray(x.columnists) && x.columnists.length) buildFeaturedColumnists(peopleSec, x.columnists);
+    });
+
+    if (homeState.initialized) restoreHomeScroll();
+  }
+
+  function renderHomeLegacy() {
     stopTtsPlayback();
 
     app.innerHTML = `
@@ -2154,6 +2427,8 @@ function refreshHome() {
   homeState.scrollY = 0;
   seenPostIds.clear();
   columnistPosts = null;
+  homeData = Object.create(null);
+  homePos = Object.create(null);
   skipSnapshotOnce = true;
   const pill = document.querySelector('.oo-newpill');
   if (pill) pill.hidden = true;
