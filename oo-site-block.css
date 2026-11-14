@@ -1,4 +1,4 @@
-/* Website menu + footer styles, copied from the staging site (reskin34). */
+/* Website menu + footer styles, copied from the staging site. */
 /* Shared directory block: menu + footer. Size knobs a caller may set on its own root (all optional, fallbacks below):
    --d-fs link text   --d-row link row height   --d-hfs group heading size   --d-hgap heading gap   --d-gy row gap   --d-gx column gap
    --d-q "Like what you see?" size   --d-rva its caption size   --d-fol "See us socially" size   --d-brand Observer logo width

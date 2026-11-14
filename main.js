@@ -956,12 +956,13 @@ function buildTtsTextFromHtml(html) {
     meta.className = 'post-card-meta';
     const dateStr = formatDate(post.date);
     const authorName = getAuthorName(post);
-    let metaText = '';
-    if (authorName) metaText += authorName;
-    if (dateStr) {
-      metaText += (metaText ? ' • ' : '') + dateStr;
-    }
-    meta.textContent = metaText;
+    // like the website: author, then a lighter long-form date ("November 8, 2026")
+    let longDate = '';
+    try { const dd = new Date(post.date); if (!Number.isNaN(dd.getTime())) longDate = dd.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); } catch (e) { /* keep short date */ }
+    const shownDate = longDate || dateStr;
+    meta.innerHTML = (authorName ? '<span class="oo-m-by">' + escapeHtml(authorName) + '</span>' : '') +
+      (authorName && shownDate ? '<span class="oo-m-sep"> - </span>' : '') +
+      (shownDate ? '<span class="oo-m-date">' + escapeHtml(shownDate) + '</span>' : '');
 
     const excerptEl = document.createElement('div');
     excerptEl.className = 'post-card-excerpt';

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   OkObserver — override.css  (reskin 2026-11-13)
+   OkObserver — override.css
    One stylesheet, one source of truth. Look and feel follows the new website
    (okobserver.org): Capitol-sky blue, cream text, gold accents, Georgia serif.
    No hotfix layers; tokens first, then each screen once.
@@ -70,7 +70,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-/* Backdrop: a fixed layer, because background-attachment:fixed is ignored on phones and the photo scrolled with the page (reskin36) */
+/* Backdrop: a fixed layer, because background-attachment:fixed is ignored on phones and the photo scrolled with the page */
 body::before { content: ""; position: fixed; left: 0; top: 0; width: 100%; height: 75vh; z-index: -1; pointer-events: none; background-image: var(--oo-bg-image); background-size: 100% 100%, cover, 100% 100%; background-position: 0 0, 50% 5%, 0 0; background-repeat: no-repeat; background-blend-mode: normal, luminosity, normal; -webkit-mask-image: var(--oo-bd-mask); mask-image: var(--oo-bd-mask); }
 @supports (height: 75lvh) { body::before { height: 75lvh; } }
 body.is-menu-open { overflow: hidden; }
@@ -164,7 +164,7 @@ a { color: var(--oo-link); }
   text-shadow: 0 1px 6px rgba(0, 0, 0, .25);
 }
 :root[data-oo-theme="light"] .oo-section-title { text-shadow: none; }
-/* section titles are links to the category archive, like the website (reskin37) */
+/* section titles are links to the category archive, like the website */
 .oo-section-link { display: inline-flex; align-items: center; color: inherit; text-decoration: none; padding: 10px 0; margin: -10px 0; -webkit-tap-highlight-color: transparent; }
 .oo-section-link .oo-ln-arrow { display: inline-flex; align-items: center; padding-left: .8em; color: #ffd98a; transition: transform .2s ease; }
 .oo-section-link .oo-ln-arrow svg { display: block; width: 32px; height: 14px; overflow: visible; }
@@ -526,7 +526,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .about-image-full { width: 100%; height: auto; border-radius: var(--oo-radius); }
 .not-found-view { text-align: center; padding: 40px 0; color: var(--oo-title); font-family: var(--oo-font-head); }
 
-/* ---- 5b. Home, website order: swipe rows (reskin16) ----------------------- */
+/* ---- 5b. Home, website order: swipe rows ----------------------- */
 .oo-home-sec { margin: 0 0 24px; }
 .oo-home-sec[hidden] { display: none; }
 .oo-home-sec > .oo-section-title { margin-top: 18px; }
@@ -606,10 +606,10 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .oo-slide .oo-lead .post-card-title { font-size: clamp(21px, 6vw, 28px); }
 .oo-slide .oo-lead .post-card-excerpt { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; }
 .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: 230px; }
-/* tablet and desktop: the wide lead card grows with its width so the artwork is not cropped to a strip (reskin36) */
+/* tablet and desktop: the wide lead card grows with its width so the artwork is not cropped to a strip */
 @media (min-width: 700px) { .oo-slide .oo-lead .post-card, .oo-slide .oo-lead .post-card-content, .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: min(54vw, 600px); } }
 
-/* ---- Menu groups, like the website's menu (reskin17) ---- */
+/* ---- Menu groups, like the website's menu ---- */
 .oo-menu-list .oo-group > ul { list-style: none; margin: 0; padding: 0; display: none; }
 .oo-menu-list .oo-group.is-open > ul { display: block; }
 .oo-menu-list .oo-group-btn {
@@ -625,7 +625,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 /* Save-for-later and Follow are retired from the app's screens (menu entries removed) */
 .archive-follow { display: none !important; }
 
-/* ---- Header laid out like the website's: logo left, motto truly centered, menu button right (reskin17) ---- */
+/* ---- Header laid out like the website's: logo left, motto truly centered, menu button right ---- */
 .oo-header-inner { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; column-gap: 18px; }
 .oo-brand { display: contents; }
 .oo-logo { grid-column: 1; grid-row: 1; justify-self: start; }
@@ -643,7 +643,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 }
 @media (max-width: 720px) { :root { --oo-header-h: 108px; } }
 
-/* Previous / Next story at the end of a post (reskin19) */
+/* Previous / Next story at the end of a post */
 .post-pn { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0 8px; }
 .post-pn[hidden] { display: none; }
 .post-pn-link {
@@ -658,7 +658,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .post-pn-dir { font: 700 12px/1 var(--oo-font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--oo-accent); }
 .post-pn-title { font: 700 15px/1.25 var(--oo-font-head); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* "You're leaving the app" notice (reskin22) */
+/* "You're leaving the app" notice */
 .oo-leave { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4, 18, 52, .72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .oo-leave-card { width: min(380px, 100%); padding: 22px 22px 18px; text-align: center; background: var(--oo-panel-strong); border: .8px solid var(--oo-panel-line); border-radius: 8px; box-shadow: var(--oo-shadow); color: var(--oo-ink); }
 :root:not([data-oo-theme="light"]) .oo-leave-card { background: #0b2a66; }
@@ -672,10 +672,10 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 
 .oo-splash-motto span { display: block; white-space: nowrap; }
 
-/* reskin28: portrait splash video fills phone screens */
+/* portrait splash video fills phone screens */
 @media (max-width: 720px) { .oo-splash { background: #0a2a63; } .oo-splash-video { object-fit: cover; width: 100%; height: 100%; max-width: none; max-height: none; } }
 
-/* reskin29: splash logo + motto lockup matches the header (phone sizes) */
+/* splash logo + motto lockup matches the header (phone sizes) */
 .oo-splash-brand { background: none; text-align: left; padding: max(env(safe-area-inset-top, 0px), 10px) 14px 6px; }
 .oo-splash-logo { width: auto; height: 52px; max-width: none; display: block; }
 .oo-splash-brand .oo-splash-motto { max-width: 330px; margin: 8px auto 0; text-align: center; font: 700 11px/1.5 var(--oo-font-motto, "Montserrat", sans-serif); letter-spacing: .15em; text-transform: uppercase; color: var(--oo-ink, #fff); text-wrap: balance; }
@@ -684,7 +684,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 @media (min-width: 721px) { .oo-splash-logo { height: 64px; } .oo-splash-brand { padding: 14px 20px 6px; } .oo-splash-brand .oo-splash-motto { font-size: 13px; letter-spacing: .22em; max-width: 560px; } }
 
 
-/* reskin34: log in/out + app badges inside the website-style menu and footer */
+/* log in/out + app badges inside the website-style menu and footer */
 #ooSignOutLink{display:none}
 .oo-logged-in #ooSignOutLink{display:inline-flex}
 .oo-logged-in #ooSignInLink{display:none}
@@ -972,7 +972,7 @@ html[data-oo-theme="light"] .post-detail-tts-row .oo-act:hover, html[data-oo-the
 html[data-oo-theme="light"] .oo-post-head[style]::before { opacity: .4; }
 html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gradient(rgba(250, 247, 241, .55), rgba(250, 247, 241, .4)); }
 
-/* ---- Even rows, like the website (reskin70): fixed title/byline room so every card in a row, and every page of a row, is the same height ---- */
+/* ---- Even rows, like the website: fixed title/byline room so every card in a row, and every page of a row, is the same height ---- */
 .oo-pair .post-card-title, .oo-item .post-card-title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .oo-pair .post-card-title { -webkit-line-clamp: 2; line-clamp: 2; min-height: 2.4em; }
 .oo-item .post-card-title { -webkit-line-clamp: 3; line-clamp: 3; min-height: 3.6em; }
@@ -982,7 +982,7 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
   .oo-slide .oo-lead .post-card-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 }
 
-/* ---- Match the website (reskin71): no excerpts on lead / columnist cards; lead card = image on top, text panel below (theme-aware) ---- */
+/* ---- Match the website: no excerpts on lead / columnist cards; lead card = image on top, text panel below (theme-aware) ---- */
 .oo-slide .oo-lead .post-card-excerpt, .oo-item .post-card-excerpt { display: none; }
 .oo-slide .oo-lead .post-card, .oo-slide .oo-lead.oo-wide .post-card { display: flex; flex-direction: column; min-height: 0; background: var(--oo-panel); }
 .oo-slide .oo-lead .post-card-image-wrapper { position: relative; inset: auto; aspect-ratio: 2.3 / 1; }
@@ -993,3 +993,50 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
 .oo-slide .oo-lead .post-card-meta { color: var(--oo-accent); }
 @media (min-width: 700px) { .oo-slide .oo-lead .post-card, .oo-slide .oo-lead .post-card-content, .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: 0; } }
 .oo-slide .oo-lead .post-card-image { object-position: 50% 0; }
+
+/* ---- Full match to the website's home ---- */
+/* section title underline: blue fading to white, like the website */
+.oo-section-title::after { background: linear-gradient(90deg, #1e90ff 0%, rgba(255, 255, 255, .62) 46%, rgba(255, 255, 255, 0) 100%); }
+:root[data-oo-theme="light"] .oo-section-title::after { background: linear-gradient(90deg, #1e90ff 0%, rgba(30, 144, 255, .35) 46%, rgba(30, 144, 255, 0) 100%); }
+
+/* bylines: author in gold, lighter long date, small regular type */
+.oo-home-sec .post-card-meta { font: 400 10px/1.35 "Open Sans", Verdana, sans-serif; letter-spacing: .025em; text-transform: none; }
+.oo-home-sec .post-card-meta .oo-m-by { color: var(--oo-accent); font-weight: 400; }
+.oo-home-sec .post-card-meta .oo-m-sep, .oo-home-sec .post-card-meta .oo-m-date { color: rgba(255, 255, 255, .85); font-weight: 400; }
+:root[data-oo-theme="light"] .oo-home-sec .post-card-meta .oo-m-sep, :root[data-oo-theme="light"] .oo-home-sec .post-card-meta .oo-m-date { color: #3b4a66; }
+.oo-home-sec .oo-lead .post-card-meta { font-size: 11px; }
+
+/* small Latest News cards: shallow picture, bold sans title (Verdana), like the website */
+.oo-pair .post-card-image-wrapper { aspect-ratio: 8 / 5; }
+.oo-pair .post-card-title { font: 800 13px/16px Verdana, "Segoe UI", sans-serif; min-height: 32px; color: #f8f1e1; }
+:root[data-oo-theme="light"] .oo-pair .post-card-title { color: #14233f; }
+.oo-pair .post-card-content { padding: 2px 10px 11px; gap: 4px; }
+:root:not([data-oo-theme="light"]) .oo-slide .oo-lead:not(.oo-wide) .post-card-title { color: #f8f1e1; }
+.oo-slide .oo-lead:not(.oo-wide) .post-card-title { font-size: 21px; line-height: 1.08; }
+
+/* National Columnists: two rows per page (2 x 2), like the website */
+.oo-sec-columnists .oo-snap { display: grid; grid-auto-flow: column; grid-template-rows: auto auto; grid-auto-columns: calc(50% - 7px); gap: 14px; }
+.oo-sec-columnists .oo-snap > .oo-item { flex: none; min-width: 0; scroll-snap-align: none; }
+.oo-sec-columnists .oo-snap > .oo-item:nth-child(4n+1) { scroll-snap-align: start; }
+.oo-sec-columnists .oo-item .post-card-image-wrapper { aspect-ratio: 8 / 5; }
+.oo-sec-columnists .oo-item .post-card-title { font: 900 15px/18px var(--oo-font-head); letter-spacing: -.01em; min-height: 54px; }
+.oo-sec-columnists .oo-item .post-card-content { padding: 2px 11px 12px; gap: 5px; }
+.oo-sec-columnists .oo-item .post-card-meta { min-height: 0; }
+
+/* Magazine: month on one line */
+.oo-cover span { font-size: 15px; white-space: nowrap; margin-top: 6px; }
+
+/* ObserverCast: serif title with an uppercase date; Newsmakers: sans title with a plain white byline */
+.oo-sec-observercast .post-card-meta .oo-m-by, .oo-sec-observercast .post-card-meta .oo-m-sep { display: none; }
+.oo-sec-observercast .post-card-meta .oo-m-date { color: #fff; font: 700 11px/1.3 "Open Sans", Verdana, sans-serif; text-transform: uppercase; letter-spacing: .1em; }
+.oo-sec-newsmakers .post-card-title { font: 400 clamp(19px, 5.6vw, 22px)/1.1 Roboto, Verdana, sans-serif; letter-spacing: -.015em; }
+.oo-sec-newsmakers .post-card-meta .oo-m-by, .oo-sec-newsmakers .post-card-meta .oo-m-date { color: #fff; font: 400 11px/1.3 "Open Sans", Verdana, sans-serif; }
+.oo-sec-newsmakers .post-card-meta .oo-m-sep { color: #fff; }
+/* arrows a touch lighter, like the website; cartoon is the picture alone */
+.oo-pg svg path { stroke-width: 1.2; }
+.oo-cartoon { border-radius: 0; box-shadow: none; background: transparent; }
+.oo-cartoon span { display: none; }
+/* Advertise With Us pill, like the website: dark fill, dashes either side */
+.oo-advertise { background: rgba(6, 26, 70, .78); padding: 11px 22px; font: 700 12px/1 var(--oo-font-ui); letter-spacing: .13em; }
+.oo-advertise::before, .oo-advertise::after { content: "\2014"; display: inline-block; margin: 0 10px; font-weight: 400; }
+:root[data-oo-theme="light"] .oo-advertise { background: #0b2a66; }
