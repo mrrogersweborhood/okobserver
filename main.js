@@ -196,8 +196,48 @@ function updateAuthNav() {
     t.classList.add('oo-tools-top');
     if (app.firstElementChild !== t) app.insertBefore(t, app.firstChild);
   }
+  // Page content starts at the same distance below the pair on every non-post page (the Home page is the reference: 31px to its first line)
+  function firstTextTop(t) {
+    const w = document.createTreeWalker(app, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      const p = n.parentElement;
+      if (!p || t.contains(n) || !n.textContent.trim() || /SCRIPT|STYLE/.test(p.tagName)) continue;
+      if (p.closest('[hidden]')) continue;
+      const cs = getComputedStyle(p);
+      if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+      const g = document.createRange();
+      g.selectNodeContents(n);
+      const q = g.getClientRects();
+      if (q.length && q[0].width > 2 && q[0].height > 2) return q[0].top;
+    }
+    return null;
+  }
+  let alignQueued = false;
+  function alignContent() {
+    alignQueued = false;
+    const t = app && app.querySelector('.oo-tools-top');
+    if (!t) return;
+    t.style.removeProperty('margin-bottom');
+    let mb = parseFloat(getComputedStyle(t).marginBottom) || 0;
+    for (let k = 0; k < 4; k++) {
+      const top = firstTextTop(t);
+      if (top === null) return;
+      const d = (t.getBoundingClientRect().bottom + 31) - top;
+      if (Math.abs(d) < 0.6) return;
+      mb = Math.round(mb + d);
+      t.style.setProperty('margin-bottom', mb + 'px', 'important');
+    }
+  }
+  function queueAlign() {
+    if (alignQueued) return;
+    alignQueued = true;
+    requestAnimationFrame(alignContent);
+    setTimeout(alignContent, 900);
+    setTimeout(alignContent, 2600);
+  }
   if (app && window.MutationObserver) {
-    new MutationObserver(ensureTools).observe(app, { childList: true, subtree: true });
+    new MutationObserver(() => { ensureTools(); queueAlign(); }).observe(app, { childList: true, subtree: true });
   }
 
      function onRouteChange() {
