@@ -225,7 +225,7 @@ a { color: var(--oo-link); }
   margin: 8px 0 8px; text-align: center; color: var(--oo-title);
   font: 900 clamp(28px, 5.4vw, 46px)/1.12 var(--oo-font-head); text-wrap: balance;
 }
-.post-detail > .post-meta {
+.post-detail .post-meta {
   text-align: center; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; padding-bottom: 16px; margin-bottom: 6px;
   border-bottom: 2px solid var(--oo-accent);
 }
@@ -956,3 +956,14 @@ html[data-oo-theme="light"] .post-detail-tts-row .oo-act:hover, html[data-oo-the
 .post-pn-media img { display: block; width: 100%; height: auto; }
 .post-pn-title { font: 700 21px/1.2 var(--oo-font-head); text-transform: none; letter-spacing: 0; -webkit-line-clamp: 4; line-clamp: 4; }
 .post-pn-date { font: 700 13px/1.2 var(--oo-font-body); text-transform: none; letter-spacing: 0; color: var(--oo-title); opacity: .85; }
+
+
+/* Single post: blurred featured image behind title + byline (matches the website) */
+.oo-post-head { position: relative; isolation: isolate; overflow: hidden; border-radius: var(--oo-radius); padding: 14px 12px 0; margin: 0 0 4px; }
+.oo-post-head[style]::before {
+  content: ""; position: absolute; inset: -24px; z-index: -1; background: var(--oo-hd) 50% 38% / cover no-repeat;
+  filter: blur(5px) saturate(1.2) brightness(1.15); transform: scale(1.1); opacity: .75;
+}
+.oo-post-head[style]::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(rgba(20, 60, 150, .38), rgba(20, 60, 150, .22)); }
+html[data-oo-theme="light"] .oo-post-head[style]::before { opacity: .4; }
+html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gradient(rgba(250, 247, 241, .55), rgba(250, 247, 241, .4)); }

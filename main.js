@@ -3288,8 +3288,8 @@ if (authorName) {
 
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
-        <h1 class="post-title">${rawTitle}</h1>
-        ${metaHtml}
+        <div class="oo-post-head"><h1 class="post-title">${rawTitle}</h1>
+        ${metaHtml}</div>
         <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
@@ -3514,8 +3514,8 @@ if (authorName) {
 
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
-        <h1 class="post-title">${titleHtml}</h1>
-        ${metaHtml}
+        <div class="oo-post-head"><h1 class="post-title">${titleHtml}</h1>
+        ${metaHtml}</div>
         <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
@@ -3675,9 +3675,12 @@ const ttsButtonHtml = `
   </span>
 `;
 
+const headBg = featuredImageUrl ? ` style="--oo-hd:url('${String(featuredImageUrl).replace(/'/g, '%27')}')"` : '';
 const detailInnerHtml = `
+  <div class="oo-post-head"${headBg}>
   <h1 class="post-title">${titleHtml}</h1>
   ${metaHtml}
+  </div>
   <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
   <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
