@@ -1152,3 +1152,9 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
 /* National Columnists cards: lighter title/byline panel, same as the website (dark mode; light mode keeps white) */
 :root:not([data-oo-theme="light"]) .oo-sec-columnists .post-card { background: linear-gradient(160deg, rgba(58, 120, 214, .68), rgba(44, 102, 198, .68)); }
 :root:not([data-oo-theme="light"]) .oo-sec-columnists .post-card-image-wrapper::after { background: linear-gradient(180deg, transparent, rgba(58, 120, 214, .68)); }
+
+/* Phones: ObserverCast / Newsmakers title + byline sit the same distance from the bottom of the picture as on tablet and desktop (content fills the card; card sizes unchanged) */
+@media (max-width: 699px) {
+  .oo-sec-observercast .oo-lead .post-card-content { min-height: 225px !important; height: 225px !important; }
+  .oo-sec-newsmakers .oo-lead .post-card-content { min-height: 270px !important; height: 270px !important; }
+}
