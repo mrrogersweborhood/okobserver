@@ -163,6 +163,43 @@ function updateAuthNav() {
     onRouteChange();
   });
 
+  // Back + light/dark pair: top-left under the masthead, above every title, in the same spot on every page except single posts
+  function ensureTools() {
+    if (!app) return;
+    const p = parseHashRoute().path || '/';
+    if (p.indexOf('/post/') === 0) return;
+    let t = app.querySelector('.oo-tools');
+    if (!t) {
+      t = document.createElement('div');
+      t.className = 'oo-tools';
+      app.insertBefore(t, app.firstChild);
+    }
+    if (!t.querySelector('[data-tool="back"]')) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'oo-tool'; b.setAttribute('data-tool', 'back');
+      b.setAttribute('aria-label', 'Back'); b.title = 'Back'; b.innerHTML = '&larr;';
+      t.insertBefore(b, t.firstChild);
+      b.addEventListener('click', () => { if (window.history.length > 1) window.history.back(); else window.location.hash = '#/'; });
+    }
+    if (!t.querySelector('[data-tool="theme"]')) {
+      const th = document.createElement('button');
+      th.type = 'button'; th.className = 'oo-tool'; th.setAttribute('data-tool', 'theme');
+      th.setAttribute('aria-label', 'Switch light or dark mode'); th.title = 'Switch light or dark mode'; th.innerHTML = '<i></i>';
+      t.appendChild(th);
+      th.addEventListener('click', () => {
+        const el = document.documentElement;
+        const next = el.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+        el.setAttribute('data-oo-theme', next);
+        try { localStorage.setItem('ooTheme', next); } catch (err) {}
+      });
+    }
+    t.classList.add('oo-tools-top');
+    if (app.firstElementChild !== t) app.insertBefore(t, app.firstChild);
+  }
+  if (app && window.MutationObserver) {
+    new MutationObserver(ensureTools).observe(app, { childList: true, subtree: true });
+  }
+
      function onRouteChange() {
     const { path, params } = parseHashRoute();
 // Track last list route for PostDetail "Back to posts"
@@ -1195,17 +1232,28 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     sec.className = 'oo-home-sec oo-sec-' + key + (extraClass ? ' ' + extraClass : '');
     sec.setAttribute('data-oo-sec', key);
     const titleHtml = slug ? `<a class="oo-section-link" href="#/archive?type=category&slug=${encodeURIComponent(slug)}&label=${encodeURIComponent(title)}"><span>${escapeHtml(title)}</span></a>` : escapeHtml(title);
-    sec.innerHTML = `<h2 class="oo-section-title">${titleHtml}</h2><div class="oo-snap" data-oo="track"></div>
+    sec.innerHTML = `<h2 class="oo-section-title">${titleHtml}</h2><div class="oo-snapwrap"><div class="oo-snap" data-oo="track"></div></div>
       <div class="oo-pager"><button type="button" class="oo-pg oo-pg-prev" aria-label="Previous">${ARROW_L}</button><button type="button" class="oo-pg oo-pg-next" aria-label="Next">${ARROW_R}</button></div>`;
     const track = sec.querySelector('.oo-snap');
     const prev = sec.querySelector('.oo-pg-prev');
     const next = sec.querySelector('.oo-pg-next');
     const pager = sec.querySelector('.oo-pager');
+    // side arrows beside the cards (Latest News + National Columnists), like the website
+    let sidePrev = null, sideNext = null;
+    if (['latest', 'columnists', 'magazine', 'observercast', 'newsmakers', 'cartoon'].indexOf(key) !== -1) {
+      const chev = (d) => '<svg viewBox="0 0 14 26" width="14" height="26" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      sidePrev = document.createElement('button'); sidePrev.type = 'button'; sidePrev.className = 'oo-side oo-side-prev'; sidePrev.setAttribute('aria-label', 'Previous'); sidePrev.innerHTML = chev('M11 2 3 13l8 11');
+      sideNext = document.createElement('button'); sideNext.type = 'button'; sideNext.className = 'oo-side oo-side-next'; sideNext.setAttribute('aria-label', 'Next'); sideNext.innerHTML = chev('M3 2l8 11-8 11');
+      const wrap = sec.querySelector('.oo-snapwrap'); wrap.appendChild(sidePrev); wrap.appendChild(sideNext);
+      sidePrev.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' }));
+      sideNext.addEventListener('click', () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' }));
+    }
     const update = () => {
       const max = track.scrollWidth - track.clientWidth - 2;
       pager.hidden = max <= 2;
       prev.classList.toggle('is-dim', track.scrollLeft <= 2);
       next.classList.toggle('is-dim', track.scrollLeft >= max);
+      if (sidePrev) { sidePrev.hidden = max <= 2; sideNext.hidden = max <= 2; sidePrev.classList.toggle('is-dim', track.scrollLeft <= 2); sideNext.classList.toggle('is-dim', track.scrollLeft >= max); }
     };
     track.addEventListener('scroll', () => { homePos[key] = track.scrollLeft; requestAnimationFrame(update); }, { passive: true });
     prev.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' }));

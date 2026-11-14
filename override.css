@@ -1040,3 +1040,111 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
 .oo-advertise { background: rgba(6, 26, 70, .78); padding: 11px 22px; font: 700 12px/1 var(--oo-font-ui); letter-spacing: .13em; }
 .oo-advertise::before, .oo-advertise::after { content: "\2014"; display: inline-block; margin: 0 10px; font-weight: 400; }
 :root[data-oo-theme="light"] .oo-advertise { background: #0b2a66; }
+
+/* ---- Website geometry on phones: inset cards with side arrows, same card sizes (build 2.0.2) ---- */
+.oo-home-sec { position: relative; }
+.oo-side { position: absolute; top: 46%; z-index: 3; width: 36px; height: 46px; margin-top: -23px; padding: 0; border: 0; background: none; color: var(--oo-title); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .2s; }
+.oo-side[hidden] { display: none; }
+.oo-side-prev { left: -14px; } .oo-side-next { right: -14px; }
+.oo-side.is-dim { opacity: .28; }
+@media (min-width: 700px) { .oo-side { display: none; } }
+@media (max-width: 699px) {
+  /* Latest News + National Columnists sit 36px in from each edge, the arrows live in the gutters */
+  .oo-sec-latest .oo-snap, .oo-sec-columnists .oo-snap { margin-left: 22px; margin-right: 22px; }
+  .oo-sec-latest .oo-pair { gap: 11px; margin-top: 11px; }
+  .oo-sec-columnists .oo-snap { gap: 10px; grid-auto-columns: calc(50% - 5px); }
+  /* lead 220 tall: picture 127 + text */
+  .oo-slide .oo-lead:not(.oo-wide) .post-card { height: 220px; }
+  .oo-slide .oo-lead:not(.oo-wide) .post-card-image-wrapper { aspect-ratio: auto; height: 127px; flex: none; }
+  .oo-slide .oo-lead:not(.oo-wide) .post-card-content { padding: 3px 14px 10px; gap: 4px; }
+  /* small cards 158 tall: picture 85 */
+  .oo-pair .post-card { height: 158px; }
+  .oo-pair .post-card-image-wrapper { aspect-ratio: auto; height: 85px; flex: none; }
+  .oo-pair .post-card-content { padding: 2px 9px 8px; gap: 3px; }
+  .oo-pair .post-card-title { min-height: 32px; }
+  /* columnist cards 214 tall: picture 93 */
+  .oo-sec-columnists .oo-item .post-card-image-wrapper { aspect-ratio: auto; height: 93px; flex: none; }
+  .oo-sec-columnists .oo-item .post-card { height: 214px; }
+  .oo-sec-columnists .oo-item .post-card-title { min-height: 0; }
+  /* magazine covers: 170 x 257 */
+  .oo-sec-magazine .oo-snap { margin: 0 7px; gap: 13px; }
+  .oo-cover { padding: 1px 1px 0; height: 257px; }
+  .oo-cover img { height: 220px; object-fit: cover; }
+  .oo-cover span { margin: 0; line-height: 36px; }
+  /* wide cards 354 x 300 with a peek of the next one */
+  .oo-sec-observercast .oo-snap, .oo-sec-newsmakers .oo-snap { margin-left: 6px; margin-right: -14px; }
+  .oo-sec-observercast .oo-snap > .oo-lead, .oo-sec-newsmakers .oo-snap > .oo-lead { flex: 0 0 354px; }
+  .oo-sec-observercast .oo-lead .post-card, .oo-sec-newsmakers .oo-lead .post-card { min-height: 300px; height: 300px; }
+}
+@media (max-width: 699px) {
+  /* gap between each section title and its first card, as on the website */
+  .oo-sec-latest > .oo-section-title { margin-bottom: 23px; }
+  .oo-sec-columnists > .oo-section-title { margin-bottom: 22px; }
+  .oo-sec-magazine > .oo-section-title { margin-bottom: 40px; }
+  .oo-sec-observercast > .oo-section-title, .oo-sec-newsmakers > .oo-section-title, .oo-sec-cartoon > .oo-section-title { margin-bottom: 28px; }
+  .oo-sec-shop > .oo-section-title { margin-bottom: 25px; }
+  .oo-people > .oo-section-title { margin-bottom: 44px; }
+  .oo-sec-observercast .oo-lead .post-card { min-height: 250px; height: 250px; }
+  /* advertisers: 336 x 186 tile, 263 x 46 button; shop picture 312 wide; featured columnists */
+  .oo-sec-sponsors .oo-snap { margin: 0 13px; }
+  .oo-sponsor { min-height: 186px; }
+  .oo-advertise { display: flex; align-items: center; justify-content: center; width: 263px; height: 46px; padding: 0; }
+  .oo-shop a, .oo-shop img { width: 312px; max-width: 100%; margin: 0 auto; }
+  .oo-people-grid { gap: 22px 10px; padding: 6px 4px 0; }
+  .oo-person img, .oo-person-blank { width: 100px; height: 100px; }
+}
+@media (max-width: 699px) {
+  .oo-home-sec { margin-bottom: 0; }
+  .oo-sec-latest, .oo-sec-observercast, .oo-sec-newsmakers, .oo-sec-magazine { margin-bottom: -4px; }
+}
+@media (max-width: 699px) {
+  .oo-sec-cartoon .oo-snap { margin-left: -5px; margin-right: -5px; }
+  .oo-sec-cartoon .oo-cartoon img { height: 262px; object-fit: cover; }
+  .oo-sec-cartoon { margin-bottom: -24px; }
+  .oo-sec-sponsors { margin-bottom: 35px; }
+  .oo-shop a, .oo-shop img { height: 209px; object-fit: cover; }
+}
+
+/* ---- Gutter arrows on every swipe row (phones): arrows beside the cards at mid-height, none above/below (build 2.0.3) ---- */
+.oo-snapwrap { position: relative; }
+.oo-snapwrap > .oo-side { top: 50%; }
+.oo-snapwrap > .oo-side-prev { left: -36px; }
+.oo-snapwrap > .oo-side-next { right: -36px; }
+@media (max-width: 699px) {
+  .oo-sec-latest .oo-snapwrap, .oo-sec-columnists .oo-snapwrap, .oo-sec-magazine .oo-snapwrap,
+  .oo-sec-observercast .oo-snapwrap, .oo-sec-newsmakers .oo-snapwrap, .oo-sec-cartoon .oo-snapwrap { margin: 0 22px; }
+  .oo-sec-latest .oo-snap, .oo-sec-columnists .oo-snap, .oo-sec-magazine .oo-snap,
+  .oo-sec-observercast .oo-snap, .oo-sec-newsmakers .oo-snap, .oo-sec-cartoon .oo-snap { margin-left: 0; margin-right: 0; }
+  .oo-sec-latest .oo-pager, .oo-sec-columnists .oo-pager, .oo-sec-magazine .oo-pager,
+  .oo-sec-observercast .oo-pager, .oo-sec-newsmakers .oo-pager, .oo-sec-cartoon .oo-pager { display: none; }
+  /* magazine: two covers across the 318px column */
+  .oo-sec-magazine .oo-snap { gap: 10px; }
+  .oo-sec-magazine .oo-snap > .oo-item { flex: 0 0 calc(50% - 5px); }
+  .oo-sec-magazine .oo-cover { height: 235px; }
+  .oo-sec-magazine .oo-cover img { height: 199px; }
+  /* wide cards fill the column */
+  .oo-sec-observercast .oo-snap > .oo-lead, .oo-sec-newsmakers .oo-snap > .oo-lead { flex: 0 0 100%; }
+  .oo-sec-observercast .oo-lead .post-card { min-height: 225px; height: 225px; }
+  .oo-sec-newsmakers .oo-lead .post-card { min-height: 270px; height: 270px; }
+  /* cartoon fills the column */
+  .oo-sec-cartoon .oo-cartoon img { height: 224px; }
+  .oo-sec-cartoon { margin-bottom: 0; }
+  .oo-sec-latest, .oo-sec-observercast, .oo-sec-newsmakers, .oo-sec-magazine { margin-bottom: 24px; }
+  .oo-sec-columnists { margin-bottom: 24px; }
+}
+/* tablet + desktop: same gutter arrows (a bit wider gutter), no pagers above/below */
+@media (min-width: 700px) {
+  .oo-side { display: flex; width: 44px; }
+  .oo-side[hidden] { display: none; }
+  .oo-sec-latest .oo-snapwrap, .oo-sec-columnists .oo-snapwrap, .oo-sec-magazine .oo-snapwrap,
+  .oo-sec-observercast .oo-snapwrap, .oo-sec-newsmakers .oo-snapwrap, .oo-sec-cartoon .oo-snapwrap { margin: 0 44px; }
+  .oo-snapwrap > .oo-side-prev { left: -44px; }
+  .oo-snapwrap > .oo-side-next { right: -44px; }
+  .oo-sec-latest .oo-pager, .oo-sec-columnists .oo-pager, .oo-sec-magazine .oo-pager,
+  .oo-sec-observercast .oo-pager, .oo-sec-newsmakers .oo-pager, .oo-sec-cartoon .oo-pager { display: none; }
+}
+
+/* Back + light/dark pair: same spot on every page except single posts (top-left, above the first title) */
+.oo-tools-top { display: flex; gap: 10px; margin: 8px 0 14px; padding: 0; }
+.oo-tools-top .oo-tool { background: #0f2a6e; color: #fff; border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 3px 10px rgba(0, 0, 0, .25); }
+html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #14275f; border-color: #9fb0d8; box-shadow: 0 3px 10px rgba(20, 39, 95, .22); }
