@@ -782,3 +782,4 @@ html:not([data-oo-theme="light"]) .tts-button::before { width: 34px; height: 34p
 :root[data-oo-theme="light"] .oo-arch .oo-m-by a { color: #14275f !important; }
 :root[data-oo-theme="light"] .oo-arch .post-card-excerpt { border-top-color: #d8dcea; }
 .oo-ix-more[hidden] { display: none; }
+.oo-ix-hl { background: #f3d37a; color: #14275f; padding: 0 1px; border-radius: 2px; }

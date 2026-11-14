@@ -3030,9 +3030,16 @@ function renderBrowse(params) {
   let D = null; let cur = ''; let arr = null; let shown = 0;
   const nameOf = (i) => { const e = D.t[i]; return typeof e === 'string' ? e : e[0]; };
   const slugOf = (i) => { const e = D.t[i]; return typeof e === 'string' ? e.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : e[1]; };
+  let hlTerm = '';
+  const hl = (t) => {
+    if (!hlTerm) return escapeHtml(t);
+    const lo = t.toLowerCase(); let out = ''; let p = 0; let k;
+    while ((k = lo.indexOf(hlTerm, p)) !== -1) { out += escapeHtml(t.slice(p, k)) + '<mark class="oo-ix-hl">' + escapeHtml(t.slice(k, k + hlTerm.length)) + '</mark>'; p = k + hlTerm.length; }
+    return out + escapeHtml(t.slice(p));
+  };
   const rowHtml = (i) => {
     const n = D.c ? D.c[i] : 0;
-    return '<li><a class="oo-ix-row" href="#/archive?type=tag&slug=' + encodeURIComponent(slugOf(i)) + '&label=' + encodeURIComponent(nameOf(i)) + '"><span>' + escapeHtml(nameOf(i)) + '</span>' + (n > 1 ? '<b>' + n + '</b>' : '') + '</a></li>';
+    return '<li><a class="oo-ix-row" href="#/archive?type=tag&slug=' + encodeURIComponent(slugOf(i)) + '&label=' + encodeURIComponent(nameOf(i)) + '"><span>' + hl(nameOf(i)) + '</span>' + (n > 1 ? '<b>' + n + '</b>' : '') + '</a></li>';
   };
   const groups = {};
   const paint = (reset) => {
@@ -3051,6 +3058,7 @@ function renderBrowse(params) {
   const run = () => {
     if (!D) return;
     const term = q.value.trim().toLowerCase();
+    hlTerm = term;
     if (term) {
       arr = [];
       for (let i = 0; i < D.t.length; i++) if (nameOf(i).toLowerCase().indexOf(term) !== -1) arr.push(i);
