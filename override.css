@@ -1148,3 +1148,7 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
 .oo-tools-top { display: flex; gap: 10px; margin: 8px 0 14px; padding: 0; }
 .oo-tools-top .oo-tool { background: #0f2a6e; color: #fff; border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 3px 10px rgba(0, 0, 0, .25); }
 html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #14275f; border-color: #9fb0d8; box-shadow: 0 3px 10px rgba(20, 39, 95, .22); }
+
+/* National Columnists cards: lighter title/byline panel, same as the website (dark mode; light mode keeps white) */
+:root:not([data-oo-theme="light"]) .oo-sec-columnists .post-card { background: linear-gradient(160deg, rgba(58, 120, 214, .68), rgba(44, 102, 198, .68)); }
+:root:not([data-oo-theme="light"]) .oo-sec-columnists .post-card-image-wrapper::after { background: linear-gradient(180deg, transparent, rgba(58, 120, 214, .68)); }
