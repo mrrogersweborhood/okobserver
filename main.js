@@ -171,6 +171,7 @@ if (path === '/' || path === '/search' || path === '/toc') {
 }
 
     console.info('[OkObserver] Route change:', path, params);
+    if (app) app.classList.remove('oo-paging');
 updateAuthNav();
 
     // Remember the last non-login hash so we can return after login/logout
@@ -3325,6 +3326,10 @@ if (authorName) {
   }
     if (summary) {
       renderPostDetailShellFromSummary(summary);
+    } else if (app.querySelector('.post-detail:not(.oo-detail-prefill)') || postCache.has(id)) {
+      // Paging from one story to the next: keep the story on screen (softly faded) until the next one is ready,
+      // instead of blanking the page and showing only the background.
+      app.classList.add('oo-paging');
     } else {
       app.innerHTML = `
         <div class="post-detail-loading">
@@ -3335,9 +3340,11 @@ if (authorName) {
 
     try {
       const post = await fetchPostById(id);
+      app.classList.remove('oo-paging');
       renderPostDetailInner(post);
     } catch (err) {
       console.error('[OkObserver] Error loading post detail:', err);
+      app.classList.remove('oo-paging');
       renderNotFound();
     }
   }

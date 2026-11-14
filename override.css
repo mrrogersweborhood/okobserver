@@ -897,3 +897,4 @@ html[data-oo-theme="light"] .about-view.is-ooan .ooan-colophon p{text-shadow:0 0
 .about-view.is-ooan{max-width:1100px;margin:0 auto}.about-view.is-ooan .about-title{display:none}.about-view.is-ooan .about-content{padding:0;background:none;border:0;box-shadow:none}.about-view.is-ooan .ooan{margin:0}
 .about-view.is-ooan .about-html { padding: 0; background: none; border: 0; border-radius: 0; font: inherit; color: inherit; }
 .about-view.is-ooan .about-content { max-width: none; }
+#app.oo-paging { opacity: .45; transition: opacity .2s ease; pointer-events: none; }
