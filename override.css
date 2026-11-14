@@ -726,3 +726,7 @@ html:not([data-oo-theme="light"]) .tts-button::before { width: 34px; height: 34p
 /* reader bar: all buttons left-aligned with one even gap */
 .post-detail-tts-row { justify-content: flex-start; gap: 10px; }
 .oo-act-group { margin-left: 0; gap: 10px; }
+
+/* light/dark button: larger drawn half-filled circle (same on every device) */
+.oo-act[data-act="theme"] { font-size: 0 !important; }
+.oo-act[data-act="theme"]::before { content: ""; display: block; width: 22px; height: 22px; box-sizing: border-box; border: 2.5px solid currentColor; border-radius: 50%; background: linear-gradient(90deg, currentColor 50%, transparent 50%); }
