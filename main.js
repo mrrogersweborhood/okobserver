@@ -3657,11 +3657,11 @@ heroHtml = heroLink
 
 const ttsButtonHtml = `
   <button class="oo-act oo-act-sq" type="button" data-act="back" aria-label="Back" title="Back">&larr;</button>
+  <button class="oo-act oo-act-sq" type="button" data-act="theme" aria-label="Switch light or dark mode" title="Light / dark mode">&#9680;</button>
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
   <button class="oo-act" type="button" data-act="share" title="Share">${ICON_SHARE}<span class="lbl">Share</span></button>
   <span class="oo-act-group" role="group" aria-label="Reading size">
     <button class="oo-act oo-act-pm" type="button" data-act="textpm" aria-label="Text size: minus is smaller, plus is larger" title="Text size"><span aria-hidden="true">&minus;</span><i aria-hidden="true"></i><span aria-hidden="true">+</span></button>
-    <button class="oo-act oo-act-sq" type="button" data-act="theme" aria-label="Switch light or dark mode" title="Light / dark mode">&#9680;</button>
   </span>
 `;
 
