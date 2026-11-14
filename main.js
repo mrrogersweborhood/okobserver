@@ -932,17 +932,6 @@ function buildTtsTextFromHtml(html) {
       card.appendChild(imgWrapper);
     }
 
-    // Save-for-later bookmark (top right of the card)
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'post-card-save';
-    saveBtn.setAttribute('data-save-id', String(post.id));
-    saveBtn.setAttribute('aria-label', 'Save for later');
-    saveBtn.innerHTML = ICON_SAVE;
-    card.appendChild(saveBtn);
-    wireSaveButton(saveBtn, post);
-    if (isSaved(post.id)) { saveBtn.classList.add('is-saved'); saveBtn.setAttribute('aria-pressed', 'true'); saveBtn.title = 'Remove from Saved'; }
-
     // Warm the article when a finger rests on the card (not while scrolling past it)
     let warmTimer = null;
     card.addEventListener('touchstart', () => { clearTimeout(warmTimer); warmTimer = setTimeout(() => prefetchPostDetail(post.id), 140); }, { passive: true });
@@ -3614,7 +3603,6 @@ heroHtml = heroLink
 const ttsButtonHtml = `
   <button class="oo-act oo-act-sq" type="button" data-act="back" aria-label="Back" title="Back">&larr;</button>
   <button class="tts-button" type="button" title="Listen" aria-label="Listen">🔊</button>
-  <button class="oo-act" type="button" data-save-id="${post.id}" aria-pressed="false" title="Save for later">${ICON_SAVE}<span class="lbl">Save</span></button>
   <button class="oo-act" type="button" data-act="share" title="Share">${ICON_SHARE}<span class="lbl">Share</span></button>
   <span class="oo-act-group" role="group" aria-label="Reading size">
     <button class="oo-act oo-act-pm" type="button" data-act="textpm" aria-label="Text size: minus is smaller, plus is larger" title="Text size"><span aria-hidden="true">&minus;</span><i aria-hidden="true"></i><span aria-hidden="true">+</span></button>
@@ -3677,9 +3665,7 @@ window.location.replace(target);
       });
     }
 
-    // Save / share / reading size
-    const saveDetail = app.querySelector('.oo-act[data-save-id]');
-    if (saveDetail) { wireSaveButton(saveDetail, post); syncSaveButtons(post.id); }
+    // Share / reading size
     const shareBtn = app.querySelector('.oo-act[data-act="share"]');
     if (shareBtn) shareBtn.addEventListener('click', () => sharePost(post));
     const backBar = app.querySelector('.oo-act[data-act="back"]');
