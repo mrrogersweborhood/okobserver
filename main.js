@@ -2773,8 +2773,8 @@ async function renderFollowing() {
   posts.forEach((p) => { postCache.set(p.id, p); grid.appendChild(createPostCard(p)); });
 }
 
-const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories' };
-const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category' };
+const ARCHIVE_PARAM = { author: 'author', tag: 'tags', category: 'categories', year: 'year' };
+const ARCHIVE_NOUN = { author: 'Author', tag: 'Topic', category: 'Category', year: 'Archive' };
 let archiveToken = 0;
 let authorListCache = null;
 
@@ -2796,8 +2796,9 @@ function renderArchive(params) {
     <div class="archive-view oo-arch">
       <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
       <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode"><i></i></button></div>
+      ${type === 'year' ? '<div class="oo-yrs">' + (() => { let h = ''; for (let y = new Date().getFullYear(); y >= 2008; y--) h += '<a class="oo-yr' + (String(y) === String(id) ? ' is-on' : '') + '" href="#/archive?type=year&id=' + y + '&label=' + y + '">' + y + '</a>'; return h; })() + '</div>' : ''}
       <div class="archive-author" hidden></div>
-      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : 'Articles in this department'}</span></div>
+      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : 'Articles in this department'}</span></div>
       <button class="btnSecondary archive-follow" type="button" hidden></button>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
@@ -2865,7 +2866,7 @@ function renderArchive(params) {
 
   function showCount(n) {
     const v = parseInt(n, 10);
-    if (!v) return;
+    if (!v || (type === 'year' && !id)) return;
     const box = app.querySelector('.oo-arch-count');
     if (!box) return;
     box.querySelector('.oo-arch-n').textContent = String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -2891,7 +2892,8 @@ function renderArchive(params) {
         totalPages = parseInt(data.total_pages || 1, 10) || 1;
         if (data.total) showCount(data.total);
       } else {
-        const url = `${WP_API_BASE}/posts?${ARCHIVE_PARAM[type]}=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
+        const filter = type === 'year' ? (id ? `after=${encodeURIComponent(id + '-01-01T00:00:00')}&before=${encodeURIComponent((parseInt(id, 10) + 1) + '-01-01T00:00:00')}` : 'orderby=date') : `${ARCHIVE_PARAM[type]}=${encodeURIComponent(id)}`;
+        const url = `${WP_API_BASE}/posts?${filter}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
         const res = await fetch(url);
         if (token !== archiveToken) return;
         if (!res.ok) {
@@ -2910,10 +2912,10 @@ function renderArchive(params) {
         (Array.isArray(posts) ? posts : []).forEach((p) => {
           if (hasExcludedCategory(p)) return;
           postCache.set(p.id, p);
-          if (shown === 0 || shown === 1) {
+          if (shown === 0 || (shown === 1 && type !== 'year')) {
             const h = document.createElement('h2');
             h.className = 'oo-arch-h';
-            h.textContent = shown === 0 ? 'Latest article' : 'More articles';
+            h.textContent = type === 'year' ? (id ? 'Articles from ' + id : 'Newest articles') : (shown === 0 ? 'Latest article' : 'More articles');
             frag.appendChild(h);
           }
           const card = createPostCard(p);
@@ -2966,7 +2968,7 @@ function renderArchive(params) {
       .catch(() => { statusEl.classList.remove('is-loading'); statusText.textContent = 'Could not load this section. Please try again.'; });
     return;
   }
-  if (!id) {
+  if (!id && type !== 'year') {
     statusEl.classList.remove('is-loading');
     statusText.textContent = 'Choose an archive from the Browse page.';
     return;

@@ -783,3 +783,9 @@ html:not([data-oo-theme="light"]) .tts-button::before { width: 34px; height: 34p
 :root[data-oo-theme="light"] .oo-arch .post-card-excerpt { border-top-color: #d8dcea; }
 .oo-ix-more[hidden] { display: none; }
 .oo-ix-hl { background: #f3d37a; color: #14275f; padding: 0 1px; border-radius: 2px; }
+
+/* Archive page: year buttons */
+.oo-yrs { display: flex; flex-wrap: wrap; gap: 10px 8px; margin: 4px 0 8px; }
+.oo-yr { min-width: 58px; box-sizing: border-box; padding: 11px 14px; text-align: center; border: 1px solid rgba(255, 255, 255, .45); border-radius: 26px; background: rgba(255, 255, 255, .12); color: var(--oo-title) !important; font: 800 14px/1 var(--oo-font-ui); text-decoration: none; }
+.oo-yr.is-on { background: #e6b44a; border-color: #e6b44a; color: #14275f !important; }
+:root[data-oo-theme="light"] .oo-yr { border-color: #9fb0d8; background: #fff; color: #14275f !important; }
