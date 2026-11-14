@@ -2793,10 +2793,11 @@ function renderArchive(params) {
   lastListHash = window.location.hash || '#/browse';
 
   app.innerHTML = `
-    <div class="archive-view">
-      <div class="archive-kicker">${ARCHIVE_NOUN[type]} archive</div>
+    <div class="archive-view oo-arch">
       <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
+      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode"><i></i></button></div>
       <div class="archive-author" hidden></div>
+      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : 'Articles in this department'}</span></div>
       <button class="btnSecondary archive-follow" type="button" hidden></button>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
@@ -2804,8 +2805,9 @@ function renderArchive(params) {
       </div>
       <div class="posts-grid archive-grid"></div>
       <div class="archive-more-wrap"><button class="btnSecondary archive-more" type="button" hidden>Load more</button></div>
-      <p class="archive-browse"><a href="#/browse">&larr; All archives</a></p>
+      <p class="archive-browse"><a href="#/browse">&larr; Back to the Index</a></p>
     </div>`;
+  wireReaderTools(app);
 
   const grid = app.querySelector('.archive-grid');
   const statusEl = app.querySelector('.search-status');
@@ -2861,6 +2863,15 @@ function renderArchive(params) {
     }
   }
 
+  function showCount(n) {
+    const v = parseInt(n, 10);
+    if (!v) return;
+    const box = app.querySelector('.oo-arch-count');
+    if (!box) return;
+    box.querySelector('.oo-arch-n').textContent = String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    box.hidden = false;
+  }
+
   async function loadPage() {
     if (busy) return;
     busy = true;
@@ -2878,6 +2889,7 @@ function renderArchive(params) {
         const data = await res.json();
         posts = Array.isArray(data.posts) ? data.posts : [];
         totalPages = parseInt(data.total_pages || 1, 10) || 1;
+        if (data.total) showCount(data.total);
       } else {
         const url = `${WP_API_BASE}/posts?${ARCHIVE_PARAM[type]}=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
         const res = await fetch(url);
@@ -2888,6 +2900,7 @@ function renderArchive(params) {
           if (page === 1) throw new Error('HTTP ' + res.status);
         } else {
           totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10) || 1;
+          showCount(res.headers.get('x-wp-total'));
           posts = await res.json();
         }
       }
@@ -2897,14 +2910,26 @@ function renderArchive(params) {
         (Array.isArray(posts) ? posts : []).forEach((p) => {
           if (hasExcludedCategory(p)) return;
           postCache.set(p.id, p);
-          frag.appendChild(createPostCard(p));
+          if (shown === 0 || shown === 1) {
+            const h = document.createElement('h2');
+            h.className = 'oo-arch-h';
+            h.textContent = shown === 0 ? 'Latest article' : 'More articles';
+            frag.appendChild(h);
+          }
+          const card = createPostCard(p);
+          const meta = card.querySelector('.post-card-meta');
+          if (meta) {
+            const nm = getAuthorName(p);
+            meta.innerHTML = '<span class="oo-m-date">' + escapeHtml(formatDate(p.date) || '') + '</span>' + (nm ? '<span class="oo-m-by">By <a href="' + archiveHref('author', p.author, nm) + '">' + escapeHtml(nm) + '</a></span>' : '');
+          }
+          frag.appendChild(card);
           shown += 1;
         });
         grid.appendChild(frag);
       }
       statusEl.classList.remove('is-loading');
       statusText.textContent = shown
-        ? `${shown} post${shown === 1 ? '' : 's'} shown, newest first.`
+        ? ''
         : 'No posts found in this archive.';
       moreBtn.hidden = page >= totalPages;
     } catch (err) {
@@ -2930,8 +2955,8 @@ function renderArchive(params) {
     }
   }
   moreBtn.addEventListener('click', loadBatch);
-  if (!id && slug && type === 'category') {
-    fetchJson(`${WP_API_BASE}/categories?slug=${encodeURIComponent(slug)}&_fields=id`)
+  if (!id && slug && (type === 'category' || type === 'tag')) {
+    fetchJson(`${WP_API_BASE}/${type === 'tag' ? 'tags' : 'categories'}?slug=${encodeURIComponent(slug)}&_fields=id`)
       .then((rows) => {
         if (token !== archiveToken) return;
         id = rows && rows[0] ? rows[0].id : '';
@@ -2960,91 +2985,104 @@ async function fetchAllAuthors() {
   return all;
 }
 
+// Back / light-dark buttons used by the Index and archive pages (same as the website's round buttons)
+function wireReaderTools(root) {
+  const back = root.querySelector('[data-tool="back"]');
+  if (back) back.addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back(); else window.location.hash = '#/';
+  });
+  const th = root.querySelector('[data-tool="theme"]');
+  if (th) th.addEventListener('click', () => {
+    const el = document.documentElement;
+    const next = el.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+    el.setAttribute('data-oo-theme', next);
+    try { localStorage.setItem('ooTheme', next); } catch (err) {}
+  });
+}
+
+// The Index page: same look and same topic list as the website's /index/ page
 function renderBrowse(params) {
   stopTtsPlayback();
   scrollToTop();
   lastListHash = '#/browse';
   const token = ++archiveToken;
-
+  const letters = ['', '#', '0-9'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
+  const lab = (L) => (L === '' ? 'All' : L === '0-9' ? '0–9' : L);
   app.innerHTML = `
-    <div class="browse-view">
-      <h1 class="toc-title">Archives</h1>
-      <p class="toc-subtitle">Browse by section, topic or author. Newest posts first.</p>
-
-      <section class="browse-section">
-        <h2 class="browse-heading">Sections</h2>
-        <div class="browse-chips browse-cats"><span class="browse-loading">Loading…</span></div>
-      </section>
-
-      <section class="browse-section">
-        <h2 class="browse-heading">Topics</h2>
-        <label class="search-label"><span class="search-label-text">Find a topic</span>
-          <input class="search-input browse-tag-input" type="search" placeholder="Type a topic, e.g. Medicaid" /></label>
-        <div class="browse-chips browse-tags"><span class="browse-loading">Loading…</span></div>
-      </section>
-
-      <section class="browse-section">
-        <h2 class="browse-heading">Authors</h2>
-        <label class="search-label"><span class="search-label-text">Find an author</span>
-          <input class="search-input browse-author-input" type="search" placeholder="Type a name" /></label>
-        <div class="browse-chips browse-authors"><span class="browse-loading">Loading…</span></div>
-      </section>
+    <div class="oo-ix">
+      <h1 class="oo-ix-title">Index</h1>
+      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode"><i></i></button></div>
+      <p class="oo-ix-sub">Every article we have filed, and what it's about.</p>
+      <label class="oo-ix-label" for="oo-ix-q">Find a term or topic</label>
+      <input id="oo-ix-q" class="oo-ix-q" type="search" placeholder="Search all topics" autocomplete="off" />
+      <div class="oo-ix-az">${letters.map((L) => '<button type="button" class="oo-ix-l' + (L === '' ? ' is-on' : '') + '" data-l="' + L + '">' + lab(L) + '</button>').join('')}</div>
+      <p class="oo-ix-status" aria-live="polite">Loading topics…</p>
+      <ul class="oo-ix-list"></ul>
+      <button type="button" class="oo-ix-more" hidden>Show more topics</button>
     </div>`;
-
-  const tagsEl = app.querySelector('.browse-tags');
-  const authorsEl = app.querySelector('.browse-authors');
-  const chip = (type, item) =>
-    `<a class="browse-chip" href="${archiveHref(type, item.id, item.name)}">${escapeHtml(item.name)}</a>`;
-  const decode = (s) => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
-
-  // Sections (categories): only these four are offered
-  if (params && params.section === 'topics') {
-    setTimeout(() => { const el = app.querySelector('.browse-tag-input'); if (el && el.closest('.browse-section')) el.closest('.browse-section').scrollIntoView({ block: 'start' }); }, 120);
-  }
-  const catsEl = app.querySelector('.browse-cats');
-  const SECTION_LABELS = { columnists: 'Columnists', newsmakers: 'Newsmakers', observercast: 'ObserverCast', substack: 'Substack' };
-  fetchJson(`${WP_API_BASE}/categories?slug=${Object.keys(SECTION_LABELS).join(',')}&per_page=20&_fields=id,slug`)
-    .then((rows) => {
+  wireReaderTools(app);
+  const q = app.querySelector('.oo-ix-q');
+  const list = app.querySelector('.oo-ix-list');
+  const stat = app.querySelector('.oo-ix-status');
+  const more = app.querySelector('.oo-ix-more');
+  const BATCH = 100;
+  const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  let D = null; let cur = ''; let arr = null; let shown = 0;
+  const nameOf = (i) => { const e = D.t[i]; return typeof e === 'string' ? e : e[0]; };
+  const slugOf = (i) => { const e = D.t[i]; return typeof e === 'string' ? e.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : e[1]; };
+  const rowHtml = (i) => {
+    const n = D.c ? D.c[i] : 0;
+    return '<li><a class="oo-ix-row" href="#/archive?type=tag&slug=' + encodeURIComponent(slugOf(i)) + '&label=' + encodeURIComponent(nameOf(i)) + '"><span>' + escapeHtml(nameOf(i)) + '</span>' + (n > 1 ? '<b>' + n + '</b>' : '') + '</a></li>';
+  };
+  const groups = {};
+  const paint = (reset) => {
+    if (reset) { list.innerHTML = ''; shown = 0; }
+    const to = Math.min(shown + BATCH, arr.length);
+    let h = '';
+    for (let k = shown; k < to; k++) h += rowHtml(arr[k]);
+    list.insertAdjacentHTML('beforeend', h);
+    shown = to;
+    const term = q.value.trim();
+    stat.textContent = term
+      ? fmt(arr.length) + (arr.length === 1 ? ' match' : ' matches') + ' across all topics' + (arr.length > shown ? '. Showing ' + fmt(shown) + '.' : '.')
+      : cur ? 'Showing ' + fmt(shown) + ' of ' + fmt(arr.length) + ' topics under ' + lab(cur) + '.' : 'Showing ' + fmt(shown) + ' of ' + fmt(arr.length) + ' topics.';
+    more.hidden = shown >= arr.length;
+  };
+  const run = () => {
+    if (!D) return;
+    const term = q.value.trim().toLowerCase();
+    if (term) {
+      arr = [];
+      for (let i = 0; i < D.t.length; i++) if (nameOf(i).toLowerCase().indexOf(term) !== -1) arr.push(i);
+      app.querySelectorAll('.oo-ix-l').forEach((b) => b.classList.remove('is-on'));
+    } else {
+      arr = cur === '' ? D.t.map((_, i) => i) : (groups[cur] || []);
+      app.querySelectorAll('.oo-ix-l').forEach((b) => b.classList.toggle('is-on', b.getAttribute('data-l') === cur));
+    }
+    paint(true);
+  };
+  // Live from the website (through the Worker); the bundled copy is only a fallback until the Worker route is deployed.
+  const getIndex = () => fetch(WORKER_BASE + '/content/topic-index').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then((d) => { if (!d || !Array.isArray(d.t)) throw new Error('bad'); return d; }).catch(() => fetch('oo-topic-index.json').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }));
+  getIndex()
+    .then((d) => {
       if (token !== archiveToken) return;
-      const list = (Array.isArray(rows) ? rows : [])
-        .filter((c) => SECTION_LABELS[c.slug])
-        .sort((a, b) => Object.keys(SECTION_LABELS).indexOf(a.slug) - Object.keys(SECTION_LABELS).indexOf(b.slug))
-        .map((c) => ({ id: c.id, name: SECTION_LABELS[c.slug] }));
-      catsEl.innerHTML = list.map((c) => chip('category', c)).join('') || '<span class="browse-loading">None found.</span>';
+      D = d;
+      let k = 0;
+      d.r.forEach(([L, n]) => { const g = groups[L] || (groups[L] = []); for (let c = 0; c < n; c++) g.push(k++); });
+      app.querySelectorAll('.oo-ix-l').forEach((b) => { const l = b.getAttribute('data-l'); if (l !== '' && !groups[l]) b.classList.add('is-empty'); });
+      run();
     })
-    .catch(() => { catsEl.innerHTML = '<span class="browse-loading">Could not load sections.</span>'; });
-
-  // Topics (tags): most-used by default, live search for the rest
-  const showTags = (rows) => {
-    const list = (Array.isArray(rows) ? rows : []).map((t) => ({ id: t.id, name: decode(t.name) }));
-    tagsEl.innerHTML = list.map((t) => chip('tag', t)).join('') || '<span class="browse-loading">No topics match.</span>';
-  };
-  const tagBase = `${WP_API_BASE}/tags?per_page=60&_fields=id,name,count`;
-  fetchJson(`${tagBase}&orderby=count&order=desc`)
-    .then((rows) => { if (token === archiveToken) showTags(rows); })
-    .catch(() => { tagsEl.innerHTML = '<span class="browse-loading">Could not load topics.</span>'; });
-  const tagInput = app.querySelector('.browse-tag-input');
-  let tagTimer = null;
-  tagInput.addEventListener('input', () => {
-    clearTimeout(tagTimer);
-    const q = tagInput.value.trim();
-    tagTimer = setTimeout(() => {
-      const url = q ? `${tagBase}&search=${encodeURIComponent(q)}&orderby=count&order=desc` : `${tagBase}&orderby=count&order=desc`;
-      fetchJson(url).then((rows) => { if (token === archiveToken) showTags(rows); }).catch(() => {});
-    }, 250);
+    .catch(() => { stat.textContent = 'Could not load the index. Please try again.'; });
+  app.querySelector('.oo-ix-az').addEventListener('click', (e) => {
+    const b = e.target.closest('.oo-ix-l');
+    if (!b || b.classList.contains('is-empty')) return;
+    cur = b.getAttribute('data-l');
+    q.value = '';
+    run();
   });
-
-  // Authors: full list, filtered as you type
-  let authors = [];
-  const showAuthors = () => {
-    const q = app.querySelector('.browse-author-input').value.trim().toLowerCase();
-    const list = q ? authors.filter((a) => a.name.toLowerCase().includes(q)) : authors;
-    authorsEl.innerHTML = list.map((a) => chip('author', a)).join('') || '<span class="browse-loading">No authors match.</span>';
-  };
-  fetchAllAuthors()
-    .then((list) => { if (token !== archiveToken) return; authors = list; showAuthors(); })
-    .catch(() => { authorsEl.innerHTML = '<span class="browse-loading">Could not load authors.</span>'; });
-  app.querySelector('.browse-author-input').addEventListener('input', showAuthors);
+  let tm = null;
+  q.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(run, 160); });
+  more.addEventListener('click', () => paint(false));
 }
 
 async function performSearch(term, statusEl, grid) {

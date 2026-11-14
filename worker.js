@@ -269,6 +269,10 @@ if (url.pathname === "/content/author-posts" && request.method === "GET") {
 if (url.pathname === "/content/events" && request.method === "GET") {
   return handleEvents(request);
 }
+/* ------------------ TOPIC INDEX (the website's own Index list, shared with the app) ------------------ */
+if (url.pathname === "/content/topic-index" && request.method === "GET") {
+  return handleTopicIndex(request, env);
+}
 /* ------------------ HOME EXTRAS (sponsor strip + Featured Columnists, read from the site's home page) ------------------ */
 if (url.pathname === "/content/home-extras" && request.method === "GET") {
   return handleHomeExtras(request, env);
@@ -554,6 +558,32 @@ function parseHomeExtras(html) {
   const shop = shopImg ? { img: shopImg, href: ORIGIN + "/shop-for-subscriptions-and-clothing/" } : null;
   return { sponsors, columnists, shop };
 }
+// The website builds its Index (topic list) into one JSON file whose name changes whenever the list is rebuilt.
+// This finds the current file from the site's own /index/ page and serves it to the app, cached at the edge
+// for an hour, so the app and the website always share one list and nothing is copied by hand.
+async function handleTopicIndex(request, env) {
+  try {
+    const cache = caches.default;
+    const key = new Request("https://oo-cache.invalid/topic-index-v1");
+    const hit = await cache.match(key);
+    const out = { ...corsHeaders(request), "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600" };
+    if (hit) return new Response(await hit.text(), { status: 200, headers: out });
+    const headers = basicAuthHeaders(env) || { "Accept": "text/html" };
+    const page = await fetch(ORIGIN + "/index/", { headers });
+    if (!page.ok) return json(502, { ok: false, error: "Index page unavailable", status: page.status }, NO_STORE, request);
+    const m = (await page.text()).match(/id="oogl"[^>]*data-index="([^"]+)"/);
+    const src = m ? m[1].replace(/&amp;/g, "&") : "";
+    if (!src.startsWith(ORIGIN + "/wp-content/uploads/oo-glossary/")) return json(502, { ok: false, error: "Index file not found" }, NO_STORE, request);
+    const file = await fetch(src, { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+    if (!file.ok) return json(502, { ok: false, error: "Index file unavailable", status: file.status }, NO_STORE, request);
+    const body = await file.text();
+    await cache.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "max-age=3600" } }));
+    return new Response(body, { status: 200, headers: out });
+  } catch (err) {
+    return jsonError(500, "topic index failed", err, request);
+  }
+}
+
 async function handleHomeExtras(request, env) {
   try {
     const cache = caches.default;
