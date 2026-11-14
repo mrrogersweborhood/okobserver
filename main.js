@@ -3061,8 +3061,8 @@ function renderBrowse(params) {
     }
     paint(true);
   };
-  // Live from the website (through the Worker); the bundled copy is only a fallback until the Worker route is deployed.
-  const getIndex = () => fetch(WORKER_BASE + '/content/topic-index').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then((d) => { if (!d || !Array.isArray(d.t)) throw new Error('bad'); return d; }).catch(() => fetch('oo-topic-index.json').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }));
+  // Live from the website's own Index list (through the Worker); nothing is bundled or copied.
+  const getIndex = () => fetch(WORKER_BASE + '/content/topic-index').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then((d) => { if (!d || !Array.isArray(d.t)) throw new Error('bad'); return d; });
   getIndex()
     .then((d) => {
       if (token !== archiveToken) return;
