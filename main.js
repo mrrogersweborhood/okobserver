@@ -1783,44 +1783,12 @@ if (posts.length > 0 && appendedCount === 0) {
     const appRoot = document.getElementById("app");
     if (!appRoot) return;
 
-    // Contact details and social links (same as the website footer). The contact form lives on the website.
-    const socials = [
-      ['Facebook', 'https://www.facebook.com/OkObserver'],
-      ['Instagram', 'https://www.instagram.com/okobserver/'],
-      ['X', 'https://twitter.com/okobs'],
-      ['YouTube', 'https://www.youtube.com/channel/UCYFEScFmybw5fboZKQuOzjQ'],
-      ['Bluesky', 'https://bsky.app/profile/okobserver.bsky.social'],
-      ['Threads', 'https://www.threads.com/@okobserver'],
-      ['Substack', 'https://oklahomaobserver.substack.com/']
-    ];
-    const socialChips = socials.map(([n, u]) =>
-      `<a class="browse-chip" href="${u}" target="_blank" rel="noopener">${n}</a>`).join('');
-
     appRoot.innerHTML = `
     <article class="about-view">
       <h1 class="about-title">About The Oklahoma Observer</h1>
       <div class="about-content">
         <div class="about-html"></div>
       </div>
-      <section class="about-contact" id="contact">
-        <h2 class="browse-heading">Contact us</h2>
-        <address class="about-address">
-          The Oklahoma Observer<br>PO Box 14275<br>Oklahoma City, OK 73113
-        </address>
-        <div class="browse-chips">
-          <a class="browse-chip" href="tel:+14054788700">Call (405) 478-8700</a>
-          <a class="browse-chip" href="mailto:admin@okobserver.org">admin@okobserver.org</a>
-          <a class="browse-chip" href="${OO_SITE_ORIGIN}/contact/" target="_blank" rel="noopener">Contact form</a>
-        </div>
-      </section>
-      <section class="about-contact">
-        <h2 class="browse-heading">Follow &amp; review us</h2>
-        <div class="browse-chips">
-          ${socialChips}
-          <a class="browse-chip" href="https://g.page/r/CRe_wjNu6kwOEAg/review" target="_blank" rel="noopener">Review us on Google</a>
-          <a class="browse-chip" href="https://www.facebook.com/OkObserver/reviews" target="_blank" rel="noopener">Review us on Facebook</a>
-        </div>
-      </section>
     </article>
   `;
 
