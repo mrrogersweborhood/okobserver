@@ -273,6 +273,10 @@ if (url.pathname === "/content/events" && request.method === "GET") {
 if (url.pathname === "/content/topic-index" && request.method === "GET") {
   return handleTopicIndex(request, env);
 }
+/* ------------------ ABOUT PAGE (the website's own designed About page, shared with the app) ------------------ */
+if (url.pathname === "/content/about-page" && request.method === "GET") {
+  return handleAboutPage(request, env);
+}
 /* ------------------ HOME EXTRAS (sponsor strip + Featured Columnists, read from the site's home page) ------------------ */
 if (url.pathname === "/content/home-extras" && request.method === "GET") {
   return handleHomeExtras(request, env);
@@ -581,6 +585,43 @@ async function handleTopicIndex(request, env) {
     return new Response(body, { status: 200, headers: out });
   } catch (err) {
     return jsonError(500, "topic index failed", err, request);
+  }
+}
+
+// The website builds its About page as a designed block (<div class="ooan">). This reads that block from the
+// rendered page, makes its picture and link addresses absolute and returns it for the app, cached for an hour.
+async function handleAboutPage(request, env) {
+  try {
+    const cache = caches.default;
+    const key = new Request("https://oo-cache.invalid/about-page-v1");
+    const out = { "cache-control": "public, max-age=3600" };
+    const hit = await cache.match(key);
+    if (hit) return json(200, await hit.json(), out, request);
+    const resp = await fetch(ORIGIN + "/about/", { headers: basicAuthHeaders(env) || { "Accept": "text/html" } });
+    if (!resp.ok) return json(502, { ok: false, error: "About page unavailable", status: resp.status }, NO_STORE, request);
+    const page = await resp.text();
+    const start = page.indexOf('<div class="ooan">');
+    if (start < 0) return json(502, { ok: false, error: "About block not found" }, NO_STORE, request);
+    let depth = 0, end = -1;
+    const re = /<(/?)div[^>]*>/g;
+    re.lastIndex = start;
+    let m;
+    while ((m = re.exec(page))) {
+      if (m[1] === "") depth++; else { depth--; if (depth === 0) { end = re.lastIndex; break; } }
+    }
+    if (end < 0) return json(502, { ok: false, error: "About block not closed" }, NO_STORE, request);
+    let html = page.slice(start, end);
+    html = html
+      .replace(/ssrc="data:image/svg+xml;base64,[^"]*"/g, "")
+      .replace(/sdata-src="/g, ' src="')
+      .replace(/sclass="lazyload"/g, "")
+      .replace(/sstyle="--smush[^"]*"/g, "")
+      .replace(/s(src|href)="/(?!/)/g, (s, a) => " " + a + '="' + ORIGIN + "/");
+    const data = { ok: true, html };
+    await cache.put(key, new Response(JSON.stringify(data), { headers: { "content-type": "application/json", "cache-control": "max-age=3600" } }));
+    return json(200, data, out, request);
+  } catch (err) {
+    return jsonError(500, "about page failed", err, request);
   }
 }
 

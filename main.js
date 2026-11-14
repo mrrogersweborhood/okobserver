@@ -1795,6 +1795,25 @@ if (posts.length > 0 && appendedCount === 0) {
     const aboutHtmlEl = document.querySelector(".about-html");
     if (!aboutHtmlEl) return;
 
+    // Preferred: the website's own designed About page (same block, same styles), read live through the Worker.
+    fetch(WORKER_BASE + '/content/about-page')
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((d) => {
+        if (!d || !d.html || d.html.indexOf('class="ooan"') < 0) throw new Error('bad');
+        if (!document.body.contains(aboutHtmlEl)) return;
+        const view = aboutHtmlEl.closest('.about-view');
+        if (view) view.classList.add('is-ooan');
+        aboutHtmlEl.innerHTML = d.html;
+        aboutHtmlEl.querySelectorAll('a[href^="http"]').forEach((l) => { l.target = '_blank'; l.rel = 'noopener'; });
+        aboutHtmlEl.querySelectorAll('a[href^="#"]').forEach((l) => l.addEventListener('click', (e) => {
+          e.preventDefault();
+          const t = aboutHtmlEl.querySelector('[id="' + l.getAttribute('href').slice(1) + '"]');
+          if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }));
+      })
+      .catch(() => loadAboutFromApi());
+
+    function loadAboutFromApi() {
     fetchAboutPage()
       .then((page) => {
         const rawHtml =
@@ -1878,6 +1897,7 @@ if (posts.length > 0 && appendedCount === 0) {
         console.error("[OkObserver] About page error:", err);
         aboutHtmlEl.innerHTML = "<p>Error loading About content.</p>";
       });
+    }
   }
 
   // ---------------------------------------------------------------------------
