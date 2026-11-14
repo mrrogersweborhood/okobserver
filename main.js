@@ -1381,6 +1381,8 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     clearInterval(homeTimer);
     app.innerHTML = '<div class="home-view oo-home"></div>';
     const view = app.querySelector('.oo-home');
+    view.insertAdjacentHTML('afterbegin', '<div class="oo-tools oo-home-tools"><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>');
+    wireReaderTools(view);
 
     const defs = [
       ['latest', 'Latest News', 'substack', 15],
@@ -2784,7 +2786,7 @@ function renderArchive(params) {
   app.innerHTML = `
     <div class="archive-view oo-arch">
       <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
-      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode"><i></i></button></div>
+      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back" title="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>
       ${type === 'year' ? '<div class="oo-yrs">' + (() => { let h = ''; for (let y = new Date().getFullYear(); y >= 2008; y--) h += '<a class="oo-yr' + (String(y) === String(id) ? ' is-on' : '') + '" href="#/archive?type=year&id=' + y + '&label=' + y + '">' + y + '</a>'; return h; })() + '</div>' : ''}
       <div class="archive-author" hidden></div>
       <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : 'Articles in this department'}</span></div>
@@ -3002,7 +3004,7 @@ function renderBrowse(params) {
   app.innerHTML = `
     <div class="oo-ix">
       <h1 class="oo-ix-title">Index</h1>
-      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode"><i></i></button></div>
+      <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back" title="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>
       <p class="oo-ix-sub">Every article we have filed, and what it's about.</p>
       <label class="oo-ix-label" for="oo-ix-q">Find a term or topic</label>
       <input id="oo-ix-q" class="oo-ix-q" type="search" placeholder="Search all topics" autocomplete="off" />

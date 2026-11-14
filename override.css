@@ -911,3 +911,17 @@ html[data-oo-theme="light"] .about-view.is-ooan .ooan-colophon p{text-shadow:0 0
 .oo-pn-a.is-off { opacity: .2; }
 :root[data-oo-theme="light"] .oo-pn-a { background: none !important; color: #14275f !important; }
 .oo-pn-arrows { margin: 0 0 6px; }
+
+/* previous / next arrows: a quiet row just under the gold line, above the reader buttons */
+.oo-pn-arrows { position: relative; display: flex; justify-content: space-between; align-items: center; height: auto; margin: 6px 0 2px; }
+.oo-pn-a { position: relative; width: 34px; height: 26px; display: block; padding: 0; border: 0 !important; border-radius: 0; background: linear-gradient(currentColor, currentColor) no-repeat 50% 50% / 100% 1.3px !important; color: var(--oo-title) !important; font-size: 0 !important; opacity: .85; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.oo-pn-a::before { content: ""; position: absolute; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; box-sizing: border-box; border-top: 1.4px solid currentColor; border-right: 1.4px solid currentColor; }
+.oo-pn-a-prev::before { left: 1px; transform: rotate(-135deg); }
+.oo-pn-a-next::before { right: 1px; transform: rotate(45deg); }
+.oo-pn-a.is-off { opacity: .22; pointer-events: none; }
+:root[data-oo-theme="light"] .oo-pn-a { color: #14275f !important; background: linear-gradient(currentColor, currentColor) no-repeat 50% 50% / 100% 1.3px !important; }
+
+/* Home page: light/dark button (same circle as the website home) */
+.oo-home-tools { margin: 6px 0 -6px; }
+.oo-home .oo-tool { background: #0f2a6e; color: #fff; border: 1.5px solid rgba(255, 255, 255, .4); box-shadow: 0 3px 10px rgba(0, 0, 0, .25); }
+html[data-oo-theme="light"] .oo-home .oo-tool { background: #fff; color: #14275f; border-color: #9fb0d8; }
