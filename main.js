@@ -3442,7 +3442,7 @@ function linkifyPaywallLoginForSignedOut(html) {
 async function loadPostNav(post) {
   const nav = app.querySelector('[data-post-nav]');
   if (!nav || !post || !post.date) return;
-  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}&_fields=id,title,date`;
+  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}&_embed=wp:featuredmedia&_fields=id,title,date,_links,_embedded`;
   try {
     const [older, newer] = await Promise.all([fetchJson(q(true)).catch(() => []), fetchJson(q(false)).catch(() => [])]);
     if (!document.body.contains(nav)) return;
@@ -3450,7 +3450,15 @@ async function loadPostNav(post) {
       const r = Array.isArray(row) ? row[0] : null;
       if (!r || !r.id) return '';
       const title = stripHtml((r.title && r.title.rendered) || '');
-      return '<a class="post-pn-link ' + cls + '" href="#/post/' + r.id + '"><span class="post-pn-dir">' + dir + '</span><span class="post-pn-title">' + escapeHtml(title) + '</span></a>';
+      let img = '';
+      try {
+        const fm = r._embedded && r._embedded['wp:featuredmedia'] && r._embedded['wp:featuredmedia'][0];
+        const sz = fm && fm.media_details && fm.media_details.sizes;
+        const src = fm ? ((sz && ((sz.medium_large && sz.medium_large.source_url) || (sz.large && sz.large.source_url))) || fm.source_url) : '';
+        if (src) img = '<span class="post-pn-media"><img src="' + escapeAttr(src) + '" alt="" loading="lazy" decoding="async" /></span>';
+      } catch (_) {}
+      const when = r.date ? '<span class="post-pn-date">' + escapeHtml(new Date(r.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })) + '</span>' : '';
+      return '<a class="post-pn-link ' + cls + '" href="#/post/' + r.id + '"><span class="post-pn-dir">' + dir + '</span>' + img + '<span class="post-pn-title">' + escapeHtml(title) + '</span>' + when + '</a>';
     };
     const arrow = (row, sel) => {
       const a = app.querySelector(sel);
@@ -3462,7 +3470,7 @@ async function loadPostNav(post) {
     };
     arrow(older, '.oo-pn-a-prev');
     arrow(newer, '.oo-pn-a-next');
-    const html = link(older, 'post-pn-prev', '← Previous') + link(newer, 'post-pn-next', 'Next →');
+    const html = link(older, 'post-pn-prev', 'Previous Article') + link(newer, 'post-pn-next', 'Next Article');
     if (!html) return;
     nav.innerHTML = html;
     nav.hidden = false;
@@ -3735,13 +3743,15 @@ window.location.replace(target);
         const rc = b.getBoundingClientRect();
         stepReader(e.clientX < rc.left + rc.width / 2 ? -1 : 1);
       }
-      else if (a === 'theme') {
-        const root = document.documentElement;
-        const next = root.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
-        root.setAttribute('data-oo-theme', next);
-        try { localStorage.setItem('ooTheme', next); } catch (err) {}
-        toast(next === 'light' ? 'Light mode' : 'Dark mode');
-      }
+    });
+    // Light / dark button (sits beside Back, outside the text-size group)
+    const themeBtn = app.querySelector('.oo-act[data-act="theme"]');
+    if (themeBtn) themeBtn.addEventListener('click', () => {
+      const root = document.documentElement;
+      const next = root.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+      root.setAttribute('data-oo-theme', next);
+      try { localStorage.setItem('ooTheme', next); } catch (err) {}
+      toast(next === 'light' ? 'Light mode' : 'Dark mode');
     });
 
     // Tapping anywhere other than the speaker button stops the reading.
