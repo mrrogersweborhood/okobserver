@@ -3378,8 +3378,7 @@ if (authorName) {
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
         <div class="oo-post-head"><h1 class="post-title">${rawTitle}</h1>
-        ${metaHtml}</div>
-        <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
+        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
@@ -3604,8 +3603,7 @@ if (authorName) {
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
         <div class="oo-post-head"><h1 class="post-title">${titleHtml}</h1>
-        ${metaHtml}</div>
-        <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
+        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
@@ -3769,8 +3767,8 @@ const detailInnerHtml = `
   <div class="oo-post-head"${headBg}>
   <h1 class="post-title">${titleHtml}</h1>
   ${metaHtml}
-  </div>
   <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
+  </div>
   <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
       ${ttsButtonHtml}

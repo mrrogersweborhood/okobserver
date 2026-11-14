@@ -1233,3 +1233,13 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
 
 /* ---- Single posts: no Capitol backdrop, plain blue like the website's post pages (build 2.0.9) ---- */
 body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display: none; }
+
+/* build 2.1.0: single post, phones - prev/next chevrons sit left and right of the byline */
+@media (max-width: 699px) {
+  .oo-post-head .oo-pn-arrows { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 34px; margin: 0; padding: 0 2px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 2; }
+  .oo-post-head .oo-pn-a { pointer-events: auto; width: 34px; height: 34px; background: none !important; }
+  .oo-post-head .oo-pn-a::before { width: 11px; height: 11px; margin-top: -5.5px; border-top-width: 2px; border-right-width: 2px; }
+  .oo-post-head .oo-pn-a-prev::before { left: 12px; }
+  .oo-post-head .oo-pn-a-next::before { right: 12px; }
+  .oo-post-head .post-title, .oo-post-head .post-meta { padding-left: 34px; padding-right: 34px; box-sizing: border-box; }
+}
