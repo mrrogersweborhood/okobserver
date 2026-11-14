@@ -14,9 +14,11 @@
   --oo-font-ui: Verdana, "Segoe UI", Roboto, system-ui, sans-serif;
   --oo-font-motto: "Montserrat", Verdana, "Segoe UI", sans-serif;
 
-  --oo-bg: #0d3f95;
-  /* Capitol sky backdrop from the website, under the same blue wash */
-  --oo-bg-image: linear-gradient(rgba(36, 89, 182, .32), rgba(36, 89, 182, .32)), url("oo-backdrop-capitol.jpg");
+  --oo-bg: #2459b6;
+  /* Same backdrop recipe as the website (.oo-bd): wash / photo (luminosity over blue sky gradient) / sky gradient, faded by a mask, over a blue page gradient */
+  --oo-page-grad: linear-gradient(#2459b6 0%, #17448f 34%, #0b2f70 100%);
+  --oo-bd-mask: linear-gradient(#000 0, #000 28%, rgba(0, 0, 0, .66) 52%, rgba(0, 0, 0, .3) 78%, transparent 100%);
+  --oo-bg-image: linear-gradient(rgba(36, 89, 182, .32), rgba(36, 89, 182, .32)), url("oo-backdrop-capitol.jpg"), linear-gradient(rgb(66, 130, 232) 0%, rgb(36, 89, 182) 42%, rgb(20, 60, 140) 100%);
   --oo-ink: rgba(247, 243, 234, .88);
   --oo-ink-dim: rgba(247, 243, 234, .62);
   --oo-title: #ffffff;
@@ -35,8 +37,9 @@
 }
 :root[data-oo-theme="light"] {
   color-scheme: light;
-  --oo-bg: #faf7f1;
-  --oo-bg-image: none;
+  --oo-bg: #f5f8fd;
+  --oo-page-grad: none;
+  --oo-bd-mask: linear-gradient(#000 0, #000 28%, rgba(0, 0, 0, .5) 50%, rgba(0, 0, 0, .2) 76%, transparent 100%);
   --oo-ink: rgba(26, 26, 26, .86);
   --oo-ink-dim: rgba(26, 26, 26, .60);
   --oo-title: #14264f;
@@ -60,6 +63,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--oo-bg);
+  background-image: var(--oo-page-grad);
   color: var(--oo-ink);
   font-family: var(--oo-font-ui);
   font-size: 16px;
@@ -67,8 +71,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 /* Backdrop: a fixed layer, because background-attachment:fixed is ignored on phones and the photo scrolled with the page (reskin36) */
-body::before { content: ""; position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; background-image: var(--oo-bg-image); background-size: cover; background-position: center top; background-repeat: no-repeat; }
-@supports (height: 100lvh) { body::before { height: 100lvh; } }
+body::before { content: ""; position: fixed; left: 0; top: 0; width: 100%; height: 75vh; z-index: -1; pointer-events: none; background-image: var(--oo-bg-image); background-size: 100% 100%, cover, 100% 100%; background-position: 0 0, 50% 5%, 0 0; background-repeat: no-repeat; background-blend-mode: normal, luminosity, normal; -webkit-mask-image: var(--oo-bd-mask); mask-image: var(--oo-bd-mask); }
+@supports (height: 75lvh) { body::before { height: 75lvh; } }
 body.is-menu-open { overflow: hidden; }
 img { max-width: 100%; height: auto; }
 a { color: var(--oo-link); }

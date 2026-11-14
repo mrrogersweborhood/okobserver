@@ -603,7 +603,7 @@ async function handleAboutPage(request, env) {
     const start = page.indexOf('<div class="ooan">');
     if (start < 0) return json(502, { ok: false, error: "About block not found" }, NO_STORE, request);
     let depth = 0, end = -1;
-    const re = /<(/?)div[^>]*>/g;
+    const re = /<(\/?)div\b[^>]*>/g;
     re.lastIndex = start;
     let m;
     while ((m = re.exec(page))) {
@@ -612,11 +612,11 @@ async function handleAboutPage(request, env) {
     if (end < 0) return json(502, { ok: false, error: "About block not closed" }, NO_STORE, request);
     let html = page.slice(start, end);
     html = html
-      .replace(/ssrc="data:image/svg+xml;base64,[^"]*"/g, "")
-      .replace(/sdata-src="/g, ' src="')
-      .replace(/sclass="lazyload"/g, "")
-      .replace(/sstyle="--smush[^"]*"/g, "")
-      .replace(/s(src|href)="/(?!/)/g, (s, a) => " " + a + '="' + ORIGIN + "/");
+      .replace(/\ssrc="data:image\/svg\+xml;base64,[^"]*"/g, "")
+      .replace(/\sdata-src="/g, ' src="')
+      .replace(/\sclass="lazyload"/g, "")
+      .replace(/\sstyle="--smush[^"]*"/g, "")
+      .replace(/\s(src|href)="\/(?!\/)/g, (s, a) => " " + a + '="' + ORIGIN + "/");
     const data = { ok: true, html };
     await cache.put(key, new Response(JSON.stringify(data), { headers: { "content-type": "application/json", "cache-control": "max-age=3600" } }));
     return json(200, data, out, request);
