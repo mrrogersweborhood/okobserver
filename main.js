@@ -3450,6 +3450,16 @@ async function loadPostNav(post) {
       const title = stripHtml((r.title && r.title.rendered) || '');
       return '<a class="post-pn-link ' + cls + '" href="#/post/' + r.id + '"><span class="post-pn-dir">' + dir + '</span><span class="post-pn-title">' + escapeHtml(title) + '</span></a>';
     };
+    const arrow = (row, sel) => {
+      const a = app.querySelector(sel);
+      const r = Array.isArray(row) ? row[0] : null;
+      if (!a || !r || !r.id) return;
+      a.href = '#/post/' + r.id;
+      a.classList.remove('is-off');
+      a.removeAttribute('aria-disabled');
+    };
+    arrow(older, '.oo-pn-a-prev');
+    arrow(newer, '.oo-pn-a-next');
     const html = link(older, 'post-pn-prev', '← Previous') + link(newer, 'post-pn-next', 'Next →');
     if (!html) return;
     nav.innerHTML = html;
@@ -3657,6 +3667,7 @@ const detailInnerHtml = `
   ${heroHtml}
   <h1 class="post-title">${titleHtml}</h1>
   ${metaHtml}
+  <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
   <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
       ${ttsButtonHtml}

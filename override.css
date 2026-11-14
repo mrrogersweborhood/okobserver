@@ -898,3 +898,9 @@ html[data-oo-theme="light"] .about-view.is-ooan .ooan-colophon p{text-shadow:0 0
 .about-view.is-ooan .about-html { padding: 0; background: none; border: 0; border-radius: 0; font: inherit; color: inherit; }
 .about-view.is-ooan .about-content { max-width: none; }
 #app.oo-paging { opacity: .45; transition: opacity .2s ease; pointer-events: none; }
+
+/* previous / next arrows beside the byline (same as the website) */
+.oo-pn-arrows { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 10px; }
+.oo-pn-a { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #0f2a6e; color: #fff !important; border: 1.5px solid rgba(255, 255, 255, .4); font: 700 22px/1 var(--oo-font-ui); text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.oo-pn-a.is-off { opacity: .3; pointer-events: none; }
+:root[data-oo-theme="light"] .oo-pn-a { background: #fff; color: #14275f !important; border-color: #9fb0d8; }
