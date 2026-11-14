@@ -971,3 +971,25 @@ html[data-oo-theme="light"] .post-detail-tts-row .oo-act:hover, html[data-oo-the
 .oo-post-head[style]::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(rgba(20, 60, 150, .38), rgba(20, 60, 150, .22)); }
 html[data-oo-theme="light"] .oo-post-head[style]::before { opacity: .4; }
 html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gradient(rgba(250, 247, 241, .55), rgba(250, 247, 241, .4)); }
+
+/* ---- Even rows, like the website (reskin70): fixed title/byline room so every card in a row, and every page of a row, is the same height ---- */
+.oo-pair .post-card-title, .oo-item .post-card-title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.oo-pair .post-card-title { -webkit-line-clamp: 2; line-clamp: 2; min-height: 2.4em; }
+.oo-item .post-card-title { -webkit-line-clamp: 3; line-clamp: 3; min-height: 3.6em; }
+.oo-pair .post-card-meta, .oo-item .post-card-meta { min-height: 2.6em; }
+.oo-pair .post-card-meta { margin-top: auto; }
+@media (max-width: 699px) {
+  .oo-slide .oo-lead .post-card-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+}
+
+/* ---- Match the website (reskin71): no excerpts on lead / columnist cards; lead card = image on top, text panel below (theme-aware) ---- */
+.oo-slide .oo-lead .post-card-excerpt, .oo-item .post-card-excerpt { display: none; }
+.oo-slide .oo-lead .post-card, .oo-slide .oo-lead.oo-wide .post-card { display: flex; flex-direction: column; min-height: 0; background: var(--oo-panel); }
+.oo-slide .oo-lead .post-card-image-wrapper { position: relative; inset: auto; aspect-ratio: 2.3 / 1; }
+.oo-slide .oo-lead .post-card-image-wrapper::after, :root[data-oo-theme="light"] .oo-slide .oo-lead .post-card-image-wrapper::after { height: 38%; background: linear-gradient(180deg, transparent, var(--oo-panel)); }
+:root[data-oo-theme="light"] .oo-slide .oo-lead .post-card-image-wrapper::after { background: linear-gradient(180deg, transparent, #fff); }
+.oo-slide .oo-lead .post-card-content, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: 0; justify-content: flex-start; padding: 6px 16px 16px; }
+.oo-slide .oo-lead .post-card-title, :root[data-oo-theme="light"] .oo-slide .oo-lead .post-card-title { color: var(--oo-title); }
+.oo-slide .oo-lead .post-card-meta { color: var(--oo-accent); }
+@media (min-width: 700px) { .oo-slide .oo-lead .post-card, .oo-slide .oo-lead .post-card-content, .oo-slide .oo-lead.oo-wide .post-card, .oo-slide .oo-lead.oo-wide .post-card-content { min-height: 0; } }
+.oo-slide .oo-lead .post-card-image { object-position: 50% 0; }
