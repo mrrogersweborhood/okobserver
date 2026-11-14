@@ -4433,3 +4433,31 @@ showPagingStatus('Loading more…');
 
 // 🔴 main.js — end of file (Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix)
 // 🔴 main.js
+
+// Swipe between stories on a single post (like the website): swipe right = older, swipe left = newer.
+(function setupPostSwipe() {
+  let sx = 0, sy = 0, st = 0, ok = false;
+  const blocked = (el) => {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (n.matches && n.matches('input,textarea,select,iframe,video,audio,table,pre,.oo-listen-box,[data-oo="overlay"]')) return true;
+      if (n.scrollWidth > n.clientWidth + 4 && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true;
+    }
+    return false;
+  };
+  window.addEventListener('touchstart', (e) => {
+    ok = false;
+    if (!/^#\/post\//.test(location.hash) || e.touches.length !== 1 || blocked(e.target)) return;
+    const s = window.getSelection && window.getSelection();
+    if (s && String(s).length) return;
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); ok = true;
+  }, { passive: true });
+  window.addEventListener('touchend', (e) => {
+    if (!ok) return;
+    ok = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Date.now() - st > 700 || Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+    const link = document.querySelector('.post-pn-link.' + (dx > 0 ? 'post-pn-prev' : 'post-pn-next'));
+    if (link && link.getAttribute('href')) location.hash = link.getAttribute('href');
+  }, { passive: true });
+})();
