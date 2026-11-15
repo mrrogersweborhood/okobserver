@@ -3840,6 +3840,7 @@ if (existingPrefill) {
 
 loadPostNav(post);
 try { ooLoadComments(post); } catch (_) {}
+try { ooFitPostTitle(); requestAnimationFrame(ooFitPostTitle); } catch (_) {}
 
 scrollToTop();
 
@@ -4339,6 +4340,26 @@ window.location.replace(target);
       start();
     }
   }
+
+  // Fixed-height title box (same idea as the website): the box is always the same height, the title shrinks to fit.
+  function ooFitPostTitle() {
+    const head = app.querySelector(".oo-post-head");
+    const h1 = head && head.querySelector(".post-title");
+    if (!head || !h1) return;
+    const meta = head.querySelector(".post-meta");
+    h1.style.fontSize = "";
+    const hs = getComputedStyle(head), ts = getComputedStyle(h1);
+    const max = window.innerWidth >= 700 ? 46 : 42; // short titles grow up to this, long ones shrink to fit
+    const inner = head.clientHeight - (parseFloat(hs.paddingTop) || 0) - (parseFloat(hs.paddingBottom) || 0);
+    let used = (parseFloat(ts.marginTop) || 0) + (parseFloat(ts.marginBottom) || 0);
+    if (meta) { const ms = getComputedStyle(meta); used += meta.offsetHeight + (parseFloat(ms.marginTop) || 0) + (parseFloat(ms.marginBottom) || 0); }
+    const room = inner - used;
+    let size = max;
+    h1.style.fontSize = size + "px";
+    while (size > 17 && h1.getBoundingClientRect().height > room) { size -= 1; h1.style.fontSize = size + "px"; }
+  }
+  window.addEventListener("resize", () => { try { ooFitPostTitle(); } catch (_) {} });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { ooFitPostTitle(); } catch (_) {} });
 
   async function loginUser(username, password) {
     try {
