@@ -1345,3 +1345,12 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 
 /* ---- Post body font: Source Serif 4, same as the website (loaded in index.html) ---- */
 .post-detail-content { font-family: "Source Serif 4", Georgia, Cambria, "Times New Roman", serif; }
+
+/* ---- Related coverage under previous/next, and the always-present comments section (like the website) ---- */
+.post-pn-related { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding: 14px 4px 4px; text-decoration: none; color: inherit; }
+.post-pn-related .post-pn-dir { font-size: 11px; color: var(--oo-accent); }
+.post-pn-related .post-pn-title { font: 700 18px/1.25 var(--oo-font-head); -webkit-line-clamp: 3; line-clamp: 3; }
+.post-pn-related:hover .post-pn-title { text-decoration: underline; }
+.oo-comments-empty { margin: 4px 0 10px; opacity: .8; font-size: 16px; }
+.oo-comments-reply { margin: 10px 0 4px; font: 700 14px/1.3 var(--oo-font-ui); }
+.oo-comments-reply a { color: var(--oo-accent); text-decoration: underline; text-underline-offset: 3px; }

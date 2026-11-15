@@ -3378,7 +3378,7 @@ if (authorName) {
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
         <div class="oo-post-head"><h1 class="post-title">${rawTitle}</h1>
-        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div></div>
+        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
@@ -3564,7 +3564,15 @@ function linkifyPaywallLoginForSignedOut(html) {
 async function loadPostNav(post) {
   const nav = app.querySelector('[data-post-nav]');
   if (!nav || !post || !post.date) return;
-  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}&_embed=wp:featuredmedia&_fields=id,title,date,_links,_embedded`;
+  // Like the website: neighbours skip the Cartoon category, "Next" is the OLDER story and "Previous" the NEWER one (the feed runs newest first)
+  if (window.__ooCartoonCat === undefined) {
+    try {
+      const c = await fetchJson(`${WP_API_BASE}/categories?slug=cartoon&_fields=id`).catch(() => null);
+      window.__ooCartoonCat = (Array.isArray(c) && c[0] && c[0].id) ? c[0].id : 0;
+    } catch (_) { window.__ooCartoonCat = 0; }
+  }
+  const exclude = window.__ooCartoonCat ? `&categories_exclude=${window.__ooCartoonCat}` : '';
+  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}${exclude}&_embed=wp:featuredmedia&_fields=id,title,date,_links,_embedded`;
   try {
     const [older, newer] = await Promise.all([fetchJson(q(true)).catch(() => []), fetchJson(q(false)).catch(() => [])]);
     if (!document.body.contains(nav)) return;
@@ -3590,9 +3598,27 @@ async function loadPostNav(post) {
       a.classList.remove('is-off');
       a.removeAttribute('aria-disabled');
     };
-    arrow(older, '.oo-pn-a-prev');
-    arrow(newer, '.oo-pn-a-next');
-    const html = link(older, 'post-pn-prev', 'Previous Article') + link(newer, 'post-pn-next', 'Next Article');
+    arrow(newer, '.oo-pn-a-prev');
+    arrow(older, '.oo-pn-a-next');
+    let html = link(newer, 'post-pn-prev', 'Previous Article') + link(older, 'post-pn-next', 'Next Article');
+    // Related coverage (like the website): a post sharing a tag, else a category, never the same as previous/next
+    try {
+      let tags = post.tags, cats = post.categories;
+      if (!Array.isArray(tags) || !Array.isArray(cats)) {
+        const p = await fetchJson(`${WP_API_BASE}/posts/${post.id}?_fields=tags,categories`).catch(() => null);
+        if (p) { tags = p.tags; cats = p.categories; }
+      }
+      const skip = {};
+      [older, newer].forEach((row) => { const r = Array.isArray(row) ? row[0] : null; if (r && r.id) skip[r.id] = 1; });
+      const rq = (param, ids, before) => `${WP_API_BASE}/posts?per_page=3&exclude=${post.id}&${param}=${ids.join(',')}&orderby=date&order=${before ? 'desc' : 'asc'}&${before ? 'before' : 'after'}=${encodeURIComponent(post.date)}&_fields=id,title`;
+      const pick = (rows) => { for (const row of rows) { const r = Array.isArray(row) ? row.find((x) => x && x.id && !skip[x.id]) : null; if (r) return r; } return null; };
+      let rel = null;
+      if (Array.isArray(tags) && tags.length) rel = pick(await Promise.all([fetchJson(rq('tags', tags, true)).catch(() => []), fetchJson(rq('tags', tags, false)).catch(() => [])]));
+      if (!rel && Array.isArray(cats) && cats.length) rel = pick(await Promise.all([fetchJson(rq('categories', cats, true)).catch(() => []), fetchJson(rq('categories', cats, false)).catch(() => [])]));
+      if (rel && document.body.contains(nav)) {
+        html += '<a class="post-pn-related" href="#/post/' + rel.id + '"><span class="post-pn-dir">Related Coverage</span><span class="post-pn-title">' + escapeHtml(stripHtml((rel.title && rel.title.rendered) || '')) + '</span></a>';
+      }
+    } catch (_) {}
     if (!html) return;
     nav.innerHTML = html;
     nav.hidden = false;
@@ -3636,7 +3662,7 @@ if (authorName) {
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
         <div class="oo-post-head"><h1 class="post-title">${titleHtml}</h1>
-        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div></div>
+        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div></div>
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
@@ -3807,7 +3833,7 @@ const detailInnerHtml = `
   <div class="oo-post-head"${headBg}>
   <h1 class="post-title">${titleHtml}</h1>
   ${metaHtml}
-  <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Older story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Newer story" aria-disabled="true">&rarr;</a></div>
+  <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div>
   </div>
   <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
@@ -4313,7 +4339,7 @@ window.location.replace(target);
       // gated stories: the teaser block is showing, so do not show comments either
       if (app.querySelector('.oo-invite') || app.querySelector('.oo-paywall-notice')) return;
       const list = await ooFetchComments(post.id);
-      if (!host.isConnected || !list.length) return;
+      if (!host.isConnected) return;
       host.hidden = false;
       host.innerHTML =
         '<button class="oo-comments-toggle" type="button" aria-expanded="false">' +
@@ -4325,7 +4351,11 @@ window.location.replace(target);
         const open = btn.getAttribute('aria-expanded') !== 'true';
         btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         btn.querySelector('i').textContent = open ? '\u2212' : '+';
-        if (open && !panel.dataset.built) { panel.innerHTML = ooCommentsListHtml(list); panel.dataset.built = '1'; }
+        if (open && !panel.dataset.built) {
+          const reply = /^https?:\/\//i.test(post.link || '') ? '<p class="oo-comments-reply"><a href="' + escapeAttr(String(post.link).split('#')[0] + '#respond') + '" target="_blank" rel="noopener">Leave a reply on okobserver.org</a></p>' : '';
+          panel.innerHTML = (list.length ? ooCommentsListHtml(list) : '<p class="oo-comments-empty">No comments yet. Be the first to join the conversation.</p>') + reply;
+          panel.dataset.built = '1';
+        }
         panel.hidden = !open;
       });
     };
