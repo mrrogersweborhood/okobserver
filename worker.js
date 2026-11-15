@@ -603,7 +603,7 @@ async function handleTopicIndex(request, env) {
 async function handleAboutPage(request, env) {
   try {
     const cache = caches.default;
-    const key = new Request("https://oo-cache.invalid/about-page-v1");
+    const key = new Request("https://oo-cache.invalid/about-page-v2");
     const out = { "cache-control": "public, max-age=3600" };
     const hit = await cache.match(key);
     if (hit) return json(200, await hit.json(), out, request);
@@ -621,6 +621,12 @@ async function handleAboutPage(request, env) {
     }
     if (end < 0) return json(502, { ok: false, error: "About block not closed" }, NO_STORE, request);
     let html = page.slice(start, end);
+    // The Publication Information section sits right after the About block on the site; carry it along.
+    const ms = page.indexOf('<section class="ooan-mast"', end);
+    if (ms >= 0) {
+      const me = page.indexOf("</section>", ms);
+      if (me > ms) html += page.slice(ms, me + "</section>".length);
+    }
     html = html
       .replace(/\ssrc="data:image\/svg\+xml;base64,[^"]*"/g, "")
       .replace(/\sdata-src="/g, ' src="')
