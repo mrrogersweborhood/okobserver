@@ -1272,14 +1272,10 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 :root[data-oo-theme="dark"] .oo-ix .oo-tool { background: #0f2a6e; color: #fff; border-color: rgba(255, 255, 255, .4); box-shadow: none; }
 :root[data-oo-theme="dark"] .oo-ix-q, :root[data-oo-theme="dark"] .oo-ix-more { background: #f5f8fd; color: #143571; }
 
-/* QA task 17: restricted-story invite (the website's "There's more to the story." prompt) */
-.oo-invite { box-sizing: border-box; margin: 22px 0 8px; padding: 20px 22px 22px; text-align: center; border-radius: var(--oo-radius); background: rgba(9, 42, 112, .68); border: 1px solid rgba(255, 255, 255, .3); border-top: 3px solid #e9b94c; box-shadow: 0 14px 34px -16px rgba(0, 0, 0, .6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-.oo-invite .oo-invite-h { margin: 0 0 8px; font: 700 24px/1.2 Georgia, "Times New Roman", serif; letter-spacing: -.01em; color: #f7f3ea; }
-.oo-invite .oo-invite-p { margin: 0 0 16px; font-size: 16px; line-height: 1.45; color: #eef3ff; }
-.oo-invite-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-.oo-invite a.oo-invite-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; min-width: 130px; padding: 0 26px; box-sizing: border-box; border-radius: 999px; background: #e9b94c; color: #0b1f52; border: 2px solid #e9b94c; font: 700 15px/1 "Montserrat", Arial, sans-serif; letter-spacing: .04em; text-decoration: none; }
-.oo-invite a.oo-invite-btn--ghost { background: transparent; color: #f7f3ea; border-color: rgba(255, 255, 255, .55); }
-html[data-oo-theme="light"] .oo-invite { background: rgba(255, 255, 255, .78); border-color: rgba(11, 61, 145, .25); border-top-color: #e9b94c; }
-html[data-oo-theme="light"] .oo-invite .oo-invite-h { color: #14275f; }
-html[data-oo-theme="light"] .oo-invite .oo-invite-p { color: #14275f; }
-html[data-oo-theme="light"] .oo-invite a.oo-invite-btn--ghost { color: #14275f; border-color: rgba(20, 39, 95, .5); }
+/* QA task 17: restricted-story invite - exactly the website's .oee-invite block (same in light and dark) */
+.oo-invite { box-sizing: border-box; margin: 22px 0 8px; padding: 22.4px 20px; text-align: center; border-radius: 10px; background: rgb(36, 89, 182); border-top: 3px solid rgb(201, 161, 90); box-shadow: rgba(3, 12, 36, .22) 0 18px 38px 0; color: rgb(247, 243, 234); font: 14px/21px "Source Serif 4", Georgia, Cambria, serif; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.oo-invite .oo-invite-h { margin: 0 0 8px; padding: 0; font: 700 24.45px/28.12px "Playfair Display", Georgia, serif; letter-spacing: normal; text-transform: none; color: rgb(247, 243, 234); }
+.oo-invite .oo-invite-p { margin: 0 0 17.6px; padding: 0; font: 17.31px/26.83px "Source Serif 4", Georgia, Cambria, serif; color: rgba(247, 243, 234, .82); }
+.oo-invite .oo-invite-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 0; padding: 0; }
+.oo-invite a.oo-invite-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 136px; padding: 12.8px 25.6px; border: 0; border-radius: 999px; background: rgb(30, 144, 255); color: rgb(6, 22, 60); font: 700 16.8px/21px "Source Serif 4", Georgia, Cambria, serif; letter-spacing: normal; text-transform: none; text-decoration: none; }
+.oo-invite a.oo-invite-btn--ghost { background: transparent; color: rgb(247, 243, 234); box-shadow: rgb(247, 243, 234) 0 0 0 2px inset; }
