@@ -1300,15 +1300,27 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 .oo-comment-body a { text-decoration: underline; }
 .oo-comment-body blockquote { margin: 0 0 .7em; padding-left: 10px; border-left: 2px solid var(--oo-panel-line); opacity: .9; }
 
-/* About: Publication Information (masthead details) */
-.about-view .ooan-mast { box-sizing: border-box; margin: 0; padding: 34px 20px; background: rgba(10,32,74,.82); color: #fff; border-top: 3px solid #d9a93a; }
-.about-view .ooan-mast h2 { margin: 0 0 .8em; font: italic 400 clamp(2rem, 8vw, 2.6rem)/1.1 Georgia, "Times New Roman", serif; color: #fff; }
-.about-view .ooan-mast-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
-.about-view .ooan-mast-item h3 { margin: 0 0 .45em; padding-top: .7em; border-top: 1px solid rgba(217,169,58,.5); font: 700 .78rem/1.2 "Open Sans", Arial, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #e8c366; }
-.about-view .ooan-mast-item p { margin: 0; font: 1.05rem/1.6 Georgia, "Times New Roman", serif; color: #fff; overflow-wrap: anywhere; }
-.about-view .ooan-mast a { color: #fff; text-decoration: underline; text-decoration-color: #d9a93a; text-underline-offset: 3px; }
-@media (min-width: 700px) { .about-view .ooan-mast { padding: 44px 40px; } .about-view .ooan-mast-grid { grid-template-columns: repeat(2, 1fr); gap: 26px 40px; } .about-view .ooan-mast-item--wide { grid-column: 1 / -1; } }
-.about-view .about-html .ooan-mast h2 { color: #fff !important; }
-.about-view .about-html .ooan-mast .ooan-mast-item h3 { color: #e8c366 !important; -webkit-text-fill-color: #e8c366 !important; }
-.about-view .about-html .ooan-mast .ooan-mast-item p, .about-view .about-html .ooan-mast .ooan-mast-item em { color: #fff !important; }
-.about-view .about-html .ooan-mast a { color: #fff !important; }
+/* About: Publication Information (print-masthead details) - editorial type */
+.about-view .about-html .ooan-mast{box-sizing:border-box;margin:0;padding:clamp(40px,10vw,64px) clamp(18px,5vw,40px);background:linear-gradient(180deg,rgba(6,22,56,.45),rgba(6,22,56,.88));color:#f7f3ea;border-top:3px solid #d9a93a}
+.about-view .about-html .ooan-mast h2{margin:0 0 clamp(28px,6vw,48px)!important;font:italic 400 clamp(2.8rem,13vw,5.5rem)/.94 Georgia,"Times New Roman",serif!important;letter-spacing:-.035em!important;color:#f7f3ea!important;text-transform:none!important}
+.about-view .about-html .ooan-mast h3{margin:0 0 .9em!important;font:700 .74rem/1.2 "Open Sans",Arial,sans-serif!important;letter-spacing:.24em!important;text-transform:uppercase!important;color:#ffe5a2!important;-webkit-text-fill-color:#ffe5a2!important}
+.about-view .about-html .ooan-mast p{margin:0;color:#f7f3ea!important}
+.about-view .about-html .ooan-mast a{color:#ffe5a2!important;text-decoration:none;border-bottom:1px solid rgba(255,229,162,.5)}
+.about-view .about-html .ooan-mast-people,.about-view .about-html .ooan-mast-founders{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
+.about-view .about-html .ooan-mast-founders{margin-top:28px}
+.about-view .about-html .ooan-mast-person h3{padding-top:1em;border-top:2px solid #d9a93a}
+.about-view .about-html .ooan-mast-name{font:400 clamp(1.9rem,8vw,2.6rem)/1.05 Georgia,"Times New Roman",serif!important;letter-spacing:-.015em}
+.about-view .about-html .ooan-mast-years{margin-top:.35em!important;font:italic 1.2rem Georgia,serif!important;color:#ffe5a2!important}
+.about-view .about-html .ooan-mast-mail{display:inline-block;margin-top:.8em;font:italic 1.15rem Georgia,serif!important;overflow-wrap:anywhere}
+.about-view .about-html .ooan-mast-motto{margin:48px 0}
+.about-view .about-html .ooan-mast-motto p{max-width:18ch;font:italic 400 clamp(2.4rem,12vw,4.4rem)/1 Georgia,"Times New Roman",serif!important;letter-spacing:-.035em}
+.about-view .about-html .ooan-mast-motto em{color:#ffe5a2!important}
+.about-view .about-html .ooan-mast-credo{margin-bottom:48px}
+.about-view .about-html .ooan-mast-credo p:first-of-type{font:italic 400 clamp(1.3rem,5.4vw,1.7rem)/1.42 Georgia,serif!important;letter-spacing:-.01em}
+.about-view .about-html .ooan-mast-cite{margin-top:1.6em!important;font:700 .74rem "Open Sans",Arial,sans-serif!important;letter-spacing:.22em;text-transform:uppercase;color:#ffe5a2!important}
+.about-view .about-html .ooan-mast-board ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap}
+.about-view .about-html .ooan-mast-board li{margin:0;padding:0;font:400 clamp(1.25rem,5vw,1.6rem)/1.55 Georgia,serif;color:#f7f3ea}
+.about-view .about-html .ooan-mast-board li:not(:last-child)::after{content:"\25C6";display:inline-block;margin:0 .7em;font-size:.4em;vertical-align:.45em;color:#d9a93a}
+.about-view .about-html .ooan-mast-fine{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;margin-top:48px;padding-top:32px;border-top:1px solid rgba(255,229,162,.3)}
+.about-view .about-html .ooan-mast-fineitem p{font:1.05rem/1.7 Georgia,serif!important;color:rgba(247,243,234,.92)!important;overflow-wrap:anywhere}
+@media (min-width:760px){.about-view .about-html .ooan-mast-people{grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}.about-view .about-html .ooan-mast-founders,.about-view .about-html .ooan-mast-fine{grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 56px}.about-view .about-html .ooan-mast-fineitem--wide{grid-column:1/-1}}
