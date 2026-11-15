@@ -1338,3 +1338,7 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 
 /* ---- Post body: paragraph spacing like the website (text pasted from Facebook arrives as bare divs with no margin) ---- */
 .post-detail-content div:not(:has(div, p, img, iframe, figure, table, ul, ol, blockquote, h1, h2, h3, h4, h5, h6, section, video, button)):not(:empty) { margin: 0 0 .95em; }
+
+/* ---- Post body text size + leading like the website (22.4px, 1.85); reader +/- and loose toggle still scale it ---- */
+.post-detail-content { font-size: calc(22.4px * var(--oo-read-scale, 1)); line-height: calc(var(--oo-read-leading, 1.72) * 1.075); }
+@media (max-width: 640px) { .post-detail-content { font-size: calc(22.4px * var(--oo-read-scale, 1)); line-height: calc(var(--oo-read-leading, 1.72) * 1.075); } }
