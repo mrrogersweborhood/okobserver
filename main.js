@@ -3818,6 +3818,7 @@ const detailInnerHtml = `
     </div>
   ${taxHtml}
   ${authorBoxHtml}
+  <section class="oo-comments" data-oo-comments="${post.id}" hidden></section>
   <nav class="post-pn" data-post-nav aria-label="More stories" hidden></nav>
   <button class="back-btn" type="button">Back to News</button>
 `;
@@ -3838,6 +3839,7 @@ if (existingPrefill) {
 }
 
 loadPostNav(post);
+try { ooLoadComments(post); } catch (_) {}
 
 scrollToTop();
 
@@ -4227,6 +4229,116 @@ window.location.replace(target);
   // ---------------------------------------------------------------------------
   // Auth helpers (login via Cloudflare Worker)
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Read-only comments (no posting in the app). Loaded lazily, only when the section nears the screen;
+  // the list itself (and avatars) is only built when the reader taps to open it.
+  // ---------------------------------------------------------------------------
+  const ooCommentsCache = new Map();
+
+  function ooCleanCommentHtml(html) {
+    const doc = new DOMParser().parseFromString('<div>' + String(html || '') + '</div>', 'text/html');
+    const keep = { P: 1, BR: 1, A: 1, EM: 1, I: 1, STRONG: 1, B: 1, BLOCKQUOTE: 1, UL: 1, OL: 1, LI: 1 };
+    (function walk(node) {
+      Array.from(node.childNodes).forEach((ch) => {
+        if (ch.nodeType === 8) { ch.remove(); return; }
+        if (ch.nodeType !== 1) return;
+        walk(ch);
+        if (!keep[ch.tagName]) {
+          if (/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|FORM|INPUT|BUTTON|SVG|IMG|VIDEO|AUDIO)$/.test(ch.tagName)) { ch.remove(); return; }
+          while (ch.firstChild) ch.parentNode.insertBefore(ch.firstChild, ch);
+          ch.remove();
+          return;
+        }
+        Array.from(ch.attributes).forEach((a) => {
+          if (!(ch.tagName === 'A' && a.name === 'href')) ch.removeAttribute(a.name);
+        });
+        if (ch.tagName === 'A') {
+          const h = ch.getAttribute('href') || '';
+          if (!/^https?:\/\//i.test(h)) { ch.removeAttribute('href'); }
+          else { ch.setAttribute('target', '_blank'); ch.setAttribute('rel', 'nofollow noopener'); }
+        }
+      });
+    })(doc.body.firstChild);
+    return doc.body.firstChild.innerHTML;
+  }
+
+  function ooCommentsListHtml(list) {
+    const byParent = {};
+    list.forEach((c) => { (byParent[c.parent || 0] = byParent[c.parent || 0] || []).push(c); });
+    const ids = {};
+    list.forEach((c) => { ids[c.id] = 1; });
+    // a reply whose parent was not returned is shown at top level
+    list.forEach((c) => { if (c.parent && !ids[c.parent]) { (byParent[0] = byParent[0] || []).push(c); } });
+    const one = (c, depth) => {
+      const name = (function () { const t = document.createElement('textarea'); t.innerHTML = String(c.author_name || 'Reader'); return t.value; })();
+      const av = c.author_avatar_urls && (c.author_avatar_urls['48'] || c.author_avatar_urls['24']) || '';
+      let when = '';
+      try { when = new Date(c.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }); } catch (_) {}
+      const kids = (byParent[c.id] || []).map((k) => one(k, depth + 1)).join('');
+      return '<li class="oo-comment" data-depth="' + Math.min(depth, 3) + '">' +
+        '<div class="oo-comment-head">' +
+        (av ? '<img class="oo-comment-av" src="' + escapeAttr(av) + '" alt="" width="40" height="40" loading="lazy" decoding="async" />' : '<span class="oo-comment-av oo-comment-av-ph" aria-hidden="true"></span>') +
+        '<div class="oo-comment-who"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(when) + '</span></div></div>' +
+        '<div class="oo-comment-body">' + ooCleanCommentHtml(c.content && c.content.rendered) + '</div>' +
+        (kids ? '<ol class="oo-comment-replies">' + kids + '</ol>' : '') +
+        '</li>';
+    };
+    return '<ol class="oo-comment-list">' + (byParent[0] || []).map((c) => one(c, 0)).join('') + '</ol>';
+  }
+
+  async function ooFetchComments(postId) {
+    if (ooCommentsCache.has(postId)) return ooCommentsCache.get(postId);
+    const all = [];
+    for (let page = 1; page <= 3; page++) {
+      const u = new URL(WP_API_BASE);
+      u.pathname = '/wp-json/wp/v2/comments';
+      u.search = '?post=' + encodeURIComponent(postId) + '&per_page=100&page=' + page + '&orderby=date&order=asc&_fields=id,parent,author_name,date,content,author_avatar_urls';
+      let part;
+      try { part = await fetchJson(u.toString(), {}); } catch (_) { part = null; }
+      if (!Array.isArray(part)) break;
+      all.push(...part);
+      if (part.length < 100) break;
+    }
+    ooCommentsCache.set(postId, all);
+    return all;
+  }
+
+  function ooLoadComments(post) {
+    const host = app.querySelector('[data-oo-comments="' + post.id + '"]');
+    if (!host) return;
+    const start = async () => {
+      if (!host.isConnected) return;
+      // gated stories: the teaser block is showing, so do not show comments either
+      if (app.querySelector('.oo-invite') || app.querySelector('.oo-paywall-notice')) return;
+      const list = await ooFetchComments(post.id);
+      if (!host.isConnected || !list.length) return;
+      host.hidden = false;
+      host.innerHTML =
+        '<button class="oo-comments-toggle" type="button" aria-expanded="false">' +
+        '<span>Comments (' + list.length + ')</span><i aria-hidden="true">+</i></button>' +
+        '<div class="oo-comments-panel" hidden></div>';
+      const btn = host.querySelector('.oo-comments-toggle');
+      const panel = host.querySelector('.oo-comments-panel');
+      btn.addEventListener('click', () => {
+        const open = btn.getAttribute('aria-expanded') !== 'true';
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.querySelector('i').textContent = open ? '\u2212' : '+';
+        if (open && !panel.dataset.built) { panel.innerHTML = ooCommentsListHtml(list); panel.dataset.built = '1'; }
+        panel.hidden = !open;
+      });
+    };
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) { io.disconnect(); start(); }
+      }, { rootMargin: '800px 0px' });
+      // the section is hidden until it has content, so watch the author box / tags area instead
+      const anchor = host.previousElementSibling || host;
+      io.observe(anchor);
+    } else {
+      start();
+    }
+  }
 
   async function loginUser(username, password) {
     try {
