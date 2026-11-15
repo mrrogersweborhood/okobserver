@@ -1335,3 +1335,6 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 .oo-post-head { box-sizing: border-box; height: 176px; display: flex; flex-direction: column; justify-content: center; padding-bottom: 0; }
 .oo-post-head .post-title { flex: none; margin: 0 0 6px; }
 .oo-post-head .post-meta { flex: none; margin: 0; padding-top: 0; padding-bottom: 10px; font-size: 12px; letter-spacing: .1em; }
+
+/* ---- Post body: paragraph spacing like the website (text pasted from Facebook arrives as bare divs with no margin) ---- */
+.post-detail-content div:not(:has(div, p, img, iframe, figure, table, ul, ol, blockquote, h1, h2, h3, h4, h5, h6, section, video, button)):not(:empty) { margin: 0 0 .95em; }

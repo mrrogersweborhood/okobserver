@@ -603,7 +603,7 @@ async function handleTopicIndex(request, env) {
 async function handleAboutPage(request, env) {
   try {
     const cache = caches.default;
-    const key = new Request("https://oo-cache.invalid/about-page-v2");
+    const key = new Request("https://oo-cache.invalid/about-page-v4");
     const out = { "cache-control": "public, max-age=3600" };
     const hit = await cache.match(key);
     if (hit) return json(200, await hit.json(), out, request);
