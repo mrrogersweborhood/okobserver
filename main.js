@@ -1272,12 +1272,8 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     sec.className = 'oo-home-sec oo-sec-' + key + (extraClass ? ' ' + extraClass : '');
     sec.setAttribute('data-oo-sec', key);
     const titleHtml = slug ? `<a class="oo-section-link" href="#/archive?type=category&slug=${encodeURIComponent(slug)}&label=${encodeURIComponent(title)}"><span>${escapeHtml(title)}</span></a>` : escapeHtml(title);
-    sec.innerHTML = `<h2 class="oo-section-title">${titleHtml}</h2><div class="oo-snapwrap"><div class="oo-snap" data-oo="track"></div></div>
-      <div class="oo-pager"><button type="button" class="oo-pg oo-pg-prev" aria-label="Previous">${ARROW_L}</button><button type="button" class="oo-pg oo-pg-next" aria-label="Next">${ARROW_R}</button></div>`;
+    sec.innerHTML = `<h2 class="oo-section-title">${titleHtml}</h2><div class="oo-snapwrap"><div class="oo-snap" data-oo="track"></div></div>`;
     const track = sec.querySelector('.oo-snap');
-    const prev = sec.querySelector('.oo-pg-prev');
-    const next = sec.querySelector('.oo-pg-next');
-    const pager = sec.querySelector('.oo-pager');
     // side arrows beside the cards (Latest News + National Columnists), like the website
     let sidePrev = null, sideNext = null;
     if (['latest', 'columnists', 'magazine', 'observercast', 'newsmakers', 'cartoon'].indexOf(key) !== -1) {
@@ -1290,14 +1286,9 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     }
     const update = () => {
       const max = track.scrollWidth - track.clientWidth - 2;
-      pager.hidden = max <= 2;
-      prev.classList.toggle('is-dim', track.scrollLeft <= 2);
-      next.classList.toggle('is-dim', track.scrollLeft >= max);
       if (sidePrev) { sidePrev.hidden = max <= 2; sideNext.hidden = max <= 2; sidePrev.classList.toggle('is-dim', track.scrollLeft <= 2); sideNext.classList.toggle('is-dim', track.scrollLeft >= max); }
     };
     track.addEventListener('scroll', () => { homePos[key] = track.scrollLeft; requestAnimationFrame(update); }, { passive: true });
-    prev.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' }));
-    next.addEventListener('click', () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' }));
     sec._update = () => {
       track.scrollLeft = homePos[key] || 0;
       update();
@@ -1452,7 +1443,6 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       a.innerHTML = `${p.img ? `<img src="${escapeAttr(p.img)}" alt="" loading="lazy" decoding="async" />` : '<span class="oo-person-blank"></span>'}<span class="oo-person-name">${escapeHtml(p.name)}</span>`;
       grid.appendChild(a);
     });
-    sec.querySelector('.oo-pager').hidden = true;
     sec.hidden = !people.length;
     // Open each person's page inside the app when we can match them to an author
     fetchAllAuthors().then((authors) => {
@@ -1490,7 +1480,6 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     // Website-built sections (need the Worker's home-extras route; they stay hidden until it answers)
     const sponsorSec = homeSectionEl('sponsors', 'Advertisers'); sponsorSec.hidden = true;
     const shopSec = homeSectionEl('shop', 'Shop the Observer'); shopSec.hidden = true;
-    shopSec.querySelector('.oo-pager').remove();
     const peopleSec = homeSectionEl('people', 'Featured Columnists'); peopleSec.hidden = true;
     view.append(sponsorSec, shopSec, peopleSec);
 
@@ -3004,6 +2993,7 @@ function renderArchive(params) {
             const nm = getAuthorName(p);
             meta.innerHTML = '<span class="oo-m-date">' + escapeHtml(formatDate(p.date) || '') + '</span>' + (nm ? '<span class="oo-m-by">By <a href="' + archiveHref('author', p.author, nm) + '">' + escapeHtml(nm) + '</a></span>' : '');
           }
+          card.classList.add('oo-rot-' + ((shown % 4) + 1)); // QA task 1: same 4-step panel rotation as the website archives
           frag.appendChild(card);
           shown += 1;
         });
@@ -3441,6 +3431,39 @@ if (authorName) {
   }
 
 
+// Restricted story: swap the website's membership notice (WooCommerce Memberships text + product links) for the same
+// invite the website shows - "There's more to the story." with Sign in / Subscribe. Returns null when the story is not restricted.
+// The server alone decides what text is sent; this only changes how the notice looks, it never unlocks anything.
+function ooInviteForRestricted(html, loggedIn) {
+  if (!html || html.indexOf('wc-memberships') === -1) return null;
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const notice = tmp.querySelector('.wc-memberships-restriction-message, .wc-memberships-content-restricted-message, .wc-memberships-restrict');
+    if (!notice) return null;
+    let target = notice;
+    while (target.parentElement && target.parentElement !== tmp &&
+      (target.parentElement.textContent || '').replace(/\s+/g, ' ').trim() === (target.textContent || '').replace(/\s+/g, ' ').trim()) {
+      target = target.parentElement;
+    }
+    const shop = (window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '') + '/shop/';
+    const invite = document.createElement('aside');
+    invite.className = 'oo-invite';
+    invite.setAttribute('aria-labelledby', 'oo-invite-h');
+    invite.innerHTML = loggedIn
+      ? `<h2 class="oo-invite-h" id="oo-invite-h">There’s more to the story.</h2>
+         <p class="oo-invite-p">You’re signed in, but your account doesn’t include this story. Subscribe to support independent Oklahoma journalism.</p>
+         <div class="oo-invite-actions"><a class="oo-invite-btn" href="${shop}" target="_blank" rel="noopener">Subscribe</a></div>`
+      : `<h2 class="oo-invite-h" id="oo-invite-h">There’s more to the story.</h2>
+         <p class="oo-invite-p">Sign in to keep reading—or subscribe to support independent Oklahoma journalism.</p>
+         <div class="oo-invite-actions"><a class="oo-invite-btn oo-invite-btn--ghost oo-inline-login" href="#/login">Sign in</a><a class="oo-invite-btn" href="${shop}" target="_blank" rel="noopener">Subscribe</a></div>`;
+    target.replaceWith(invite);
+    return tmp.innerHTML;
+  } catch (_) {
+    return null;
+  }
+}
+
 function removePaywallNoticeFromDetail(html) {
   if (!html) return html;
 
@@ -3646,10 +3669,17 @@ if (authorName) {
     const titleHtml = rawTitle;
 let contentHtml = post.content && post.content.rendered ? post.content.rendered : '';
 
-if (isClientLoggedIn && isClientLoggedIn()) {
-  contentHtml = removePaywallNoticeFromDetail(contentHtml);
-} else {
-  contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
+{
+  // QA task 17: restricted story (the website's membership notice came back in the text) -> the website's invite prompt
+  const loggedInNow = !!(isClientLoggedIn && isClientLoggedIn());
+  const invited = ooInviteForRestricted(contentHtml, loggedInNow);
+  if (invited !== null) {
+    contentHtml = invited;
+  } else if (loggedInNow) {
+    contentHtml = removePaywallNoticeFromDetail(contentHtml);
+  } else {
+    contentHtml = linkifyPaywallLoginForSignedOut(contentHtml);
+  }
 }
 
 

@@ -795,7 +795,7 @@ html:not([data-oo-theme="light"]) .tts-button::before { width: 34px; height: 34p
 :root[data-oo-theme="light"] .oo-yr { border-color: #9fb0d8; background: #fff; color: #14275f !important; }
 
 /* About page: the website's own About design (same block, same styles) */
-.about-view.is-ooan{--d:Georgia,'Times New Roman',serif;--u:'Open Sans',Arial,Helvetica,sans-serif;--ink:#f3f7ff;--goldtx:#ffe5a2;--gold:#e9b94c;--mute:#d6e3fa;--link:#ffe5a2;--glass:rgba(9,40,100,.74);--b1:#154596;--b2:#06142f;--b3:#0f3680;--line:rgba(255,255,255,.28)}
+.about-view.is-ooan{--d:Georgia,'Times New Roman',serif;--u:'Open Sans',Arial,Helvetica,sans-serif;--ink:#f3f7ff;--goldtx:#ffe5a2;--gold:#e9b94c;--mute:#d6e3fa;--link:#ffe5a2;--glass:rgba(9,40,100,.42);--b1:#154596;--b2:#06142f;--b3:#0f3680;--line:rgba(255,255,255,.28)}
 html[data-oo-theme="light"] .about-view.is-ooan{--ink:#143571;--goldtx:#a96d0c;--gold:#e9b94c;--mute:#47608a;--link:#1a56c4;--glass:rgba(250,252,255,.84);--b1:#fbfcff;--b2:#0a1d47;--b3:#e8eff8;--line:rgba(20,53,113,.22)}
 .about-view.is-ooan .ooan{color:var(--ink);font:400 clamp(17px,1.2vw,23px)/1.58 var(--d)}
 .about-view.is-ooan .ooan *{box-sizing:border-box}
@@ -807,7 +807,7 @@ html:not([data-oo-theme="light"]) .about-view.is-ooan .ooan a:focus-visible{outl
 .about-view.is-ooan .ooan img{display:block;max-width:100%;height:auto;border:0;border-radius:0;box-shadow:none}
 
 /* ---- opening: the publication's purpose, then the editor ---- */
-.ooan-hero{position:relative;padding:clamp(20px,2.5vw,56px) clamp(22px,4.2vw,130px) clamp(22px,2.4vw,52px);background:var(--glass);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:4px solid var(--gold);box-shadow:0 30px 70px -34px rgba(8,30,80,.65)}
+.ooan-hero{position:relative;padding:clamp(20px,2.5vw,56px) clamp(22px,4.2vw,130px) clamp(22px,2.4vw,52px);background:var(--glass);border-top:4px solid var(--gold);box-shadow:0 30px 70px -34px rgba(8,30,80,.65)}
 .about-view.is-ooan .ooan h1.ooan-id{display:flex;align-items:center;gap:14px;margin:0 0 clamp(10px,1.2vw,22px)!important;font:700 clamp(12px,.86vw,15px)/1.2 var(--u)!important;letter-spacing:.22em;text-transform:uppercase;color:var(--goldtx)!important;-webkit-text-fill-color:var(--goldtx)}
 .about-view.is-ooan .ooan h1.ooan-id:after{content:"";flex:1 1 auto;border-top:1px solid var(--gold)}
 .ooan-id1{opacity:.9}
@@ -1222,10 +1222,10 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
   .oo-sec-latest, .oo-sec-columnists { --oo-g: 41px; }
 }
 
-/* ---- Single post, phones: fixed-height title + byline box, like the website's post header (build 2.0.9) ---- */
+/* ---- Single post, phones: title + byline box sized by content, no rigid heights (QA task 14; post 402154 = reference, natural 94px title + 52px byline) ---- */
 @media (max-width: 699px) {
-  .oo-post-head .post-title { min-height: 94px; display: flex; flex-direction: column; justify-content: center; }
-  .oo-post-head .post-meta { min-height: 52px; box-sizing: border-box; }
+  .oo-post-head .post-title { min-height: 0; }
+  .oo-post-head .post-meta { min-height: 0; box-sizing: border-box; }
 }
 @media (min-width: 700px) {
   .oo-sec-latest .oo-slide .oo-lead:not(.oo-wide) .post-card-content > *, .oo-sec-latest .oo-pair .post-card-content > *, .oo-sec-columnists .oo-item .post-card-content > * { flex: none; }
@@ -1243,3 +1243,43 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
   .oo-post-head .oo-pn-a-next::before { right: 12px; }
   .oo-post-head .post-title, .oo-post-head .post-meta { padding-left: 26px; padding-right: 26px; box-sizing: border-box; }
 }
+
+/* QA task 1: archive panels rotate through the website's four colours (dark mode = default) */
+.oo-arch .post-card.oo-rot-1 { background: rgba(70, 125, 215, .55); border-color: rgba(255, 255, 255, .22); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.oo-arch .post-card.oo-rot-2 { background: #0f2a63; border-color: rgba(255, 255, 255, .18); }
+.oo-arch .post-card.oo-rot-3 { background: #2f68c9; border-color: rgba(255, 255, 255, .2); }
+.oo-arch .post-card.oo-rot-4 { background: rgba(12, 48, 122, .8); border-color: rgba(255, 255, 255, .18); }
+.oo-arch .post-card[class*="oo-rot-"] .post-card-excerpt, .oo-arch .post-card[class*="oo-rot-"] .oo-m-date, .oo-arch .post-card[class*="oo-rot-"] .oo-m-by { color: #eef3ff; }
+.oo-arch .post-card[class*="oo-rot-"] .oo-m-by a { color: #d9e8ff; }
+/* light mode = the website's light palette */
+:root[data-oo-theme="light"] .oo-arch .post-card.oo-rot-1 { background: #fbfdff; border-color: #cfd6ea; }
+:root[data-oo-theme="light"] .oo-arch .post-card.oo-rot-2 { background: #a9c7f5; border-color: #8fb0e4; }
+:root[data-oo-theme="light"] .oo-arch .post-card.oo-rot-3 { background: rgba(255, 255, 255, .6); border-color: #cfd6ea; }
+:root[data-oo-theme="light"] .oo-arch .post-card.oo-rot-4 { background: #9fb6e2; border-color: #8aa3d4; }
+:root[data-oo-theme="light"] .oo-arch .post-card[class*="oo-rot-"] .post-card-title, :root[data-oo-theme="light"] .oo-arch .post-card[class*="oo-rot-"] .post-card-excerpt, :root[data-oo-theme="light"] .oo-arch .post-card[class*="oo-rot-"] .oo-m-date, :root[data-oo-theme="light"] .oo-arch .post-card[class*="oo-rot-"] .oo-m-by { color: #14275f; }
+:root[data-oo-theme="light"] .oo-arch .post-card[class*="oo-rot-"] .oo-m-by a { color: #0b3d91; }
+
+/* QA task 3: Index follows the colour mode. Light = the cream paper above; dark = the website's translucent blue panel. */
+:root[data-oo-theme="dark"] .oo-ix { background: rgba(9, 42, 112, .68); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: #fff; border-top-color: #e6b44a; }
+:root[data-oo-theme="dark"] .oo-ix-title { color: #f7f3ea; }
+:root[data-oo-theme="dark"] .oo-ix-sub { color: #eef3ff; }
+:root[data-oo-theme="dark"] .oo-ix-label { color: #f0c868; }
+:root[data-oo-theme="dark"] .oo-ix-l { color: #fff; }
+:root[data-oo-theme="dark"] .oo-ix-l.is-on { background: #e6b44a; color: #14275f; }
+:root[data-oo-theme="dark"] .oo-ix-status { color: #c9d8f5; }
+:root[data-oo-theme="dark"] .oo-ix-row { color: #fff !important; border-bottom-color: rgba(255, 255, 255, .2); }
+:root[data-oo-theme="dark"] .oo-ix-row b { background: #e6b44a; color: #14275f; }
+:root[data-oo-theme="dark"] .oo-ix .oo-tool { background: #0f2a6e; color: #fff; border-color: rgba(255, 255, 255, .4); box-shadow: none; }
+:root[data-oo-theme="dark"] .oo-ix-q, :root[data-oo-theme="dark"] .oo-ix-more { background: #f5f8fd; color: #143571; }
+
+/* QA task 17: restricted-story invite (the website's "There's more to the story." prompt) */
+.oo-invite { box-sizing: border-box; margin: 22px 0 8px; padding: 20px 22px 22px; text-align: center; border-radius: var(--oo-radius); background: rgba(9, 42, 112, .68); border: 1px solid rgba(255, 255, 255, .3); border-top: 3px solid #e9b94c; box-shadow: 0 14px 34px -16px rgba(0, 0, 0, .6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.oo-invite .oo-invite-h { margin: 0 0 8px; font: 700 24px/1.2 Georgia, "Times New Roman", serif; letter-spacing: -.01em; color: #f7f3ea; }
+.oo-invite .oo-invite-p { margin: 0 0 16px; font-size: 16px; line-height: 1.45; color: #eef3ff; }
+.oo-invite-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.oo-invite a.oo-invite-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; min-width: 130px; padding: 0 26px; box-sizing: border-box; border-radius: 999px; background: #e9b94c; color: #0b1f52; border: 2px solid #e9b94c; font: 700 15px/1 "Montserrat", Arial, sans-serif; letter-spacing: .04em; text-decoration: none; }
+.oo-invite a.oo-invite-btn--ghost { background: transparent; color: #f7f3ea; border-color: rgba(255, 255, 255, .55); }
+html[data-oo-theme="light"] .oo-invite { background: rgba(255, 255, 255, .78); border-color: rgba(11, 61, 145, .25); border-top-color: #e9b94c; }
+html[data-oo-theme="light"] .oo-invite .oo-invite-h { color: #14275f; }
+html[data-oo-theme="light"] .oo-invite .oo-invite-p { color: #14275f; }
+html[data-oo-theme="light"] .oo-invite a.oo-invite-btn--ghost { color: #14275f; border-color: rgba(20, 39, 95, .5); }
