@@ -387,8 +387,18 @@ const isAuthCall =
 const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' && isClientLoggedIn());
 
 
+  // Also send the sign-in token as a header: phones that block cross-site cookies still stay signed in.
+  let ooAuthHeaders = null;
+  try {
+    const tok = localStorage.getItem('ooJwt');
+    if (tok && shouldSendCreds && !url.includes('/auth/login') && !url.includes('/auth/logout')) {
+      ooAuthHeaders = { ...(options.headers || {}), Authorization: 'Bearer ' + tok };
+    }
+  } catch (_) {}
+
   const response = await fetch(url, {
     ...options,
+    ...(ooAuthHeaders ? { headers: ooAuthHeaders } : {}),
     ...(shouldSendCreds ? { credentials: 'include' } : {})
   });
 
@@ -4403,7 +4413,7 @@ function renderLogout() {
     if (msgEl) msgEl.textContent = 'Signing out…';
 
     const ok = await logoutUser();
-    try { localStorage.removeItem('ooLoggedIn'); } catch (_) {}
+    try { localStorage.removeItem('ooLoggedIn'); localStorage.removeItem('ooJwt'); } catch (_) {}
     updateAuthNav();
 // Clear any cached authenticated content so UI cannot look logged-in
 try { postCache.clear(); } catch (_) {}

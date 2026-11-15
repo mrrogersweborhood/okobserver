@@ -126,7 +126,7 @@ async function handleLogin(request) {
     headers.set("pragma", "no-cache");
     headers.set("expires", "0");
 
-    return new Response(JSON.stringify({ success: true, user }), {
+    return new Response(JSON.stringify({ success: true, user, token }), {
       status: 200,
       headers
     });
@@ -184,6 +184,16 @@ function expireJwtCookie() {
     "Partitioned",
     "Max-Age=0"
   ].join("; ");
+}
+
+// Token from the app's explicit Authorization header (works when the browser blocks cross-site cookies), else the cookie.
+function getJwtFromRequest(request) {
+  const ah = request.headers.get("Authorization") || "";
+  if (ah.toLowerCase().startsWith("bearer ")) {
+    const t = ah.slice(7).trim();
+    if (t) return t;
+  }
+  return getJwtFromCookie(request);
 }
 
 function getJwtFromCookie(request) {
@@ -244,7 +254,7 @@ if (url.pathname === "/auth/logout" && request.method === "POST") {
 
 /* ------------------ AUTH STATUS (must come before API_ALLOW gate) ------------------ */
 if (url.pathname === "/auth/status" && request.method === "GET") {
-  const jwt = getJwtFromCookie(request);
+  const jwt = getJwtFromRequest(request);
   const hasToken = !!(jwt && jwt.trim());
 
   return json(
@@ -897,7 +907,7 @@ async function handleFullPost(request, url, env, ctx) {
       );
     }
 
-    const jwt = getJwtFromCookie(request);
+    const jwt = getJwtFromRequest(request);
     const isAuthenticated = !!(jwt && jwt.trim());
 
     const __tEnv0 = Date.now();
