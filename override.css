@@ -1342,3 +1342,6 @@ body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display
 /* ---- Post body text size + leading like the website (22.4px, 1.85); reader +/- and loose toggle still scale it ---- */
 .post-detail-content { font-size: calc(22.4px * var(--oo-read-scale, 1)); line-height: calc(var(--oo-read-leading, 1.72) * 1.075); }
 @media (max-width: 640px) { .post-detail-content { font-size: calc(22.4px * var(--oo-read-scale, 1)); line-height: calc(var(--oo-read-leading, 1.72) * 1.075); } }
+
+/* ---- Post body font: Source Serif 4, same as the website (loaded in index.html) ---- */
+.post-detail-content { font-family: "Source Serif 4", Georgia, Cambria, "Times New Roman", serif; }
