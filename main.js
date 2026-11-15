@@ -3571,8 +3571,15 @@ async function loadPostNav(post) {
       window.__ooCartoonCat = (Array.isArray(c) && c[0] && c[0].id) ? c[0].id : 0;
     } catch (_) { window.__ooCartoonCat = 0; }
   }
+  // Magazine issues never show a post date, so their neighbour cards don't either
+  if (window.__ooIssuesCat === undefined) {
+    try {
+      const c = await fetchJson(`${WP_API_BASE}/categories?slug=issues&_fields=id`).catch(() => null);
+      window.__ooIssuesCat = (Array.isArray(c) && c[0] && c[0].id) ? c[0].id : 0;
+    } catch (_) { window.__ooIssuesCat = 0; }
+  }
   const exclude = window.__ooCartoonCat ? `&categories_exclude=${window.__ooCartoonCat}` : '';
-  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}${exclude}&_embed=wp:featuredmedia&_fields=id,title,date,_links,_embedded`;
+  const q = (older) => `${WP_API_BASE}/posts?per_page=1&orderby=date&order=${older ? 'desc' : 'asc'}&${older ? 'before' : 'after'}=${encodeURIComponent(post.date)}${exclude}&_embed=wp:featuredmedia&_fields=id,title,date,categories,_links,_embedded`;
   try {
     const [older, newer] = await Promise.all([fetchJson(q(true)).catch(() => []), fetchJson(q(false)).catch(() => [])]);
     if (!document.body.contains(nav)) return;
@@ -3587,7 +3594,8 @@ async function loadPostNav(post) {
         const src = fm ? ((sz && ((sz.medium_large && sz.medium_large.source_url) || (sz.large && sz.large.source_url))) || fm.source_url) : '';
         if (src) img = '<span class="post-pn-media"><img src="' + escapeAttr(src) + '" alt="" loading="lazy" decoding="async" /></span>';
       } catch (_) {}
-      const when = r.date ? '<span class="post-pn-date">' + escapeHtml(new Date(r.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })) + '</span>' : '';
+      const isIssue = window.__ooIssuesCat && Array.isArray(r.categories) && r.categories.indexOf(window.__ooIssuesCat) !== -1;
+      const when = (r.date && !isIssue) ? '<span class="post-pn-date">' + escapeHtml(new Date(r.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })) + '</span>' : '';
       return '<a class="post-pn-link ' + cls + '" href="#/post/' + r.id + '"><span class="post-pn-dir">' + dir + '</span>' + img + '<span class="post-pn-title">' + escapeHtml(title) + '</span>' + when + '</a>';
     };
     const arrow = (row, sel) => {
