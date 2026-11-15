@@ -4236,6 +4236,10 @@ window.location.replace(target);
 
       if (!resp.ok || !data || !data.success) {
         console.warn('[OkObserver] Login failed response:', data);
+        try {
+          const raw = (data && data.message) ? String(data.message) : ('Server answered ' + resp.status + '.');
+          window.__ooLoginErr = raw.replace(/<[^>]*>/g, '').replace(/^s*(error:)s*/i, '').slice(0, 160);
+        } catch (_) {}
         return false;
       }
 
@@ -4256,6 +4260,7 @@ return true;
 
     } catch (err) {
       console.error('[OkObserver] Login error:', err);
+      try { window.__ooLoginErr = 'Could not reach the sign-in service (' + ((err && err.message) || 'network error') + ').'; } catch (_) {}
       return false;
     }
   }
@@ -4353,7 +4358,7 @@ if (pwInput && pwToggle) {
           updateAuthNav();
           window.location.replace(lastNonLoginHash || "#/");
         } else {
-          errorBox.textContent = "Invalid login. Please try again.";
+          errorBox.textContent = "Invalid login. Please try again." + (window.__ooLoginErr ? " (" + window.__ooLoginErr + ")" : "");
         }
 
 
