@@ -1425,3 +1425,7 @@ html[data-oo-theme] .oo-post-head .oo-pn-a,html[data-oo-theme] .oo-pn-arrows .oo
 :root[data-oo-theme="light"] .oo-toon-date{color:#14275f}
 /* build 2.1.24: footer + menu panels match the website — no backdrop blur, so the dome shows through the translucent blue */
 html body .oof-bar, html body #td-outer-wrap .oo-nm .oo-nm-bar, html body .oo-nm .oo-nm-bar { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* build 2.1.27: bolder white prev/next arrows on the pale light-mode title card (still white) */
+html[data-oo-theme="light"] .oo-post-head .oo-pn-a{filter:drop-shadow(0 0 1px rgba(11,42,107,.95)) drop-shadow(0 1px 3px rgba(11,42,107,.75))}
+html[data-oo-theme="light"] .oo-post-head .oo-pn-a::before{width:14px;height:14px;margin-top:-7px;border-top-width:3.5px;border-right-width:3.5px}
