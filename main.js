@@ -3428,7 +3428,7 @@ if (authorName) {
       const ss = window.sessionStorage;
       let pn = parseInt(ss.getItem("oo_pn") || "-1", 10);
       if (String(id) !== ss.getItem("oo_pl")) { pn = (pn + 1) % 4; ss.setItem("oo_pn", String(pn)); ss.setItem("oo_pl", String(id)); }
-      if (pn > 0) document.documentElement.setAttribute("data-oo-panel", String(pn)); else document.documentElement.removeAttribute("data-oo-panel");
+      document.documentElement.setAttribute("data-oo-panel", String(pn + 1));
     } catch (_) {}
 
     // Option A: if we have the clicked summary post, paint a fast shell immediately

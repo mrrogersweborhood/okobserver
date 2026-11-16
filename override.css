@@ -1362,22 +1362,48 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
 .oo-leave-go{border-radius:999px}
 @media (prefers-reduced-motion:reduce){:is(.btnPrimary,.login-submit,.search-submit,.back-btn,.oo-leave-go)::before{animation:none}}
 
-/* build 2.1.22: post panel colour rotation - each post you page to takes the next background (blue, sky blue, near-white, silver) like the archive cards */
-html[data-oo-panel="1"] .post-detail-content{background:rgb(169,199,245)!important;color:#0b2a6b!important}
-html[data-oo-panel="1"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
-html[data-oo-panel="1"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
-html[data-oo-panel="1"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
-html[data-oo-panel="1"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
-html[data-oo-panel="2"] .post-detail-content{background:rgb(251,253,255)!important;color:#0b2a6b!important}
-html[data-oo-panel="2"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
-html[data-oo-panel="2"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
-html[data-oo-panel="2"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
-html[data-oo-panel="2"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
-html[data-oo-panel="3"] .post-detail-content{background:rgb(159,182,226)!important;color:#0b2a6b!important}
-html[data-oo-panel="3"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
-html[data-oo-panel="3"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
-html[data-oo-panel="3"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
-html[data-oo-panel="3"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+/* build 2.1.26: approved 4-panel palette per theme; prev/next arrows always white */
+html[data-oo-theme="dark"][data-oo-panel="1"] .post-detail-content{background:#0a1f4d!important;color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="1"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="1"] .post-detail-content a:not(.oo-invite *){color:#ffd98a!important;text-decoration-color:#ffd98a}
+html[data-oo-theme="dark"][data-oo-panel="1"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="1"] .post-detail-tts-row .oo-act-pm i{background:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="2"] .post-detail-content{background:#2f68c9!important;color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="2"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="2"] .post-detail-content a:not(.oo-invite *){color:#ffd98a!important;text-decoration-color:#ffd98a}
+html[data-oo-theme="dark"][data-oo-panel="2"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="2"] .post-detail-tts-row .oo-act-pm i{background:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="3"] .post-detail-content{background:#2b2f86!important;color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="3"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="3"] .post-detail-content a:not(.oo-invite *){color:#ffd98a!important;text-decoration-color:#ffd98a}
+html[data-oo-theme="dark"][data-oo-panel="3"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="3"] .post-detail-tts-row .oo-act-pm i{background:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="4"] .post-detail-content{background:#1f6f9f!important;color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="4"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="4"] .post-detail-content a:not(.oo-invite *){color:#ffd98a!important;text-decoration-color:#ffd98a}
+html[data-oo-theme="dark"][data-oo-panel="4"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#f7f3ea!important}
+html[data-oo-theme="dark"][data-oo-panel="4"] .post-detail-tts-row .oo-act-pm i{background:#f7f3ea!important}
+html[data-oo-theme="light"][data-oo-panel="1"] .post-detail-content{background:#c3c9dc!important;color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="1"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="1"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important;text-decoration-color:#c9a56a}
+html[data-oo-theme="light"][data-oo-panel="1"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="1"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="2"] .post-detail-content{background:#ffffff!important;color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="2"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="2"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important;text-decoration-color:#c9a56a}
+html[data-oo-theme="light"][data-oo-panel="2"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="2"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="3"] .post-detail-content{background:#8fb9f0!important;color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="3"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="3"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important;text-decoration-color:#c9a56a}
+html[data-oo-theme="light"][data-oo-panel="3"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="3"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="4"] .post-detail-content{background:#f6efdf!important;color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="4"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="4"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important;text-decoration-color:#c9a56a}
+html[data-oo-theme="light"][data-oo-panel="4"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-theme="light"][data-oo-panel="4"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-theme] .oo-post-head .oo-pn-a,html[data-oo-theme] .oo-pn-arrows .oo-pn-a{color:#fff!important;filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
 
 /* build 2.1.23: phone header matches the mobile website - smaller logo, 56px menu button with thin lines, motto position (backdrop already identical) */
 @media (max-width: 720px) {
