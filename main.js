@@ -3405,6 +3405,13 @@ if (authorName) {
     async function renderPostDetail(id) {
     stopTtsPlayback({ native: false });
     scrollToTop();
+    // Post panel colour rotation (build 2.1.22): each post you page to takes the next of 4 backgrounds (0 = the usual blue)
+    try {
+      const ss = window.sessionStorage;
+      let pn = parseInt(ss.getItem("oo_pn") || "-1", 10);
+      if (String(id) !== ss.getItem("oo_pl")) { pn = (pn + 1) % 4; ss.setItem("oo_pn", String(pn)); ss.setItem("oo_pl", String(id)); }
+      if (pn > 0) document.documentElement.setAttribute("data-oo-panel", String(pn)); else document.documentElement.removeAttribute("data-oo-panel");
+    } catch (_) {}
 
     // Option A: if we have the clicked summary post, paint a fast shell immediately
     const summary =

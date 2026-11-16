@@ -1361,3 +1361,20 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
 :is(.btnPrimary,.login-submit,.search-submit,.back-btn,.oo-leave-go)::before{content:"";position:absolute;inset:-5px;padding:2px;border-radius:999px;pointer-events:none;background:conic-gradient(from var(--oo-ang),#2f6bd6,#e9b94c,#2f6bd6,#e9b94c,#2f6bd6);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:oo-ringspin 7s linear infinite}
 .oo-leave-go{border-radius:999px}
 @media (prefers-reduced-motion:reduce){:is(.btnPrimary,.login-submit,.search-submit,.back-btn,.oo-leave-go)::before{animation:none}}
+
+/* build 2.1.22: post panel colour rotation - each post you page to takes the next background (blue, sky blue, near-white, silver) like the archive cards */
+html[data-oo-panel="1"] .post-detail-content{background:rgb(169,199,245)!important;color:#0b2a6b!important}
+html[data-oo-panel="1"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-panel="1"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
+html[data-oo-panel="1"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-panel="1"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-panel="2"] .post-detail-content{background:rgb(251,253,255)!important;color:#0b2a6b!important}
+html[data-oo-panel="2"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-panel="2"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
+html[data-oo-panel="2"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-panel="2"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+html[data-oo-panel="3"] .post-detail-content{background:rgb(159,182,226)!important;color:#0b2a6b!important}
+html[data-oo-panel="3"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,figcaption,em,strong,b,i,td,th,dt,dd):not(.oo-invite *){color:#0b2a6b!important}
+html[data-oo-panel="3"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
+html[data-oo-panel="3"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
+html[data-oo-panel="3"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
