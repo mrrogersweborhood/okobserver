@@ -4385,7 +4385,7 @@ window.location.replace(target);
     const h1 = head && head.querySelector(".post-title");
     if (!head || !h1) return;
     const meta = head.querySelector(".post-meta");
-    h1.style.fontSize = "";
+    h1.style.fontSize = ""; h1.style.marginTop = ""; h1.style.marginBottom = "";
     const hs = getComputedStyle(head), ts = getComputedStyle(h1);
     const max = window.innerWidth >= 700 ? 46 : 42; // short titles grow up to this, long ones shrink to fit
     const inner = head.clientHeight - (parseFloat(hs.paddingTop) || 0) - (parseFloat(hs.paddingBottom) || 0);
@@ -4395,6 +4395,10 @@ window.location.replace(target);
     let size = max;
     h1.style.fontSize = size + "px";
     while (size > 17 && h1.getBoundingClientRect().height > room) { size -= 1; h1.style.fontSize = size + "px"; }
+    // split the leftover space evenly above/below the title so the byline and gold line always sit at the bottom of the box (build 2.1.21)
+    const free = Math.max(0, room - h1.getBoundingClientRect().height);
+    h1.style.marginTop = Math.floor(free / 2) + "px";
+    h1.style.marginBottom = ((parseFloat(ts.marginBottom) || 0) + Math.ceil(free / 2)) + "px";
   }
   window.addEventListener("resize", () => { try { ooFitPostTitle(); } catch (_) {} });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { ooFitPostTitle(); } catch (_) {} });
