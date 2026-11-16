@@ -1231,8 +1231,7 @@ html[data-oo-theme="light"] .oo-tools-top .oo-tool { background: #fff; color: #1
   .oo-sec-latest .oo-slide .oo-lead:not(.oo-wide) .post-card-content > *, .oo-sec-latest .oo-pair .post-card-content > *, .oo-sec-columnists .oo-item .post-card-content > * { flex: none; }
 }
 
-/* ---- Single posts: no Capitol backdrop, plain blue like the website's post pages (build 2.0.9) ---- */
-body:has(.post-detail)::before, body:has(.post-detail-loading)::before { display: none; }
+/* build 2.1.20: single posts keep the same Capitol parallax backdrop as home and the website (the 2.0.9 rule that hid it is removed) */
 
 /* build 2.1.0: single post, all widths - prev/next chevrons sit left and right of the byline */
 @media (min-width: 0px) {
