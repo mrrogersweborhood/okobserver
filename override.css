@@ -1378,3 +1378,24 @@ html[data-oo-panel="3"] .post-detail-content :is(p,li,blockquote,h2,h3,h4,h5,fig
 html[data-oo-panel="3"] .post-detail-content a:not(.oo-invite *){color:#0b57c4!important}
 html[data-oo-panel="3"] .post-detail-tts-row :is(.oo-act,.oo-act *,.tts-button){color:#0b2a6b!important}
 html[data-oo-panel="3"] .post-detail-tts-row .oo-act-pm i{background:#0b2a6b!important}
+
+/* build 2.1.23: phone header matches the mobile website - smaller logo, 56px menu button with thin lines, motto position (backdrop already identical) */
+@media (max-width: 720px) {
+  .oo-header { min-height: 116px; }
+  .oo-header-inner { padding: 9px 18px 0 !important; row-gap: 5px !important; min-height: 116px; align-items: start !important; }
+  .oo-logo { height: 33px !important; width: auto; margin: 8px 0 0 12px; align-self: start; }
+  .oo-hamburger { width: 56px !important; height: 56px !important; font-size: 34px !important; background: rgb(74, 127, 221) !important; border: 1px solid rgba(255, 255, 255, .4) !important; box-shadow: 0 10px 22px rgba(0, 0, 0, .18) !important; border-radius: 6px !important; }
+  .oo-hamburger:not([aria-expanded="true"]) { font-size: 0 !important; background: linear-gradient(#fff, #fff) center 19px / 26px 2px no-repeat, linear-gradient(#fff, #fff) center 27px / 26px 2px no-repeat, linear-gradient(#fff, #fff) center 35px / 26px 2px no-repeat, rgb(74, 127, 221) !important; }
+  .oo-motto { font-size: 11.4px !important; letter-spacing: .15em !important; max-width: 340px !important; line-height: 18px !important; margin-top: -6px !important; }
+}
+
+/* build 2.1.24: cartoon archive = picture + date shelf (same idea as the website's Issues shelf) */
+.oo-arch .archive-grid.oo-toon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px}
+.oo-toon{display:flex;flex-direction:column;gap:8px;min-width:0;text-decoration:none;color:inherit}
+.oo-toon-pic{display:block;aspect-ratio:1/1;background:#fff;box-shadow:0 0 0 1px rgba(11,42,107,.3);overflow:hidden}
+.oo-toon-pic img{display:block;width:100%;height:100%;object-fit:contain}
+.oo-toon-date{display:flex;align-items:center;gap:8px;font:700 12px/1.3 var(--oo-font-ui,system-ui,sans-serif);letter-spacing:.1em;text-transform:uppercase;color:var(--oo-title,#fff)}
+.oo-toon-date::before{content:"";flex:none;width:18px;height:2px;background:#e6b44a}
+:root[data-oo-theme="light"] .oo-toon-date{color:#14275f}
+/* build 2.1.24: footer + menu panels match the website — no backdrop blur, so the dome shows through the translucent blue */
+html body .oof-bar, html body #td-outer-wrap .oo-nm .oo-nm-bar, html body .oo-nm .oo-nm-bar { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

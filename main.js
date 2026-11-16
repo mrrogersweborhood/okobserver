@@ -2868,6 +2868,7 @@ function renderArchive(params) {
   let id = (params && params.id) || '';
   const slug = (params && params.slug) || '';   // menu shortcuts use the category name, not a number
   const label = (params && params.label) || '';
+  const isToon = type === 'category' && String(slug).toLowerCase() === 'cartoon'; // picture + date shelf, like the website
   const token = ++archiveToken;
   lastListHash = window.location.hash || '#/browse';
 
@@ -2877,13 +2878,13 @@ function renderArchive(params) {
       <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back" title="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>
       ${type === 'year' ? '<div class="oo-yrs">' + (() => { let h = ''; for (let y = new Date().getFullYear(); y >= 2008; y--) h += '<a class="oo-yr' + (String(y) === String(id) ? ' is-on' : '') + '" href="#/archive?type=year&id=' + y + '&label=' + y + '">' + y + '</a>'; return h; })() + '</div>' : ''}
       <div class="archive-author" hidden></div>
-      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : 'Articles in this department'}</span></div>
+      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : isToon ? 'Cartoons' : 'Articles in this department'}</span></div>
       <button class="btnSecondary archive-follow" type="button" hidden></button>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
         <span class="search-status-text">Loading posts…</span>
       </div>
-      <div class="posts-grid archive-grid"></div>
+      <div class="posts-grid archive-grid${isToon ? ' oo-toon-grid' : ''}"></div>
       <div class="archive-more-wrap"><button class="btnSecondary archive-more" type="button" hidden>Load more</button></div>
       <p class="archive-browse"><a href="#/browse">&larr; Back to the Index</a></p>
     </div>`;
@@ -2989,8 +2990,25 @@ function renderArchive(params) {
         const frag = document.createDocumentFragment();
         showAuthorHeader(Array.isArray(posts) ? posts : []);
         (Array.isArray(posts) ? posts : []).forEach((p) => {
-          if (hasExcludedCategory(p)) return;
+          if (hasExcludedCategory(p) && !isToon) return;
           postCache.set(p.id, p);
+          if (isToon) {
+            if (shown === 0) {
+              const h = document.createElement('h2');
+              h.className = 'oo-arch-h';
+              h.textContent = 'Latest cartoons';
+              frag.appendChild(h);
+            }
+            const a = document.createElement('a');
+            a.className = 'oo-toon';
+            a.href = '#/post/' + p.id;
+            a.setAttribute('aria-label', (p.title && p.title.rendered ? p.title.rendered.replace(/<[^>]+>/g, '') : 'Cartoon') + ', ' + (formatDate(p.date) || ''));
+            const src = getFeaturedImageUrl(p);
+            a.innerHTML = '<span class="oo-toon-pic">' + (src ? '<img src="' + escapeAttr(src) + '" alt="" loading="lazy" decoding="async">' : '') + '</span><span class="oo-toon-date">' + escapeHtml(formatDate(p.date) || '') + '</span>';
+            frag.appendChild(a);
+            shown += 1;
+            return;
+          }
           if (shown === 0 || (shown === 1 && type !== 'year')) {
             const h = document.createElement('h2');
             h.className = 'oo-arch-h';
