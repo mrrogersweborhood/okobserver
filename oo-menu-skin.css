@@ -517,3 +517,10 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
   html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-sep,
   html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-date { color:#3b4a66 !important; }
 }
+
+/* Home page, single-column layouts (phones and tablets): every section header sits 20px above its content,
+   and every section ends 47px (24px margin + the title's own 23px of room) above the next section's header. */
+@media (max-width:1023px){
+  html body #app .oo-home > [class*="oo-sec-"] > .oo-section-title { margin-bottom:20px !important; }
+  html body #app .oo-home > [class*="oo-sec-"]:not(:last-child) { margin-bottom:24px !important; }
+}
