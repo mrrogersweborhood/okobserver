@@ -335,3 +335,33 @@ html body button, html body a, html body [role="button"], html body summary, htm
   html body #app .login-links{ display:grid; gap:12px; justify-items:center; margin:22px 0 0; }
   html body #app .login-links a{ color:#fff!important; font:700 15px/1.5 Arial,Helvetica,sans-serif; text-decoration:underline; text-underline-offset:3px; }
 }
+
+/* Donate page: the website's big hero (eyebrow, outsized headline, lede) and card sizes, in the app. */
+@media (max-width: 760px) {
+  html body #app .about-view:has(.ood) { margin-left: -14px !important; margin-right: -14px !important; width: calc(100% + 28px) !important; max-width: none !important; padding: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+  html body #app .about-view:has(.ood) > .toc-title { display: none !important; }
+  html body #app .about-view:has(.ood) .about-html { background: none !important; padding: 0 !important; box-shadow: none !important; border: 0 !important; }
+  html body #app .ood { display: block; width: 100%; position: relative; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.55; color: #fff; }
+  html body #app .ood-wrap { max-width: none !important; margin: 0 !important; padding: 26px 16px 40px !important; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; font-family: Arial, Helvetica, sans-serif !important; font-size: 16px !important; line-height: 1.55 !important; color: #fff; }
+  html body #app .ood-copy { position: relative; margin: 0 !important; }
+  html body #app .ood-copy::before { content: ""; position: absolute; z-index: -1; left: -16px; top: -50px; width: calc(100% + 32px); height: calc(100% + 100px); background: radial-gradient(50% 50% at 46% 50%, rgba(4,26,62,.46) 0, rgba(4,26,62,.34) 62%, rgba(4,26,62,0) 100%); pointer-events: none; }
+  html body #app .ood-eyebrow { display: flex !important; align-items: center; gap: 14px; margin: 0 0 14px !important; font: 700 12px/1.3 Arial, Helvetica, sans-serif !important; letter-spacing: .16em !important; text-transform: uppercase !important; color: #ffe5a2 !important; text-shadow: 0 1px 12px rgba(5,25,70,.6); }
+  html body #app .ood-eyebrow::before { content: ""; flex: none; width: 28px; height: 2px; background: currentColor; }
+  html body #app .ood h1.ood-h1 { margin: 0 !important; color: #fff !important; text-shadow: 0 3px 34px rgba(3,20,55,.55); font: inherit !important; }
+  html body #app .ood-l1 { display: block !important; font: 800 46px/.94 "Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif !important; letter-spacing: -.05em !important; color: #fff !important; width: auto !important; height: auto !important; }
+  html body #app .ood-l2 { display: block !important; margin-top: 2px !important; font: italic 400 56px/.98 Georgia, "Times New Roman", serif !important; letter-spacing: -.04em !important; color: #ffe3a3 !important; width: auto !important; height: auto !important; }
+  html body #app .ood-lede { margin: 20px 0 0 !important; max-width: 36ch; font: 400 19px/1.45 Georgia, "Times New Roman", serif !important; color: #fff !important; text-shadow: 0 1px 16px rgba(3,20,55,.75); }
+  html body #app .ood-lede em { color: #ffe3a3 !important; }
+  html body #app .ood-opts { display: contents !important; }
+  html body #app .ood-card { padding: 22px 20px 20px !important; border-radius: 18px !important; }
+  html body #app .ood-card h2 { font: 400 30px/1.04 Georgia, "Times New Roman", serif !important; letter-spacing: -.03em !important; margin: 0 0 18px !important; color: #fff !important; }
+  html body #app .ood-card p { color: #fff !important; font-size: 16px !important; line-height: 1.5 !important; }
+  html body #app .ood-card .ood-fine { font-size: 14.5px !important; color: #e3edff !important; }
+  html body #app button.ood-btn { min-height: 60px !important; justify-content: center !important; gap: 10px !important; padding: 8px 14px !important; font-size: 18px !important; }
+  html body #app button.ood-btn i { display: none !important; }
+  html body #app button.ood-btn img.ood-pp, html body #app button.ood-btn img.ood-pp.about-image-full { width: 92px !important; max-width: 92px !important; margin: 0 !important; }
+  html[data-oo-theme~="light"] body #app .ood-card { background: rgba(247,243,234,.94) !important; border-top-color: #e9b94c !important; }
+  html[data-oo-theme~="light"] body #app .ood-card h2, html[data-oo-theme~="light"] body #app .ood-card p { color: #143571 !important; }
+  html[data-oo-theme~="light"] body #app .ood-card .ood-fine { color: #4a6290 !important; }
+  html[data-oo-theme~="light"] body #app .ood-card h2 em { color: #8a6212 !important; }
+}
