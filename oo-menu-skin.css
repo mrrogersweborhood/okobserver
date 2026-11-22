@@ -225,3 +225,18 @@ html body button.ood-btn { max-width: 100%; padding-left: 18px; gap: 8px; font-s
 html body button.ood-btn { font-size: 15px; padding: 8px 9px 8px 16px; gap: 6px; }
 html body button.ood-btn img.ood-pp, html body button.ood-btn img.ood-pp.about-image-full { width: 80px !important; max-width: 80px !important; margin: 0 auto 0 0 !important; }
 html body button.ood-btn i { width: 38px; height: 38px; font-size: 18px; }
+
+/* Diamond arrows (as on the website) instead of the app's old thin chevrons: home carousels + article prev/next. */
+@media (max-width: 640px) {
+  html body .oo-side, html body .oo-pn-a { font-size: 0 !important; color: #fff !important; position: absolute; }
+  html body .oo-side svg, html body .oo-pn-a svg { display: none !important; }
+  html body .oo-side::before, html body .oo-pn-a::before { content: ""; position: absolute; top: 50%; width: 20px; height: 20px; margin-top: -10px; box-sizing: border-box; background: rgba(255, 255, 255, .55); border-top: 3.5px solid #fff; border-right: 3.5px solid #fff; filter: drop-shadow(0 1px 3px rgba(8, 26, 76, .75)); }
+  html body .oo-side-next::before, html body .oo-pn-a-next::before { right: 6px; transform: rotate(45deg); }
+  html body .oo-side-prev::before, html body .oo-pn-a-prev::before { left: 6px; transform: rotate(-135deg); }
+  html body .oo-side.is-dim, html body .oo-pn-a.is-dim { opacity: .28; }
+}
+@media (max-width: 640px) {
+  html body .oo-side::before, html body .oo-pn-a::before { width: 16px; height: 16px; margin-top: -8px; border-width: 3px 3px 0 0; }
+  html body .oo-side-next::before, html body .oo-pn-a-next::before { right: 8px; }
+  html body .oo-side-prev::before, html body .oo-pn-a-prev::before { left: 8px; }
+}

@@ -1,0 +1,106 @@
+html body #app .oott{--g:#e9b94c;--gl:#ffe5a2;--c:#f7f3ea;--l:rgba(255,255,255,.26);margin:0 4% 70px;color:var(--c)!important;font:24px/1.65 Georgia,"Times New Roman",serif;text-align:left;box-sizing:border-box}
+html body #app .oott *{box-sizing:border-box}
+html body #app .oott p,html body #app .oott li,html body #app .oott strong,html body #app .oott em,html body #app .oott h1,html body #app .oott h2,html body #app .oott h3,html body #app .oott b{color:var(--c)!important}
+html body #app .oott .hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(28px,4vw,72px);align-items:start;padding:clamp(24px,4vw,56px) 0 34px}
+html body #app .oott .eyebrow{display:flex;align-items:center;gap:16px;font:700 16px/1 Montserrat,"Segoe UI",sans-serif;letter-spacing:.26em;text-transform:uppercase;color:var(--gl)!important;text-shadow:0 2px 12px rgba(5,20,60,.7)}
+html body #app .oott .eyebrow::before{content:"";width:52px;height:2px;background:var(--g)}
+html body #app .oott h1{font:700 clamp(50px,6.6vw,112px)/1.02 "Playfair Display",Georgia,serif!important;letter-spacing:-.02em;margin:24px 0 24px!important;padding:0!important;text-transform:none!important;text-shadow:0 4px 30px rgba(5,20,60,.65)}
+html body #app .oott h1 em{display:block;font-style:normal;font-weight:500;color:var(--gl)!important}
+html body #app .oott .intro{font:400 clamp(21px,1.8vw,28px)/1.55 Georgia,serif;max-width:30em;text-shadow:0 2px 16px rgba(5,20,60,.75);margin:0!important}
+html body #app .oott .intro em.g{font-style:normal;color:var(--gl)!important;text-decoration:underline;text-decoration-color:var(--g);text-underline-offset:5px}
+html body #app .oott .hc{background:linear-gradient(165deg,rgba(24,72,160,.96),rgba(9,42,112,.96));border-top:3.6px solid var(--g);border-radius:0 40px 0 0;padding:clamp(24px,2.6vw,40px);box-shadow:0 26px 60px -24px rgba(3,14,50,.8)}
+html body #app .oott .hc h2{font:700 clamp(34px,3vw,46px)/1.1 "Playfair Display",Georgia,serif!important;margin:0 0 14px!important}
+html body #app .oott .hc ul{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:14px}
+html body #app .oott .hc li{margin:0;padding-left:26px;position:relative;font-size:23px;line-height:1.5}
+html body #app .oott .hc li::before{content:"";position:absolute;left:0;top:.62em;width:11px;height:11px;border-radius:50%;background:var(--g)}
+html body #app .oott .hc li b{color:var(--gl)!important}
+html body #app .oott nav{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 70px;position:sticky;top:calc(var(--wp-admin--admin-bar--height,0px) + 18px);z-index:50;padding:12px 16px;border-radius:26px;background:rgba(9,42,112,.72);box-shadow:0 10px 30px rgba(5,20,60,.28);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+html body #app .oott nav a{font:700 16px "Segoe UI",system-ui,sans-serif;border:2px solid rgba(255,255,255,.5);border-radius:999px;padding:12px 24px;text-decoration:none;background:rgba(9,42,112,.5);color:var(--c)!important;-webkit-text-fill-color:var(--c)}
+html body #app .oott nav a:hover{background:var(--g);border-color:var(--g);color:#092a70!important;-webkit-text-fill-color:#092a70}
+html body #app .oott .blk{display:grid;grid-template-columns:minmax(210px,21%) minmax(0,1fr);gap:clamp(28px,4vw,72px);margin:0 0 90px;scroll-margin-top:100px;align-items:start}
+html body #app .oott .hd{position:sticky;top:110px;border-top:1px solid var(--l);padding-top:22px;text-shadow:0 3px 22px rgba(5,20,60,.7)}
+html body #app .oott .num{display:block;font:700 clamp(64px,6.4vw,104px)/.9 "Playfair Display",Georgia,serif;color:var(--g)!important}
+html body #app .oott h2{font:700 clamp(34px,3.4vw,56px)/1.06 "Playfair Display",Georgia,serif!important;margin:8px 0 0!important;padding:0!important;letter-spacing:-.015em;text-transform:none!important}
+html body #app .oott .lede{font:400 clamp(21px,1.5vw,25px)/1.45 Georgia,serif;border-left:3px solid var(--g);padding:2px 0 2px 18px;margin:20px 0 0!important}
+html body #app .oott .bd{display:flex;flex-direction:column;gap:22px;min-width:0}
+html body #app .oott .card{background:rgba(9,42,112,.76);border:1px solid var(--l);border-top:3.6px solid var(--g);border-radius:0 28px 0 0;padding:clamp(22px,2.2vw,34px);box-shadow:0 20px 44px -26px rgba(3,14,50,.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+html body #app .oott .card h3{font:700 clamp(26px,2.2vw,34px)/1.15 "Playfair Display",Georgia,serif!important;margin:0 0 12px!important;text-transform:none!important}
+html body #app .oott .card>*:last-child{margin-bottom:0!important}
+html body #app .oott .grid{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+html body #app .oott .plan b{display:block;font:700 clamp(28px,2.4vw,36px)/1.1 "Playfair Display",Georgia,serif;color:var(--gl)!important;margin-bottom:8px}
+html body #app .oott p{margin:12px 0!important}
+html body #app .oott ul,html body #app .oott ol{margin:12px 0;padding-left:26px}
+html body #app .oott li{margin:8px 0}
+html body #app .oott a{color:var(--gl)!important;-webkit-text-fill-color:var(--gl);text-decoration:underline;text-decoration-color:var(--g);text-underline-offset:4px;text-decoration-thickness:2px}
+html body #app .oott a:hover{color:#fff!important;-webkit-text-fill-color:#fff}
+html body #app .oott .steps{counter-reset:s;list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:22px}
+html body #app .oott .steps li{counter-increment:s;position:relative;margin:0;padding:6px 0 6px 96px;min-height:76px}
+html body #app .oott .steps li::before{content:counter(s);position:absolute;left:0;top:-4px;width:72px;height:72px;border-radius:50%;border:3px solid var(--g);background:rgba(9,42,112,.85);color:var(--g);font:700 40px/66px "Playfair Display",Georgia,serif;text-align:center;text-shadow:none}
+html body #app .oott .steps li::after{content:"";position:absolute;left:35px;top:76px;bottom:-22px;width:2px;background:var(--g);opacity:.55}
+html body #app .oott .steps li:last-child::after{display:none}
+html body #app .oott .pull{font:700 clamp(28px,3vw,46px)/1.2 "Playfair Display",Georgia,serif;border-left:6px solid var(--g);padding:8px 0 8px 26px;color:var(--gl)!important;text-shadow:0 3px 22px rgba(5,20,60,.7)}
+html body #app .oott .caps{font-size:20px;line-height:1.65;text-transform:uppercase;letter-spacing:.015em}
+html body #app .oott a.cta{display:inline-block;background:linear-gradient(180deg,#ffe8a0,#e9b94c);color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-decoration:none!important;font:700 19px "Segoe UI",system-ui,sans-serif;padding:17px 32px;border-radius:999px;margin:10px 10px 0 0;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
+html body #app .oott a.cta:hover{background:#fff}
+html body #app .oott a.cta.alt{background:transparent;color:var(--gl)!important;-webkit-text-fill-color:var(--gl)!important;border:2px solid var(--g);box-shadow:none}
+html body #app .oott .q{display:inline-block;background:#ffd6d6;color:#7a1c1c!important;-webkit-text-fill-color:#7a1c1c!important;font:700 14px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-radius:6px;vertical-align:3px;margin-left:8px}
+html body #app .oott .review{border:2px dashed #ffd6d6;border-radius:14px;padding:22px 28px;background:rgba(122,28,28,.45)}
+html body #app .oott .review h2{font-size:38px!important;margin:10px 0 8px!important}
+@media (max-width:1000px){html body #app .oott .hero,html body #app .oott .blk{grid-template-columns:1fr}html body #app .oott .hd{position:static}}
+@media (max-width:700px){html body #app .oott{margin:0 14px 50px;font-size:19px}html body #app .oott .steps li{padding-left:82px}html body #app .oott .steps li::before{width:60px;height:60px;font-size:34px;line-height:54px}html body #app .oott .steps li::after{left:29px;top:64px}}
+html body #app .oott .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:760px){html body #app .oott .g2{grid-template-columns:1fr}}
+html body #app .oott h1 em,html body #app .oott .lede,html body #app .oott .pull,html body #app .oott .intro em.g{font-style:italic!important}
+html body #app .oott .num,html body #app .oott .steps li::before{font-style:normal!important}
+html[data-oo-theme~="light"] body #app .oott .hero>div:first-child h1{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hero>div:first-child h1 em{color:#8a5a00!important;-webkit-text-fill-color:#8a5a00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .eyebrow{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hero>div:first-child .intro{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hero>div:first-child .intro em.g{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hd .num{color:#9a6a00!important;-webkit-text-fill-color:#9a6a00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hd h2{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hd .lede{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hd p{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hd .lede{border-left-color:#9a6a00!important}
+html[data-oo-theme~="light"] body #app .oott .hd p:not(.lede){color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important}
+html[data-oo-theme~="light"] body #app .oott .card,html[data-oo-theme~="light"] body #app .oott .hc,html[data-oo-theme~="light"] body #app .oott .review{background:rgba(255,255,255,.94)!important;box-shadow:0 14px 34px rgba(9,42,112,.18)!important}
+html[data-oo-theme~="light"] body #app .oott .card *{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hc *{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .review *{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .card a:not(.cta){color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .hc li b{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .card li strong a{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .review a{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .bd>p{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .bd>p strong{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .bd>p a{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott .pull{color:#7a4e00!important;-webkit-text-fill-color:#7a4e00!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott nav{background:rgba(255,255,255,.92)!important;box-shadow:0 10px 30px rgba(9,42,112,.16)!important}
+html[data-oo-theme~="light"] body #app .oott nav a{background:rgba(255,255,255,.95)!important;border-color:#092a70!important}
+html[data-oo-theme~="light"] body #app .oott nav a{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
+html[data-oo-theme~="light"] body #app .oott nav a:hover{background:#ffe5a2!important}
+html[data-oo-theme~="light"] body #app .oott .steps li::before{background:#fff!important;color:#092a70!important;-webkit-text-fill-color:#092a70!important}
+@media(max-width:760px){html body #app .oott nav{display:grid!important;grid-template-columns:repeat(3,1fr);overflow:visible!important;gap:6px!important;padding:6px 8px!important;margin:6px 0 36px!important;border-radius:18px!important;top:calc(var(--wp-admin--admin-bar--height,0px) + 8px)!important;background:rgba(9,42,112,.96)!important;scrollbar-width:none;-webkit-overflow-scrolling:touch}html body #app .oott nav::-webkit-scrollbar{display:none}html body #app .oott nav a{font-size:12.5px!important;padding:6px 4px!important;border-width:1.5px!important;white-space:nowrap;text-align:center}html[data-oo-theme~="light"] body #app .oott nav{background:rgba(255,255,255,.97)!important}}
+html body #app .oott .card,html body #app .oott .card *,html body #app .oott .hc,html body #app .oott .hc *,html body #app .oott .bd,html body #app .oott .steps li{overflow-wrap:anywhere;word-break:normal;min-width:0}
+html body #app .oott .card{overflow:hidden}
+html body #app .oott a.cta{display:inline-block!important;width:auto!important;max-width:100%!important;min-width:0!important;border-radius:30px!important;text-align:center!important;overflow-wrap:normal!important;word-break:normal!important;white-space:normal!important;box-sizing:border-box}
+html body #app .oott .ic{display:grid;grid-template-columns:minmax(190px,32%) minmax(0,1fr);gap:clamp(20px,2.6vw,38px);align-items:start}
+html body #app .oott .ic-fig{margin:0}
+html body #app .oott .ic-fig img{display:block;width:100%;height:auto;border:1px solid var(--l);border-radius:0 18px 0 0}
+html body #app .oott .ic-fig figcaption{margin:10px 0 0;font:600 15px/1.4 "Segoe UI",system-ui,sans-serif;letter-spacing:.03em;color:var(--c)!important}
+html body #app .oott .ic-body{min-width:0}
+html body #app .oott .ic-chip{display:inline-block;margin:0 0 14px;padding:7px 14px;border:2px solid var(--g);border-radius:999px;font:700 14px/1.2 Montserrat,"Segoe UI",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--gl)!important}
+html body #app .oott .ic-meta{margin:16px 0 0;padding:0}
+html body #app .oott .ic-meta>div{display:grid;grid-template-columns:minmax(130px,27%) minmax(0,1fr);gap:6px 20px;padding:14px 0;border-top:1px solid var(--l)}
+html body #app .oott .ic-meta dt{margin:0;font:700 14px/1.4 Montserrat,"Segoe UI",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--gl)!important}
+html body #app .oott .ic-meta dd{margin:0;color:var(--c)!important;overflow-wrap:anywhere}
+html body #app .oott .ic-note{font-size:.82em}
+html body #app .oott .ic-review{border:2px dashed #ff9a9a;border-top:2px dashed #ff9a9a;border-radius:18px;background:rgba(122,28,28,.38)}
+html body #app .oott .ic-review h3{font-size:clamp(22px,1.8vw,28px)!important}
+@media (max-width:1000px){html body #app .oott .ic{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:700px){html body #app .oott .ic-meta>div{grid-template-columns:minmax(0,1fr);gap:4px}}
+
+/* Terms & Policies: no extra title or dark panel around the site's own hero. */
+html body #app .page-view:has(.oott) > .toc-title { display: none; }
+html body #app .page-view:has(.oott) .about-html { background: transparent !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+html body #app .page-view:has(.oott) .oott { margin-left: 2px; margin-right: 2px; }
