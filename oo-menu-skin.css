@@ -190,3 +190,8 @@
 @media (max-width: 640px) {
   html body .post-detail .post-meta { font-size: 12px !important; letter-spacing: 1px !important; }
 }
+
+/* The Light/Dark control now lives in the menu (as on the website); drop the duplicate round button. */
+@media (max-width: 640px) {
+  html body .oo-tools button[aria-label="Switch light or dark mode"], html body .post-detail-tts-row button[aria-label="Switch light or dark mode"] { display: none !important; }
+}
