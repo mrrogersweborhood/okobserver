@@ -459,3 +459,9 @@ html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b
   html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-by { color: #7a4f04 !important; }
   html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta, html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-date { color: #3b4a66 !important; }
 }
+
+/* Text inside round / oval buttons is always centred (footer link pills included). */
+html body footer.oof .oo-dir .oo-dir-list a { justify-content: center !important; text-align: center !important; padding-left: 17.6px !important; padding-right: 17.6px !important; }
+html body footer.oof .oo-dir .oo-dir-list a::after { right: 8px; }
+html body dialog.oo-nm .oo-dir .oo-dir-list a { padding-left: 10px !important; padding-right: 10px !important; justify-content: center !important; text-align: center !important; }
+html body dialog.oo-nm .oo-dir .oo-dir-list a::after { right: 3px !important; }
