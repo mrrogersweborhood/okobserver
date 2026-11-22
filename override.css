@@ -1448,3 +1448,7 @@ html[data-oo-theme="light"] .oo-post-head .oo-pn-a::before{width:14px;height:14p
 .oo-yr { min-width: 0; height: 44px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 700; }
 .oo-yrs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px 8px; }
 :root[data-oo-theme="light"] .oo-yr.is-on { background: #0b1b36; border-color: #0b1b36; color: #fff !important; }
+
+/* Swiping a card row must never pan the whole page sideways: lock the page to its width */
+html { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100%; }
+body { overflow-x: clip; overscroll-behavior-x: none; max-width: 100%; }
