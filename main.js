@@ -1505,7 +1505,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
 
     // The Worker's home-extras route stopped finding the shop block (it answers shop: null), so the shop
     // card falls back to the website's own shopping image and link. Remove the fallback once the Worker is fixed.
-    const SHOP_FALLBACK = { href: 'https://test.okobserver.org/shop/', img: 'https://test.okobserver.org/wp-content/uploads/2026/11/Observer-Shop-booth-home-1448x1086-1.webp' };
+    const SHOP_FALLBACK = { href: 'https://test.okobserver.org/shop/', img: 'https://test.okobserver.org/wp-content/uploads/2026/11/Observer-Shop-booth-home-1448x1086-signed.webp' };
     const showShop = (shop) => {
       const track = shopSec.querySelector('.oo-snap');
       track.className = 'oo-shop';
