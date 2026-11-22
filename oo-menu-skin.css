@@ -393,6 +393,11 @@ html body button:not(.oo-hamburger):not(.oo-tool):not([role="tab"]):not([role="m
   html body #app .oo-sec-columnists .oo-item .post-card-content { padding: 2px 9px 8px !important; gap: 3px !important; }
   html body #app .oo-sec-columnists .oo-item .post-card-meta { font-size: 10px !important; min-height: 26px !important; }
 }
+/* Menu Light / Dark button: always the opposite colours of its neighbouring buttons (as on the site) */
+html[data-oo-theme~="light"] body dialog.oo-nm button.oo-theme-pill { background:#0b2a6b !important; color:#fff !important; border-color:#0b2a6b !important; }
+html[data-oo-theme~="dark"] body dialog.oo-nm button.oo-theme-pill { background:#fff !important; color:#0b2a6b !important; border-color:#fff !important; }
+html:not([data-oo-theme~="light"]) body dialog.oo-nm button.oo-theme-pill { background:#fff !important; color:#0b2a6b !important; border-color:#fff !important; }
+html body dialog.oo-nm button.oo-theme-pill * { color:inherit !important; }
 /* Motto: the website shows it at an effective 12px (16px at zoom .75), in two fixed lines on phones. */
 @media (max-width: 640px) {
   html body .oo-motto { font-size: 12px !important; letter-spacing: 1.2px !important; line-height: 20px !important; }
@@ -493,3 +498,4 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
   html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
   html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
 }
+
