@@ -267,3 +267,12 @@ html body button, html body a, html body [role="button"], html body summary, htm
   }
   html body .oo-advertise::before, html body .oo-advertise::after{ content:none!important; }
 }
+
+/* About: full-width like the website on phones (no inset panel, flat navy hero, cream text) */
+@media (max-width:640px){
+  html body #app .about-view.is-ooan{ margin-left:-14px!important; margin-right:-14px!important; width:calc(100% + 28px)!important; max-width:none!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-hero{ background:#0f2a63!important; border-top:0!important; border-radius:0!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan{ color:#f7f3ea!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-id1,
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-id2{ color:#f7f3ea!important; }
+}
