@@ -1844,6 +1844,16 @@ if (posts.length > 0 && appendedCount === 0) {
     if (!section) scrollToTop();
     const box = app.querySelector('.about-html');
     try {
+      if (slug === 'help') {
+        const r = await fetch('oo-help.html?v=2.2.17');
+        const html = await r.text();
+        if (!document.body.contains(box)) return;
+        app.querySelector('.toc-title').hidden = true;
+        box.innerHTML = html;
+        if (window.ooHelpMount) window.ooHelpMount();
+        if (window.ooHelpTest) window.ooHelpTest();
+        return;
+      }
       if (!pageCache[slug]) {
         const rows = await fetchJson(`${WP_API_BASE}/pages?slug=${encodeURIComponent(slug)}&_fields=id,title,content`);
         pageCache[slug] = Array.isArray(rows) && rows.length ? rows[0] : null;
