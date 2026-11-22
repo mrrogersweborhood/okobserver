@@ -320,3 +320,18 @@ html body button, html body a, html body [role="button"], html body summary, htm
 }
 /* The website's phone pages have no back-arrow row (the phone's own back button and the menu do that job) */
 @media (max-width:640px){ html body #app .oo-tools-top{ display:none!important; } }
+
+/* Login, like the website's sign-in page on phones */
+@media (max-width:640px){
+  html body #app .login-view{ margin:0 1px; }
+  html body #app .login-title{ margin:26px 0 20px!important; padding:0 6px; border:0!important; font:800 34px/1.12 "Playfair Display",Georgia,serif!important; color:#f7f3ea!important; letter-spacing:-.01em; }
+  html body #app .login-title em{ font-style:italic; color:#ffe5a2; font-weight:700; }
+  html body #app .login-form{ gap:16px!important; padding:26px 28px 28px!important; border-radius:16px!important; border:0!important;
+    background:rgba(255,255,255,.74)!important; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    box-shadow:0 24px 60px rgba(11,42,107,.18),0 4px 14px rgba(11,42,107,.16)!important; }
+  html body #app .login-label-text{ font:700 16px/1.2 Arial,Helvetica,sans-serif!important; letter-spacing:0!important; text-transform:none!important; color:#143571!important; }
+  html body #app .login-input{ height:52px!important; padding:0 14px!important; background:#fff!important; color:#143571!important; border:1px solid rgba(20,53,113,.45)!important; border-radius:4px!important; font:17px Arial,Helvetica,sans-serif!important; }
+  html body #app .login-submit{ align-self:end; justify-self:end; width:auto!important; min-height:44px; padding:10px 24px!important; border:0!important; border-radius:0!important; background:linear-gradient(#ffe9ac,#e9b94c)!important; color:#0b1f52!important; font:700 16px Arial,Helvetica,sans-serif!important; text-transform:none!important; letter-spacing:0!important; box-shadow:none!important; }
+  html body #app .login-links{ display:grid; gap:12px; justify-items:center; margin:22px 0 0; }
+  html body #app .login-links a{ color:#fff!important; font:700 15px/1.5 Arial,Helvetica,sans-serif; text-decoration:underline; text-underline-offset:3px; }
+}
