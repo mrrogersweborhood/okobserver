@@ -195,3 +195,7 @@
 @media (max-width: 640px) {
   html body .oo-tools button[aria-label="Switch light or dark mode"], html body .post-detail-tts-row button[aria-label="Switch light or dark mode"] { display: none !important; }
 }
+
+/* Leave-app popup: both buttons fully rounded so the Continue button fits inside its animated ring. */
+html body .oo-leave-btns button { border-radius: 999px; }
+html body .oo-leave-btns .oo-leave-go { padding-inline: 24px; }
