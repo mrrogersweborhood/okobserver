@@ -1,6 +1,6 @@
 /* Menu skin: matches the current mobile website menu (measured 2026-11-21 on test.okobserver.org at 375px).
    Phones only (<=640px). Colours/sizes are the site's computed values. */
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm {
     position: fixed; inset: 12px; margin: 0; padding: 0; width: auto; max-width: none;
     height: calc(100dvh - 24px); max-height: none;
@@ -85,7 +85,7 @@
   html[data-oo-theme~="light"] body dialog.oo-nm .oo-dir .oo-dir-list a { background: rgba(255, 255, 255, .97); color: #0b2a6b; border-color: #0b2a6b; }
   html[data-oo-theme~="light"] body dialog.oo-nm .oo-dir-addr { color: #0b2a6b; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-voice-pop { width: 100%; margin: 4px 0 0; padding: 10px; border-radius: 18px; background: rgba(8, 24, 70, .85); color: #fff; display: grid; gap: 6px; box-sizing: border-box; }
   html body dialog.oo-nm .oo-voice-pop p { margin: 0 0 2px; font: 700 13px "Montserrat", system-ui, sans-serif; color: #ffd98a; text-align: center; }
   html body dialog.oo-nm .oo-voice-opt { padding: 10px 12px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; background: #0b2a6b; color: #fff; font: 600 13px "Montserrat", system-ui, sans-serif; text-align: center; }
@@ -94,7 +94,7 @@
   html[data-oo-theme~="light"] body dialog.oo-nm .oo-voice-opt { background: #fff; color: #0b2a6b; border-color: #0b2a6b; }
   html[data-oo-theme~="light"] body dialog.oo-nm .oo-voice-opt.is-on { background: #0b2a6b; color: #fff; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-vp-row { box-sizing: border-box; min-width: 0; max-width: 100%; gap: 4px; overflow: hidden; }
   html body dialog.oo-nm .oo-vp-row .oo-nm-util { min-width: 0; box-sizing: border-box; margin: 0; }
   html body dialog.oo-nm .oo-vp-row .oo-theme-pill { flex: 1 1 0; width: auto; padding: 0 8px; font-size: 12px; background: #fff; color: #0b2a6b; }
@@ -102,21 +102,21 @@
   html body dialog.oo-nm .oo-vp-row .oo-vp-btn { flex: 0 0 46px; }
   html body dialog.oo-nm .oo-vp-row .oo-theme-pill svg { width: 16px; height: 16px; margin-right: 5px; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-vp-row { display: grid; grid-template-columns: minmax(0, 1fr) 74px 46px; gap: 4px; padding: 0; background: none; }
   html body dialog.oo-nm .oo-vp-row .oo-nm-util { width: 100%; flex: none; display: inline-flex; align-items: center; justify-content: center; }
   html body dialog.oo-nm .oo-vp-row .oo-vp-btn svg, html body dialog.oo-nm .oo-vp-row .oo-theme-pill svg { flex: 0 0 auto; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-dir .oo-dir-list a { padding: 5.6px 13px 5.6px 6px; font-size: 13.4px; overflow-wrap: normal; word-break: normal; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-vp-row { width: calc(100% + 24px); margin-inline: -12px; grid-template-columns: minmax(0, 1fr) 70px 44px; }
   html body dialog.oo-nm .oo-vp-row .oo-theme-pill { padding: 0 4px; font-size: 12px; letter-spacing: 0; }
   html body dialog.oo-nm .oo-vp-row .oo-theme-pill svg { width: 14px; height: 14px; margin-right: 4px; }
   html body dialog.oo-nm .oo-vp-row .oo-fs-btn { font-size: 12.5px; letter-spacing: 0; }
 }
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body dialog.oo-nm .oo-vp-row { width: calc(100% + 24px) !important; max-width: none !important; margin-inline: -12px !important; overflow: visible !important; grid-template-columns: minmax(0, 1fr) 72px 46px !important; }
   html body dialog.oo-nm .oo-vp-row .oo-theme-pill { padding: 0 6px !important; font-size: 12.5px !important; letter-spacing: 0 !important; }
   html body dialog.oo-nm .oo-vp-row .oo-fs-btn { padding: 0 !important; font-size: 12.5px !important; letter-spacing: 0 !important; }
@@ -149,7 +149,7 @@
 @media (hover: none) { .oo-leave-hint { display: none; } }
 
 /* Footer directory uses the same pill skin as the menu. */
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body footer.oof .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3" "brand brand" "rev rev" "rule rule" "oodf oodf" "fol fol"; gap: 0 20px; margin: 0; }
   html body footer.oof .oo-dir-a1 { grid-area: a1; } html body footer.oof .oo-dir-a2 { grid-area: a2; } html body footer.oof .oo-dir-a3 { grid-area: a3; }
   html body footer.oof .oo-nm-bar .oof-legal { display: none; }
@@ -172,7 +172,7 @@
 }
 
 /* Footer: logo in hero, left-aligned link pills (as on the website footer). */
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body footer.oof .oof-eyebrow { margin: 0 0 6px; padding: 0; }
   html body footer.oof .oof-eyebrow img { display: block; width: 177px; height: 59px; margin-left: -13px; }
   html body footer.oof .oof-eyebrow::before, html body footer.oof .oof-eyebrow::after { content: none !important; }
@@ -251,7 +251,7 @@ html[data-oo-theme~="light"] ::highlight(oo-read){background-color:#1f4fb0;color
 html body button, html body a, html body [role="button"], html body summary, html body label, html body .oo-side, html body .oo-pn-a, html body [data-oo]{
   touch-action:manipulation; -webkit-tap-highlight-color:rgba(255,255,255,.18); cursor:pointer;
 }
-@media (max-width:640px){
+@media (max-width:1023px){
   html body dialog.oo-nm button, html body dialog.oo-nm a, html body footer.oof a, html body .oo-leave-btns button, html body .ood-btn, html body .ooh-tab, html body .ooh-d{ min-height:44px; }
   html body dialog.oo-nm .oo-vp-row button{ min-height:48px; }
   html body .oo-side, html body .oo-pn-a{ min-width:44px; min-height:44px; }
@@ -402,6 +402,7 @@ html body dialog.oo-nm button.oo-theme-pill * { color:inherit !important; }
 @media (max-width: 640px) {
   html body .oo-motto { font-size: 12px !important; letter-spacing: 1.2px !important; line-height: 20px !important; }
   html body .oo-motto .oo-m1, html body .oo-motto .oo-m2 { display: block; }
+}
 /* Carousel arrows exactly like the website: a 16x48 translucent pointed triangle, dimmed to 35% when there is nowhere to go. */
 @media (max-width: 1023px) {
   html body .oo-side::before, html body .oo-pn-a::before { position: absolute !important; content: "" !important; left: 50% !important; top: 50% !important; right: auto !important; width: 16px !important; height: 48px !important; margin: -24px 0 0 -8px !important; border: 0 !important; box-shadow: none !important; filter: none !important; background: rgba(255,255,255,.55) !important; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; }
@@ -428,7 +429,7 @@ html[data-oo-theme~="light"] body dialog.oo-nm :is(button, a.oo-nm-util, .oo-nm-
 html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b2a6b !important; }
 
 /* App footer: review pills, Foundation logo and social icons shown (as on the website footer), with breathing room. */
-@media (max-width: 640px) {
+@media (max-width:1023px) {
   html body footer.oof .oo-dir-rev { margin-top: 16px; }
   html body footer.oof .oo-dir-rule { margin-top: 18px; }
   html body footer.oof .oo-dir-oodf { margin-top: 12px; }
@@ -479,7 +480,7 @@ html body dialog.oo-nm .oo-dir .oo-dir-list a::after { right: 3px !important; }
 html body [data-act], html body .oo-act, html body .oo-section-link, html body .post-card, html body .oo-slide { touch-action: manipulation; cursor: pointer; }
 
 /* Short pills (Newsmakers, Columnists, ObserverCast...) must stay on one line on iPhone: slimmer type + padding, never wrap */
-@media (max-width:640px){
+@media (max-width:1023px){
   html body footer.oof .oo-dir .oo-dir-list a,
   html body dialog.oo-nm .oo-dir .oo-dir-list a { white-space:nowrap !important; font-size:12px !important; letter-spacing:0 !important; padding-left:8px !important; padding-right:8px !important; }
   html body footer.oof .oo-dir .oo-dir-list a::after,
