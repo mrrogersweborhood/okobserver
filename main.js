@@ -2281,16 +2281,22 @@ function renderEvents() {
   const TZ = 'America/Chicago';
 
   app.innerHTML = `
-    <div class="events-view">
-      <h1 class="toc-title">Events</h1>
-      <p class="toc-subtitle">Upcoming Oklahoma Observer events. Times are Central.</p>
-      <div class="search-status is-loading" aria-live="polite">
-        <span class="search-status-spinner" aria-hidden="true"></span>
-        <span class="search-status-text">Loading events…</span>
+    <div class="events-view ooc-view">
+      <div class="ooc" id="calendar-top">
+        <header class="ooc-hero">
+          <p class="ooc-eyebrow">Calendar</p>
+          <h1 class="ooc-h">Where to be, <em>and when.</em></h1>
+          <div class="ooc-row"><p class="ooc-deck">Events, meetings and deadlines from the Observer, in one place.</p></div>
+        </header>
+        <h2 class="ooc-lbl">Coming up</h2>
+        <div class="search-status is-loading" aria-live="polite">
+          <span class="search-status-spinner" aria-hidden="true"></span>
+          <span class="search-status-text">Loading events…</span>
+        </div>
+        <div class="events-list ooc-events"></div>
+        <h2 class="ooc-lbl cal-heading" hidden>The full month</h2>
+        <div class="cal-wrap" hidden></div>
       </div>
-      <div class="events-list"></div>
-      <h2 class="browse-heading cal-heading" hidden>The full month</h2>
-      <div class="cal-wrap" hidden></div>
       <details class="events-past" hidden><summary>Past events</summary><div class="events-past-list"></div></details>
     </div>`;
 
@@ -2333,7 +2339,7 @@ function renderEvents() {
       .map((l) => `<p>${escapeHtml(l)}</p>`).join('');
   }
 
-  function eventCard(ev) {
+  function eventCard(ev, opts) {
     const s = new Date(ev.start);
     const e = new Date(ev.end);
     const addUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
@@ -2342,22 +2348,22 @@ function renderEvents() {
       + '&location=' + encodeURIComponent(ev.location || '');
     const parts = splitDescription(ev.description);
     const linkBtns = parts.links.map((l) =>
-      `<a class="btnPrimary event-add" href="${escapeAttr(l.href)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`).join(' ');
+      `<a class="ooc-rsvp" href="${escapeAttr(l.href)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`).join(' ');
     const el = document.createElement('article');
-    el.className = 'event-card';
+    el.className = 'ooc-ev' + (opts && opts.first ? ' ooc-ev--first' : '');
     el.innerHTML = `
-      <div class="event-date" aria-hidden="true">
-        <span class="event-mon">${escapeHtml(fmt(s, { month: 'short' }))}</span>
-        <span class="event-day">${escapeHtml(fmt(s, { day: 'numeric' }))}</span>
-        <span class="event-wd">${escapeHtml(fmt(s, { weekday: 'short' }))}</span>
+      <div class="ooc-date" aria-hidden="true">
+        <span class="ooc-mon">${escapeHtml(fmt(s, { month: 'short' }))}</span>
+        <span class="ooc-day">${escapeHtml(fmt(s, { day: 'numeric' }))}</span>
+        <span class="ooc-wd">${escapeHtml(fmt(s, { weekday: 'long' }))}</span>
       </div>
-      <div class="event-body">
-        <h2 class="event-title">${escapeHtml(ev.title)}</h2>
-        <div class="event-when">${escapeHtml(whenText(ev, s, e))}</div>
-        ${ev.location ? `<div class="event-loc">${escapeHtml(ev.location.replace(/,\s*USA$/, ''))}</div>` : ''}
-        <div class="event-desc">${descHtml(parts.text)}</div>
-        ${linkBtns}
-        <a class="btnSecondary event-add" href="${escapeAttr(addUrl)}" target="_blank" rel="noopener">Add to calendar</a>
+      <div class="ooc-body">
+        ${opts && opts.first ? '<p class="ooc-flag">Next up</p>' : ''}
+        <p class="ooc-when">${escapeHtml(whenText(ev, s, e))}</p>
+        <h3 class="ooc-t">${escapeHtml(ev.title)}</h3>
+        ${ev.location ? `<p class="ooc-loc">${escapeHtml(ev.location.replace(/,\s*USA$/, ''))}</p>` : ''}
+        <div class="ooc-desc">${descHtml(parts.text)}${linkBtns ? '<p class="ooc-cta">' + linkBtns + '</p>' : ''}</div>
+        <details class="ooc-add"><summary>Add to calendar</summary><div class="ooc-addm"><a href="${escapeAttr(addUrl)}" target="_blank" rel="noopener">Google Calendar</a></div></details>
       </div>`;
     return el;
   }
@@ -2474,7 +2480,7 @@ function renderEvents() {
       statusText.textContent = upcoming.length
         ? `${upcoming.length} upcoming event${upcoming.length === 1 ? '' : 's'}.`
         : 'No upcoming events are scheduled right now. Check back soon.';
-      upcoming.forEach((ev) => listEl.appendChild(eventCard(ev)));
+      upcoming.forEach((ev, i) => listEl.appendChild(eventCard(ev, { first: i === 0 })));
       if (past.length) {
         pastWrap.hidden = false;
         past.forEach((ev) => pastList.appendChild(eventCard(ev)));
