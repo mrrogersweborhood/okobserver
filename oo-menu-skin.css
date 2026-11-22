@@ -256,3 +256,14 @@ html body button, html body a, html body [role="button"], html body summary, htm
   html body dialog.oo-nm .oo-vp-row button{ min-height:48px; }
   html body .oo-side, html body .oo-pn-a{ min-width:44px; min-height:44px; }
 }
+
+/* Advertise With Us: the website's gold-edged pill (no dashes) */
+@media (max-width:640px){
+  html body .oo-advertise{
+    background:linear-gradient(rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 60%),rgba(8,36,100,.5)!important;
+    color:#ffe5a2!important; border:1.2px solid #ffd98a!important; border-radius:999px!important;
+    font:700 13px/1 Montserrat,system-ui,sans-serif!important; letter-spacing:.16em!important; text-transform:uppercase;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22)!important; min-height:46px; text-decoration:none!important;
+  }
+  html body .oo-advertise::before, html body .oo-advertise::after{ content:none!important; }
+}
