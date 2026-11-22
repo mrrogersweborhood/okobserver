@@ -4926,3 +4926,24 @@ showPagingStatus('Loading more…');
     if (link && link.getAttribute('href')) location.hash = link.getAttribute('href');
   }, { passive: true });
 })();
+
+/* Fit footer/menu pill text on one line: shrink the font when it overflows or wraps (iPhone renders wider than Android) */
+(function(){
+  var SEL='footer.oof .oo-dir-list a, dialog.oo-nm .oo-dir-list a, footer.oof .oo-dir-pill, footer.oof .oof-btn';
+  var pend=0;
+  function fit(a){
+    a.style.removeProperty('font-size');
+    var base=parseFloat(getComputedStyle(a).fontSize)||13,fs=base,min=8;
+    if(!a.clientWidth)return;
+    var cs=getComputedStyle(a),avail=a.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
+    function over(){var r=document.createRange();r.selectNodeContents(a);var rs=r.getClientRects(),h=0;if(rs.length){var t=rs[0].top,b=rs[0].bottom;for(var i=1;i<rs.length;i++){if(rs[i].top>b-2)return true;}}return r.getBoundingClientRect().width>avail+0.5;}
+    while(fs>min&&over()){fs-=0.5;a.style.setProperty('font-size',fs+'px','important');}
+  }
+  function run(){pend=0;document.querySelectorAll(SEL).forEach(fit);}
+  function sched(){if(!pend){pend=1;requestAnimationFrame(run);}}
+  window.addEventListener('resize',sched);
+  window.addEventListener('load',sched);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(sched);
+  new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){if(ms[i].type==='childList'){sched();return;}}}).observe(document.documentElement,{childList:true,subtree:true});
+  sched();
+})();

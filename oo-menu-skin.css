@@ -480,3 +480,16 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
   html body footer.oof .oo-dir .oo-dir-list a::after,
   html body dialog.oo-nm .oo-dir .oo-dir-list a::after { right:3px !important; }
 }
+
+/* Footer gold divider lines, as on the mobile site: 2px gold gradient above Contact, Reviews, Support, Follow and the app block (and below the app block) */
+@media (max-width:1023px){
+  html body footer.oof .oo-dir-contact::before,
+  html body footer.oof .oo-dir-rev::before,
+  html body footer.oof .oo-dir-fol::before,
+  html body footer.oof .oo-app::before,
+  html body footer.oof .oo-app::after { content:"" !important; display:block !important; flex:0 0 auto !important; width:100% !important; height:2px !important; background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) !important; }
+  html body footer.oof .oo-dir-contact::before,
+  html body footer.oof .oo-dir-rev::before,
+  html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
+  html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
+}
