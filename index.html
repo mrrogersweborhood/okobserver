@@ -504,29 +504,24 @@ syncAuthClass();
   </script>
 <script id="oo-fs-button-fixed-js">
 (function () {
-  var mq = window.matchMedia('(max-width:767.98px)'), FS = '12.5px', tick = 0;
+  var mq = window.matchMedia('(max-width:767.98px)'), FS = '12.5px';
   function pin(b) {
+    if (!mq.matches) { return; }
     if (b.style.getPropertyValue('font-size') !== FS || b.style.getPropertyPriority('font-size') !== 'important') {
       b.style.setProperty('font-size', FS, 'important');
     }
     if (!b.__ooFsPin && window.MutationObserver) {
-      b.__ooFsPin = new MutationObserver(function () { if (mq.matches) { pin(b); } });
+      b.__ooFsPin = new MutationObserver(function () { pin(b); });
       b.__ooFsPin.observe(b, { attributes: true, attributeFilter: ['style'] });
     }
   }
-  function fix() {
-    if (!mq.matches) { return; }
-    document.querySelectorAll('.oo-fs-btn').forEach(pin);
-  }
-  function soon() { cancelAnimationFrame(tick); tick = requestAnimationFrame(fix); }
-  function later() { [150, 500, 1200, 2500].forEach(function (t) { setTimeout(soon, t); }); }
-  window.addEventListener('resize', soon);
-  window.addEventListener('load', function () { soon(); later(); });
-  document.addEventListener('DOMContentLoaded', soon);
-  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(soon); }
-  new MutationObserver(function () { soon(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
-  document.addEventListener('click', function () { soon(); later(); }, true);
-  soon();
+  function fix() { document.querySelectorAll('.oo-fs-btn').forEach(pin); }
+  fix();
+  document.addEventListener('DOMContentLoaded', fix);
+  window.addEventListener('load', fix);
+  window.addEventListener('resize', fix);
+  /* the menu is built a moment after load; pin the button the instant it is added */
+  if (window.MutationObserver) { new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true }); }
 })();
 </script>
 </body>
