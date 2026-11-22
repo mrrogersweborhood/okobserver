@@ -147,3 +147,46 @@
   html body .oo-home-sec > .oo-section-title:first-child, html body .oo-sec-latest > .oo-section-title { margin-top: 23px !important; }
 }
 @media (hover: none) { .oo-leave-hint { display: none; } }
+
+/* Footer directory uses the same pill skin as the menu. */
+@media (max-width: 640px) {
+  html body footer.oof .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3"; gap: 0 20px; margin: 0; }
+  html body footer.oof .oo-dir-a1 { grid-area: a1; } html body footer.oof .oo-dir-a2 { grid-area: a2; } html body footer.oof .oo-dir-a3 { grid-area: a3; }
+  html body footer.oof .oo-dir-rev, html body footer.oof .oo-dir-sup, html body footer.oof .oo-dir-fol, html body footer.oof .oo-nm-bar .oof-legal { display: none; }
+  html body footer.oof .oo-dir-g { text-align: center; }
+  html body footer.oof .oo-dir .oo-dir-g h3 { display: flex; align-items: center; justify-content: center; min-height: 72px; margin: 0 0 11.2px; padding: 4px 4px; border: 0; background: none; color: #ffd98a; font: 700 26.68px/30.68px Georgia, "Times New Roman", serif; letter-spacing: 3.2px; text-transform: none; text-align: center; }
+  html body footer.oof .oo-dir .oo-dir-g h3 a { color: inherit; text-decoration: none; padding: 0; background: none; border: 0; font: inherit; letter-spacing: inherit; }
+  html body footer.oof .oo-dir .oo-dir-list { display: grid; gap: 5.2px; margin: 0; padding: 0; list-style: none; }
+  html body footer.oof .oo-dir .oo-dir-list li { margin: 0; padding: 0; list-style: none; height: auto; }
+  html body footer.oof .oo-dir .oo-dir-list a { position: relative; display: flex; align-items: center; justify-content: center; min-height: 54.4px; padding: 5.6px 17.6px 5.6px 9.6px; border: 1.2px solid rgba(255, 255, 255, .35); border-radius: 999px; background: #0b2a6b; color: #fff; font: 700 14.72px/16.2px "Montserrat", system-ui, sans-serif; letter-spacing: 0; text-align: center; text-decoration: none; box-sizing: border-box; overflow-wrap: anywhere; }
+  html body footer.oof .oo-dir .oo-dir-list a::after { content: "\203A"; position: absolute; right: 6.4px; top: 50%; transform: translateY(-50%); font-size: 11.8px; line-height: 11.8px; font-weight: 700; }
+  html body footer.oof .oo-dir-a3 .oo-dir-list a::after { content: none; }
+  html body footer.oof .oo-dir-a3 .oo-dir-list a { min-height: 49.6px; padding: 0 17.6px; font-size: 15.2px; gap: 8px; }
+  html body footer.oof .oo-dir-a3 { margin-top: 8px; }
+  html body footer.oof .oo-dir-a3 h3 { min-height: 0; font: 700 26.68px/34.7px Georgia, "Times New Roman", serif; letter-spacing: 3.2px; margin: 0 0 6px; }
+  html body footer.oof .oo-dir-addr { margin: 0 0 9.6px; padding: 12.8px 16px; border-radius: 19.2px; font: 600 22px/29.7px "Montserrat", system-ui, sans-serif; color: #fff; text-align: center; }
+  html[data-oo-theme~="light"] body footer.oof .oo-dir .oo-dir-g h3 { color: #b98a2e; }
+  html[data-oo-theme~="light"] body footer.oof .oo-dir .oo-dir-list a { background: rgba(255, 255, 255, .97); color: #0b2a6b; border-color: #0b2a6b; }
+  html[data-oo-theme~="light"] body footer.oof .oo-dir-addr { color: #0b2a6b; }
+  html body footer.oof .oo-dir .oo-dir-list a { padding: 5.6px 13px 5.6px 6px; font-size: 13.4px; overflow-wrap: normal; word-break: normal; }
+}
+
+/* Footer: logo in hero, left-aligned link pills (as on the website footer). */
+@media (max-width: 640px) {
+  html body footer.oof .oof-eyebrow { margin: 0 0 6px; padding: 0; }
+  html body footer.oof .oof-eyebrow img { display: block; width: 177px; height: 59px; }
+  html body footer.oof .oof-eyebrow::before, html body footer.oof .oof-eyebrow::after { content: none !important; }
+  html[data-oo-theme~="light"] body footer.oof .oof-eyebrow img { filter: brightness(0); }
+  html body footer.oof .oo-dir .oo-dir-list a { justify-content: flex-start; text-align: left; padding-left: 16px; }
+}
+
+/* Article page sized like the website at phone width (dark mode; light keeps its own panel). */
+@media (max-width: 640px) {
+  html body .post-detail .post-title { font-family: "Playfair Display", Georgia, serif !important; font-size: 22.87px !important; font-weight: 800 !important; letter-spacing: -.34px !important; line-height: 23.3px !important; color: #f7f3ea; text-wrap: balance; }
+  html body .post-detail .post-meta { font-size: 13px !important; font-weight: 600 !important; letter-spacing: 1.3px !important; color: #f7f3ea !important; text-align: center; }
+  html[data-oo-theme~="dark"] body .post-detail .post-content { background: transparent !important; padding: 16px 6px !important; box-shadow: none !important; border: 0 !important; }
+  html[data-oo-theme~="dark"] body .post-detail .post-content > p { font-size: calc(20px * var(--oo-read-scale, 1)); line-height: calc(37px * var(--oo-read-scale, 1)); }
+}
+@media (max-width: 640px) {
+  html body .post-detail .post-meta { font-size: 12px !important; letter-spacing: 1px !important; }
+}
