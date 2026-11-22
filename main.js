@@ -1503,16 +1503,20 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       loadHomeSection(secs[key], key, slug, perPage);
     });
 
+    // The Worker's home-extras route stopped finding the shop block (it answers shop: null), so the shop
+    // card falls back to the website's own shopping image and link. Remove the fallback once the Worker is fixed.
+    const SHOP_FALLBACK = { href: 'https://test.okobserver.org/shop/', img: 'https://test.okobserver.org/wp-content/uploads/2026/11/Observer-Shop-booth-home-1448x1086-1.webp' };
+    const showShop = (shop) => {
+      const track = shopSec.querySelector('.oo-snap');
+      track.className = 'oo-shop';
+      track.innerHTML = `<a href="${escapeAttr(shop.href)}" target="_blank" rel="noopener"><img src="${escapeAttr(shop.img)}" alt="Shop the Observer" loading="lazy" decoding="async" /></a>`;
+      shopSec.hidden = false;
+    };
     loadHomeExtras().then((x) => {
-      if (!x || !document.body.contains(view)) return;
-      if (Array.isArray(x.sponsors) && x.sponsors.length) buildSponsors(sponsorSec, x.sponsors);
-      if (x.shop && x.shop.img) {
-        const track = shopSec.querySelector('.oo-snap');
-        track.className = 'oo-shop';
-        track.innerHTML = `<a href="${escapeAttr(x.shop.href)}" target="_blank" rel="noopener"><img src="${escapeAttr(x.shop.img)}" alt="Shop the Observer" loading="lazy" decoding="async" /></a>`;
-        shopSec.hidden = false;
-      }
-      if (Array.isArray(x.columnists) && x.columnists.length) buildFeaturedColumnists(peopleSec, x.columnists);
+      if (!document.body.contains(view)) return;
+      if (x && Array.isArray(x.sponsors) && x.sponsors.length) buildSponsors(sponsorSec, x.sponsors);
+      showShop(x && x.shop && x.shop.img ? x.shop : SHOP_FALLBACK);
+      if (x && Array.isArray(x.columnists) && x.columnists.length) buildFeaturedColumnists(peopleSec, x.columnists);
     });
 
     if (homeState.initialized) restoreHomeScroll();

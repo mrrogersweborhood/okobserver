@@ -386,19 +386,38 @@ html body button:not(.oo-hamburger):not(.oo-tool):not([role="tab"]):not([role="m
 @media (max-width: 640px) {
   html body #app .oo-home-sec > .oo-section-title { margin-left: 4px !important; }
   html body #app .oo-sec-latest .post-card, html body #app .oo-sec-columnists .post-card { border-radius: 10px !important; }
-  html body #app .oo-sec-columnists .oo-snap { margin-left: 30px !important; margin-right: 34px !important; gap: 10px !important; }
-  html body #app .oo-sec-columnists .oo-item .post-card-title { -webkit-line-clamp: 2 !important; line-clamp: 2 !important; font-size: 14px !important; line-height: 16px !important; min-height: 0 !important; }
-  html body #app .oo-sec-columnists .oo-item .post-card { height: 176px !important; }
-  html body #app .oo-sec-columnists .oo-item .post-card-image-wrapper { height: 84px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card { height: 158px !important; background: rgba(9,42,112,.68) !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card { background: #fff !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-image-wrapper { height: 85px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-title { font-size: 13px !important; line-height: 16px !important; -webkit-line-clamp: 2 !important; line-clamp: 2 !important; min-height: 32px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-content { padding: 2px 9px 8px !important; gap: 3px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-meta { font-size: 10px !important; min-height: 26px !important; }
+}
 /* Motto: the website shows it at an effective 12px (16px at zoom .75), in two fixed lines on phones. */
 @media (max-width: 640px) {
   html body .oo-motto { font-size: 12px !important; letter-spacing: 1.2px !important; line-height: 20px !important; }
   html body .oo-motto .oo-m1, html body .oo-motto .oo-m2 { display: block; }
 /* Carousel arrows exactly like the website: a 16x48 translucent pointed triangle, dimmed to 35% when there is nowhere to go. */
-@media (max-width: 640px) {
+@media (max-width: 1023px) {
   html body .oo-side::before, html body .oo-pn-a::before { position: absolute !important; content: "" !important; left: 50% !important; top: 50% !important; right: auto !important; width: 16px !important; height: 48px !important; margin: -24px 0 0 -8px !important; border: 0 !important; box-shadow: none !important; filter: none !important; background: rgba(255,255,255,.55) !important; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; }
   html body .oo-side-next::before, html body .oo-pn-a-next::before { transform: none !important; }
   html body .oo-side-prev::before, html body .oo-pn-a-prev::before { transform: scaleX(-1) !important; }
   html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.85) !important; }
   html body .oo-side.is-dim, html body .oo-pn-a.is-dim { opacity: .35 !important; }
 }
+
+/* Dome interior (menu + footer): let its colors show through more; buttons stay solid so menu items stay readable. */
+html[data-oo-theme~="dark"] body dialog.oo-nm .oo-nm-scroll { background: rgba(8,32,92,.30) !important; }
+html[data-oo-theme~="dark"] body dialog.oo-nm .oo-nm-top { background: rgba(8,32,92,.22) !important; }
+html[data-oo-theme~="dark"] body dialog.oo-nm::before { opacity: .45 !important; }
+html body dialog.oo-nm .oo-nm-bg { filter: saturate(1.35) brightness(1) !important; }
+html[data-oo-theme~="light"] body dialog.oo-nm .oo-nm-scroll { background: rgba(255,255,255,.10) !important; }
+html[data-oo-theme~="light"] body dialog.oo-nm .oo-nm-top { background: rgba(255,255,255,.08) !important; }
+html[data-oo-theme~="dark"] body .oof-bar { background: rgba(9,42,112,.50) !important; }
+html[data-oo-theme~="dark"] body .oof::before { opacity: .6 !important; }
+html[data-oo-theme~="light"] body .oof-bar { background: rgba(255,255,255,.70) !important; }
+html[data-oo-theme~="light"] body .oof::before { opacity: .7 !important; }
+html body .oof-bg { filter: saturate(1.3) !important; }
+/* Light mode: clearer navy outlines on menu and footer buttons. */
+html[data-oo-theme~="light"] body dialog.oo-nm :is(button, a.oo-nm-util, .oo-nm-bar a, .oo-nm-search button, .oo-nm-search input) { border-width: 2px !important; border-color: #0b2a6b !important; }
+html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b2a6b !important; }
