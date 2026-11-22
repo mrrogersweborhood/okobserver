@@ -381,3 +381,13 @@ html body input[type="submit"], html body input[type="button"], html body [role=
   text-align: center !important;
 }
 html body button:not(.oo-hamburger):not(.oo-tool):not([role="tab"]):not([role="menuitem"]):not(.ood-btn):not(:has(> svg, > img, > i)) { justify-content: center; }
+
+/* Home cards on phones: sized like the website (rounder cards, inset columnists, 2-line titles). */
+@media (max-width: 640px) {
+  html body #app .oo-home-sec > .oo-section-title { margin-left: 4px !important; }
+  html body #app .oo-sec-latest .post-card, html body #app .oo-sec-columnists .post-card { border-radius: 10px !important; }
+  html body #app .oo-sec-columnists .oo-snap { margin-left: 30px !important; margin-right: 34px !important; gap: 10px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-title { -webkit-line-clamp: 2 !important; line-clamp: 2 !important; font-size: 14px !important; line-height: 16px !important; min-height: 0 !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card { height: 176px !important; }
+  html body #app .oo-sec-columnists .oo-item .post-card-image-wrapper { height: 84px !important; }
+}
