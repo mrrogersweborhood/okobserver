@@ -2494,6 +2494,10 @@ let homeSnapIds = null;
 function toast(msg) {
   let t = document.querySelector('.oo-toast');
   if (!t) { t = document.createElement('div'); t.className = 'oo-toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  // An open menu sits above the page, so show the message inside it or it stays hidden.
+  const openMenu = document.querySelector('dialog.oo-nm[open]');
+  const host = openMenu || document.body;
+  if (t.parentNode !== host) host.appendChild(t);
   t.textContent = msg;
   t.classList.add('is-on');
   clearTimeout(toast._t);
@@ -2659,18 +2663,33 @@ window.__ooRefreshHome = refreshHome;
 
 // ---- Menu buttons: Light / Dark, text size (Aa), reading voice (same as the website menu) ----
 (function setupMenuButtons() {
+  // Home in the menu while already on the home screen: close the menu and go back to the top.
+  document.addEventListener('click', (e) => {
+    const h = e.target && e.target.closest ? e.target.closest('dialog.oo-nm a[href="#/"]') : null;
+    if (!h) return;
+    const here = location.hash === '' || location.hash === '#/' || location.hash === '#';
+    if (!here) return;
+    e.preventDefault();
+    const dlg = document.querySelector('dialog.oo-nm');
+    if (dlg && dlg.open) { try { dlg.close(); } catch (_) {} }
+    document.body.classList.remove('is-menu-open');
+    const hb = document.querySelector('[data-oo="hamburger"]'); if (hb) hb.setAttribute('aria-expanded', 'false');
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (_) { window.scrollTo(0, 0); }
+  });
   document.addEventListener('click', (e) => {
     const t = e.target && e.target.closest ? e.target.closest('[data-oo="menu-theme"],[data-oo="menu-fs"],[data-oo="menu-voice"],.oo-voice-opt') : null;
     if (!t) return;
     if (t.matches('[data-oo="menu-theme"]')) {
+      e.preventDefault();
       const el = document.documentElement;
       const next = el.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
       el.setAttribute('data-oo-theme', next);
       try { localStorage.setItem('ooTheme', next); } catch (_) {}
     } else if (t.matches('[data-oo="menu-fs"]')) {
-      const cur = LS.get('ooReadScale', 1);
-      if (cur >= READ_SIZES[READ_SIZES.length - 1] - 0.001) { LS.set('ooReadScale', READ_SIZES[0]); applyReader(); toast('Text size ' + Math.round(READ_SIZES[0] * 100) + '%'); }
-      else stepReader(1);
+      // Left half of the button makes text smaller, right half makes it larger.
+      const r = t.getBoundingClientRect();
+      const bigger = !(e.clientX && e.clientX < r.left + r.width / 2);
+      stepReader(bigger ? 1 : -1);
     } else if (t.matches('[data-oo="menu-voice"]')) {
       const old = document.querySelector('.oo-voice-pop');
       if (old) { old.remove(); return; }
