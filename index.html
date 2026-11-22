@@ -63,7 +63,7 @@
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
   <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=8" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=9" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -617,7 +617,7 @@ syncAuthClass();
       d.classList.remove('oo-dir-stack');
       if (!mq.matches) { restore(d.querySelectorAll('.oo-dir-list a')); continue; }
       if (!d.getBoundingClientRect().height) { continue; }
-      if (!shrink(d) || bad(d)) { d.classList.add('oo-dir-stack'); }
+      if (bad(d)) { d.classList.add('oo-dir-stack'); }
     }
     if (loadDone && (!document.fonts || document.fonts.status !== 'loading')) { for (var j = 0; j < dirs.length; j++) { if (dirs[j].getBoundingClientRect().height) { dirs[j].classList.add('oo-dir-ready'); } } }
     busy = false;
@@ -631,7 +631,7 @@ syncAuthClass();
   if (document.fonts && document.fonts.ready) { document.fonts.ready.then(soon); }
   /* the site's text sizer settles over a second or two, so re-check a few times after any change */
   function later() { [150, 500, 1000, 2000, 3500].forEach(function (t) { setTimeout(soon, t); }); }
-  new MutationObserver(function () { soon(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
+  new MutationObserver(function () { check(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.oo-fs-btn, .oo-lux-toc-trigger, #oo-xc-theme, .oo-nm-close')) { soon(); later(); }
   }, true);
