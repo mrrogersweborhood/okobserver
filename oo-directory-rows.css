@@ -52,6 +52,8 @@ html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not
   /* always two equal columns (even where the site's own text-size rules would stack them) ... */
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir > .oo-dir-a3 { grid-column: 1 / -1 !important; }
+  /* phone number and email centred */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-contact .oo-dir-list > li > a { justify-content: center !important; text-align: center !important; }
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { column-gap: 0 !important; }
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir > .oo-dir-a2 { border-left: 1px solid var(--oo-l) !important; }
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir.oo-dir-stack { column-gap: 0 !important; }
