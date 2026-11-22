@@ -517,3 +517,12 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
   html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-sep,
   html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-date { color:#3b4a66 !important; }
 }
+
+/* App desktop, light mode: carousel arrows are the same faded translucent blue triangles as on phones and tablets */
+@media (min-width: 1024px) {
+  html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { position: absolute !important; content: "" !important; left: 50% !important; top: 50% !important; right: auto !important; width: 16px !important; height: 48px !important; margin: -24px 0 0 -8px !important; border: 0 !important; box-shadow: none !important; filter: none !important; background: rgba(255,255,255,.55) !important; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; }
+  html[data-oo-theme~="light"] body .oo-side-next::before, html[data-oo-theme~="light"] body .oo-pn-a-next::before { transform: none !important; }
+  html[data-oo-theme~="light"] body .oo-side-prev::before, html[data-oo-theme~="light"] body .oo-pn-a-prev::before { transform: scaleX(-1) !important; }
+  html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.85) !important; }
+  html[data-oo-theme~="light"] body .oo-side.is-dim, html[data-oo-theme~="light"] body .oo-pn-a.is-dim { opacity: .35 !important; }
+}
