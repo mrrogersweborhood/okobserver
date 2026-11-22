@@ -1101,7 +1101,7 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
   .oo-sec-cartoon .oo-cartoon img { height: 262px; object-fit: cover; }
   .oo-sec-cartoon { margin-bottom: -24px; }
   .oo-sec-sponsors { margin-bottom: 0; }
-  .oo-shop a, .oo-shop img { height: 209px; object-fit: cover; }
+  .oo-shop a, .oo-shop img { height: auto; aspect-ratio: 1448 / 1086; object-fit: contain; }
 }
 
 /* ---- Gutter arrows on every swipe row (phones): arrows beside the cards at mid-height, none above/below (build 2.0.3) ---- */
