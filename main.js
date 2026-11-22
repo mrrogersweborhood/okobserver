@@ -1407,6 +1407,8 @@ function cleanExcerptForLoggedIn(excerptHtml) {
   function buildSponsors(sec, sponsors) {
     const track = sec.querySelector('.oo-snap');
     track.innerHTML = '';
+    // The Mr Rogers' Weborhood card is not shown in the app
+    sponsors = (sponsors || []).filter((s) => !/mrrogersweborhood.com/i.test((s && s.href) || ''));
     sponsors.forEach((s) => {
       const a = document.createElement('a');
       a.className = 'oo-slide oo-sponsor';
@@ -1414,8 +1416,6 @@ function cleanExcerptForLoggedIn(excerptHtml) {
       a.target = '_blank'; a.rel = 'noopener sponsored';
       a.setAttribute('aria-label', s.name || 'Sponsor');
       a.innerHTML = `<img src="${escapeAttr(s.img)}" alt="${escapeAttr(s.name || 'Sponsor')}" loading="lazy" decoding="async" />`;
-      // The Mr Rogers' Weborhood card is shown but never links out
-      if (/mrrogersweborhood.com/i.test(s.href || '')) { a.removeAttribute('href'); a.removeAttribute('target'); a.removeAttribute('rel'); a.style.pointerEvents = 'none'; a.style.cursor = 'default'; }
       track.appendChild(a);
     });
     const cta = sec.querySelector('.oo-advertise');
