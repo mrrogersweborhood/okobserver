@@ -63,7 +63,7 @@
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
   <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=9" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=10" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -624,6 +624,16 @@ syncAuthClass();
     if (queued) { queued = false; }
   }
   var tick = 0;
+  /* the site sizer briefly writes a smaller inline size while it settles; pin the label size to the step instantly (before paint) so the layout never flips */
+  var TGT = { '1.15': '17.825px', '1.3': '20.15px', '1.5': '23.25px' };
+  function pinAll() {
+    var t = TGT[document.documentElement.getAttribute('data-oo-fsz')];
+    document.querySelectorAll('.oo-dir .oo-dir-list > li > a').forEach(function (a) {
+      var cur = a.style.getPropertyValue('font-size');
+      if (t) { if (cur !== t || a.style.getPropertyPriority('font-size') !== 'important') { a.style.setProperty('font-size', t, 'important'); } }
+      else if (cur && /^(17\.825|20\.15|23\.25)px$/.test(cur)) { a.style.removeProperty('font-size'); }
+    });
+  }
   function soon() { cancelAnimationFrame(tick); tick = requestAnimationFrame(check); }
   window.addEventListener('resize', soon);
   window.addEventListener('load', soon);
@@ -631,13 +641,13 @@ syncAuthClass();
   if (document.fonts && document.fonts.ready) { document.fonts.ready.then(soon); }
   /* the site's text sizer settles over a second or two, so re-check a few times after any change */
   function later() { [150, 500, 1000, 2000, 3500].forEach(function (t) { setTimeout(soon, t); }); }
-  new MutationObserver(function () { check(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
+  new MutationObserver(function () { pinAll(); check(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.oo-fs-btn, .oo-lux-toc-trigger, #oo-xc-theme, .oo-nm-close')) { soon(); later(); }
   }, true);
   if (window.ResizeObserver) {
     var ro = new ResizeObserver(soon);
-    var mo = new MutationObserver(soon);
+    var mo = new MutationObserver(function () { pinAll(); soon(); });
     var wire = function () { document.querySelectorAll('.oo-dir').forEach(function (d) { if (!d.__ooro) { d.__ooro = 1; ro.observe(d); mo.observe(d, { attributes: true, attributeFilter: ['style'], subtree: true }); } }); };
     document.addEventListener('DOMContentLoaded', wire); window.addEventListener('load', wire);
     new MutationObserver(wire).observe(document.documentElement, { childList: true, subtree: true });
