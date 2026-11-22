@@ -63,7 +63,7 @@
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
   <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=12" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=13" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -556,7 +556,7 @@ syncAuthClass();
       t = document.createRange(); t.selectNodeContents(a); rs = t.getClientRects();
       for (mr = 0, h = 0; h < rs.length; h++) { if (rs[h].right > mr) { mr = rs[h].right; } }
       var lst = a.closest('.oo-dir-list'), lcs = getComputedStyle(lst), gr = lst.getBoundingClientRect().right - parseFloat(lcs.paddingRight) - parseFloat(lcs.borderRightWidth);
-      if (mr > a.getBoundingClientRect().right + 1 || mr > gr - 1.5 || a.getBoundingClientRect().right > gr + 1) { return true; }
+      if (mr > a.getBoundingClientRect().right + 1 || mr > gr - 0.5 || a.getBoundingClientRect().right > gr + 1) { return true; }
     }
     var heads = dir.querySelectorAll('.oo-dir-a1 > h3, .oo-dir-a2 > h3');
     for (i = 0; i < heads.length; i++) { if (heads[i].scrollWidth > heads[i].clientWidth + 1) { return true; } }
