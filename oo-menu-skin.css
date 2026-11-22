@@ -381,3 +381,9 @@ html body input[type="submit"], html body input[type="button"], html body [role=
   text-align: center !important;
 }
 html body button:not(.oo-hamburger):not(.oo-tool):not([role="tab"]):not([role="menuitem"]):not(.ood-btn):not(:has(> svg, > img, > i)) { justify-content: center; }
+
+/* Motto: the website shows it at an effective 12px (16px at zoom .75), in two fixed lines on phones. */
+@media (max-width: 640px) {
+  html body .oo-motto { font-size: 12px !important; letter-spacing: 1.2px !important; line-height: 20px !important; }
+  html body .oo-motto .oo-m1, html body .oo-motto .oo-m2 { display: block; }
+}
