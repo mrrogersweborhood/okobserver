@@ -459,3 +459,24 @@ html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b
   html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-by { color: #7a4f04 !important; }
   html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta, html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-date { color: #3b4a66 !important; }
 }
+
+/* Text inside round / oval buttons is always centred (footer link pills included). */
+html body footer.oof .oo-dir .oo-dir-list a { justify-content: center !important; text-align: center !important; padding-left: 17.6px !important; padding-right: 17.6px !important; }
+html body footer.oof .oo-dir .oo-dir-list a::after { right: 8px; }
+html body dialog.oo-nm .oo-dir .oo-dir-list a { padding-left: 10px !important; padding-right: 10px !important; justify-content: center !important; text-align: center !important; }
+html body dialog.oo-nm .oo-dir .oo-dir-list a::after { right: 3px !important; }
+
+/* iPhone/Android taps: keep every control at least 44px to hit, without changing how it looks. */
+@media (max-width: 640px) {
+  html body .oo-hamburger::after { content: ""; position: absolute; top: -6px; bottom: -6px; left: -8px; right: -8px; }
+  html body .oo-section-link { padding-top: 13px !important; padding-bottom: 13px !important; margin-top: -13px !important; margin-bottom: -13px !important; }
+}
+html body [data-act], html body .oo-act, html body .oo-section-link, html body .post-card, html body .oo-slide { touch-action: manipulation; cursor: pointer; }
+
+/* Short pills (Newsmakers, Columnists, ObserverCast...) must stay on one line on iPhone: slimmer type + padding, never wrap */
+@media (max-width:640px){
+  html body footer.oof .oo-dir .oo-dir-list a,
+  html body dialog.oo-nm .oo-dir .oo-dir-list a { white-space:nowrap !important; font-size:12px !important; letter-spacing:0 !important; padding-left:8px !important; padding-right:8px !important; }
+  html body footer.oof .oo-dir .oo-dir-list a::after,
+  html body dialog.oo-nm .oo-dir .oo-dir-list a::after { right:3px !important; }
+}
