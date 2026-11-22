@@ -533,3 +533,6 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
   html body #app .oo-home > [class*="oo-sec-"] > .oo-section-title { margin-bottom:20px !important; }
   html body #app .oo-home > [class*="oo-sec-"]:not(:last-child) { margin-bottom:24px !important; }
 }
+
+/* Light mode swipe arrows: softer, faded blue (was a solid blue) */
+html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.45) !important; border-color: rgba(255,255,255,.85) !important; filter: none !important; }
