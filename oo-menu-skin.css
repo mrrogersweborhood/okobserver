@@ -246,3 +246,13 @@ html body .oo-tts-active-block{background:rgba(255,255,255,.14)!important;border
 html[data-oo-theme~="light"] body .oo-tts-active-block{background:rgba(31,79,176,.12)!important;border-left-color:#1f4fb0!important}
 ::highlight(oo-read){background-color:rgba(255,255,255,.92);color:#0b2a6b}
 html[data-oo-theme~="light"] ::highlight(oo-read){background-color:#1f4fb0;color:#fff}
+
+/* iPhone/iPad: easier taps — no double-tap delay, 44px targets, clickable non-buttons */
+html body button, html body a, html body [role="button"], html body summary, html body label, html body .oo-side, html body .oo-pn-a, html body [data-oo]{
+  touch-action:manipulation; -webkit-tap-highlight-color:rgba(255,255,255,.18); cursor:pointer;
+}
+@media (max-width:640px){
+  html body dialog.oo-nm button, html body dialog.oo-nm a, html body footer.oof a, html body .oo-leave-btns button, html body .ood-btn, html body .ooh-tab, html body .ooh-d{ min-height:44px; }
+  html body dialog.oo-nm .oo-vp-row button{ min-height:48px; }
+  html body .oo-side, html body .oo-pn-a{ min-width:44px; min-height:44px; }
+}
