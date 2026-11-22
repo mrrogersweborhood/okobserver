@@ -3178,8 +3178,9 @@ function renderBrowse(params) {
   const letters = ['', '#', '0-9'].concat('ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''));
   const lab = (L) => (L === '' ? 'All' : L === '0-9' ? '0–9' : L);
   app.innerHTML = `
+    <div class="oo-ix-wrap">
+      <h1 class="oo-ix-title"><em>Index</em></h1>
     <div class="oo-ix">
-      <h1 class="oo-ix-title">Index</h1>
       <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back" title="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>
       <p class="oo-ix-sub">Every article we have filed, and what it's about.</p>
       <label class="oo-ix-label" for="oo-ix-q">Find a term or topic</label>
@@ -3188,6 +3189,7 @@ function renderBrowse(params) {
       <p class="oo-ix-status" aria-live="polite">Loading topics…</p>
       <ul class="oo-ix-list"></ul>
       <button type="button" class="oo-ix-more" hidden>Show more topics</button>
+    </div>
     </div>`;
   wireReaderTools(app);
   const q = app.querySelector('.oo-ix-q');
