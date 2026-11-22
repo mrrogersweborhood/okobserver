@@ -52,6 +52,10 @@ html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not
   /* remove the extra gold divider just above "Get the Observer app" */
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-app::before { content: none !important; display: none !important; }
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-app { padding-top: 14px !important; }
+  /* Safari/iOS drops a backdrop-filter on a tall scrolling box and paints it solid blue; the 2px blur is not worth that, the translucent tint stays */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-nm-scroll { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  /* never hyphenate directory labels (Safari split "Policies" as "Poli-cies") */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a { -webkit-hyphens: manual !important; hyphens: manual !important; overflow-wrap: normal !important; word-break: normal !important; }
 
 @media (max-width: 767.98px) {
   /* always two equal columns (even where the site's own text-size rules would stack them) ... */
