@@ -580,3 +580,35 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-vp-row { width: 100% !important; max-width: none !important; margin: 0 !important; grid-template-columns: minmax(0, 1fr) 54px 54px !important; gap: 5.6px !important; }
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-vp-row .oo-nm-util svg { width: 27px !important; height: 27px !important; }
 }
+
+/* ===== Phone footer parity with the mobile website (values measured on test.okobserver.org) ===== */
+@media (max-width: 767.98px) {
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-t { display: block !important; margin: 0 0 10.4px !important; font: italic 400 32px/1.2 Georgia, "Times New Roman", serif !important; letter-spacing: normal !important; text-transform: none !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-q { display: block !important; font: italic 400 32px/38.4px "Playfair Display", Georgia, serif !important; letter-spacing: 1.92px !important; text-transform: none !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-a { display: block !important; margin: 8px 0 12.8px !important; font: 700 12.48px/15.2px Montserrat, system-ui, sans-serif !important; letter-spacing: 1.4976px !important; text-transform: uppercase !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill { display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: 100% !important; height: 48px !important; padding: 0 20.8px !important; border-radius: 999px !important; background: #fff !important; color: #0b2a6b !important; box-shadow: none !important; font: 700 16.8px Montserrat, system-ui, sans-serif !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill span { font: 700 16.8px Montserrat, system-ui, sans-serif !important; color: #0b2a6b !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill svg, html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill img { width: 22.4px !important; height: 22.4px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { margin: 14px 0 9.6px !important; font: italic 400 23.2px/29px "Playfair Display", Georgia, serif !important; letter-spacing: normal !important; text-transform: none !important; text-align: center !important; display: block !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule::before, html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule::after { display: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-oodf { width: 272px !important; max-width: 100% !important; margin-left: auto !important; margin-right: auto !important; padding: 9.6px !important; border: .8px solid rgba(255, 255, 255, .28) !important; border-radius: 16px !important; background: #fff !important; box-shadow: none !important; box-sizing: border-box !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-oodf img { width: 100% !important; height: auto !important; max-width: 251.2px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol-t { margin: 0 0 9.6px !important; font: italic 400 23.2px/29px "Playfair Display", Georgia, serif !important; letter-spacing: normal !important; text-transform: none !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a { width: 36.8px !important; height: 36.8px !important; border: 1.2px solid rgba(255, 255, 255, .28) !important; border-radius: 50% !important; background: #fff !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a svg, html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a img { width: 23px !important; height: 23px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-app-t { margin: 0 0 6px !important; font: italic 400 27.2px/31.28px Georgia, "Times New Roman", serif !important; letter-spacing: normal !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-app-msg { margin: 0 0 10px !important; font: 400 17.6px/25.52px "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif !important; text-align: center !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oof-legal { display: flex !important; justify-content: space-between !important; align-items: center !important; gap: 0 28px !important; padding: 6.4px 0 !important; border: 0 !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oof-legal a { text-decoration: underline !important; }
+
+  /* blue (dark) mode colors and shadows */
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body footer.oof :is(.oo-dir-rev-t, .oo-dir-rev-q, .oo-dir-rule, .oo-dir-fol-t, .oo-app-t, .oo-app-msg, .oof-legal, .oof-legal a, .oof-rr) { color: #fff !important; text-shadow: 0 1px 3px #000, 0 0 8px rgba(0, 0, 0, .85) !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-a { color: #ffd98a !important; text-shadow: 0 1px 3px #000, 0 0 8px rgba(0, 0, 0, .85) !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body footer.oof .oo-dir-addr { text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 0 8px rgba(0, 0, 0, .6) !important; }
+
+  /* light mode colors */
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof :is(.oo-dir-rev-t, .oo-dir-rev-q, .oo-dir-rev-a, .oo-dir-rule, .oo-dir-fol-t, .oo-app-t, .oo-app-msg, .oof-legal, .oof-legal a, .oof-rr) { color: #0b2a6b !important; text-shadow: none !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-a { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof .oo-dir-addr { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof :is(.oo-dir-pill, .oo-dir-oodf, .oo-dir-fol a) { border-color: #d3def0 !important; }
+}
