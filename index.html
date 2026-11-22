@@ -610,6 +610,8 @@ syncAuthClass();
   function check() {
     if (busy) { queued = true; return; }
     busy = true;
+    /* un-stacking to measure shortens the page for a moment; at the bottom of the page the browser then clamps the scroll position upward and never restores it, so remember it and put it back */
+    var keepY = window.pageYOffset;
     evenAddress();
     var dirs = document.querySelectorAll('.oo-dir');
     for (var i = 0; i < dirs.length; i++) {
@@ -620,6 +622,7 @@ syncAuthClass();
       if (bad(d)) { d.classList.add('oo-dir-stack'); }
     }
     if (loadDone && (!document.fonts || document.fonts.status !== 'loading')) { for (var j = 0; j < dirs.length; j++) { if (dirs[j].getBoundingClientRect().height) { dirs[j].classList.add('oo-dir-ready'); } } }
+    if (Math.abs(window.pageYOffset - keepY) > 1) { window.scrollTo(window.pageXOffset, keepY); }
     busy = false;
     if (queued) { queued = false; }
   }
