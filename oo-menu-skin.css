@@ -612,3 +612,9 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof .oo-dir-addr { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body footer.oof :is(.oo-dir-pill, .oo-dir-oodf, .oo-dir-fol a) { border-color: #d3def0 !important; }
 }
+
+@media (max-width: 767.98px) {
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-icons { display: flex !important; flex-wrap: nowrap !important; justify-content: center !important; gap: 5.6px !important; grid-template-columns: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a { min-width: 0 !important; min-height: 0 !important; flex: 0 0 36.8px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { padding: 0 !important; }
+}
