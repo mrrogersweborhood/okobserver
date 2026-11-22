@@ -1443,3 +1443,8 @@ html[data-oo-theme="light"] .oo-post-head .oo-pn-a::before{width:14px;height:14p
 .oo-aa-portrait-frame::after { content: ""; position: absolute; inset: -9px; border: 1px solid rgba(230, 180, 74, .8); pointer-events: none; }
 .oo-aa-portrait-img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: cover; object-position: top; border-radius: 0; background: #fff; }
 .oo-arch .archive-author:has(.oo-aa-portrait) .archive-author-bio { font: 400 19px/1.55 "Source Serif 4", Georgia, serif; color: var(--oo-ink); }
+
+/* Year archive: pill buttons like the website (round, 44px tall, current year in navy in light mode) */
+.oo-yr { min-width: 0; height: 44px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 700; }
+.oo-yrs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px 8px; }
+:root[data-oo-theme="light"] .oo-yr.is-on { background: #0b1b36; border-color: #0b1b36; color: #fff !important; }
