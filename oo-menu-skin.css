@@ -122,3 +122,28 @@
   html body dialog.oo-nm .oo-vp-row .oo-fs-btn { padding: 0 !important; font-size: 12.5px !important; letter-spacing: 0 !important; }
   html body dialog.oo-nm .oo-vp-row .oo-vp-btn { padding: 0 !important; }
 }
+
+/* Home header matches the website: no back/theme row (theme now lives in the menu). */
+@media (max-width: 640px) {
+  html body .oo-tools.oo-home-tools { display: none !important; }
+}
+
+/* Header + section titles sized like the website at phone width. */
+@media (max-width: 640px) {
+  html body .oo-logo { height: 59px !important; width: auto; margin: 7px 0 0 16px !important; }
+  html body .oo-hamburger { width: 44px !important; height: 44px !important; margin: 4px 14px 0 0 !important; border: 0 !important; box-shadow: none !important; border-radius: 8px !important; background-color: transparent !important; }
+  html body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#fff, #fff) center 14px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 21px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 28px / 22px 2px no-repeat !important; }
+  html[data-oo-theme~="light"] body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#14264f, #14264f) center 14px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 21px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 28px / 22px 2px no-repeat !important; }
+  html body .oo-motto { font-size: 16px !important; letter-spacing: 1.6px !important; line-height: 20px !important; max-width: 339px !important; margin-top: 0 !important; }
+  html body .oo-section-title { font-size: 18px !important; letter-spacing: .99px !important; }
+}
+@media (max-width: 640px) {
+  html body img.oo-logo { filter: none !important; width: 177px !important; height: 59px !important; }
+  html[data-oo-theme~="light"] body img.oo-logo { filter: brightness(0) !important; }
+}
+@media (max-width: 640px) {
+  html body img.oo-logo { margin-left: -2px !important; }
+  html body .oo-motto { margin-top: 4px !important; }
+  html body .oo-home-sec > .oo-section-title:first-child, html body .oo-sec-latest > .oo-section-title { margin-top: 23px !important; }
+}
+@media (hover: none) { .oo-leave-hint { display: none; } }
