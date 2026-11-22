@@ -575,3 +575,8 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { color: #b98a2e !important; }
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact :is(h3, h3 a, .oo-dir-addr) { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
 }
+
+@media (max-width: 767.98px) {
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-vp-row { width: 100% !important; max-width: none !important; margin: 0 !important; grid-template-columns: minmax(0, 1fr) 54px 54px !important; gap: 5.6px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-vp-row .oo-nm-util svg { width: 27px !important; height: 27px !important; }
+}
