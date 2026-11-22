@@ -1407,8 +1407,6 @@ function cleanExcerptForLoggedIn(excerptHtml) {
   function buildSponsors(sec, sponsors) {
     const track = sec.querySelector('.oo-snap');
     track.innerHTML = '';
-    // The Mr Rogers' Weborhood card is not shown in the app
-    sponsors = (sponsors || []).filter((s) => !/mrrogersweborhood.com/i.test((s && s.href) || ''));
     sponsors.forEach((s) => {
       const a = document.createElement('a');
       a.className = 'oo-slide oo-sponsor';
