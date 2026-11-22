@@ -536,3 +536,6 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
 
 /* Light mode swipe arrows: softer, faded blue (was a solid blue) */
 html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.45) !important; border-color: rgba(255,255,255,.85) !important; filter: none !important; }
+
+/* Single post: prev/next arrows sit at the left and right edges (they were stacked on the left) and lose the old horizontal line */
+html body .oo-pn-arrows > .oo-pn-a { position: relative !important; background: none !important; }
