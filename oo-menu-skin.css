@@ -493,3 +493,8 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
   html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
   html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
 }
+
+/* Wider invisible touch area around the hamburger menu button */
+@media (max-width:1023px){
+  html body .oo-hamburger::after { content:"" !important; position:absolute !important; top:-8px !important; bottom:-12px !important; left:-18px !important; right:-14px !important; }
+}
