@@ -4929,12 +4929,12 @@ showPagingStatus('Loading more…');
 
 /* Fit footer/menu pill text on one line: shrink the font when it overflows or wraps (iPhone renders wider than Android) */
 (function(){
-  var SEL='footer.oof .oo-dir-list a, dialog.oo-nm .oo-dir-list a, footer.oof .oo-dir-pill, footer.oof .oof-btn';
+  var SEL='button:not(.oo-hamburger), a.oof-btn, .oo-dir-list a, .oo-dir-pill, .oo-nm-util, [role="button"], a[class*="btn"], a[class*="button"], .login-submit, .oo-act';
   var pend=0;
   function fit(a){
     a.style.removeProperty('font-size');
     var base=parseFloat(getComputedStyle(a).fontSize)||13,fs=base,min=8;
-    if(!a.clientWidth)return;
+    if(!a.clientWidth||a.clientHeight>90||!(a.textContent||'').trim()||a.querySelector('img,video'))return;
     var cs=getComputedStyle(a),avail=a.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
     function over(){var r=document.createRange();r.selectNodeContents(a);var rs=r.getClientRects(),h=0;if(rs.length){var t=rs[0].top,b=rs[0].bottom;for(var i=1;i<rs.length;i++){if(rs[i].top>b-2)return true;}}return r.getBoundingClientRect().width>avail+0.5;}
     while(fs>min&&over()){fs-=0.5;a.style.setProperty('font-size',fs+'px','important');}
