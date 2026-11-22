@@ -2992,11 +2992,11 @@ function renderArchive(params) {
 
   app.innerHTML = `
     <div class="archive-view oo-arch">
-      <h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>
+      ${type === 'author' ? (() => { const nm = String(label || 'Author').trim(); const i = nm.lastIndexOf(' '); const f = i > 0 ? nm.slice(0, i) : ''; const l = i > 0 ? nm.slice(i + 1) : nm; return '<p class="oo-aa-eyebrow">Author</p><h1 class="archive-title oo-aa-name">' + (f ? '<span class="oo-aa-first">' + escapeHtml(f) + '</span>' : '') + '<span class="oo-aa-last">' + escapeHtml(l) + '</span></h1>'; })() : `<h1 class="archive-title">${escapeHtml(label || ARCHIVE_NOUN[type])}</h1>`}
       <div class="oo-tools"><button type="button" class="oo-tool" data-tool="back" aria-label="Back" title="Back">&larr;</button><button type="button" class="oo-tool" data-tool="theme" aria-label="Switch light or dark mode" title="Switch light or dark mode"><i></i></button></div>
       ${type === 'year' ? '<div class="oo-yrs">' + (() => { let h = ''; for (let y = new Date().getFullYear(); y >= 2008; y--) h += '<a class="oo-yr' + (String(y) === String(id) ? ' is-on' : '') + '" href="#/archive?type=year&id=' + y + '&label=' + y + '">' + y + '</a>'; return h; })() + '</div>' : ''}
+      <div class="oo-arch-count${type === 'author' ? ' oo-aa-count' : ''}" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'articles in The Observer' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : isToon ? 'Cartoons' : 'Articles in this department'}</span></div>
       <div class="archive-author" hidden></div>
-      <div class="oo-arch-count" hidden><b class="oo-arch-n"></b><span class="oo-arch-l">${type === 'author' ? 'Articles by this author' : type === 'tag' ? 'Articles on this topic' : type === 'year' ? 'Articles this year' : isToon ? 'Cartoons' : 'Articles in this department'}</span></div>
       <button class="btnSecondary archive-follow" type="button" hidden></button>
       <div class="search-status is-loading" aria-live="polite">
         <span class="search-status-spinner" aria-hidden="true"></span>
@@ -3049,12 +3049,13 @@ function renderArchive(params) {
       const a = list.find((x) => x && String(x.id) === String(id));
       if (!a) continue;
       const av = a.avatar_urls ? (a.avatar_urls['96'] || a.avatar_urls['48'] || '') : '';
+      const avBig = av.replace(/-\d+x\d+(\.\w+)$/, '$1');
       const bio = a.description ? sanitizeAuthorBioHtml(String(a.description).trim()) : '';
       if (!av && !bio) return;
       const box = app.querySelector('.archive-author');
       if (!box) return;
       box.innerHTML = `
-        ${av ? `<img class="author-box-avatar archive-author-avatar" src="${escapeAttr(av)}" alt="${escapeAttr(a.name || label)}" />` : ''}
+        ${av ? `<figure class="oo-aa-portrait"><div class="oo-aa-portrait-frame"><img class="oo-aa-portrait-img" src="${escapeAttr(avBig)}" alt="${escapeAttr(a.name || label)}" onerror="if(this.src!==this.dataset.fb){this.src=this.dataset.fb}" data-fb="${escapeAttr(av)}" /></div></figure>` : ''}
         <div class="archive-author-bio">${bio || ''}</div>`;
       box.hidden = false;
       authorShown = true;
