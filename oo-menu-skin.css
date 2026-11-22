@@ -133,13 +133,11 @@
   html body .oo-logo { height: 59px !important; width: auto; margin: 7px 0 0 16px !important; }
   html body .oo-hamburger { width: 44px !important; height: 44px !important; margin: 4px 14px 0 0 !important; border: 0 !important; box-shadow: none !important; border-radius: 8px !important; background-color: transparent !important; }
   html body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#fff, #fff) center 14px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 21px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 28px / 22px 2px no-repeat !important; }
-  html[data-oo-theme~="light"] body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#14264f, #14264f) center 14px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 21px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 28px / 22px 2px no-repeat !important; }
   html body .oo-motto { font-size: 16px !important; letter-spacing: 1.6px !important; line-height: 20px !important; max-width: 339px !important; margin-top: 0 !important; }
   html body .oo-section-title { font-size: 18px !important; letter-spacing: .99px !important; }
 }
 @media (max-width: 640px) {
   html body img.oo-logo { filter: none !important; width: 177px !important; height: 59px !important; }
-  html[data-oo-theme~="light"] body img.oo-logo { filter: brightness(0) !important; }
 }
 @media (max-width: 640px) {
   html body img.oo-logo { margin-left: -2px !important; }
@@ -369,10 +367,8 @@ html body button, html body a, html body [role="button"], html body summary, htm
 @media (max-width: 640px) {
   html body img.oo-logo { margin-top: -2px !important; }
   html body .oo-motto { margin-top: 13px !important; color: rgba(255,255,255,.96) !important; text-shadow: 0 2px 10px rgba(0,0,0,.22), 0 1px 2px rgba(2,10,30,.35); }
-  html[data-oo-theme~="light"] body .oo-motto { color: #14264f !important; text-shadow: none; }
   html body .oo-hamburger { width: 40px !important; height: 38px !important; position: relative !important; left: 6px; top: -4px; margin: 0 !important; }
   html body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#fff, #fff) center 11px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 18px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 25px / 22px 2px no-repeat !important; }
-  html[data-oo-theme~="light"] body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#14264f, #14264f) center 11px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 18px / 22px 2px no-repeat, linear-gradient(#14264f, #14264f) center 25px / 22px 2px no-repeat !important; }
 }
 
 /* Text inside buttons is always centered (desktop, tablet, phone, app). */
