@@ -593,7 +593,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 .oo-shop { scroll-snap-type: none; }
 
 /* Featured Columnists */
-.oo-people-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 10px; overflow: visible; scroll-snap-type: none; padding-top: 6px; }
+.oo-people-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 10px; overflow: visible; scroll-snap-type: none; padding-top: 22px; }
 .oo-people-grid > * { flex: none; }
 @media (min-width: 760px) { .oo-people-grid { grid-template-columns: repeat(6, 1fr); } }
 .oo-person { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; text-decoration: none; color: var(--oo-title); }
@@ -1089,7 +1089,7 @@ html[data-oo-theme="light"] .oo-post-head[style]::after { background: linear-gra
   .oo-sponsor { min-height: 186px; }
   .oo-advertise { display: flex; align-items: center; justify-content: center; width: 263px; height: 46px; padding: 0; }
   .oo-shop a, .oo-shop img { width: 312px; max-width: 100%; margin: 0 auto; }
-  .oo-people-grid { gap: 22px 10px; padding: 6px 4px 0; }
+  .oo-people-grid { gap: 22px 10px; padding: 22px 4px 0; }
   .oo-person img, .oo-person-blank { width: 100px; height: 100px; }
 }
 @media (max-width: 699px) {
