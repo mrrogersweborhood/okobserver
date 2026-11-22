@@ -882,6 +882,7 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
         utter.rate = 1.0;
         utter.pitch = 1.0;
         utter.volume = 1.0;
+        try { const vn = localStorage.getItem('ooVoice'); if (vn) { const vv = (window.speechSynthesis.getVoices() || []).find((v) => v.name === vn); if (vv) utter.voice = vv; } } catch (_) {}
 
         await new Promise((resolve, reject) => {
           utter.onend = () => resolve();
@@ -2655,6 +2656,39 @@ function refreshHome() {
   renderHome();
 }
 window.__ooRefreshHome = refreshHome;
+
+// ---- Menu buttons: Light / Dark, text size (Aa), reading voice (same as the website menu) ----
+(function setupMenuButtons() {
+  document.addEventListener('click', (e) => {
+    const t = e.target && e.target.closest ? e.target.closest('[data-oo="menu-theme"],[data-oo="menu-fs"],[data-oo="menu-voice"],.oo-voice-opt') : null;
+    if (!t) return;
+    if (t.matches('[data-oo="menu-theme"]')) {
+      const el = document.documentElement;
+      const next = el.getAttribute('data-oo-theme') === 'light' ? 'dark' : 'light';
+      el.setAttribute('data-oo-theme', next);
+      try { localStorage.setItem('ooTheme', next); } catch (_) {}
+    } else if (t.matches('[data-oo="menu-fs"]')) {
+      const cur = LS.get('ooReadScale', 1);
+      if (cur >= READ_SIZES[READ_SIZES.length - 1] - 0.001) { LS.set('ooReadScale', READ_SIZES[0]); applyReader(); toast('Text size ' + Math.round(READ_SIZES[0] * 100) + '%'); }
+      else stepReader(1);
+    } else if (t.matches('[data-oo="menu-voice"]')) {
+      const old = document.querySelector('.oo-voice-pop');
+      if (old) { old.remove(); return; }
+      const synth = window.speechSynthesis;
+      const voices = ((synth && synth.getVoices && synth.getVoices()) || []).filter((v) => /^en/i.test(v.lang));
+      let saved = ''; try { saved = localStorage.getItem('ooVoice') || ''; } catch (_) {}
+      const pop = document.createElement('div');
+      pop.className = 'oo-voice-pop';
+      pop.innerHTML = '<p>Reading voice</p>' + (voices.length ? voices.map((v) => '<button type="button" class="oo-voice-opt' + (v.name === saved ? ' is-on' : '') + '" data-name="' + v.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + v.name.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</button>').join('') : '<span>This device has no reading voices to choose from.</span>');
+      (t.closest('.oo-vp-row') || t.parentElement).insertAdjacentElement('afterend', pop);
+    } else if (t.matches('.oo-voice-opt')) {
+      const name = t.getAttribute('data-name');
+      try { localStorage.setItem('ooVoice', name); } catch (_) {}
+      document.querySelectorAll('.oo-voice-opt').forEach((b) => b.classList.toggle('is-on', b === t));
+      try { const u = new SpeechSynthesisUtterance('This is the voice you picked.'); const vv = speechSynthesis.getVoices().find((v) => v.name === name); if (vv) u.voice = vv; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (_) {}
+    }
+  });
+})();
 
 (function setupPullToRefresh() {
   const el = document.createElement('div');
