@@ -48,7 +48,7 @@
   html body dialog.oo-nm .oo-theme-pill svg { width: 20px; height: 20px; margin-right: 8px; }
 
   /* Explore / Reader Services / Contact Us */
-  html body dialog.oo-nm .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3"; gap: 0 20px; margin: 0; }
+  html body dialog.oo-nm .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3" "brand brand" "rev rev" "rule rule" "oodf oodf" "fol fol"; gap: 0 20px; margin: 0; }
   html body dialog.oo-nm .oo-dir-a1 { grid-area: a1; } html body dialog.oo-nm .oo-dir-a2 { grid-area: a2; } html body dialog.oo-nm .oo-dir-a3 { grid-area: a3; }
   html body dialog.oo-nm .oo-dir-rev, html body dialog.oo-nm .oo-dir-sup, html body dialog.oo-nm .oo-dir-fol, html body dialog.oo-nm .oo-nm-bar .oof-legal { display: none; }
   html body dialog.oo-nm .oo-dir-g { text-align: center; }
@@ -150,9 +150,9 @@
 
 /* Footer directory uses the same pill skin as the menu. */
 @media (max-width: 640px) {
-  html body footer.oof .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3"; gap: 0 20px; margin: 0; }
+  html body footer.oof .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3" "brand brand" "rev rev" "rule rule" "oodf oodf" "fol fol"; gap: 0 20px; margin: 0; }
   html body footer.oof .oo-dir-a1 { grid-area: a1; } html body footer.oof .oo-dir-a2 { grid-area: a2; } html body footer.oof .oo-dir-a3 { grid-area: a3; }
-  html body footer.oof .oo-dir-rev, html body footer.oof .oo-dir-sup, html body footer.oof .oo-dir-fol, html body footer.oof .oo-nm-bar .oof-legal { display: none; }
+  html body footer.oof .oo-nm-bar .oof-legal { display: none; }
   html body footer.oof .oo-dir-g { text-align: center; }
   html body footer.oof .oo-dir .oo-dir-g h3 { display: flex; align-items: center; justify-content: center; min-height: 72px; margin: 0 0 11.2px; padding: 4px 4px; border: 0; background: none; color: #ffd98a; font: 700 26.68px/30.68px Georgia, "Times New Roman", serif; letter-spacing: 3.2px; text-transform: none; text-align: center; }
   html body footer.oof .oo-dir .oo-dir-g h3 a { color: inherit; text-decoration: none; padding: 0; background: none; border: 0; font: inherit; letter-spacing: inherit; }
@@ -174,7 +174,7 @@
 /* Footer: logo in hero, left-aligned link pills (as on the website footer). */
 @media (max-width: 640px) {
   html body footer.oof .oof-eyebrow { margin: 0 0 6px; padding: 0; }
-  html body footer.oof .oof-eyebrow img { display: block; width: 177px; height: 59px; }
+  html body footer.oof .oof-eyebrow img { display: block; width: 177px; height: 59px; margin-left: -13px; }
   html body footer.oof .oof-eyebrow::before, html body footer.oof .oof-eyebrow::after { content: none !important; }
   html[data-oo-theme~="light"] body footer.oof .oof-eyebrow img { filter: brightness(0); }
   html body footer.oof .oo-dir .oo-dir-list a { justify-content: flex-start; text-align: left; padding-left: 16px; }
@@ -421,3 +421,11 @@ html body .oof-bg { filter: saturate(1.3) !important; }
 /* Light mode: clearer navy outlines on menu and footer buttons. */
 html[data-oo-theme~="light"] body dialog.oo-nm :is(button, a.oo-nm-util, .oo-nm-bar a, .oo-nm-search button, .oo-nm-search input) { border-width: 2px !important; border-color: #0b2a6b !important; }
 html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b2a6b !important; }
+
+/* App footer: review pills, Foundation logo and social icons shown (as on the website footer), with breathing room. */
+@media (max-width: 640px) {
+  html body footer.oof .oo-dir-rev { margin-top: 16px; }
+  html body footer.oof .oo-dir-rule { margin-top: 18px; }
+  html body footer.oof .oo-dir-oodf { margin-top: 12px; }
+  html body footer.oof .oo-dir-fol { margin-top: 18px; }
+}
