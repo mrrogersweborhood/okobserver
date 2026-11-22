@@ -507,6 +507,7 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
 /* Wider invisible touch area around the hamburger menu button */
 @media (max-width:1023px){
   html body .oo-hamburger::after { content:"" !important; position:absolute !important; top:-8px !important; bottom:-12px !important; left:-18px !important; right:-14px !important; }
+}
 
 /* Latest News cards in light mode: the website phone's solid blue panels (#7eaae8) with navy titles, brown bylines and slate dates */
 @media (max-width:640px){
