@@ -394,4 +394,11 @@ html body button:not(.oo-hamburger):not(.oo-tool):not([role="tab"]):not([role="m
 @media (max-width: 640px) {
   html body .oo-motto { font-size: 12px !important; letter-spacing: 1.2px !important; line-height: 20px !important; }
   html body .oo-motto .oo-m1, html body .oo-motto .oo-m2 { display: block; }
+/* Carousel arrows exactly like the website: a 16x48 translucent pointed triangle, dimmed to 35% when there is nowhere to go. */
+@media (max-width: 640px) {
+  html body .oo-side::before, html body .oo-pn-a::before { position: absolute !important; content: "" !important; left: 50% !important; top: 50% !important; right: auto !important; width: 16px !important; height: 48px !important; margin: -24px 0 0 -8px !important; border: 0 !important; box-shadow: none !important; filter: none !important; background: rgba(255,255,255,.55) !important; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'22'%20height%3D'68'%20viewBox%3D'0%200%2022%2068'%3E%3Cpath%20d%3D'M2%202l17%2032L2%2066z'%2F%3E%3C%2Fsvg%3E") center / 16px 48px no-repeat !important; }
+  html body .oo-side-next::before, html body .oo-pn-a-next::before { transform: none !important; }
+  html body .oo-side-prev::before, html body .oo-pn-a-prev::before { transform: scaleX(-1) !important; }
+  html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.85) !important; }
+  html body .oo-side.is-dim, html body .oo-pn-a.is-dim { opacity: .35 !important; }
 }
