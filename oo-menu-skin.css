@@ -429,3 +429,33 @@ html[data-oo-theme~="light"] body footer.oof .oof-btn--s { border: 2px solid #0b
   html body footer.oof .oo-dir-oodf { margin-top: 12px; }
   html body footer.oof .oo-dir-fol { margin-top: 18px; }
 }
+
+/* ObserverCast card as on the website phone: 303x250 artwork, title + date anchored to the bottom, one-line title. */
+@media (max-width: 640px) {
+  html body .oo-sec-observercast .oo-lead .post-card { min-height: 250px !important; height: 250px !important; position: relative; overflow: hidden; border-radius: 6px; }
+  html body .oo-sec-observercast .oo-lead .post-card-content { position: absolute !important; left: 14px !important; right: 14px !important; bottom: 14px !important; top: auto !important; min-height: 0 !important; height: auto !important; padding: 0 !important; background: none !important; }
+  html body .oo-sec-observercast .oo-lead .post-card-title { font: 900 20px/22.4px Georgia, "Times New Roman", serif !important; margin: 0 0 7px !important; }
+  html body .oo-sec-observercast .oo-lead .post-card-excerpt { display: none !important; }
+  html body .oo-sec-observercast .oo-lead .post-card-meta .oo-m-date { font: 800 12px/1.3 "Open Sans", Verdana, sans-serif; letter-spacing: .96px; }
+}
+
+/* Home section headers placed exactly as on the website phone (left edge, letter-spacing, gap to the content). */
+@media (max-width: 640px) {
+  html body .oo-home-sec .oo-section-title { letter-spacing: 1.4px !important; }
+  html body #app .oo-sec-magazine > .oo-section-title, html body #app .oo-sec-observercast > .oo-section-title, html body #app .oo-sec-newsmakers > .oo-section-title { margin-left: 6px !important; }
+  html body #app .oo-sec-cartoon > .oo-section-title { margin-left: -4.4px !important; letter-spacing: 1.35px !important; }
+  html body #app .oo-sec-sponsors > .oo-section-title { margin-left: -5.2px !important; letter-spacing: 1.76px !important; }
+  html body #app .oo-sec-shop > .oo-section-title { margin-left: -4.4px !important; letter-spacing: 1.76px !important; }
+  html body #app .oo-sec-magazine > .oo-section-title { margin-bottom: 20px !important; }
+  html body #app .oo-sec-observercast > .oo-section-title, html body #app .oo-sec-newsmakers > .oo-section-title, html body #app .oo-sec-cartoon > .oo-section-title { margin-bottom: 20px !important; }
+}
+
+/* National Columnists cards: the website phone's panel colours. */
+@media (max-width: 640px) {
+  html[data-oo-theme~="dark"] body #app .oo-sec-columnists .oo-item .post-card { background: linear-gradient(160deg, #2f64b8 0%, #2656a8 100%) !important; border: .8px solid rgba(240,208,128,.5) !important; box-shadow: 0 18px 40px rgba(2,10,34,.5), inset 0 1px 0 rgba(255,244,214,.16) !important; }
+  html[data-oo-theme~="dark"] body #app .oo-sec-columnists .oo-item .post-card-meta, html[data-oo-theme~="dark"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-by { color: rgba(255,255,255,.85) !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card { background: #e4eefb !important; border: .8px solid rgba(184,134,42,.4) !important; box-shadow: 0 16px 36px rgba(11,42,107,.22), inset 0 1px 0 #fff !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-title, html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-title a { color: #4b6593 !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-by { color: #7a4f04 !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta, html[data-oo-theme~="light"] body #app .oo-sec-columnists .oo-item .post-card-meta .oo-m-date { color: #3b4a66 !important; }
+}

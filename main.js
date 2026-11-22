@@ -2618,7 +2618,7 @@ function stepReader(dir) {
   const cur = LS.get('ooReadScale', 1);
   let i = READ_SIZES.findIndex((x) => x >= cur - 0.001);
   if (i < 0) i = 1;
-  i = Math.max(0, Math.min(READ_SIZES.length - 1, i + dir));
+  i = (i + dir + READ_SIZES.length) % READ_SIZES.length; // keeps looping: biggest -> smallest, smallest -> biggest
   LS.set('ooReadScale', READ_SIZES[i]);
   applyReader();
   toast('Text size ' + Math.round(READ_SIZES[i] * 100) + '%');
