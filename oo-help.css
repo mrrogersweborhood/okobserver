@@ -1,0 +1,80 @@
+html body #app .ooh h2,html body #app .ooh li,html body #app .ooh p{text-transform:none!important}
+html body #app .oohelp:not(.oohelp-top){margin:34px 14px 70px!important;padding:clamp(18px,2.6vw,40px)!important;background:rgba(9,42,112,.68)!important;border:1px solid rgba(255,255,255,.3)!important;box-shadow:0 24px 60px rgba(3,18,55,.4)!important;border-radius:22px}
+html body #app .ooh{--gold:#e8b84a;--pale:#ffe5a2;--cream:#f7f3ea;--head:#fff;--rule:rgba(232,184,74,.4);--bbd:rgba(255,229,162,.5);--chatbg:rgba(255,255,255,.05);--onGold:#16203a;color:var(--cream)}
+html body #app .ooh *{box-sizing:border-box}
+html body #app .ooh .ooh-lead{font:italic 400 clamp(18px,1.7vw,24px)/1.5 'Libre Caslon Text',Georgia,serif!important;color:var(--pale)!important;max-width:60ch;margin:0 0 26px!important}
+html body #app .ooh .ooh-lead::first-line{letter-spacing:.01em}
+html body #app .ooh .ooh-bar{display:flex;flex-wrap:wrap;gap:14px 22px;justify-content:space-between;align-items:center;padding:0 0 18px;border-bottom:1px solid var(--rule);margin-bottom:28px}
+html body #app .ooh .ooh-tabs{display:flex;flex-wrap:wrap;gap:8px}
+html body #app .ooh button{font:700 12px/1 'Montserrat',Arial,sans-serif!important;letter-spacing:.16em;text-transform:uppercase;color:var(--cream);background:transparent;border:1.5px solid var(--bbd);border-radius:999px;padding:12px 18px;cursor:pointer;transition:background .15s,color .15s,transform .15s}
+html body #app .ooh button:hover{border-color:var(--gold);color:var(--head);transform:translateY(-1px)}
+html body #app .ooh button[aria-selected=true],html body #app .ooh button[aria-pressed=true]{background:linear-gradient(180deg,#f3cf7a,#d9a533);color:var(--onGold);border-color:#f3cf7a;box-shadow:0 4px 16px rgba(232,184,74,.35)}
+html body #app .ooh .ooh-dev{display:flex;gap:6px;flex-wrap:wrap}
+html body #app#app .ooh .ooh-dev .ooh-d,html body #app#app .ooh .ooh-tabs .ooh-tab{white-space:nowrap!important;flex:0 0 auto}
+@media(max-width:700px){html body #app#app .ooh .ooh-dev .ooh-d{font-size:clamp(11px,3.2vw,13px)!important;letter-spacing:.1em!important;padding-left:16px!important;padding-right:16px!important}}
+@media(max-width:700px){html body #app .ooh .ooh-tabs{flex-wrap:nowrap;overflow-x:auto;width:100%;padding:2px 28px 10px 0;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 86%,transparent);mask-image:linear-gradient(90deg,#000 86%,transparent)}html body #app .ooh .ooh-tabs::-webkit-scrollbar{display:none}html body #app .ooh .ooh-tabs button{flex:none}}
+html body #app .ooh .ooh-p{display:grid;grid-template-columns:minmax(0,1fr);gap:26px 44px;align-items:start}
+@media(min-width:900px){html body #app .ooh[data-dev=d] .ooh-p{grid-template-columns:minmax(260px,.75fr) minmax(0,2.25fr)}html body #app .ooh[data-dev=m] .ooh-p{grid-template-columns:minmax(260px,1fr) auto}}
+html body #app .ooh .ooh-p[hidden]{display:none}
+html body #app .ooh .ooh-x{margin-top:46px;padding-top:40px;border-top:1px solid var(--rule)}
+html body #app .ooh .ooh-kick{display:flex;align-items:center;gap:12px;font:700 12px/1 'Montserrat',Arial,sans-serif;letter-spacing:.26em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+html body #app .ooh .ooh-kick::after{content:"";height:2px;width:54px;background:var(--gold);border-radius:2px}
+html body #app .ooh .ooh-kick i{font-style:normal}
+html body #app .ooh[data-dev=d] .km,html body #app .ooh[data-dev=m] .kd{display:none}
+html body #app .ooh h2{font:900 clamp(30px,3.3vw,48px)/1.06 'Playfair Display',Georgia,serif!important;letter-spacing:-.01em;color:var(--head)!important;margin:0 0 22px!important}
+html body #app .ooh ol{list-style:none;margin:0;padding:0;counter-reset:s}
+html body #app .ooh li{counter-increment:s;position:relative;padding:0 0 0 62px;margin:0 0 20px!important;font:400 clamp(17px,1.35vw,20px)/1.6 'Libre Caslon Text',Georgia,serif!important;color:var(--cream)!important;min-height:44px}
+html body #app .ooh li::before{content:counter(s);position:absolute;left:0;top:-8px;font:italic 900 52px/1 'Playfair Display',Georgia,serif;color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.35)}
+html body #app .ooh li::first-line{color:var(--head)}
+html body #app .ooh .ooh-tip{font:italic 400 16px/1.5 'Libre Caslon Text',Georgia,serif!important;color:var(--pale)!important;border-left:3px solid var(--gold);padding-left:14px}
+html body #app .ooh .ooh-med{display:flex;justify-content:center;min-width:0}
+@media(max-width:700px){html body #app#app .oohelp:not(.oohelp-top){margin-left:3px!important;margin-right:3px!important;padding:16px 12px!important;border-radius:18px}html body #app#app .ooh .ooh-med video{width:100%!important;height:auto;max-width:380px}}
+html body #app .ooh video{display:block;background:#0b1220;border:2px solid var(--gold);box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 6px rgba(232,184,74,.12);max-width:100%}
+html body #app .ooh[data-dev=d] video{width:100%;max-width:1180px;height:auto;border-radius:10px}
+html body #app .ooh[data-dev=m] video{height:min(74vh,660px);width:auto;border-radius:28px;border-width:6px}
+html body #app .ooh .ooh-h2{margin:56px 0 10px!important;position:relative;padding-top:20px}
+html body #app .ooh .ooh-h2::before{content:"";position:absolute;left:0;top:0;width:70px;height:4px;background:var(--gold);border-radius:2px}
+html body #app .ooh .ooh-sub{font:italic 400 18px/1.55 'Libre Caslon Text',Georgia,serif!important;color:var(--pale)!important;max-width:64ch;margin:0 0 22px!important}
+html body #app .ooh .ooh-chat{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:22px 20px;background:var(--chatbg);border:1px solid var(--rule);border-radius:14px;padding:22px}
+html body #app .ooh .ooh-bub{width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+html body #app .ooh .ooh-bub small{font:700 10px/1 'Montserrat',Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);padding-left:8px}
+html body #app .ooh .ooh-more{grid-column:1/-1;min-width:0}
+html body #app .ooh h3.ooh-h2{font:900 clamp(26px,2.6vw,38px)/1.1 'Playfair Display',Georgia,serif!important;text-transform:none!important;letter-spacing:-.01em!important;color:var(--head)!important}
+html body #app .ooh .ooh-lc{display:flex;width:100%;min-width:0;max-width:380px;background:#eef1f8;border-radius:18px;overflow:hidden;color:#14233f}
+html body #app .ooh .ooh-lc img{width:76px;height:auto;aspect-ratio:1;object-fit:cover;flex:none;display:block}
+html body #app .ooh .ooh-lt{display:flex;flex-direction:column;gap:2px;padding:9px 13px;min-width:0}
+html body #app .ooh .ooh-lt b{font:700 14px/1.25 'Playfair Display',Georgia,serif;color:#14233f}
+html body #app .ooh .ooh-lt span{font:400 12.5px/1.35 'Libre Caslon Text',Georgia,serif;color:#4a5a78;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+html body #app .ooh .ooh-lt em{font:600 10px/1.3 'Montserrat',Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7a879f;font-style:normal;margin-top:2px}
+html[data-oo-theme~="light"] body #app .oohelp,html[data-oo-theme~="light"] body.oo-help #app .oohelp:not(.oohelp-top){background:rgba(255,255,255,.88)!important;border:1px solid rgba(11,42,107,.16)!important;color:#1b2a4a!important;box-shadow:0 24px 60px rgba(11,42,107,.18)!important}
+html[data-oo-theme~="light"] body #app .ooh{--gold:#a8730a;--pale:#6b4e12;--cream:#1b2a4a;--head:#0f2250;--rule:rgba(168,115,10,.4);--bbd:rgba(27,42,74,.35);--chatbg:rgba(20,40,90,.05);--onGold:#1b1405}
+html[data-oo-theme~="light"] body #app .ooh li::before{text-shadow:none}
+html[data-oo-theme~="light"] body #app .ooh video{box-shadow:0 14px 36px rgba(20,40,90,.28),0 0 0 6px rgba(168,115,10,.12)}
+html[data-oo-theme~="light"] body #app .ooh .ooh-lc{background:#fff;border:1px solid #d5dcec}
+html[data-oo-theme="dark"] body #app .oohelp,html[data-oo-theme="dark"] body.oo-help #app .oohelp:not(.oohelp-top){background:rgba(9,42,112,.68)!important;border:1px solid rgba(255,255,255,.3)!important}
+html[data-oo-theme="dark"] body #app .ooh{--pale:#ffe5a2;--cream:#f7f3ea;--rule:rgba(232,184,74,.4);--chatbg:rgba(255,255,255,.05)}
+html[data-oo-theme="dark"] body #app .ooh .ooh-lc{background:#1b2133;color:#e4e7ee}
+html[data-oo-theme="dark"] body #app .ooh .ooh-lt b{color:#fff}
+html[data-oo-theme="dark"] body #app .ooh .ooh-lt span{color:#aeb7cb}
+html[data-oo-theme="dark"] body #app .ooh .ooh-lt em{color:#8590aa}
+html body #app .ooh button.ooh-test{display:flex;align-items:center;justify-content:center;gap:16px;width:100%;max-width:560px;box-sizing:border-box;margin:30px 0 12px;padding:26px 36px;border:0;border-radius:999px;background:linear-gradient(#f7d66f,#d9a533);color:#0b2a6b;font-family:Arial,sans-serif!important;font-size:28px!important;font-weight:800!important;line-height:1.1!important;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;box-shadow:0 7px 0 #a97b18,0 14px 28px rgba(0,0,0,.4);transition:transform .08s,box-shadow .08s}
+html body #app .ooh button.ooh-test svg{width:38px;height:38px;flex:none}
+html body #app .ooh button.ooh-test:not(.on){animation:oohglow 2.6s ease-in-out infinite}
+@media (max-width:640px){html body #app .ooh button.ooh-test{max-width:none;padding:22px 20px;font-size:23px!important}html body #app .ooh button.ooh-test svg{width:32px;height:32px}}
+@media (prefers-reduced-motion:reduce){html body #app .ooh button.ooh-test:not(.on){animation:none}}
+html body #app .ooh button.ooh-test:active{transform:translateY(5px);box-shadow:0 2px 0 #a97b18,0 5px 12px rgba(0,0,0,.35)}
+html body #app .ooh button.ooh-test.on{animation:oohpulse 1s ease-in-out infinite}
+html body #app .ooh button.ooh-test:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media (max-width:1023px){@media (max-width:767px){html body #app .oohelp{max-width:none;margin:70px 4% 70px;padding:clamp(22px,4vw,48px);background:rgba(10,24,52,.82);border:1px solid rgba(255,229,162,.35);color:#f7f3ea;font:19px/1.65 Georgia,serif;text-align:left;box-sizing:border-box}html body #app .oohelp h1{color:#fff!important;font:700 clamp(34px,5vw,56px)/1.1 Georgia,serif;margin:0 0 .5em}html body #app .oohelp p,html body #app .oohelp li{color:#f7f3ea!important;font:inherit;margin:0 0 1em}html body #app .oohelp h2,html body #app .oohelp h3{color:#ffe5a2!important;font:700 15px/1.3 Montserrat,sans-serif;letter-spacing:.2em;text-transform:uppercase;margin:1.4em 0 .6em}html body #app .oohelp a{color:#ffe5a2!important;text-decoration:underline}html body #app .oohelp details{border-top:1px solid rgba(255,255,255,.26);padding:14px 0}html body #app .oohelp summary{cursor:pointer;font-weight:700;color:#ffe5a2}@media(max-width:767px){html body #app .oohelp{margin:16px 4% 50px;font-size:17px}}}}
+html body #app :is(button,input[type=button],input[type=submit],input[type=reset],.button,.btn,.wp-element-button,[class*=-btn],[class*=_btn],[role=button]):not(.ooh-tab):not(.oo-vp-r):not(.oo-vp-row>*){max-width:100%;box-sizing:border-box;white-space:normal;overflow-wrap:anywhere;word-break:normal;hyphens:manual}
+html body #app .oohelp.oohelp-top{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:56px 4% 0!important}
+html body #app .oohelp.oohelp-top h1{margin:0!important;text-shadow:0 2px 14px rgba(5,16,40,.55)}
+html body #app .oohelp-top + .oohelp{margin-top:22px!important}
+html[data-oo-theme~="light"] body #app .oohelp.oohelp-top h1{color:#143571!important;text-shadow:none}
+
+/* App wrapper: no second panel/title around the Help block */
+html body #app .page-view:has(.ooh) > .toc-title{display:none!important}
+html body #app .page-view:has(.ooh) .about-html{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+html body #app .ooh h2,html body #app .ooh h3{letter-spacing:normal!important;word-spacing:normal!important}
+html body #app .oohelp-top{margin:28px 14px 0!important}
+html body #app .oohelp-top h1{letter-spacing:normal!important}

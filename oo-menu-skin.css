@@ -195,3 +195,84 @@
 @media (max-width: 640px) {
   html body .oo-tools button[aria-label="Switch light or dark mode"], html body .post-detail-tts-row button[aria-label="Switch light or dark mode"] { display: none !important; }
 }
+
+/* Leave-app popup: both buttons fully rounded so the Continue button fits inside its animated ring. */
+html body .oo-leave-btns button { border-radius: 999px; }
+html body .oo-leave-btns .oo-leave-go { padding-inline: 24px; }
+
+/* Donate page: the website's PayPal card and gold "Donate with PayPal" button, in the app. */
+html body .ood-opts { display: grid; gap: 18px; margin: 18px 0; }
+html body .ood-card { background: #fff; color: #0b1f52; border-radius: 22px; border-top: 6px solid #e9b94c; padding: 26px 22px 20px; box-shadow: 0 26px 60px -22px rgba(0, 0, 0, .7); box-sizing: border-box; max-width: 100%; }
+html[data-oo-theme~="dark"] body .ood-card { background: rgba(30, 82, 170, .92); color: #fff; border-top-color: #ffe5a2; }
+html body .ood-card h2 { margin: 0 0 16px; font: 400 30px/1.06 Georgia, "Times New Roman", serif; letter-spacing: -.03em; color: inherit; text-wrap: balance; }
+html body .ood-card h2 em { display: block; color: #a8741a; }
+html[data-oo-theme~="dark"] body .ood-card h2 em { color: #ffe5a2; }
+html body .ood-card p { margin: 0 0 12px; font-size: 16px; line-height: 1.5; color: inherit; }
+html body .ood-card .ood-fine { margin: 0 !important; font-size: 14.5px !important; opacity: .9; }
+html body .ood-card .ood-fine + .ood-fine { margin-top: 8px !important; }
+html body .ood-form { position: relative; margin: 0 0 14px; }
+html body .ood-form > img { position: absolute !important; width: 1px !important; height: 1px !important; }
+html body button.ood-btn { display: flex; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; min-height: 64px; padding: 8px 11px 8px 24px; border: 0; border-radius: 999px; background: linear-gradient(#ffe9ac, #e9b94c); color: #0b1f52; -webkit-text-fill-color: #0b1f52; font: 800 19px/1.15 Arial, Helvetica, sans-serif; text-align: left; cursor: pointer; box-shadow: 0 14px 28px -12px rgba(0, 0, 0, .65); box-sizing: border-box; }
+html body button.ood-btn .ood-bt { flex: 0 0 auto; white-space: nowrap; }
+html body button.ood-btn img.ood-pp, html body button.ood-btn img.ood-pp.about-image-full { flex: 0 0 auto; display: block; width: 100px !important; max-width: 100px !important; height: auto !important; margin: 0 auto 0 -4px !important; }
+html body button.ood-btn i { flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #143571; color: #fff; -webkit-text-fill-color: #fff; font: 700 20px/1 Arial, sans-serif; font-style: normal; }
+html body .ood-legacy { display: grid; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; }
+html body .ood-fig { margin: 0 auto; width: 100%; max-width: min(100%, 720px); }
+html body .ood-fig img, html body .ood-fig img.about-image-full { display: block; width: 100%; height: auto; border-radius: 10px; background: #fff; }
+html body .ood-opts { grid-template-columns: minmax(0, 1fr); }
+html body .ood-card, html body .ood-legacy, html body .ood-fig { min-width: 0; max-width: 100%; }
+html body button.ood-btn { max-width: 100%; padding-left: 18px; gap: 8px; font-size: 17px; }
+html body button.ood-btn { font-size: 15px; padding: 8px 9px 8px 16px; gap: 6px; }
+html body button.ood-btn img.ood-pp, html body button.ood-btn img.ood-pp.about-image-full { width: 80px !important; max-width: 80px !important; margin: 0 auto 0 0 !important; }
+html body button.ood-btn i { width: 38px; height: 38px; font-size: 18px; }
+
+/* Diamond arrows (as on the website) instead of the app's old thin chevrons: home carousels + article prev/next. */
+@media (max-width: 640px) {
+  html body .oo-side, html body .oo-pn-a { font-size: 0 !important; color: #fff !important; position: absolute; }
+  html body .oo-side svg, html body .oo-pn-a svg { display: none !important; }
+  html body .oo-side::before, html body .oo-pn-a::before { content: ""; position: absolute; top: 50%; width: 20px; height: 20px; margin-top: -10px; box-sizing: border-box; background: rgba(255, 255, 255, .55); border-top: 3.5px solid #fff; border-right: 3.5px solid #fff; filter: drop-shadow(0 1px 3px rgba(8, 26, 76, .75)); }
+  html body .oo-side-next::before, html body .oo-pn-a-next::before { right: 6px; transform: rotate(45deg); }
+  html body .oo-side-prev::before, html body .oo-pn-a-prev::before { left: 6px; transform: rotate(-135deg); }
+  html body .oo-side.is-dim, html body .oo-pn-a.is-dim { opacity: .28; }
+}
+@media (max-width: 640px) {
+  html body .oo-side::before, html body .oo-pn-a::before { width: 16px; height: 16px; margin-top: -8px; border-width: 3px 3px 0 0; }
+  html body .oo-side-next::before, html body .oo-pn-a-next::before { right: 8px; }
+  html body .oo-side-prev::before, html body .oo-pn-a-prev::before { left: 8px; }
+}
+
+/* Read-aloud highlight: blues and whites by mode (not gold). */
+html body .oo-tts-active-block{background:rgba(255,255,255,.14)!important;border-left:4px solid #fff!important;border-radius:4px}
+html[data-oo-theme~="light"] body .oo-tts-active-block{background:rgba(31,79,176,.12)!important;border-left-color:#1f4fb0!important}
+::highlight(oo-read){background-color:rgba(255,255,255,.92);color:#0b2a6b}
+html[data-oo-theme~="light"] ::highlight(oo-read){background-color:#1f4fb0;color:#fff}
+
+/* iPhone/iPad: easier taps — no double-tap delay, 44px targets, clickable non-buttons */
+html body button, html body a, html body [role="button"], html body summary, html body label, html body .oo-side, html body .oo-pn-a, html body [data-oo]{
+  touch-action:manipulation; -webkit-tap-highlight-color:rgba(255,255,255,.18); cursor:pointer;
+}
+@media (max-width:640px){
+  html body dialog.oo-nm button, html body dialog.oo-nm a, html body footer.oof a, html body .oo-leave-btns button, html body .ood-btn, html body .ooh-tab, html body .ooh-d{ min-height:44px; }
+  html body dialog.oo-nm .oo-vp-row button{ min-height:48px; }
+  html body .oo-side, html body .oo-pn-a{ min-width:44px; min-height:44px; }
+}
+
+/* Advertise With Us: the website's gold-edged pill (no dashes) */
+@media (max-width:640px){
+  html body .oo-advertise{
+    background:linear-gradient(rgba(255,255,255,.12) 0%,rgba(255,255,255,0) 60%),rgba(8,36,100,.5)!important;
+    color:#ffe5a2!important; border:1.2px solid #ffd98a!important; border-radius:999px!important;
+    font:700 13px/1 Montserrat,system-ui,sans-serif!important; letter-spacing:.16em!important; text-transform:uppercase;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22)!important; min-height:46px; text-decoration:none!important;
+  }
+  html body .oo-advertise::before, html body .oo-advertise::after{ content:none!important; }
+}
+
+/* About: full-width like the website on phones (no inset panel, flat navy hero, cream text) */
+@media (max-width:640px){
+  html body #app .about-view.is-ooan{ margin-left:-14px!important; margin-right:-14px!important; width:calc(100% + 28px)!important; max-width:none!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-hero{ background:#0f2a63!important; border-top:0!important; border-radius:0!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan{ color:#f7f3ea!important; }
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-id1,
+  html[data-oo-theme="dark"] body #app .about-view.is-ooan .ooan-id2{ color:#f7f3ea!important; }
+}

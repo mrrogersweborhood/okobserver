@@ -21,7 +21,7 @@
   <!-- Where "the website" lives. Menu links and relative links inside posts use this.
        Testing: new staging site. AT LAUNCH change this ONE line to https://okobserver.org -->
   <script>window.OO_SITE_ORIGIN = 'https://test.okobserver.org';</script>
-  <!-- Theme (dark/blue default, light = cream). Runs before first paint so there is no flash. -->
+  <!-- Theme (dark/blue default unless the reader chose light). Runs before first paint so there is no flash. -->
   <script>
     (function () {
       try {
@@ -60,12 +60,16 @@
     href="override.css?v=2.1.27"
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.5" />
-  <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.9" />
+  <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.22" />
+  <link rel="stylesheet" href="oo-terms.css?v=2.2.16" />
+  <link rel="stylesheet" href="oo-help.css?v=2.2.18">
+  <link rel="stylesheet" href="oo-events.css?v=2.2.24">
 
   <!-- Main SPA entry -->
-<script
+<script src="oo-help.js?v=2.2.17" defer></script>
+  <script
   defer
-  src="main.js?v=2.2.0"
+  src="main.js?v=2.2.23"
 ></script>
 <script
   defer
