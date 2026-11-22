@@ -502,6 +502,33 @@ syncAuthClass();
   soon();
 })();
   </script>
+<script id="oo-fs-button-fixed-js">
+(function () {
+  var mq = window.matchMedia('(max-width:767.98px)'), FS = '12.5px', tick = 0;
+  function pin(b) {
+    if (b.style.getPropertyValue('font-size') !== FS || b.style.getPropertyPriority('font-size') !== 'important') {
+      b.style.setProperty('font-size', FS, 'important');
+    }
+    if (!b.__ooFsPin && window.MutationObserver) {
+      b.__ooFsPin = new MutationObserver(function () { if (mq.matches) { pin(b); } });
+      b.__ooFsPin.observe(b, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
+  function fix() {
+    if (!mq.matches) { return; }
+    document.querySelectorAll('.oo-fs-btn').forEach(pin);
+  }
+  function soon() { cancelAnimationFrame(tick); tick = requestAnimationFrame(fix); }
+  function later() { [150, 500, 1200, 2500].forEach(function (t) { setTimeout(soon, t); }); }
+  window.addEventListener('resize', soon);
+  window.addEventListener('load', function () { soon(); later(); });
+  document.addEventListener('DOMContentLoaded', soon);
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(soon); }
+  new MutationObserver(function () { soon(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
+  document.addEventListener('click', function () { soon(); later(); }, true);
+  soon();
+})();
+</script>
 </body>
 </html>
 <!-- 🔴 index.html — end of file -->

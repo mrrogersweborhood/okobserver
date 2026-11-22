@@ -539,3 +539,6 @@ html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"]
 
 /* Single post: prev/next arrows sit at the left and right edges (they were stacked on the left) and lose the old horizontal line */
 html body .oo-pn-arrows > .oo-pn-a { position: relative !important; background: none !important; }
+
+/* menu buttons (Home, Log Out, Search, text size, reading voice, Close) take the directory panel's blue in dark mode */
+html:not([data-oo-theme~="light"]) body dialog.oo-nm :is(a.oo-nm-util, button.oo-nm-util, .oo-nm-search button, .oo-nm-close):not(.oo-theme-pill) { background: rgba(7, 22, 66, .78); }
