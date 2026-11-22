@@ -63,7 +63,7 @@
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
   <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=3" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=4" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -545,7 +545,8 @@ syncAuthClass();
 <script id="oo-directory-rows-js">
 (function () {
   var mq = window.matchMedia('(max-width:767.98px)');
-  var busy = false, queued = false;
+  var busy = false, queued = false, loadDone = document.readyState === 'complete';
+  if (!loadDone) { window.addEventListener('load', function () { setTimeout(function () { loadDone = true; check(); }, 150); setTimeout(function () { document.querySelectorAll('.oo-dir').forEach(function (e) { e.classList.add('oo-dir-ready'); }); }, 1600); }); }
   function bad(dir) {
     var i, a, t, rs, mr, h;
     var links = dir.querySelectorAll('.oo-dir-a1 .oo-dir-list a, .oo-dir-a2 .oo-dir-list a');
@@ -618,6 +619,7 @@ syncAuthClass();
       if (!d.getBoundingClientRect().height) { continue; }
       if (!shrink(d) || bad(d)) { d.classList.add('oo-dir-stack'); }
     }
+    if (loadDone && (!document.fonts || document.fonts.status !== 'loading')) { for (var j = 0; j < dirs.length; j++) { if (dirs[j].getBoundingClientRect().height) { dirs[j].classList.add('oo-dir-ready'); } } }
     busy = false;
     if (queued) { queued = false; }
   }

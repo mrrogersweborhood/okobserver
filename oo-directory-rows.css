@@ -2,6 +2,9 @@
 html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { --oo-g: #e9c46a; --oo-t: #fff; --oo-l: rgba(255,255,255,.3); --oo-panel: rgba(7,22,66,.78); }
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body[class] .oo-dir { --oo-g: #9a6f1c; --oo-t: #0b2a6b; --oo-l: rgba(11,42,107,.28); --oo-panel: rgba(255,255,255,.80); }
 
+  /* hold the directory back until its fonts and sizes have settled so nothing visibly jumps (the animation is a no-script / slow-page fallback) */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir:not(.oo-dir-ready) { visibility: hidden; animation: oo-dir-show .01s linear 1.4s forwards; }
+  @keyframes oo-dir-show { to { visibility: visible; } }
   /* the light translucent panel of the menu / footer stays; only each list of directory buttons gets the darker blue box */
   html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 4px 0 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   /* Explore + Reader Services share ONE darker box (a pseudo-element spanning both grid areas) */
