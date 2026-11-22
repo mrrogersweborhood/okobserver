@@ -1507,7 +1507,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
 
     // The Worker's home-extras route stopped finding the shop block (it answers shop: null), so the shop
     // card falls back to the website's own shopping image and link. Remove the fallback once the Worker is fixed.
-    const SHOP_FALLBACK = { href: 'https://test.okobserver.org/shop/', img: 'https://test.okobserver.org/wp-content/uploads/2026/11/Observer-Shop-booth-home-1448x1086-wordmark.webp' };
+    const SHOP_FALLBACK = { href: OO_SITE_ORIGIN + '/shop/', img: OO_SITE_ORIGIN + '/wp-content/uploads/2026/11/Observer-Shop-booth-home-1448x1086-wordmark.webp' };
     const showShop = (shop) => {
       const track = shopSec.querySelector('.oo-snap');
       track.className = 'oo-shop';
@@ -1855,7 +1855,7 @@ if (posts.length > 0 && appendedCount === 0) {
         const html = await r.text();
         if (!document.body.contains(box)) return;
         app.querySelector('.toc-title').hidden = true;
-        box.innerHTML = html;
+        box.innerHTML = html.replace(/https:\/\/test\.okobserver\.org/g, OO_SITE_ORIGIN); // demo videos follow the site address, so launch needs no edit here
         if (window.ooHelpMount) window.ooHelpMount();
         if (window.ooHelpTest) window.ooHelpTest();
         return;
@@ -2791,6 +2791,49 @@ window.__ooRefreshHome = refreshHome;
     if (!u || !/^https?:$/.test(u.protocol)) return false; // mailto:, tel:, #/ routes stay as they are
     return u.origin !== location.origin;
   }
+  // ---- Keep the website's own pages inside the app (everything except shop/cart/checkout/account/membership) ----
+  // KILL SWITCH: window.OO_INAPP_LINKS = false in index.html restores the old behaviour (every such link shows the notice).
+  const SITE_HOSTS = new Set(['okobserver.org', 'www.okobserver.org', 'test.okobserver.org']);
+  try { SITE_HOSTS.add(new URL(OO_SITE_ORIGIN).hostname); } catch (_) {}
+  const KEEP_OUT = /^\/(shop|cart|checkout|my-account|product|product-category|product-tag|join|experience|wp-login\.php|wp-admin|wp-json|wp-content|feed)(\/|$)/i;
+  const PAGE_ROUTES = { about: '#/about', index: '#/browse?section=topics', events: '#/events', archive: '#/archive?type=year&label=Archive' };
+  const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const titleCase = (s) => String(s).replace(/-/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase());
+  // Returns a route string, a Promise of one (or null), or null when the link must leave the app.
+  function siteRoute(href) {
+    if (window.OO_INAPP_LINKS === false) return null;
+    const u = hostOf(href);
+    if (!u || !/^https?:$/.test(u.protocol) || !SITE_HOSTS.has(u.hostname)) return null;
+    const path = u.pathname.replace(/\/+$/, '');
+    if (u.search && /(^|[?&])(s|p|page_id|add-to-cart|wc-ajax|wcm_redirect_to)=/.test(u.search)) return null;
+    if (path === '') return '#/';
+    if (KEEP_OUT.test(path)) return null;
+    let m;
+    if ((m = path.match(/^\/author\/([^/]+)$/))) {
+      const want = decodeURIComponent(m[1]).toLowerCase().replace(/-\d+$/, '');
+      return fetchAllAuthors().then((all) => {
+        const a = all.find((x) => slugify(x.name) === want);
+        return a ? '#/archive?type=author&id=' + a.id + '&label=' + encodeURIComponent(a.name) : null;
+      }).catch(() => null);
+    }
+    if ((m = path.match(/^\/category\/(?:.*\/)?([^/]+)$/))) return '#/archive?type=category&slug=' + encodeURIComponent(m[1]) + '&label=' + encodeURIComponent(titleCase(m[1]));
+    if ((m = path.match(/^\/tag\/([^/]+)$/))) return '#/archive?type=tag&slug=' + encodeURIComponent(m[1]) + '&label=' + encodeURIComponent(titleCase(m[1]));
+    if ((m = path.match(/^\/(20\d\d)$/))) return '#/archive?type=year&id=' + m[1] + '&label=' + m[1];
+    if ((m = path.match(/^\/([^/]+)$/))) {
+      const slug = decodeURIComponent(m[1]).toLowerCase();
+      if (PAGE_ROUTES[slug]) return PAGE_ROUTES[slug];
+      return (async () => {
+        const pages = await fetchJson(WP_API_BASE + '/pages?slug=' + encodeURIComponent(slug) + '&_fields=id,title').catch(() => null);
+        if (Array.isArray(pages) && pages.length) {
+          const t = pages[0].title && pages[0].title.rendered ? pages[0].title.rendered.replace(/<[^>]*>/g, '') : slug;
+          return '#/page?slug=' + encodeURIComponent(slug) + '&label=' + encodeURIComponent(t);
+        }
+        const posts = await fetchJson(WP_API_BASE + '/posts?slug=' + encodeURIComponent(slug) + '&_fields=id').catch(() => null);
+        return Array.isArray(posts) && posts.length ? '#/post/' + posts[0].id : null;
+      })();
+    }
+    return null;
+  }
   function close() {
     if (box) { box.remove(); box = null; }
     document.removeEventListener('keydown', onKey, true);
@@ -2843,7 +2886,9 @@ window.__ooRefreshHome = refreshHome;
     const href = a.getAttribute('href');
     if (!isExternal(a.href)) return;
     e.preventDefault(); e.stopPropagation();
-    show({ url: a.href });
+    const r = siteRoute(a.href);
+    if (r === null) { show({ url: a.href }); return; }
+    Promise.resolve(r).then((route) => { if (route) navigateTo(route); else show({ url: a.href }); }, () => show({ url: a.href }));
   }, true);
   document.addEventListener('submit', (e) => {
     const f = e.target;
