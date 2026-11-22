@@ -493,3 +493,16 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
   html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
   html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
 }
+
+/* Latest News cards in light mode: the website phone's solid blue panels (#7eaae8) with navy titles, brown bylines and slate dates */
+@media (max-width:640px){
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card { background:#7eaae8 !important; border-radius:10px !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-content { background:#7eaae8 !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-image-wrapper::after { background:linear-gradient(to bottom,rgba(126,170,232,0) 55%,#7eaae8 100%) !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-title,
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-title a { color:#0b2a6b !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-by { color:#7a4f04 !important; }
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta,
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-sep,
+  html[data-oo-theme~="light"] body #app .oo-sec-latest .post-card-meta .oo-m-date { color:#3b4a66 !important; }
+}
