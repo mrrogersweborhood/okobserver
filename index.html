@@ -63,7 +63,7 @@
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
   <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=7" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=8" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -598,7 +598,7 @@ syncAuthClass();
       if (a.__ofs < minFs) { minFs = a.__ofs; }
     }
     if (ratio >= 1) { restore(links); return true; }
-    if (minFs * ratio < FLOOR) { restore(links); return false; }
+    if (ratio < 0.88 || minFs * ratio < FLOOR) { restore(links); return false; }
     for (i = 0; i < links.length; i++) {
       a = links[i];
       var v = (a.__ofs * ratio).toFixed(2) + 'px';
