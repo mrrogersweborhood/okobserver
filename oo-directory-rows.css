@@ -1,0 +1,48 @@
+/* Directory rows (look at all widths; two-column grid on phones): editorial serif rows in the menu and footer directory. Generated from oo-directory-rows.php. */
+html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { --oo-g: #e9c46a; --oo-t: #fff; --oo-l: rgba(255,255,255,.3); --oo-panel: rgba(7,22,66,.78); }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body[class] .oo-dir { --oo-g: #9a6f1c; --oo-t: #0b2a6b; --oo-l: rgba(11,42,107,.28); --oo-panel: rgba(255,255,255,.80); }
+
+  /* the light translucent panel of the menu / footer stays; only each list of directory buttons gets the darker blue box */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 4px 0 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list { background: var(--oo-panel) !important; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--oo-g) !important; border-radius: 14px !important; padding: 0 8px !important; overflow: hidden !important; box-sizing: border-box !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li:last-child > a { border-bottom-color: transparent !important; }
+
+  /* group titles: aligned gold caps with a gold underline */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-g > h3 { font: 700 11px/1.2 Montserrat, sans-serif !important; letter-spacing: .1em !important; text-transform: uppercase !important; color: var(--oo-g) !important; text-align: left !important; white-space: nowrap !important; padding: 0 0 10px !important; margin: 0 !important; height: 34px !important; min-height: 0 !important; box-sizing: border-box !important; display: flex !important; align-items: flex-end !important; background: none !important; border: 0 !important; border-bottom: 1.5px solid var(--oo-g) !important; border-radius: 0 !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-contact > h3 { text-align: center !important; justify-content: center !important; }
+  @media (max-width: 400px) { html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-g > h3 { letter-spacing: .03em !important; } }
+
+  /* rows: same height in both columns so dividers line up */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list { gap: 0 !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li { height: 58px !important; min-height: 58px !important; max-height: 58px !important; margin: 0 !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a { display: flex !important; align-items: center !important; justify-content: flex-start !important; gap: 0 !important; width: 100% !important; max-width: 100% !important; height: 58px !important; min-height: 58px !important; max-height: 58px !important; box-sizing: border-box !important; padding: 0 !important; margin: 0 !important; background: none !important; border: 0 !important; border-bottom: 1px solid var(--oo-l) !important; border-radius: 0 !important; box-shadow: none !important; color: var(--oo-t) !important; font: 600 15.5px/1.05 "Playfair Display", Georgia, serif !important; letter-spacing: 0 !important; text-transform: none !important; text-align: left !important; white-space: normal !important; overflow: hidden !important; text-decoration: none !important; }
+
+  /* gold diamond marker (replaces any old icon / arrow) */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a::after { content: none !important; display: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a::before { content: "" !important; display: block !important; position: static !important; flex: none !important; width: 5px !important; height: 5px !important; margin: 0 11px 0 2px !important; padding: 0 !important; background: var(--oo-g) !important; -webkit-mask: none !important; mask: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transform: rotate(45deg) !important; opacity: .85 !important; }
+
+  /* gold touch / hover / keyboard state */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:hover,
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:active,
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:focus-visible { color: var(--oo-g) !important; border-bottom-color: var(--oo-g) !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:hover::before,
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:active::before,
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir .oo-dir-list > li > a:focus-visible::before { opacity: 1 !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--oo-g) 25%, transparent) !important; }
+
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-dir .oo-dir-list > li > a { border: 0 !important; border-bottom: 1px solid var(--oo-l) !important; border-radius: 0 !important; box-shadow: none !important; outline: 0 !important; background: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-dir .oo-dir-list > li > a:hover, html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-dir .oo-dir-list > li > a:active, html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-dir .oo-dir-list > li > a:focus-visible { border-bottom-color: var(--oo-g) !important; }
+
+  /* remove the extra gold divider just above "Get the Observer app" */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-app::before { content: none !important; display: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-app { padding-top: 14px !important; }
+
+@media (max-width: 767.98px) {
+  /* always two equal columns (even where the site's own text-size rules would stack them) ... */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir > .oo-dir-a1, html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir > .oo-dir-a2 { grid-column: auto !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir > .oo-dir-a3 { grid-column: 1 / -1 !important; }
+  /* ... unless the script below finds that something no longer fits; then it adds .oo-dir-stack */
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir.oo-dir-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir.oo-dir-stack > .oo-dir-g { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z) body .oo-dir.oo-dir-stack > .oo-dir-g .oo-dir-list { width: 100% !important; }
+}

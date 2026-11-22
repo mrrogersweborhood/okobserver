@@ -62,7 +62,8 @@
     href="override.css?v=2.1.35"
   />
   <link rel="stylesheet" href="oo-site-block.css?v=2.1.6" />
-  <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.67" />
+  <link rel="stylesheet" href="oo-menu-skin.css?v=2.2.69" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=2" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.19">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -539,6 +540,106 @@ syncAuthClass();
   window.addEventListener('resize', fix);
   /* the menu is built a moment after load; pin the button the instant it is added */
   if (window.MutationObserver) { new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true }); }
+})();
+</script>
+<script id="oo-directory-rows-js">
+(function () {
+  var mq = window.matchMedia('(max-width:767.98px)');
+  var busy = false, queued = false;
+  function bad(dir) {
+    var i, a, t, rs, mr, h;
+    var links = dir.querySelectorAll('.oo-dir-a1 .oo-dir-list a, .oo-dir-a2 .oo-dir-list a');
+    for (i = 0; i < links.length; i++) {
+      a = links[i];
+      if (a.scrollHeight > a.clientHeight + 1 || a.scrollWidth > a.clientWidth + 1) { return true; }
+      t = document.createRange(); t.selectNodeContents(a); rs = t.getClientRects();
+      for (mr = 0, h = 0; h < rs.length; h++) { if (rs[h].right > mr) { mr = rs[h].right; } }
+      var lst = a.closest('.oo-dir-list'), lcs = getComputedStyle(lst), gr = lst.getBoundingClientRect().right - parseFloat(lcs.paddingRight) - parseFloat(lcs.borderRightWidth);
+      if (mr > a.getBoundingClientRect().right + 1 || mr > gr - 1.5 || a.getBoundingClientRect().right > gr + 1) { return true; }
+    }
+    var heads = dir.querySelectorAll('.oo-dir-a1 > h3, .oo-dir-a2 > h3');
+    for (i = 0; i < heads.length; i++) { if (heads[i].scrollWidth > heads[i].clientWidth + 1) { return true; } }
+    return false;
+  }
+  /* menu address: match the footer address size (the site script sets both inline, the menu one larger) */
+  function evenAddress() {
+    var fa = document.querySelector('.oof-bar .oo-dir-addr'), ma = document.querySelector('dialog.oo-nm .oo-dir-addr');
+    if (!fa || !ma || !mq.matches) { if (ma && !mq.matches) { ma.style.removeProperty('font-size'); } return; }
+    var v = getComputedStyle(fa).fontSize;
+    if (v && getComputedStyle(ma).fontSize !== v) { ma.style.setProperty('font-size', v, 'important'); }
+  }
+  /* Keep two columns whenever the labels can fit by shrinking a little (never below 13px); the site's text sizer
+     sets font-size inline, so we remember its value per link and only ever apply a uniform scale-down to it. */
+  var FLOOR = 13;
+  function restore(links) {
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i];
+      if (a.__mine !== undefined) {
+        if (a.__orig) { a.style.setProperty('font-size', a.__orig, 'important'); } else { a.style.removeProperty('font-size'); }
+        a.__mine = undefined;
+      }
+    }
+  }
+  function shrink(d) {
+    var links = d.querySelectorAll('.oo-dir-a1 .oo-dir-list a, .oo-dir-a2 .oo-dir-list a'), i, a, cur, fsNow, t, rs, h, l, r, w, avail, ratio = 1, minFs = 1e9;
+    for (i = 0; i < links.length; i++) {
+      a = links[i];
+      cur = a.style.getPropertyValue('font-size');
+      fsNow = parseFloat(getComputedStyle(a).fontSize);
+      if (a.__mine === undefined || cur !== a.__mine) { a.__orig = cur; a.__mine = undefined; a.__ofs = fsNow; }
+      t = document.createRange(); t.selectNodeContents(a); rs = t.getClientRects();
+      for (l = 1e9, r = -1e9, h = 0; h < rs.length; h++) { if (rs[h].left < l) { l = rs[h].left; } if (rs[h].right > r) { r = rs[h].right; } }
+      if (!(r > l)) { continue; }
+      w = (r - l) * a.__ofs / fsNow;
+      var lst = a.closest('.oo-dir-list'), lcs = getComputedStyle(lst);
+      avail = lst.getBoundingClientRect().right - parseFloat(lcs.paddingRight) - parseFloat(lcs.borderRightWidth) - l - 3;
+      if (avail / w < ratio) { ratio = avail / w; }
+      if (a.__ofs < minFs) { minFs = a.__ofs; }
+    }
+    if (ratio >= 1) { restore(links); return true; }
+    if (minFs * ratio < FLOOR) { restore(links); return false; }
+    for (i = 0; i < links.length; i++) {
+      a = links[i];
+      var v = (a.__ofs * ratio).toFixed(2) + 'px';
+      if (a.__mine !== v || a.style.getPropertyValue('font-size') !== v) { a.style.setProperty('font-size', v, 'important'); }
+      a.__mine = a.style.getPropertyValue('font-size');
+    }
+    return true;
+  }
+  function check() {
+    if (busy) { queued = true; return; }
+    busy = true;
+    evenAddress();
+    var dirs = document.querySelectorAll('.oo-dir');
+    for (var i = 0; i < dirs.length; i++) {
+      var d = dirs[i];
+      d.classList.remove('oo-dir-stack');
+      if (!mq.matches) { restore(d.querySelectorAll('.oo-dir-list a')); continue; }
+      if (!d.getBoundingClientRect().height) { continue; }
+      if (!shrink(d) || bad(d)) { d.classList.add('oo-dir-stack'); }
+    }
+    busy = false;
+    if (queued) { queued = false; }
+  }
+  var tick = 0;
+  function soon() { cancelAnimationFrame(tick); tick = requestAnimationFrame(check); }
+  window.addEventListener('resize', soon);
+  window.addEventListener('load', soon);
+  document.addEventListener('DOMContentLoaded', soon);
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(soon); }
+  /* the site's text sizer settles over a second or two, so re-check a few times after any change */
+  function later() { [150, 500, 1000, 2000, 3500].forEach(function (t) { setTimeout(soon, t); }); }
+  new MutationObserver(function () { soon(); later(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-oo-fsz', 'data-oo-theme'] });
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('.oo-fs-btn, .oo-lux-toc-trigger, #oo-xc-theme, .oo-nm-close')) { soon(); later(); }
+  }, true);
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(soon);
+    var mo = new MutationObserver(soon);
+    var wire = function () { document.querySelectorAll('.oo-dir').forEach(function (d) { if (!d.__ooro) { d.__ooro = 1; ro.observe(d); mo.observe(d, { attributes: true, attributeFilter: ['style'], subtree: true }); } }); };
+    document.addEventListener('DOMContentLoaded', wire); window.addEventListener('load', wire);
+    new MutationObserver(wire).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();
 </script>
 </body>
