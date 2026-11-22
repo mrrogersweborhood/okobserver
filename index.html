@@ -21,13 +21,13 @@
   <!-- Where "the website" lives. Menu links and relative links inside posts use this.
        Testing: new staging site. AT LAUNCH change this ONE line to https://okobserver.org -->
   <script>window.OO_SITE_ORIGIN = 'https://test.okobserver.org';</script>
-  <!-- Theme (dark/blue default, light = cream). Runs before first paint so there is no flash. -->
+  <!-- Theme (light default like the website; dark = blue). Runs before first paint so there is no flash. -->
   <script>
     (function () {
       try {
         var t = localStorage.getItem('ooTheme');
-        document.documentElement.setAttribute('data-oo-theme', t === 'light' ? 'light' : 'dark');
-      } catch (e) { document.documentElement.setAttribute('data-oo-theme', 'dark'); }
+        document.documentElement.setAttribute('data-oo-theme', t === 'dark' ? 'dark' : 'light');
+      } catch (e) { document.documentElement.setAttribute('data-oo-theme', 'light'); }
 
       // Phone browser bars (top and bottom) take the header's color, and follow the dark/light toggle.
       // Dark = the Capitol sky under the blue wash (measured from the header); light = cream.
