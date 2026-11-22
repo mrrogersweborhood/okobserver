@@ -16,7 +16,7 @@ html body #app .oott .hc li::before{content:"";position:absolute;left:0;top:.62e
 html body #app .oott .hc li b{color:var(--gl)!important}
 html body #app .oott nav{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 70px;position:sticky;top:calc(var(--wp-admin--admin-bar--height,0px) + 18px);z-index:50;padding:12px 16px;border-radius:26px;background:rgba(9,42,112,.72);box-shadow:0 10px 30px rgba(5,20,60,.28);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 html body #app .oott nav a{font:700 16px "Segoe UI",system-ui,sans-serif;border:2px solid rgba(255,255,255,.5);border-radius:999px;padding:12px 24px;text-decoration:none;background:rgba(9,42,112,.5);color:var(--c)!important;-webkit-text-fill-color:var(--c)}
-html body #app .oott nav a:hover{background:var(--g);border-color:var(--g);color:#092a70!important;-webkit-text-fill-color:#092a70}
+@media (hover:hover){html body #app .oott nav a:hover{background:var(--g);border-color:var(--g);color:#092a70!important;-webkit-text-fill-color:#092a70}}
 html body #app .oott .blk{display:grid;grid-template-columns:minmax(210px,21%) minmax(0,1fr);gap:clamp(28px,4vw,72px);margin:0 0 90px;scroll-margin-top:100px;align-items:start}
 html body #app .oott .hd{position:sticky;top:110px;border-top:1px solid var(--l);padding-top:22px;text-shadow:0 3px 22px rgba(5,20,60,.7)}
 html body #app .oott .num{display:block;font:700 clamp(64px,6.4vw,104px)/.9 "Playfair Display",Georgia,serif;color:var(--g)!important}
@@ -32,7 +32,7 @@ html body #app .oott p{margin:12px 0!important}
 html body #app .oott ul,html body #app .oott ol{margin:12px 0;padding-left:26px}
 html body #app .oott li{margin:8px 0}
 html body #app .oott a{color:var(--gl)!important;-webkit-text-fill-color:var(--gl);text-decoration:underline;text-decoration-color:var(--g);text-underline-offset:4px;text-decoration-thickness:2px}
-html body #app .oott a:hover{color:#fff!important;-webkit-text-fill-color:#fff}
+@media (hover:hover){html body #app .oott a:hover{color:#fff!important;-webkit-text-fill-color:#fff}}
 html body #app .oott .steps{counter-reset:s;list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:22px}
 html body #app .oott .steps li{counter-increment:s;position:relative;margin:0;padding:6px 0 6px 96px;min-height:76px}
 html body #app .oott .steps li::before{content:counter(s);position:absolute;left:0;top:-4px;width:72px;height:72px;border-radius:50%;border:3px solid var(--g);background:rgba(9,42,112,.85);color:var(--g);font:700 40px/66px "Playfair Display",Georgia,serif;text-align:center;text-shadow:none}
@@ -41,7 +41,7 @@ html body #app .oott .steps li:last-child::after{display:none}
 html body #app .oott .pull{font:700 clamp(28px,3vw,46px)/1.2 "Playfair Display",Georgia,serif;border-left:6px solid var(--g);padding:8px 0 8px 26px;color:var(--gl)!important;text-shadow:0 3px 22px rgba(5,20,60,.7)}
 html body #app .oott .caps{font-size:20px;line-height:1.65;text-transform:uppercase;letter-spacing:.015em}
 html body #app .oott a.cta{display:inline-block;background:linear-gradient(180deg,#ffe8a0,#e9b94c);color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-decoration:none!important;font:700 19px "Segoe UI",system-ui,sans-serif;padding:17px 32px;border-radius:999px;margin:10px 10px 0 0;box-shadow:0 10px 24px -12px rgba(0,0,0,.6)}
-html body #app .oott a.cta:hover{background:#fff}
+@media (hover:hover){html body #app .oott a.cta:hover{background:#fff}}
 html body #app .oott a.cta.alt{background:transparent;color:var(--gl)!important;-webkit-text-fill-color:var(--gl)!important;border:2px solid var(--g);box-shadow:none}
 html body #app .oott .q{display:inline-block;background:#ffd6d6;color:#7a1c1c!important;-webkit-text-fill-color:#7a1c1c!important;font:700 14px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-radius:6px;vertical-align:3px;margin-left:8px}
 html body #app .oott .review{border:2px dashed #ffd6d6;border-radius:14px;padding:22px 28px;background:rgba(122,28,28,.45)}
@@ -78,7 +78,7 @@ html[data-oo-theme~="light"] body #app .oott .pull{color:#7a4e00!important;-webk
 html[data-oo-theme~="light"] body #app .oott nav{background:rgba(255,255,255,.92)!important;box-shadow:0 10px 30px rgba(9,42,112,.16)!important}
 html[data-oo-theme~="light"] body #app .oott nav a{background:rgba(255,255,255,.95)!important;border-color:#092a70!important}
 html[data-oo-theme~="light"] body #app .oott nav a{color:#092a70!important;-webkit-text-fill-color:#092a70!important;text-shadow:none!important}
-html[data-oo-theme~="light"] body #app .oott nav a:hover{background:#ffe5a2!important}
+@media (hover:hover){html[data-oo-theme~="light"] body #app .oott nav a:hover{background:#ffe5a2!important}}
 html[data-oo-theme~="light"] body #app .oott .steps li::before{background:#fff!important;color:#092a70!important;-webkit-text-fill-color:#092a70!important}
 @media(max-width:760px){html body #app .oott nav{display:grid!important;grid-template-columns:repeat(3,1fr);overflow:visible!important;gap:6px!important;padding:6px 8px!important;margin:6px 0 36px!important;border-radius:18px!important;top:calc(var(--wp-admin--admin-bar--height,0px) + 8px)!important;background:rgba(9,42,112,.96)!important;scrollbar-width:none;-webkit-overflow-scrolling:touch}html body #app .oott nav::-webkit-scrollbar{display:none}html body #app .oott nav a{font-size:12.5px!important;padding:6px 4px!important;border-width:1.5px!important;white-space:nowrap;text-align:center}html[data-oo-theme~="light"] body #app .oott nav{background:rgba(255,255,255,.97)!important}}
 html body #app .oott .card,html body #app .oott .card *,html body #app .oott .hc,html body #app .oott .hc *,html body #app .oott .bd,html body #app .oott .steps li{overflow-wrap:anywhere;word-break:normal;min-width:0}

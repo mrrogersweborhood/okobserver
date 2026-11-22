@@ -10,7 +10,7 @@ html body #app .ooc h1.ooc-h em{display:inline;color:var(--g)!important;font-sty
 html body #app .ooc .ooc-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px 34px}
 html body #app .ooc p.ooc-deck{max-width:34em;margin:0;color:var(--c)!important;font:400 clamp(16px,1.35vw,21px)/1.45 Georgia,"Times New Roman",serif;text-shadow:0 1px 14px rgba(5,20,60,.4)}
 html body #app .ooc a.ooc-btn{display:inline-flex;align-items:center;min-height:48px;padding:0 28px;border-radius:999px;background:linear-gradient(#f6d27a,#e9b94c);color:#13294f!important;font:700 14px/1 "Open Sans",Arial,sans-serif;letter-spacing:.07em;text-decoration:none;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
-html body #app .ooc a.ooc-btn:hover,html body #app .ooc a.ooc-btn:focus-visible{background:linear-gradient(#ffe29a,#f0c25a);outline:3px solid var(--gl);outline-offset:3px}
+html body #app .ooc a.ooc-btn:focus-visible{background:linear-gradient(#ffe29a,#f0c25a);outline:3px solid var(--gl);outline-offset:3px}@media (hover:hover){html body #app .ooc a.ooc-btn:hover{background:linear-gradient(#ffe29a,#f0c25a);outline:3px solid var(--gl);outline-offset:3px}}
 html body #app .ooc .ooc-events{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(14px,1.6vw,24px);margin:0 0 clamp(30px,3.4vw,52px)}
 html body #app .ooc .ooc-ev{display:flex;gap:clamp(16px,2vw,30px);padding:clamp(18px,2vw,32px);background:linear-gradient(160deg,rgba(14,44,110,.84),rgba(9,30,80,.76));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:3px solid var(--g);border-radius:0 clamp(28px,3vw,60px) 0 0;box-shadow:0 26px 60px -30px rgba(3,14,45,.85);color:var(--c)}
 html body #app .ooc .ooc-ev--first{grid-column:1/-1}
@@ -27,7 +27,7 @@ html body #app .ooc .ooc-ev--first h3.ooc-t{font-size:clamp(28px,3vw,46px)}
 html body #app .ooc p.ooc-loc{margin:0 0 12px;color:var(--c)!important;font:600 14px/1.45 "Open Sans",Arial,sans-serif;opacity:.92}
 html body #app .ooc p.ooc-desc{max-width:46em;margin:0 0 16px;color:var(--c)!important;font:400 clamp(16px,1.1vw,18px)/1.55 Georgia,"Times New Roman",serif}
 html body #app .ooc a.ooc-more{display:inline-block;padding-bottom:4px;border-bottom:2px solid var(--g);color:var(--g)!important;font:700 12px/1 "Open Sans",Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;text-decoration:none}
-html body #app .ooc a.ooc-more:hover,html body #app .ooc a.ooc-more:focus-visible{color:#fff!important;border-color:#fff}
+html body #app .ooc a.ooc-more:focus-visible{color:#fff!important;border-color:#fff}@media (hover:hover){html body #app .ooc a.ooc-more:hover{color:#fff!important;border-color:#fff}}
 html body #app .ooc p.ooc-empty{margin:0 0 40px;color:var(--c)!important;font-style:italic}
 html body #app .ooc .ooc-sheet{padding:clamp(14px,1.6vw,26px) clamp(14px,2vw,34px);background:rgba(255,255,255,.94);border-top:4px solid var(--g);border-radius:0 clamp(40px,5vw,96px) 0 0;box-shadow:0 30px 70px -34px rgba(8,30,80,.65)}
 html body #app .ooc iframe{display:block;width:100%;max-width:100%;height:640px;border:0;border-radius:6px;background:#fff}
@@ -39,7 +39,7 @@ html body #app .ooc p.ooc-note2{margin:-24px 0 36px;color:var(--gl)!important;fo
 html body #app .ooc a.ooc-fly{flex:0 0 auto;align-self:flex-start;display:block;width:clamp(120px,11vw,170px);border:3px solid var(--g);border-radius:0 16px 0 0;overflow:hidden;background:#fff;box-shadow:0 18px 40px -18px rgba(0,0,0,.75)}
 html body #app .ooc .ooc-ev--first a.ooc-fly{width:clamp(280px,32vw,500px)}
 html body #app .ooc a.ooc-fly img{display:block;width:100%;height:auto}
-html body #app .ooc a.ooc-fly:hover,html body #app .ooc a.ooc-fly:focus-visible{outline:3px solid var(--gl);outline-offset:3px}
+html body #app .ooc a.ooc-fly:focus-visible{outline:3px solid var(--gl);outline-offset:3px}@media (hover:hover){html body #app .ooc a.ooc-fly:hover{outline:3px solid var(--gl);outline-offset:3px}}
 @media (max-width:900px){html body #app .ooc .ooc-ev{flex-wrap:wrap}html body #app .ooc .ooc-body{flex:1 1 220px}html body #app .ooc a.ooc-fly,html body #app .ooc .ooc-ev--first a.ooc-fly{width:min(100%,300px)}}
 html body #app .ooc div.ooc-desc{max-width:46em;margin:0 0 16px}
 html body #app .ooc div.ooc-desc p{margin:0 0 .65em;color:var(--c)!important;font:400 clamp(16px,1.1vw,18px)/1.55 Georgia,"Times New Roman",serif}
@@ -51,10 +51,10 @@ html body #app .ooc details.ooc-add summary{display:inline-flex;align-items:cent
 html body #app .ooc details.ooc-add summary::-webkit-details-marker{display:none}
 html body #app .ooc details.ooc-add summary:after{content:"+";font-size:18px;line-height:1}
 html body #app .ooc details.ooc-add[open] summary:after{content:"-"}
-html body #app .ooc details.ooc-add summary:hover,html body #app .ooc details.ooc-add summary:focus-visible{background:rgba(233,185,76,.16);outline:3px solid var(--gl);outline-offset:3px}
+html body #app .ooc details.ooc-add summary:focus-visible{background:rgba(233,185,76,.16);outline:3px solid var(--gl);outline-offset:3px}@media (hover:hover){html body #app .ooc details.ooc-add summary:hover{background:rgba(233,185,76,.16);outline:3px solid var(--gl);outline-offset:3px}}
 html body #app .ooc .ooc-addm{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:12px}
 html body #app .ooc .ooc-addm a{display:inline-flex;align-items:center;min-height:40px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,229,162,.45);color:#fff!important;font:600 13px/1 "Open Sans",Arial,sans-serif;text-decoration:none}
-html body #app .ooc .ooc-addm a:hover,html body #app .ooc .ooc-addm a:focus-visible{background:var(--g);color:#13294f!important;outline:none}
+html body #app .ooc .ooc-addm a:focus-visible{background:var(--g);color:#13294f!important;outline:none}@media (hover:hover){html body #app .ooc .ooc-addm a:hover{background:var(--g);color:#13294f!important;outline:none}}
 html:not([data-oo-theme="dark"]) body #app .ooc h1.ooc-h{color:#143571!important;text-shadow:none}
 html:not([data-oo-theme="dark"]) body #app .ooc h1.ooc-h em{color:#8a5a07!important}
 html:not([data-oo-theme="dark"]) body #app .ooc p.ooc-deck{color:#1c2f55!important;text-shadow:none}
@@ -72,21 +72,21 @@ html:not([data-oo-theme="dark"]) body #app .ooc h3.ooc-mh{color:#8a5a07!importan
 html:not([data-oo-theme="dark"]) body #app .ooc h3.ooc-mh:after{background:rgba(20,53,113,.25)}
 html:not([data-oo-theme="dark"]) body #app .ooc p.ooc-empty,html:not([data-oo-theme="dark"]) body #app .ooc p.ooc-note2{color:#1c2f55!important}
 html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add summary{border-color:#b8860b;color:#8a5a07!important}
-html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add summary:hover,html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add summary:focus-visible{background:rgba(184,134,11,.12)}
+html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add summary:focus-visible{background:rgba(184,134,11,.12)}@media (hover:hover){html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add summary:hover{background:rgba(184,134,11,.12)}}
 html:not([data-oo-theme="dark"]) body #app .ooc .ooc-addm a{background:rgba(20,53,113,.06);border-color:rgba(20,53,113,.28);color:#143571!important}
-html:not([data-oo-theme="dark"]) body #app .ooc .ooc-addm a:hover,html:not([data-oo-theme="dark"]) body #app .ooc .ooc-addm a:focus-visible{background:#e9b94c;color:#13294f!important}
+html:not([data-oo-theme="dark"]) body #app .ooc .ooc-addm a:focus-visible{background:#e9b94c;color:#13294f!important}@media (hover:hover){html:not([data-oo-theme="dark"]) body #app .ooc .ooc-addm a:hover{background:#e9b94c;color:#13294f!important}}
 @media (max-width:700px){html body #app .ooc .ooc-sheet{padding:8px 6px;overflow:hidden}html body #app .ooc .ooc-sheet iframe{width:114%!important;max-width:none!important;height:600px;transform:scale(.877);transform-origin:0 0;margin-bottom:-74px}}
 html body #app .ooc .ooc-monthhead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin:0 0 14px}
 html body #app .ooc .ooc-monthhead h2.ooc-lbl{margin:0}
 html body #app .ooc details.ooc-add--solid{margin:0}
 html body #app .ooc details.ooc-add--solid summary{background:linear-gradient(#f6d27a,#e9b94c);border-color:#e9b94c;color:#13294f!important;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
-html body #app .ooc details.ooc-add--solid summary:hover,html body #app .ooc details.ooc-add--solid summary:focus-visible{background:linear-gradient(#ffe29a,#f0c25a)}
+html body #app .ooc details.ooc-add--solid summary:focus-visible{background:linear-gradient(#ffe29a,#f0c25a)}@media (hover:hover){html body #app .ooc details.ooc-add--solid summary:hover{background:linear-gradient(#ffe29a,#f0c25a)}}
 html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid summary{background:linear-gradient(#f6d27a,#e9b94c);border-color:#e9b94c;color:#13294f!important}
-html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid summary:hover,html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid summary:focus-visible{background:linear-gradient(#ffe29a,#f0c25a)}
+html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid summary:focus-visible{background:linear-gradient(#ffe29a,#f0c25a)}@media (hover:hover){html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid summary:hover{background:linear-gradient(#ffe29a,#f0c25a)}}
 html body #app .ooc details.ooc-add--solid .ooc-addm{flex-direction:column;align-items:stretch;min-width:100%}
 @media (max-width:700px){html body #app .ooc details.ooc-add--solid{width:100%}html body #app .ooc details.ooc-add--solid summary{width:100%;justify-content:center}}
 html body #app .ooc details.ooc-add--solid .ooc-addm a,html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid .ooc-addm a{background:rgba(10,36,92,.94);border:1px solid #e9b94c;color:#fff!important;box-shadow:0 8px 20px -10px rgba(0,0,0,.6)}
-html body #app .ooc details.ooc-add--solid .ooc-addm a:hover,html body #app .ooc details.ooc-add--solid .ooc-addm a:focus-visible,html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid .ooc-addm a:hover,html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid .ooc-addm a:focus-visible{background:#e9b94c;color:#13294f!important}
+html body #app .ooc details.ooc-add--solid .ooc-addm a:focus-visible, html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid .ooc-addm a:focus-visible{background:#e9b94c;color:#13294f!important}@media (hover:hover){html body #app .ooc details.ooc-add--solid .ooc-addm a:hover, html:not([data-oo-theme="dark"]) body #app .ooc details.ooc-add--solid .ooc-addm a:hover{background:#e9b94c;color:#13294f!important}}
 @media (max-width:767px){html body .ooc-intro{padding-left:max(16px,env(safe-area-inset-left,0px))!important}}
 html:not([data-oo-theme=light]) body .ooc table.cart td.product-name a{
   color:var(--oo-gold-dk)!important;text-decoration:underline;text-decoration-color:rgba(255,229,162,.55);text-decoration-thickness:1px;text-underline-offset:3px}
