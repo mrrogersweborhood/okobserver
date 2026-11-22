@@ -493,3 +493,7 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
   html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
   html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
 }
+
+/* Light mode: "Join the mailing list" matches the Subscribe pill (navy text + outline, no white text) */
+html[data-oo-theme~="light"] body footer.oof a.oof-btn--p { color:#0b2a6b !important; -webkit-text-fill-color:#0b2a6b !important; background:linear-gradient(#ffffff 0%,#e1ecff 100%) !important; border:2px solid #0b2a6b !important; box-shadow:0 8px 18px rgba(11,42,107,.18) !important; text-shadow:none !important; }
+html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b !important; color:#fff !important; }
