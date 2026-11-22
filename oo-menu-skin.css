@@ -542,3 +542,36 @@ html body .oo-pn-arrows > .oo-pn-a { position: relative !important; background: 
 
 /* menu buttons (Home, Log Out, Search, text size, reading voice, Close) take the directory panel's blue in dark mode */
 html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm :is(a.oo-nm-util, button.oo-nm-util, .oo-nm-search button, .oo-nm-close):not(.oo-theme-pill) { background: rgba(7, 22, 66, .78) !important; }
+
+/* ===== Phone parity with the mobile website's menu: button colors, sizes and the contact block (values measured on test.okobserver.org) ===== */
+@media (max-width: 767.98px) {
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-bar { padding: 10px 0 4px !important; background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 24px !important; max-width: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-close { font-size: 15.6px !important; letter-spacing: .312px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search input { height: 56px !important; box-sizing: border-box !important; padding: 0 19.2px !important; font-size: 17.6px !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { font-size: 15.2px !important; letter-spacing: .304px !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-vp-btn { font-size: 15.2px !important; letter-spacing: normal !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-theme-pill { font-size: 13.26px !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-fs-btn { box-shadow: none !important; }
+
+  /* blue (dark) mode */
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search input { background: rgba(255, 255, 255, .95) !important; border: 1.2px solid rgba(255, 217, 138, .8) !important; box-shadow: 0 8px 20px rgba(4, 22, 64, .28) !important; font-weight: 400 !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search button { color: #fff !important; background: rgba(7, 22, 66, .78) !important; background-image: none !important; border: 1.2px solid rgba(255, 255, 255, .35) !important; box-shadow: 0 8px 20px rgba(4, 22, 64, .28) !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { border-color: rgba(255, 255, 255, .55) !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-fs-btn, html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-vp-btn { border-color: rgba(255, 255, 255, .35) !important; }
+
+  /* light mode */
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search input { background: rgba(255, 255, 255, .97) !important; border: 2px solid #0b2a6b !important; box-shadow: none !important; font-weight: 700 !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search button { color: #0b2a6b !important; background: #fff !important; background-image: none !important; border: 2px solid #0b2a6b !important; box-shadow: none !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { background: #fff !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-fs-btn, html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-vp-btn { background: rgba(255, 255, 255, .97) !important; }
+
+  /* Contact Us: large gold serif link with a soft glow, like the website */
+  html:not(#z):not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { display: block !important; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important; font: 700 23.2px/1.3 Georgia, serif !important; letter-spacing: .12em !important; text-transform: none !important; }
+  html[data-oo-fsz="1.15"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 26.68px !important; }
+  html[data-oo-fsz="1.3"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 30.16px !important; }
+  html[data-oo-fsz="1.5"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 34.8px !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { color: #ffd98a !important; }
+  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body .oo-dir-contact :is(h3, h3 a, .oo-dir-addr) { text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 0 8px rgba(0, 0, 0, .6) !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { color: #b98a2e !important; }
+  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact :is(h3, h3 a, .oo-dir-addr) { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
+}
