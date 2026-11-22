@@ -4569,11 +4569,11 @@ async function logoutUser() {
 
     app.innerHTML = `
       <div class="login-view">
-        <h1 class="login-title">Member Login</h1>
+        <h1 class="login-title">Sign in to <em>Your Observer.</em></h1>
 
         <form class="login-form" novalidate>
           <label class="login-label">
-            <span class="login-label-text">Email or Username</span>
+            <span class="login-label-text">Username or Email Address</span>
             <input class="login-input" type="text" name="username" required />
           </label>
 
@@ -4585,10 +4585,11 @@ async function logoutUser() {
 </div>
           </label>
 
-          <button class="login-submit" type="submit">Sign In</button>
+          <button class="login-submit" type="submit">Log In</button>
 
           <div class="login-error" aria-live="polite"></div>
         </form>
+        <p class="login-links"><a href="/wp-login.php?action=lostpassword" data-oo-site="/wp-login.php?action=lostpassword" target="_blank" rel="noopener">Lost your password?</a><a href="#/">&larr; Go to The Oklahoma Observer</a></p>
       </div>
     `;
 
