@@ -17,7 +17,7 @@
 // WHICH WEBSITE THE APP READS (the ONE place to change it):
 //   TESTING (app not public yet): the new staging site.
 //   AT LAUNCH: change to "https://okobserver.org" and redeploy this Worker.
-const ORIGIN = "https://okobserverstaging.tempurl.host";
+const ORIGIN = "https://test.okobserver.org";
 const API_ALLOW = ["/wp-json/", "/content/full-post", "/content/author-posts"]; // allow WP API + full-post helper + author-posts helper
 
 
