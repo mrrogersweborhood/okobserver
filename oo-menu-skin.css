@@ -618,3 +618,14 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a { min-width: 0 !important; min-height: 0 !important; flex: 0 0 36.8px !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { padding: 0 !important; }
 }
+
+/* Listen button and playback bar: blues and whites by mode (not gold), matching the read-aloud highlight. */
+@media (max-width:640px){
+  html:not([data-oo-theme~="light"]) body #app .post-detail-tts-row .tts-button{ background:#fff!important; border:2px solid #1f4fb0!important; }
+  html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button{ background:#1f4fb0!important; border:2px solid #fff!important; }
+  html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button::before{ width:34px; height:34px; background-color:#fff; background-size:74%; border-radius:50%; }
+}
+html:not([data-oo-theme~="light"]) body #app .post-detail-tts-row .tts-button::after{ background:#fff!important; }
+html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button::after{ background:#1f4fb0!important; }
+html:not([data-oo-theme~="light"]) body #app .oo-listen-box .oo-lb-pp{ background:#fff!important; color:#0b3d91!important; }
+html[data-oo-theme~="light"] body #app .oo-listen-box .oo-lb-pp{ background:#1f4fb0!important; color:#fff!important; }
