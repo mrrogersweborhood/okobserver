@@ -676,3 +676,10 @@ html[data-oo-theme~="light"] .oo-hl-fill i{background:rgba(150,188,250,.75)}
 html:not([data-oo-theme~="light"]) .oo-hl-sent i{background:rgba(110,165,255,.24)}
 html:not([data-oo-theme~="light"]) .oo-hl-fill i{background:rgba(70,130,235,.78)}
 }
+
+/* Home page: every section title has the same gap to its content. Featured Columnists had an extra 22px of
+   grid padding (42px gap) and the Shop picture sat 2px closer (20px) than the rest (22px). */
+@media (max-width:1023px){
+  html body #app .oo-people .oo-people-grid { padding-top: 2px !important; }
+  html body #app .oo-sec-shop .oo-shop { margin-top: 2px !important; }
+}
