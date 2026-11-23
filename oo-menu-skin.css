@@ -664,10 +664,10 @@ html[data-oo-theme~="light"] .oo-hl-fill i{background:#1f4fb0}
 html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:oo-speak-ring 1.4s ease-out infinite, oo-speak-icon 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce){ html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:none; } }
 
-/* Read-aloud highlight keeps the text colour (white in dark mode, navy in light mode); only the pill behind it changes. */
+/* Read-aloud highlight keeps the text colour; only the pill behind it changes (navy in dark mode, light blue in light mode). */
 ::highlight(oo-read){background-color:transparent;color:inherit}
 html[data-oo-theme~="light"] ::highlight(oo-read){background-color:transparent;color:inherit}
 .oo-hl-sent i{background:rgba(6,26,76,.30)}
 .oo-hl-fill i{background:rgba(6,26,76,.72)}
-html[data-oo-theme~="light"] .oo-hl-sent i{background:rgba(233,185,76,.30)}
-html[data-oo-theme~="light"] .oo-hl-fill i{background:rgba(243,207,99,.92)}
+html[data-oo-theme~="light"] .oo-hl-sent i{background:rgba(31,79,176,.12)}
+html[data-oo-theme~="light"] .oo-hl-fill i{background:rgba(150,188,250,.75)}
