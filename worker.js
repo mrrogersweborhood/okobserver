@@ -725,7 +725,7 @@ async function handleAuthorLookup(request, url) {
     const resp = await fetch(ORIGIN + "/author/" + slug + "/", { headers: { "Accept": "text/html", "User-Agent": "Mozilla/5.0 (compatible; OkObserverApp)" }, redirect: "follow" });
     if (!resp.ok) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
     const html = await resp.text();
-    const idm = html.match(/<body[^>]*class="[^"]*author-(d+)/);
+    const idm = html.match(/<body[^>]*class="[^"]*\bauthor-(\d+)\b/);
     const tm = html.match(/<title>([^<|]*)/);
     if (!idm) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
     const name = (tm ? tm[1] : slug).replace(/&amp;/g, "&").replace(/&#8217;|&rsquo;/g, "’").trim();
