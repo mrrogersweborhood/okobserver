@@ -121,3 +121,8 @@ html body #app .ooh h2{font-size:clamp(32px,3.1vw,48px)!important}
 html body #app .ooh li::first-line{font-weight:400;letter-spacing:0}
 html body #app .ooh .ooh-kick{letter-spacing:.2em;font-size:11.5px;gap:10px}
 html body #app .ooh .ooh-kick::after{width:36px;flex:none}
+/* v2.2.23: phone demos get a comfortable reading measure beside the phone */
+@media(min-width:900px){
+html body #app .ooh[data-dev=m] ol,html body #app .ooh[data-dev=m] h2{max-width:34em}
+html body #app .ooh[data-dev=m] video{height:min(76vh,660px)}
+}
