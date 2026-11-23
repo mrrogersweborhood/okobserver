@@ -4777,13 +4777,14 @@ async function logoutUser() {
     const errorBox = app.querySelector(".login-error");
     // Cloudflare Turnstile (same site key as the website login); the Worker verifies the token.
     let tsWidget = null;
+    let tsFailed = false;
     const tsBox = app.querySelector(".login-ts");
     (function setupTurnstile() {
       if (!tsBox) return;
       const draw = () => {
         try {
           if (!window.turnstile || !tsBox.isConnected) return;
-          tsWidget = window.turnstile.render(tsBox, { sitekey: "0x4AAAAAAF4CKtfqrKHm416M", theme: "auto", appearance: "interaction-only" });
+          tsWidget = window.turnstile.render(tsBox, { sitekey: "0x4AAAAAAF4CKtfqrKHm416M", theme: "auto", appearance: "interaction-only", "error-callback": () => { tsFailed = true; return true; } });
         } catch (_) {}
       };
       if (window.turnstile) { draw(); return; }
@@ -4833,7 +4834,7 @@ if (pwInput && pwToggle) {
         try {
           if (window.turnstile && tsWidget !== null) {
             // the check usually solves itself in the background; give it a few seconds if it has not finished
-            for (let w = 0; w < 24 && !tsToken; w++) {
+            for (let w = 0; w < 24 && !tsToken && !tsFailed; w++) {
               tsToken = window.turnstile.getResponse(tsWidget) || "";
               if (!tsToken) { if (w === 2) errorBox.textContent = "Checking that you're a person…"; await new Promise((r) => setTimeout(r, 250)); }
             }
