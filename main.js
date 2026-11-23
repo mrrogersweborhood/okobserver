@@ -805,6 +805,33 @@ function extractHeroLinkFromContent(post) {
     for (let k = 0; k < map.length; k += 2) map.flat += map[k].nodeValue.charAt(map[k + 1]);
     return map;
   }
+  // Rounded highlight shapes drawn behind the text (the built-in highlight can only draw square boxes).
+  function __okobsDraw(name, range) {
+    const c = __okobsHlRoot; if (!c) return;
+    let layer = c.querySelector(':scope > .oo-hl-layer');
+    if (!layer) {
+      layer = document.createElement('span');
+      layer.className = 'oo-hl-layer';
+      layer.setAttribute('aria-hidden', 'true');
+      layer.innerHTML = '<span class="oo-hl-sent"></span><span class="oo-hl-fill"></span>';
+      c.insertBefore(layer, c.firstChild);
+      if (getComputedStyle(c).position === 'static') c.style.position = 'relative';
+      c.style.isolation = 'isolate';
+    }
+    const g = layer.querySelector(name === 'sent' ? '.oo-hl-sent' : '.oo-hl-fill'); if (!g) return;
+    const cr = c.getBoundingClientRect();
+    const raw = Array.from(range.getClientRects()).filter((r) => r.width > 0.5 && r.height > 0)
+      .map((r) => ({ l: r.left - cr.left, r: r.right - cr.left, t: r.top - cr.top, b: r.bottom - cr.top }))
+      .sort((x, y) => x.t - y.t || x.l - y.l);
+    const lines = [];
+    raw.forEach((r) => {
+      const last = lines[lines.length - 1];
+      if (last && Math.abs(r.t - last.t) < (last.b - last.t) * 0.6) { last.l = Math.min(last.l, r.l); last.r = Math.max(last.r, r.r); last.t = Math.min(last.t, r.t); last.b = Math.max(last.b, r.b); }
+      else lines.push({ l: r.l, r: r.r, t: r.t, b: r.b });
+    });
+    g.innerHTML = lines.map((r) => '<i style="left:' + (r.l - 3).toFixed(1) + 'px;top:' + (r.t - 1).toFixed(1) + 'px;width:' + (r.r - r.l + 6).toFixed(1) + 'px;height:' + (r.b - r.t + 2).toFixed(1) + 'px"></i>').join('');
+  }
+  function __okobsDrawClear() { document.querySelectorAll('.oo-hl-layer').forEach((n) => n.remove()); }
   let __okobsRoll = null, __okobsRollRaf = 0;
   function __okobsRollTick() {
     __okobsRollRaf = 0;
@@ -818,6 +845,7 @@ function extractHeroLinkFromContent(post) {
         r.setStart(m[R.i0 * 2], m[R.i0 * 2 + 1]);
         r.setEnd(m[cur * 2], m[cur * 2 + 1] + 1);
         CSS.highlights.set('oo-read', new Highlight(r));
+        __okobsDraw('fill', r);
       } catch (e) {}
     }
     __okobsRollRaf = requestAnimationFrame(__okobsRollTick);
@@ -825,6 +853,7 @@ function extractHeroLinkFromContent(post) {
   function __okobsHlClear() {
     __okobsHlLastA = -1; __okobsHlLastE = -1; __okobsRoll = null;
     if (__okobsRollRaf) { cancelAnimationFrame(__okobsRollRaf); __okobsRollRaf = 0; }
+    __okobsDrawClear();
     try { if (window.CSS && CSS.highlights) { CSS.highlights.delete('oo-read'); CSS.highlights.delete('oo-read-sent'); } } catch (e) {}
   }
   window.__okobsTtsRange = function(start, end) {
@@ -863,6 +892,7 @@ function extractHeroLinkFromContent(post) {
         rs.setStart(m[i0 * 2], m[i0 * 2 + 1]);
         rs.setEnd(m[i1 * 2], m[i1 * 2 + 1] + 1);
         CSS.highlights.set('oo-read-sent', new Highlight(rs));
+        __okobsDraw('sent', rs);
         const rc = rs.getBoundingClientRect(), vh = window.innerHeight;
         if (rc.height && (rc.bottom > vh * 0.85 || rc.top < vh * 0.15)) {
           window.scrollTo({ top: Math.max(0, window.scrollY + rc.top - vh * 0.35), behavior: 'smooth' });

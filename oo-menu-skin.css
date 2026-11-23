@@ -646,3 +646,16 @@ html body #app .post-detail-tts-row .tts-button.oo-speaking{ font-size:26px; }
 /* Read-aloud: soft tint over the sentence being read; the solid highlight slides through it letter by letter. */
 ::highlight(oo-read-sent){background-color:rgba(255,255,255,.2);color:inherit}
 html[data-oo-theme~="light"] ::highlight(oo-read-sent){background-color:rgba(31,79,176,.16);color:inherit}
+
+/* Rounded read-aloud highlight: shapes are drawn behind the text; the built-in highlight only recolours the text. */
+::highlight(oo-read){background-color:transparent;color:#0b2a6b}
+html[data-oo-theme~="light"] ::highlight(oo-read){background-color:transparent;color:#fff}
+::highlight(oo-read-sent){background-color:transparent}
+html[data-oo-theme~="light"] ::highlight(oo-read-sent){background-color:transparent}
+.oo-hl-layer{position:absolute;left:0;top:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:block}
+.oo-hl-layer span,.oo-hl-layer i{display:block}
+.oo-hl-layer i{position:absolute;border-radius:8px}
+.oo-hl-sent i{background:rgba(255,255,255,.2)}
+.oo-hl-fill i{background:rgba(255,255,255,.94)}
+html[data-oo-theme~="light"] .oo-hl-sent i{background:rgba(31,79,176,.16)}
+html[data-oo-theme~="light"] .oo-hl-fill i{background:#1f4fb0}
