@@ -1567,7 +1567,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
         const u = byName.get(nm);
         if (u) { a.href = `#/archive?type=author&id=${u.id}&label=${encodeURIComponent(u.name)}`; a.removeAttribute('target'); a.removeAttribute('rel'); return; }
         // Not in the recent-posts list: look the author up by the slug in their website link
-        const sm = String(a.getAttribute('href') || '').match(//author/([^/?#]+)/);
+        const sm = String(a.getAttribute('href') || '').match(/\/author\/([^/?#]+)/);
         if (!sm) return;
         const slug = decodeURIComponent(sm[1]).toLowerCase();
         fetchJson(WORKER_BASE + '/content/author-lookup?slug=' + encodeURIComponent(slug)).then((r) => {
