@@ -127,3 +127,6 @@ html body #app .ooh[data-dev=m] ol,html body #app .ooh[data-dev=m] h2{max-width:
 html body #app .ooh[data-dev=m] video{height:min(76vh,660px)}
 }
 html body #app .ooh li{hyphens:manual!important}
+
+/* v2.2.25: the App topic (live demo) is for the website Help page only; hidden inside the app itself */
+html body #app .ooh #ooh-t-app,html body #app .ooh #ooh-p-app{display:none!important}
