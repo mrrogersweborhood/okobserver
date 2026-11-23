@@ -813,7 +813,8 @@ function extractHeroLinkFromContent(post) {
       const full = __okobsTtsActiveText || '';
       if (!container || !full) return;
       if (!__okobsHlMap || __okobsHlRoot !== container) { __okobsHlMap = __okobsHlBuild(container); __okobsHlRoot = container; }
-      const a = Math.max(0, start + (__okobsTtsBase || 0));
+      let a = Math.max(0, start + (__okobsTtsBase || 0));
+      while (a > 0 && /S/.test(full.charAt(a - 1))) a--; // snap back to the start of the word
       let e = (typeof end === 'number' && end > start) ? end + (__okobsTtsBase || 0) : a + 1;
       const nws = (txt) => txt.replace(/\s+/g, '').length;
       const i0 = nws(full.slice(0, a));
