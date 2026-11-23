@@ -2843,7 +2843,7 @@ window.__ooRefreshHome = refreshHome;
     if (!p) return;
     if (p.form) { try { p.form.submit(); } catch (_) {} return; }
     const a = document.createElement('a');
-    a.href = p.url; a.target = '_blank'; a.rel = 'noopener';
+    a.href = p.url; a.target = '_blank'; a.rel = 'noopener'; a.setAttribute('data-oo-go', '1');
     document.body.appendChild(a); a.click(); a.remove();
   }
   function onKey(e) {
@@ -2880,7 +2880,7 @@ window.__ooRefreshHome = refreshHome;
   }
   document.addEventListener('click', (e) => {
     const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
-    if (!a || box) return;
+    if (!a || box || a.hasAttribute('data-oo-go')) return;
     const href = a.getAttribute('href');
     if (!isExternal(a.href)) return;
     e.preventDefault(); e.stopPropagation();
