@@ -1453,3 +1453,7 @@ html[data-oo-theme="light"] .oo-post-head .oo-pn-a::before{width:14px;height:14p
 /* Swiping a card row must never pan the whole page sideways: lock the page to its width */
 html { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100%; }
 body { overflow-x: clip; overscroll-behavior-x: none; max-width: 100%; }
+
+/* Wide screens (tablet/laptop): the menu's Search label and reading-voice icon were unstyled outside the phone rules. */
+html:not([data-oo-theme~="light"]) body dialog.oo-nm .oo-nm-search button { color: #fff !important; }
+html body dialog.oo-nm .oo-vp-btn svg { width: 24px; height: 24px; flex: 0 0 auto; }
