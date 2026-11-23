@@ -629,3 +629,8 @@ html:not([data-oo-theme~="light"]) body #app .post-detail-tts-row .tts-button::a
 html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button::after{ background:#1f4fb0!important; }
 html:not([data-oo-theme~="light"]) body #app .oo-listen-box .oo-lb-pp{ background:#fff!important; color:#0b3d91!important; }
 html[data-oo-theme~="light"] body #app .oo-listen-box .oo-lb-pp{ background:#1f4fb0!important; color:#fff!important; }
+
+/* Listen button: back to the plain speaker icon (the megaphone art is gone). */
+html body #app .post-detail-tts-row .tts-button{ font-size:26px!important; line-height:1!important; color:#000!important; }
+html body #app .post-detail-tts-row .tts-button::before{ content:none!important; display:none!important; }
+html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button{ color:#fff!important; }

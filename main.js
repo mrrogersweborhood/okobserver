@@ -775,6 +775,7 @@ function extractHeroLinkFromContent(post) {
     __okobsTtsPaused = false;
     __okobsTtsPos = 0;
     hideListenBox();
+    __okobsHlClear(); __okobsHlMap = null;
 
     const container = app.querySelector('.post-detail-content');
     if (container) {
@@ -783,36 +784,51 @@ function extractHeroLinkFromContent(post) {
       });
     }
   }
+  // Follow-along highlight for the native (Android) reader: map text offsets to DOM ranges.
+  let __okobsHlMap = null, __okobsHlRoot = null;
+  function __okobsHlBuild(container) {
+    const map = []; const blocks = __okobsTtsBlocks(container);
+    blocks.forEach((block) => {
+      if (!(block.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').trim()) return;
+      const w = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null); let n;
+      while ((n = w.nextNode())) {
+        const t = n.nodeValue; const urls = [];
+        t.replace(/\bhttps?:\/\/[^\s]+/gi, (m, i) => { urls.push([i, i + m.length]); return m; });
+        for (let i = 0; i < t.length; i++) {
+          if (/\s/.test(t.charAt(i))) continue;
+          if (urls.some((u) => i >= u[0] && i < u[1])) continue;
+          map.push(n, i);
+        }
+      }
+    });
+    return map;
+  }
+  function __okobsHlClear() { try { if (window.CSS && CSS.highlights) CSS.highlights.delete('oo-read'); } catch (e) {} }
   window.__okobsTtsRange = function(start, end) {
     try {
-      if (typeof start === 'number') __okobsTtsPos = start + (__okobsTtsBase || 0);
+      if (typeof start !== 'number') return;
+      __okobsTtsPos = start + (__okobsTtsBase || 0);
+      if (!window.CSS || !CSS.highlights || typeof Highlight === 'undefined') return;
       const container = app.querySelector('.post-detail-content');
-      if (!container) return;
-
-      const blocks = __okobsTtsBlocks(container);
-      if (!blocks.length) return;
-
-      let runningStart = 0;
-      let activeBlock = null;
-
-      for (const block of blocks) {
-        const rawText = (block.textContent || '').replace(/\bhttps?:\/\/[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
-        if (!rawText) continue;
-
-        const blockStart = runningStart;
-        const blockEnd = runningStart + rawText.length + 1;
-
-        if (start >= blockStart && start < blockEnd) {
-          activeBlock = block;
-          break;
-        }
-
-        runningStart = blockEnd;
+      const full = __okobsTtsActiveText || '';
+      if (!container || !full) return;
+      if (!__okobsHlMap || __okobsHlRoot !== container) { __okobsHlMap = __okobsHlBuild(container); __okobsHlRoot = container; }
+      const a = Math.max(0, start + (__okobsTtsBase || 0));
+      let e = (typeof end === 'number' && end > start) ? end + (__okobsTtsBase || 0) : a + 1;
+      const nws = (txt) => txt.replace(/\s+/g, '').length;
+      const i0 = nws(full.slice(0, a));
+      const i1 = nws(full.slice(0, Math.min(e, full.length))) - 1;
+      const m = __okobsHlMap;
+      if (i1 < i0 || i0 * 2 >= m.length) return;
+      const r = document.createRange();
+      r.setStart(m[i0 * 2], m[i0 * 2 + 1]);
+      const j = Math.min(i1, m.length / 2 - 1) * 2;
+      r.setEnd(m[j], m[j + 1] + 1);
+      CSS.highlights.set('oo-read', new Highlight(r));
+      const rc = r.getBoundingClientRect(), vh = window.innerHeight;
+      if (rc.height && (rc.bottom > vh * 0.85 || rc.top < vh * 0.15)) {
+        window.scrollTo({ top: Math.max(0, window.scrollY + rc.top - vh * 0.35), behavior: 'smooth' });
       }
-
-      if (!activeBlock) return;
-
-
     } catch (err) {
       console.error('[OkObserver TTS] __okobsTtsRange error:', err);
     }
@@ -821,6 +837,7 @@ function extractHeroLinkFromContent(post) {
   window.__okobsTtsDone = function() {
     try {
       if (__okobsTtsPaused) return;
+      __okobsHlClear(); __okobsHlMap = null;
       hideListenBox();
       ttsAbortController = null;
       currentTtsPostId = null;
