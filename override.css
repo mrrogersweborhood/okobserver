@@ -678,7 +678,7 @@ a.post-tag { background: #fff; color: #14468f; padding: 6px 14px; font-size: 13p
 /* splash logo + motto lockup matches the header (phone sizes) */
 .oo-splash-brand { background: none; text-align: left; padding: max(env(safe-area-inset-top, 0px), 10px) 14px 6px; }
 .oo-splash-logo { width: auto; height: 52px; max-width: none; display: block; }
-.oo-splash-brand .oo-splash-motto { max-width: 330px; margin: 8px auto 0; text-align: center; font: 700 11px/1.5 var(--oo-font-motto, "Montserrat", sans-serif); letter-spacing: .15em; text-transform: uppercase; color: var(--oo-ink, #fff); text-wrap: balance; }
+.oo-splash-brand .oo-splash-motto { max-width: 330px; margin: 8px auto 0; text-align: center; font: 700 11px/1.5 var(--oo-font-motto, "Montserrat", sans-serif); letter-spacing: .15em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .55); text-wrap: balance; }
 .oo-splash-brand .oo-splash-motto::before { display: none; }
 .oo-splash-brand .oo-splash-motto span { display: inline; }
 @media (min-width: 721px) { .oo-splash-logo { height: 64px; } .oo-splash-brand { padding: 14px 20px 6px; } .oo-splash-brand .oo-splash-motto { font-size: 13px; letter-spacing: .22em; max-width: 560px; } }
