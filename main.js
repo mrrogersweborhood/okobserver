@@ -1849,7 +1849,7 @@ if (posts.length > 0 && appendedCount === 0) {
     const box = app.querySelector('.about-html');
     try {
       if (slug === 'help') {
-        const r = await fetch('oo-help.html?v=2.2.19');
+        const r = await fetch('oo-help.html?v=2.2.20');
         const html = await r.text();
         if (!document.body.contains(box)) return;
         app.querySelector('.toc-title').hidden = true;
