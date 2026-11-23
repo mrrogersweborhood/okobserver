@@ -634,3 +634,11 @@ html[data-oo-theme~="light"] body #app .oo-listen-box .oo-lb-pp{ background:#1f4
 html body #app .post-detail-tts-row .tts-button{ font-size:26px!important; line-height:1!important; color:#000!important; }
 html body #app .post-detail-tts-row .tts-button::before{ content:none!important; display:none!important; }
 html[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button{ color:#fff!important; }
+
+/* Speaker button: pulses while the story is being read aloud, so readers can see it is talking. */
+@keyframes oo-speak-ring{ 0%{ box-shadow:0 0 0 0 rgba(233,185,76,.75), 0 8px 20px rgba(0,0,0,.45); } 70%{ box-shadow:0 0 0 16px rgba(233,185,76,0), 0 8px 20px rgba(0,0,0,.45); } 100%{ box-shadow:0 0 0 0 rgba(233,185,76,0), 0 8px 20px rgba(0,0,0,.45); } }
+@keyframes oo-speak-icon{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.18); } }
+html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:oo-speak-ring 1.4s ease-out infinite; }
+html body #app .post-detail-tts-row .tts-button.oo-speaking::after{ display:none!important; }
+html body #app .post-detail-tts-row .tts-button.oo-speaking{ font-size:26px; }
+@media (prefers-reduced-motion: reduce){ html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:none; } }

@@ -801,6 +801,8 @@ function extractHeroLinkFromContent(post) {
         }
       }
     });
+    map.flat = '';
+    for (let k = 0; k < map.length; k += 2) map.flat += map[k].nodeValue.charAt(map[k + 1]);
     return map;
   }
   function __okobsHlClear() { __okobsHlLastA = -1; __okobsHlLastE = -1; try { if (window.CSS && CSS.highlights) CSS.highlights.delete('oo-read'); } catch (e) {} }
@@ -822,9 +824,16 @@ function extractHeroLinkFromContent(post) {
 
 
       const nws = (txt) => txt.replace(/\s+/g, '').length;
-      const i0 = nws(full.slice(0, a));
-      const i1 = nws(full.slice(0, Math.min(e, full.length))) - 1;
+      let i0 = nws(full.slice(0, a));
+      let i1 = nws(full.slice(0, Math.min(e, full.length))) - 1;
       const m = __okobsHlMap;
+      // Find the sentence by its own text so small differences between spoken text and page cannot drift the highlight.
+      const sent = full.slice(a, e).replace(/\s+/g, '');
+      if (sent && m.flat) {
+        let f = m.flat.indexOf(sent, Math.max(0, i0 - 400));
+        if (f < 0) f = m.flat.indexOf(sent);
+        if (f >= 0) { i0 = f; i1 = f + sent.length - 1; }
+      }
       if (i1 < i0 || i0 * 2 >= m.length) return;
       const r = document.createRange();
       r.setStart(m[i0 * 2], m[i0 * 2 + 1]);
@@ -933,6 +942,7 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
   function hideListenBox() {
     const old = document.querySelector('.oo-listen-box');
     if (old) old.remove();
+    document.querySelectorAll('.tts-button.oo-speaking').forEach((b) => b.classList.remove('oo-speaking'));
   }
   function showListenBox() {
     hideListenBox();
@@ -945,6 +955,8 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
     box.setAttribute('aria-label', 'Reading aloud');
     box.innerHTML = '<button type="button" class="oo-lb-pp" aria-label="Pause">&#10074;&#10074;</button><span class="oo-lb-txt">Reading aloud</span><button type="button" class="oo-lb-x" aria-label="Stop and close">&times;</button>';
     row.appendChild(box);
+    const spk = row.querySelector('.tts-button');
+    if (spk) spk.classList.add('oo-speaking');
     const pp = box.querySelector('.oo-lb-pp');
     const txt = box.querySelector('.oo-lb-txt');
     pp.addEventListener('click', () => {
@@ -954,6 +966,7 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
         if (native) { try { window.AndroidTTS.stop(); } catch (err) {} }
         else if (window.speechSynthesis) window.speechSynthesis.pause();
         pp.innerHTML = '&#9654;'; pp.setAttribute('aria-label', 'Play'); txt.textContent = 'Paused';
+        if (spk) spk.classList.remove('oo-speaking');
       } else {
         __okobsTtsPaused = false;
         if (native) {
@@ -965,6 +978,7 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
           try { window.AndroidTTS.speak(full.slice(from)); } catch (err) {}
         } else if (window.speechSynthesis) window.speechSynthesis.resume();
         pp.innerHTML = '&#10074;&#10074;'; pp.setAttribute('aria-label', 'Pause'); txt.textContent = 'Reading aloud';
+        if (spk) spk.classList.add('oo-speaking');
       }
     });
     box.querySelector('.oo-lb-x').addEventListener('click', () => stopTtsPlayback({ native: true }));
