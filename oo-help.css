@@ -78,3 +78,13 @@ html body #app .page-view:has(.ooh) .about-html{background:transparent!important
 html body #app .ooh h2,html body #app .ooh h3{letter-spacing:normal!important;word-spacing:normal!important}
 html body #app .oohelp-top{margin:28px 14px 0!important}
 html body #app .oohelp-top h1{letter-spacing:normal!important}
+/* Tighter steps: smaller gold numbers, less blank space between instructions (all widths) */
+html body #app .ooh li{padding-left:46px!important;margin:0 0 12px!important;line-height:1.45!important;min-height:0!important}
+html body #app .ooh li::before{font-size:36px!important;top:-3px!important}
+html body #app .ooh h2{margin:0 0 14px!important}
+html body #app .ooh .ooh-kick{margin-bottom:8px}
+html body #app .ooh .ooh-x{margin-top:30px;padding-top:26px}
+@media(max-width:700px){html body #app#app .ooh .ooh-p{gap:14px}html body #app#app .ooh li{padding-left:40px!important;margin-bottom:10px!important}html body #app#app .ooh li::before{font-size:32px!important}}
+/* light mode: make sure every line of a step is dark (never the pale cream) */
+html[data-oo-theme~="light"] body #app#app .ooh li{color:#1b2a4a!important}
+html[data-oo-theme~="light"] body #app#app .ooh li::first-line{color:#0f2250!important}
