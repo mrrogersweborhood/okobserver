@@ -115,3 +115,9 @@ html body #app .ooh .ooh-more{clear:both;padding-top:8px}
   html body #app .ooh li{padding-left:54px}
   html body #app .ooh li::before{font-size:46px}
 }
+/* v2.2.22 refinements */
+html body #app .ooh[data-dev=d] .ooh-med{width:min(52%,640px)}
+html body #app .ooh h2{font-size:clamp(32px,3.1vw,48px)!important}
+html body #app .ooh li::first-line{font-weight:400;letter-spacing:0}
+html body #app .ooh .ooh-kick{letter-spacing:.2em;font-size:11.5px;gap:10px}
+html body #app .ooh .ooh-kick::after{width:36px;flex:none}
