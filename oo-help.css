@@ -88,3 +88,30 @@ html body #app .ooh .ooh-x{margin-top:30px;padding-top:26px}
 /* light mode: make sure every line of a step is dark (never the pale cream) */
 html[data-oo-theme~="light"] body #app#app .ooh li{color:#1b2a4a!important}
 html[data-oo-theme~="light"] body #app#app .ooh li::first-line{color:#0f2250!important}
+
+/* ===== Tutorial layout (v2.2.21): the demo sits inside the lesson and the steps wrap around it ===== */
+html body #app .ooh .ooh-p{display:flow-root!important;gap:0}
+html body #app .ooh .ooh-p[hidden]{display:none!important}
+html body #app .ooh .ooh-txt{display:contents}
+html body #app .ooh .ooh-med{float:right;margin:6px 0 22px clamp(28px,3.4vw,52px);justify-content:flex-end}
+html body #app .ooh[data-dev=d] .ooh-med{width:min(58%,700px)}
+html body #app .ooh[data-dev=m] .ooh-med{width:auto;max-width:48%}
+html body #app .ooh[data-dev=m] video{height:min(70vh,600px)}
+html body #app .ooh .ooh-kick{margin-bottom:14px}
+html body #app .ooh h2{font:900 clamp(34px,3.6vw,54px)/1.04 'Playfair Display',Georgia,serif!important;margin:0 0 26px!important;text-wrap:balance}
+html body #app .ooh ol{counter-reset:s}
+html body #app .ooh li{font:400 clamp(18px,1.5vw,22px)/1.62 'Libre Caslon Text',Georgia,serif!important;padding:0 0 0 64px;margin:0 0 22px!important;hyphens:auto;text-wrap:pretty}
+html body #app .ooh li::before{font-size:54px;top:-9px;left:2px}
+html body #app .ooh li::first-line{color:var(--head);font-weight:700;letter-spacing:.005em}
+html body #app .ooh .ooh-more{clear:both;padding-top:8px}
+@media(max-width:899px){
+  html body #app .ooh .ooh-p{display:flex!important;flex-direction:column}
+  html body #app .ooh .ooh-kick{order:1}
+  html body #app .ooh h2{order:2;margin-bottom:20px!important}
+  html body #app .ooh .ooh-med{order:3;float:none;width:100%!important;max-width:none!important;margin:0 0 26px;justify-content:center}
+  html body #app .ooh ol{order:4}
+  html body #app .ooh .ooh-tip{order:5}
+  html body #app .ooh[data-dev=m] video{height:min(62vh,540px)}
+  html body #app .ooh li{padding-left:54px}
+  html body #app .ooh li::before{font-size:46px}
+}
