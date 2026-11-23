@@ -1146,7 +1146,8 @@ async function handleFullPost(request, url, env, ctx) {
 }
 function corsHeaders(req) {
   const reqOrigin = req.headers.get("Origin") || "";
-  const allowedOrigin = "https://mrrogersweborhood.github.io";
+  const ALLOWED_ORIGINS = ["https://mrrogersweborhood.github.io", "https://app.okobserver.org"];
+  const allowedOrigin = ALLOWED_ORIGINS.includes(reqOrigin) ? reqOrigin : ALLOWED_ORIGINS[0];
   const path = new URL(req.url).pathname;
 
   const base = {

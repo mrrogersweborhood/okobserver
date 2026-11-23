@@ -1,8 +1,8 @@
 {
   "name": "The Oklahoma Observer",
   "short_name": "Observer",
-  "start_url": "/okobserver/",
-  "scope": "/okobserver/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0d3f95",
   "theme_color": "#0d3f95",

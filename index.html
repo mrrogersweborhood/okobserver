@@ -298,9 +298,10 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2.2.0'; // bump when sw.js changes
-      var SW_URL = '/okobserver/sw.js';
-      var SCOPE = '/okobserver/';
+      var SW_BUILD = '2.2.1'; // bump when sw.js changes
+      var BASE = location.pathname.replace(/[^/]*$/, ''); // /okobserver/ on github.io, / on app.okobserver.org
+      var SW_URL = BASE + 'sw.js';
+      var SCOPE = BASE;
 
             window.addEventListener('load', function () {
         navigator.serviceWorker
