@@ -642,3 +642,7 @@ html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:oo-speak-
 html body #app .post-detail-tts-row .tts-button.oo-speaking::after{ display:none!important; }
 html body #app .post-detail-tts-row .tts-button.oo-speaking{ font-size:26px; }
 @media (prefers-reduced-motion: reduce){ html body #app .post-detail-tts-row .tts-button.oo-speaking{ animation:none; } }
+
+/* Read-aloud: soft tint over the sentence being read; the solid highlight slides through it letter by letter. */
+::highlight(oo-read-sent){background-color:rgba(255,255,255,.2);color:inherit}
+html[data-oo-theme~="light"] ::highlight(oo-read-sent){background-color:rgba(31,79,176,.16);color:inherit}

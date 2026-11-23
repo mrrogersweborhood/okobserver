@@ -805,7 +805,28 @@ function extractHeroLinkFromContent(post) {
     for (let k = 0; k < map.length; k += 2) map.flat += map[k].nodeValue.charAt(map[k + 1]);
     return map;
   }
-  function __okobsHlClear() { __okobsHlLastA = -1; __okobsHlLastE = -1; try { if (window.CSS && CSS.highlights) CSS.highlights.delete('oo-read'); } catch (e) {} }
+  let __okobsRoll = null, __okobsRollRaf = 0;
+  function __okobsRollTick() {
+    __okobsRollRaf = 0;
+    const R = __okobsRoll, m = __okobsHlMap;
+    if (!R || !m) return;
+    const cur = Math.max(R.i0, Math.min(R.wj, Math.floor(R.wi + (performance.now() - R.t0) * R.rate)));
+    if (cur !== R.shown) {
+      R.shown = cur;
+      try {
+        const r = document.createRange();
+        r.setStart(m[R.i0 * 2], m[R.i0 * 2 + 1]);
+        r.setEnd(m[cur * 2], m[cur * 2 + 1] + 1);
+        CSS.highlights.set('oo-read', new Highlight(r));
+      } catch (e) {}
+    }
+    __okobsRollRaf = requestAnimationFrame(__okobsRollTick);
+  }
+  function __okobsHlClear() {
+    __okobsHlLastA = -1; __okobsHlLastE = -1; __okobsRoll = null;
+    if (__okobsRollRaf) { cancelAnimationFrame(__okobsRollRaf); __okobsRollRaf = 0; }
+    try { if (window.CSS && CSS.highlights) { CSS.highlights.delete('oo-read'); CSS.highlights.delete('oo-read-sent'); } } catch (e) {}
+  }
   window.__okobsTtsRange = function(start, end) {
     try {
       if (typeof start !== 'number') return;
@@ -819,7 +840,7 @@ function extractHeroLinkFromContent(post) {
       // Highlight the whole sentence being read (smoother than word-by-word).
       let a = 0; { const re = /[.!?]["'”’)]*\s+/g; let mm; while ((mm = re.exec(full)) && mm.index + mm[0].length <= p) a = mm.index + mm[0].length; }
       let e = full.length; { const re2 = /[.!?]["'”’)]*(\s|$)/g; re2.lastIndex = Math.max(a, p); const m2 = re2.exec(full); if (m2) e = m2.index + 1 + (m2[0].length - 1 - (m2[1] ? m2[1].length : 0)); }
-      if (a === __okobsHlLastA && e === __okobsHlLastE && CSS.highlights.has('oo-read')) return;
+      const sameSent = (a === __okobsHlLastA && e === __okobsHlLastE && CSS.highlights.has('oo-read-sent'));
       __okobsHlLastA = a; __okobsHlLastE = e;
 
 
@@ -835,15 +856,31 @@ function extractHeroLinkFromContent(post) {
         if (f >= 0) { i0 = f; i1 = f + sent.length - 1; }
       }
       if (i1 < i0 || i0 * 2 >= m.length) return;
-      const r = document.createRange();
-      r.setStart(m[i0 * 2], m[i0 * 2 + 1]);
-      const j = Math.min(i1, m.length / 2 - 1) * 2;
-      r.setEnd(m[j], m[j + 1] + 1);
-      CSS.highlights.set('oo-read', new Highlight(r));
-      const rc = r.getBoundingClientRect(), vh = window.innerHeight;
-      if (rc.height && (rc.bottom > vh * 0.85 || rc.top < vh * 0.15)) {
-        window.scrollTo({ top: Math.max(0, window.scrollY + rc.top - vh * 0.35), behavior: 'smooth' });
+      i1 = Math.min(i1, m.length / 2 - 1);
+      if (!sameSent) {
+        // Soft tint over the whole sentence; the solid fill then glides through it.
+        const rs = document.createRange();
+        rs.setStart(m[i0 * 2], m[i0 * 2 + 1]);
+        rs.setEnd(m[i1 * 2], m[i1 * 2 + 1] + 1);
+        CSS.highlights.set('oo-read-sent', new Highlight(rs));
+        const rc = rs.getBoundingClientRect(), vh = window.innerHeight;
+        if (rc.height && (rc.bottom > vh * 0.85 || rc.top < vh * 0.15)) {
+          window.scrollTo({ top: Math.max(0, window.scrollY + rc.top - vh * 0.35), behavior: 'smooth' });
+        }
       }
+      // Where the voice is now (word being spoken), and how fast it is going, so the fill can slide letter by letter between word events.
+      const wi = Math.max(i0, Math.min(i1, i0 + nws(full.slice(a, p))));
+      let pe = (typeof end === 'number' && end > start) ? end + (__okobsTtsBase || 0) : full.indexOf(' ', p);
+      if (pe < 0) pe = full.length;
+      const wj = Math.max(wi, Math.min(i1, wi + nws(full.slice(p, pe)) - 1));
+      const now = performance.now(); const prev = __okobsRoll;
+      let rate = (prev && prev.rate) || 0.013;
+      if (prev && prev.i0 === i0 && wi > prev.wi && now > prev.t0) {
+        const inst = (wi - prev.wi) / (now - prev.t0);
+        rate = Math.max(0.005, Math.min(0.04, rate * 0.5 + inst * 0.5));
+      }
+      __okobsRoll = { i0, i1, wi, wj, t0: now, rate, shown: -1 };
+      if (!__okobsRollRaf) __okobsRollRaf = requestAnimationFrame(__okobsRollTick);
     } catch (err) {
       console.error('[OkObserver TTS] __okobsTtsRange error:', err);
     }
