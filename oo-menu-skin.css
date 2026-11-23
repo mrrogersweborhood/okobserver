@@ -700,3 +700,7 @@ html[data-oo-theme~="light"] #td-outer-wrap .oo-dir .oo-dir-rule::after { height
 
 /* 2026-11-23: phone sign-in button was square inside its round ring; make it a pill like the other buttons */
 html body #app .login-submit{ border-radius:999px!important; }
+
+/* 2026-11-23: sign-in error messages were small, thin and easy to miss; show them as a clear callout */
+html body #app .login-error:not(:empty){ font-size:16px!important; font-weight:700!important; line-height:1.35!important; padding:11px 14px!important; border-radius:10px!important; color:#fff!important; background:#b3261e!important; border:1.5px solid #ffd0cc!important; }
+html[data-oo-theme~="light"] body #app .login-error:not(:empty){ color:#7a1510!important; background:#fde8e6!important; border:1.5px solid #b3261e!important; }
