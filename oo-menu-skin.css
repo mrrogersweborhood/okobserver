@@ -697,3 +697,6 @@ html:not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not(#z):not
 html[data-oo-theme~="light"] #td-outer-wrap .oo-dir .oo-dir-rev-a::before,
 html[data-oo-theme~="light"] #td-outer-wrap .oo-dir .oo-dir-rule::before,
 html[data-oo-theme~="light"] #td-outer-wrap .oo-dir .oo-dir-rule::after { height: 3px !important; background: #7a5410 !important; opacity: 1 !important; }
+
+/* 2026-11-23: phone sign-in button was square inside its round ring; make it a pill like the other buttons */
+html body #app .login-submit{ border-radius:999px!important; }
