@@ -785,7 +785,7 @@ function extractHeroLinkFromContent(post) {
     }
   }
   // Follow-along highlight for the native (Android) reader: map text offsets to DOM ranges.
-  let __okobsHlMap = null, __okobsHlRoot = null;
+  let __okobsHlMap = null, __okobsHlRoot = null, __okobsHlLastA = -1, __okobsHlLastE = -1;
   function __okobsHlBuild(container) {
     const map = []; const blocks = __okobsTtsBlocks(container);
     blocks.forEach((block) => {
@@ -803,7 +803,7 @@ function extractHeroLinkFromContent(post) {
     });
     return map;
   }
-  function __okobsHlClear() { try { if (window.CSS && CSS.highlights) CSS.highlights.delete('oo-read'); } catch (e) {} }
+  function __okobsHlClear() { __okobsHlLastA = -1; __okobsHlLastE = -1; try { if (window.CSS && CSS.highlights) CSS.highlights.delete('oo-read'); } catch (e) {} }
   window.__okobsTtsRange = function(start, end) {
     try {
       if (typeof start !== 'number') return;
@@ -813,9 +813,14 @@ function extractHeroLinkFromContent(post) {
       const full = __okobsTtsActiveText || '';
       if (!container || !full) return;
       if (!__okobsHlMap || __okobsHlRoot !== container) { __okobsHlMap = __okobsHlBuild(container); __okobsHlRoot = container; }
-      let a = Math.max(0, start + (__okobsTtsBase || 0));
-      while (a > 0 && /S/.test(full.charAt(a - 1))) a--; // snap back to the start of the word
-      let e = (typeof end === 'number' && end > start) ? end + (__okobsTtsBase || 0) : a + 1;
+      const p = Math.max(0, start + (__okobsTtsBase || 0));
+      // Highlight the whole sentence being read (smoother than word-by-word).
+      let a = 0; { const re = /[.!?]["'”’)]*\s+/g; let mm; while ((mm = re.exec(full)) && mm.index + mm[0].length <= p) a = mm.index + mm[0].length; }
+      let e = full.length; { const re2 = /[.!?]["'”’)]*(\s|$)/g; re2.lastIndex = Math.max(a, p); const m2 = re2.exec(full); if (m2) e = m2.index + 1 + (m2[0].length - 1 - (m2[1] ? m2[1].length : 0)); }
+      if (a === __okobsHlLastA && e === __okobsHlLastE && CSS.highlights.has('oo-read')) return;
+      __okobsHlLastA = a; __okobsHlLastE = e;
+
+
       const nws = (txt) => txt.replace(/\s+/g, '').length;
       const i0 = nws(full.slice(0, a));
       const i1 = nws(full.slice(0, Math.min(e, full.length))) - 1;
