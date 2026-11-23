@@ -2782,6 +2782,8 @@ window.__ooRefreshHome = refreshHome;
 // ---- "You're leaving the app" notice for every link that goes to another website ----
 (function setupLeaveNotice() {
   let box = null; let pending = null; let openedAt = 0;
+  // Embedded in a demo page (iframe): never open anything outside; offer only "Back to the app".
+  let embedded = false; try { embedded = window.self !== window.top; } catch (_) { embedded = true; }
   function hostOf(u) { try { return new URL(u, location.href); } catch (_) { return null; } }
   function isExternal(href) {
     if (!href) return false;
@@ -2842,6 +2844,7 @@ window.__ooRefreshHome = refreshHome;
     pending = null;
   }
   function go() {
+    if (embedded) { close(); return; }
     const p = pending;
     close();
     if (!p) return;
@@ -2870,6 +2873,17 @@ window.__ooRefreshHome = refreshHome;
     box.setAttribute('role', 'alertdialog');
     box.setAttribute('aria-modal', 'true');
     box.setAttribute('aria-label', 'Leaving the app');
+    if (embedded) {
+      box.innerHTML = '<div class="oo-leave-card"><h2>That one leaves the app</h2>'
+        + '<p>This demo stays right here. To use that page, open the real app or the website on your own device.</p>'
+        + '<div class="oo-leave-btns"><button type="button" class="oo-leave-stay">Back to the app</button></div></div>';
+      box.querySelector('.oo-leave-stay').addEventListener('click', close);
+      box.addEventListener('click', (e) => { if (e.target === box) close(); });
+      document.body.appendChild(box);
+      box.querySelector('.oo-leave-stay').focus();
+      document.addEventListener('keydown', onKey, true);
+      return;
+    }
     box.innerHTML = '<div class="oo-leave-card"><h2>You’re leaving the app</h2>'
       + '<p>This opens <strong></strong> in your browser.</p>'
       + '<p class="oo-leave-hint">Press any key to continue.</p>'
