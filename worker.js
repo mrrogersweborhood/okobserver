@@ -30,7 +30,7 @@ const JWT_COOKIE_NAME = "okobserver_jwt";
 const JWT_MAX_AGE = 60 * 60 * 8; // 8 hours
 const WP_JWT_ENDPOINT = `${ORIGIN}/wp-json/jwt-auth/v1/token`; // JWT Authentication for WP REST API
 
-async function handleLogin(request) {
+async function handleLogin(request, env) {
   try {
     let body = null;
 
@@ -54,6 +54,31 @@ async function handleLogin(request) {
 
     const username = rawUsername.trim();
     const password = rawPassword;
+
+    // Cloudflare Turnstile (same check the website login uses). Enforced only once the TURNSTILE_SECRET
+    // secret is set on this Worker, so the app and Worker can be deployed in either order.
+    const tsSecret = env && env.TURNSTILE_SECRET ? String(env.TURNSTILE_SECRET).trim() : "";
+    if (tsSecret) {
+      const noStore = { "cache-control": "no-store", "pragma": "no-cache", "expires": "0" };
+      const tsToken = body && typeof body.turnstile === "string" ? body.turnstile : "";
+      if (!tsToken) {
+        return json(400, { success: false, message: "Please complete the verification check." }, noStore, request);
+      }
+      let tsOk = false;
+      try {
+        const form = new URLSearchParams({ secret: tsSecret, response: tsToken });
+        const ip = request.headers.get("CF-Connecting-IP");
+        if (ip) form.set("remoteip", ip);
+        const vr = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
+        const vj = await vr.json().catch(() => null);
+        tsOk = !!(vj && vj.success);
+      } catch (_) {
+        return json(503, { success: false, message: "Verification service unavailable. Please try again." }, noStore, request);
+      }
+      if (!tsOk) {
+        return json(403, { success: false, message: "Verification failed. Please try again." }, noStore, request);
+      }
+    }
 
     if (!username || !password) {
       return json(
@@ -246,7 +271,7 @@ export default {
 
 /* ------------------ AUTH ROUTES (must come first) ------------------ */
 if (url.pathname === "/auth/login" && request.method === "POST") {
-  return handleLogin(request);
+  return handleLogin(request, env);
 }
 if (url.pathname === "/auth/logout" && request.method === "POST") {
   return handleLogout(request);

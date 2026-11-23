@@ -4678,7 +4678,7 @@ window.location.replace(target);
   window.addEventListener("resize", () => { try { ooFitPostTitle(); } catch (_) {} });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { ooFitPostTitle(); } catch (_) {} });
 
-  async function loginUser(username, password) {
+  async function loginUser(username, password, turnstileToken) {
     try {
       const resp = await fetch(
         'https://okobserver-proxy.bob-b5c.workers.dev/auth/login',
@@ -4688,7 +4688,7 @@ window.location.replace(target);
             'Content-Type': 'application/json'
           },
           credentials: 'include',
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username, password, turnstile: turnstileToken || '' })
         }
       );
 
@@ -4764,6 +4764,7 @@ async function logoutUser() {
 </div>
           </label>
 
+          <div class="login-ts" style="display:flex;justify-content:center;min-height:0;margin:4px 0"></div>
           <button class="login-submit" type="submit">Log In</button>
 
           <div class="login-error" aria-live="polite"></div>
@@ -4774,6 +4775,27 @@ async function logoutUser() {
 
     const form = app.querySelector(".login-form");
     const errorBox = app.querySelector(".login-error");
+    // Cloudflare Turnstile (same site key as the website login); the Worker verifies the token.
+    let tsWidget = null;
+    const tsBox = app.querySelector(".login-ts");
+    (function setupTurnstile() {
+      if (!tsBox) return;
+      const draw = () => {
+        try {
+          if (!window.turnstile || !tsBox.isConnected) return;
+          tsWidget = window.turnstile.render(tsBox, { sitekey: "0x4AAAAAAF4CKtfqrKHm416M", theme: "auto", appearance: "interaction-only" });
+        } catch (_) {}
+      };
+      if (window.turnstile) { draw(); return; }
+      const have = document.getElementById("oo-turnstile-js");
+      if (have) { have.addEventListener("load", draw); return; }
+      const sc = document.createElement("script");
+      sc.id = "oo-turnstile-js";
+      sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      sc.async = true;
+      sc.onload = draw;
+      document.head.appendChild(sc);
+    })();
 // Password peek (eye toggle)
 const pwInput = app.querySelector("#ooLoginPassword");
 const pwToggle = app.querySelector(".login-password-toggle");
@@ -4807,7 +4829,19 @@ if (pwInput && pwToggle) {
       }
 
       try {
-                const ok = await loginUser(username, password);
+                let tsToken = "";
+        try {
+          if (window.turnstile && tsWidget !== null) {
+            // the check usually solves itself in the background; give it a few seconds if it has not finished
+            for (let w = 0; w < 24 && !tsToken; w++) {
+              tsToken = window.turnstile.getResponse(tsWidget) || "";
+              if (!tsToken) { if (w === 2) errorBox.textContent = "Checking that you're a person…"; await new Promise((r) => setTimeout(r, 250)); }
+            }
+            if (tsToken) errorBox.textContent = "";
+          }
+        } catch (_) {}
+        const ok = await loginUser(username, password, tsToken);
+        if (!ok) { try { if (window.turnstile && tsWidget !== null) window.turnstile.reset(tsWidget); } catch (_) {} }
         if (ok) {
           try { localStorage.setItem('ooLoggedIn', '1'); } catch (_) {}
           try { document.body.classList.add('oo-logged-in'); } catch (_) {}
