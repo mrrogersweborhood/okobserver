@@ -2921,7 +2921,7 @@ window.__ooRefreshHome = refreshHome;
         const hit = all.find((x) => (x.slug && String(x.slug).toLowerCase() === raw) || slugify(x.name) === want || slugify(x.name) === raw);
         if (hit) return toRoute(hit);
         // not in the list: ask the website for the author with this exact slug
-        return fetchJson(WP_API_BASE + '/users?slug=' + encodeURIComponent(raw) + '&_fields=id,name').then((u) => (Array.isArray(u) && u.length ? toRoute(u[0]) : null));
+        return fetchJson(WORKER_BASE + '/content/author-lookup?slug=' + encodeURIComponent(raw)).then((u) => (u && u.ok && u.id ? toRoute(u) : null));
       }).catch(() => null);
     }
     if ((m = path.match(/^\/category\/(?:.*\/)?([^/]+)$/))) return '#/archive?type=category&slug=' + encodeURIComponent(m[1]) + '&label=' + encodeURIComponent(titleCase(m[1]));

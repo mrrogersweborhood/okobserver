@@ -300,6 +300,10 @@ if (url.pathname === "/content/authors" && request.method === "GET") {
 if (url.pathname === "/content/author-archive" && request.method === "GET") {
   return handleAuthorArchive(request, url, env);
 }
+// Finds an author by slug from the public author page (works for authors with no recent posts).
+if (url.pathname === "/content/author-lookup" && request.method === "GET") {
+  return handleAuthorLookup(request, url);
+}
 /* ------------------ FULL POST (must come before API_ALLOW gate) ------------------ */
 if (url.pathname === "/content/full-post" && request.method === "GET") {
   return handleFullPost(request, url, env, ctx);
@@ -713,6 +717,24 @@ async function handleAuthorsList(request, env) {
   }
 }
 
+// GET /content/author-lookup?slug=joe-dorman  ->  { ok, id, name }   (reads the public author page: body class author-<id>)
+async function handleAuthorLookup(request, url) {
+  try {
+    const slug = (url.searchParams.get("slug") || "").trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return json(400, { ok: false, error: "Invalid slug" }, NO_STORE, request);
+    const resp = await fetch(ORIGIN + "/author/" + slug + "/", { headers: { "Accept": "text/html", "User-Agent": "Mozilla/5.0 (compatible; OkObserverApp)" }, redirect: "follow" });
+    if (!resp.ok) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
+    const html = await resp.text();
+    const idm = html.match(/<body[^>]*class="[^"]*author-(d+)/);
+    const tm = html.match(/<title>([^<|]*)/);
+    if (!idm) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
+    const name = (tm ? tm[1] : slug).replace(/&amp;/g, "&").replace(/&#8217;|&rsquo;/g, "’").trim();
+    return json(200, { ok: true, id: parseInt(idm[1], 10), name }, { "cache-control": "public, max-age=3600" }, request);
+  } catch (err) {
+    return jsonError(500, "author-lookup failed", err, request);
+  }
+}
+
 // GET /content/author-archive?author=ID&page=N&per_page=12
 //   -> { ok, posts: [...summary posts with _embedded...], total, total_pages }
 async function handleAuthorArchive(request, url, env) {
@@ -729,6 +751,22 @@ async function handleAuthorArchive(request, url, env) {
       return rows.map((r) => [r.id, r.author]);
     });
     const ids = pairs.filter((r) => String(r[1]) === author).map((r) => r[0]);
+    if (!ids.length) {
+      // Author has nothing in the recent window: ask the site directly with the Worker's login.
+      const direct = new URL(ORIGIN + "/wp-json/wp/v2/posts");
+      direct.searchParams.set("author", author);
+      direct.searchParams.set("per_page", String(perPage));
+      direct.searchParams.set("page", String(page));
+      direct.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
+      direct.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
+      const dr = await fetch(direct.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+      if (dr.ok) {
+        const rows = await dr.json().catch(() => []);
+        const t = parseInt(dr.headers.get("x-wp-total") || "0", 10) || (Array.isArray(rows) ? rows.length : 0);
+        const tp = parseInt(dr.headers.get("x-wp-totalpages") || "1", 10) || 1;
+        return json(200, { ok: true, posts: Array.isArray(rows) ? rows : [], total: t, total_pages: tp }, NO_STORE, request);
+      }
+    }
     const total = ids.length;
     const totalPages = Math.max(1, Math.ceil(total / perPage));
     const slice = ids.slice((page - 1) * perPage, page * perPage);
