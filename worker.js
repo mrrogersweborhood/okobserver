@@ -752,19 +752,38 @@ async function handleAuthorArchive(request, url, env) {
     });
     const ids = pairs.filter((r) => String(r[1]) === author).map((r) => r[0]);
     if (!ids.length) {
-      // Author has nothing in the recent window: ask the site directly with the Worker's login.
-      const direct = new URL(ORIGIN + "/wp-json/wp/v2/posts");
-      direct.searchParams.set("author", author);
-      direct.searchParams.set("per_page", String(perPage));
-      direct.searchParams.set("page", String(page));
-      direct.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
-      direct.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
-      const dr = await fetch(direct.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
-      if (dr.ok) {
-        const rows = await dr.json().catch(() => []);
-        const t = parseInt(dr.headers.get("x-wp-total") || "0", 10) || (Array.isArray(rows) ? rows.length : 0);
-        const tp = parseInt(dr.headers.get("x-wp-totalpages") || "1", 10) || 1;
-        return json(200, { ok: true, posts: Array.isArray(rows) ? rows : [], total: t, total_pages: tp }, NO_STORE, request);
+      // Author has nothing in the recent window: read the site's own public author page (needs the slug).
+      const aslug = (url.searchParams.get("slug") || "").trim().toLowerCase();
+      if (/^[a-z0-9][a-z0-9-]{0,80}$/.test(aslug)) {
+        const pr = await fetch(ORIGIN + "/author/" + aslug + "/" + (page > 1 ? "page/" + page + "/" : ""), { headers: { "Accept": "text/html", "User-Agent": "Mozilla/5.0 (compatible; OkObserverApp)" }, redirect: "follow" });
+        if (pr.ok) {
+          const html = await pr.text();
+          const found = [];
+          const foundSlugs = [];
+          const reImg = /class="oo-pc-img"[^>]*href="([^"]+)"/g;
+          let m;
+          while ((m = reImg.exec(html))) {
+            try { const seg = new URL(m[1]).pathname.split("/").filter(Boolean).pop(); if (seg && !foundSlugs.includes(seg)) foundSlugs.push(seg); } catch (_) {}
+          }
+          const re = /post-(\d+) post type-post/g;
+          while ((m = re.exec(html))) { if (!found.includes(m[1])) found.push(m[1]); }
+          let tp = page;
+          const re2 = /\/page\/(\d+)\//g;
+          while ((m = re2.exec(html))) { tp = Math.max(tp, parseInt(m[1], 10)); }
+          if (found.length || foundSlugs.length) {
+            const up = new URL(ORIGIN + "/wp-json/wp/v2/posts");
+            if (found.length) { up.searchParams.set("include", found.join(",")); up.searchParams.set("orderby", "include"); up.searchParams.set("per_page", String(found.length)); }
+            else { up.searchParams.set("slug", foundSlugs.join(",")); up.searchParams.set("per_page", String(foundSlugs.length)); }
+            up.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
+            up.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
+            const ur = await fetch(up.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+            if (ur.ok) {
+              let rows = await ur.json().catch(() => []);
+              if (Array.isArray(rows) && !found.length) rows.sort((x, y) => foundSlugs.indexOf(x.slug) - foundSlugs.indexOf(y.slug));
+              return json(200, { ok: true, posts: Array.isArray(rows) ? rows : [], total: 0, total_pages: tp }, NO_STORE, request);
+            }
+          }
+        }
       }
     }
     const total = ids.length;

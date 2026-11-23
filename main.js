@@ -2916,12 +2916,12 @@ window.__ooRefreshHome = refreshHome;
     if ((m = path.match(/^\/author\/([^/]+)$/))) {
       const want = decodeURIComponent(m[1]).toLowerCase().replace(/-\d+$/, '');
       const raw = decodeURIComponent(m[1]).toLowerCase();
-      const toRoute = (x) => '#/archive?type=author&id=' + x.id + '&label=' + encodeURIComponent(x.name);
+      const toRoute = (x) => '#/archive?type=author&id=' + x.id + '&label=' + encodeURIComponent(x.name) + (x.lookupSlug ? '&slug=' + encodeURIComponent(x.lookupSlug) : '');
       return fetchAllAuthors().then((all) => {
         const hit = all.find((x) => (x.slug && String(x.slug).toLowerCase() === raw) || slugify(x.name) === want || slugify(x.name) === raw);
         if (hit) return toRoute(hit);
         // not in the list: ask the website for the author with this exact slug
-        return fetchJson(WORKER_BASE + '/content/author-lookup?slug=' + encodeURIComponent(raw)).then((u) => (u && u.ok && u.id ? toRoute(u) : null));
+        return fetchJson(WORKER_BASE + '/content/author-lookup?slug=' + encodeURIComponent(raw)).then((u) => (u && u.ok && u.id ? toRoute(Object.assign({ lookupSlug: raw }, u)) : null));
       }).catch(() => null);
     }
     if ((m = path.match(/^\/category\/(?:.*\/)?([^/]+)$/))) return '#/archive?type=category&slug=' + encodeURIComponent(m[1]) + '&label=' + encodeURIComponent(titleCase(m[1]));
@@ -3205,7 +3205,7 @@ function renderArchive(params) {
       let posts = [];
       if (type === 'author') {
         // WordPress blocks anonymous ?author= requests, so authors come through the Worker route.
-        const res = await fetch(`${WORKER_BASE}/content/author-archive?author=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}`);
+        const res = await fetch(`${WORKER_BASE}/content/author-archive?author=${encodeURIComponent(id)}&per_page=${POSTS_PER_PAGE}&page=${page}${slug ? '&slug=' + encodeURIComponent(slug) : ''}`);
         if (token !== archiveToken) return;
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
