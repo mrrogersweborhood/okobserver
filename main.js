@@ -2809,9 +2809,13 @@ window.__ooRefreshHome = refreshHome;
     let m;
     if ((m = path.match(/^\/author\/([^/]+)$/))) {
       const want = decodeURIComponent(m[1]).toLowerCase().replace(/-\d+$/, '');
+      const raw = decodeURIComponent(m[1]).toLowerCase();
+      const toRoute = (x) => '#/archive?type=author&id=' + x.id + '&label=' + encodeURIComponent(x.name);
       return fetchAllAuthors().then((all) => {
-        const a = all.find((x) => slugify(x.name) === want);
-        return a ? '#/archive?type=author&id=' + a.id + '&label=' + encodeURIComponent(a.name) : null;
+        const hit = all.find((x) => (x.slug && String(x.slug).toLowerCase() === raw) || slugify(x.name) === want || slugify(x.name) === raw);
+        if (hit) return toRoute(hit);
+        // not in the list: ask the website for the author with this exact slug
+        return fetchJson(WP_API_BASE + '/users?slug=' + encodeURIComponent(raw) + '&_fields=id,name').then((u) => (Array.isArray(u) && u.length ? toRoute(u[0]) : null));
       }).catch(() => null);
     }
     if ((m = path.match(/^\/category\/(?:.*\/)?([^/]+)$/))) return '#/archive?type=category&slug=' + encodeURIComponent(m[1]) + '&label=' + encodeURIComponent(titleCase(m[1]));
@@ -3932,7 +3936,7 @@ const nameHtml = __author && __author.id
   authorBoxHtml = `
     <div class="author-box" aria-label="About the author">
       <div class="author-box-inner">
-        ${safeAvatar ? `<img class="author-box-avatar" src="${safeAvatar}" alt="${safeName}" />` : ''}
+        ${safeAvatar ? (__author && __author.id ? `<a class="author-box-avatar-link" href="${archiveHref('author', __author.id, __authorName)}" aria-label="${safeName}: all articles"><img class="author-box-avatar" src="${safeAvatar}" alt="${safeName}" /></a>` : `<img class="author-box-avatar" src="${safeAvatar}" alt="${safeName}" />`) : ''}
         <div class="author-box-text">
           <div class="author-box-title">About the author</div>
           <div class="author-box-name">${nameHtml}</div>
