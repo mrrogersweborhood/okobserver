@@ -1,6 +1,18 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
+// Demo embed (iframe on another site): sign-in is switched off so bots can't use the demo to reach /auth/login.
+// KILL SWITCH: set window.OO_DEMO_LOGIN_OFF = false in index.html to restore sign-in inside iframes.
+(function () {
+  let embedded = false;
+  try { embedded = window.self !== window.top; } catch (_) { embedded = true; }
+  window.OO_EMBEDDED = embedded && window.OO_DEMO_LOGIN_OFF !== false;
+  if (window.OO_EMBEDDED) {
+    const st = document.createElement('style');
+    st.textContent = '#ooSignInLink,#ooSignOutLink{display:none!important}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+})();
 // Build 2025-12-08R2-perf2-gridRehydrate (AboutPage & Splash Stable, No Regressions + perf1-scrollDebounce + grid rehydrate)
 // NOTE: This file is intentionally written as a single, self-contained script with no imports/exports.
 //       It must remain plain JS (no modules) for GitHub Pages compatibility.
@@ -4679,6 +4691,7 @@ window.location.replace(target);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { ooFitPostTitle(); } catch (_) {} });
 
   async function loginUser(username, password, turnstileToken) {
+    if (window.OO_EMBEDDED) return false;
     try {
       const resp = await fetch(
         'https://okobserver-proxy.bob-b5c.workers.dev/auth/login',
@@ -4745,6 +4758,13 @@ async function logoutUser() {
   function renderLogin() {
     stopTtsPlayback();
     scrollToTop();
+
+    if (window.OO_EMBEDDED) {
+      app.innerHTML = '<div class="login-view"><h1 class="login-title">Sign in is <em>off in this demo.</em></h1>'
+        + '<p>This demo stays right here. To sign in, open the real app or the website on your own device.</p>'
+        + '<p><a href="#/">Back to the app</a></p></div>';
+      return;
+    }
 
     app.innerHTML = `
       <div class="login-view">

@@ -32,6 +32,23 @@ const WP_JWT_ENDPOINT = `${ORIGIN}/wp-json/jwt-auth/v1/token`; // JWT Authentica
 
 async function handleLogin(request, env) {
   try {
+    // Rate limit sign-in attempts per visitor address (binding LOGIN_LIMITER in wrangler.toml).
+    // Fails open: if the binding is missing or errors, sign-in still works (Turnstile is still enforced).
+    try {
+      if (env && env.LOGIN_LIMITER) {
+        const rlKey = request.headers.get("CF-Connecting-IP") || "unknown";
+        const rl = await env.LOGIN_LIMITER.limit({ key: rlKey });
+        if (rl && rl.success === false) {
+          return json(
+            429,
+            { success: false, message: "Too many sign-in attempts. Please wait a minute and try again." },
+            { "cache-control": "no-store", "pragma": "no-cache", "expires": "0", "retry-after": "60" },
+            request
+          );
+        }
+      }
+    } catch (_) { /* never block sign-in because the limiter failed */ }
+
     let body = null;
 
     try {

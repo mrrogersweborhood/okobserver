@@ -4,6 +4,13 @@ compatibility_date = "2025-09-30"
 account_id = "b5c3ab21040b7fbc26ad5e20c3e79504"
 preview_urls = false
 
+[[ratelimits]]
+name = "LOGIN_LIMITER"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 8
+  period = 60
+
 [observability]
 enabled = true
 
