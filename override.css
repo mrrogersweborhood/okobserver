@@ -18,7 +18,7 @@
   /* Same backdrop recipe as the website (.oo-bd): wash / photo (luminosity over blue sky gradient) / sky gradient, faded by a mask, over a blue page gradient */
   --oo-page-grad: linear-gradient(#2459b6 0%, #17448f 34%, #0b2f70 100%);
   --oo-bd-mask: linear-gradient(#000 0, #000 28%, rgba(0, 0, 0, .66) 52%, rgba(0, 0, 0, .3) 78%, transparent 100%);
-  --oo-bg-image: linear-gradient(rgba(36, 89, 182, .32), rgba(36, 89, 182, .32)), url("oo-backdrop-capitol.jpg"), linear-gradient(rgb(66, 130, 232) 0%, rgb(36, 89, 182) 42%, rgb(20, 60, 140) 100%);
+  --oo-bg-image: linear-gradient(rgba(36, 89, 182, .32), rgba(36, 89, 182, .32)), url("oo-backdrop-capitol.jpg?v=2.3.0"), linear-gradient(rgb(66, 130, 232) 0%, rgb(36, 89, 182) 42%, rgb(20, 60, 140) 100%);
   --oo-ink: rgba(247, 243, 234, .88);
   --oo-ink-dim: rgba(247, 243, 234, .62);
   --oo-title: #ffffff;

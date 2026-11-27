@@ -16,9 +16,15 @@
 
 // WHICH WEBSITE THE APP READS (the ONE place to change it):
 //   TESTING (app not public yet): the new staging site.
-//   AT LAUNCH: change to "https://okobserver.org" and redeploy this Worker.
-const ORIGIN = "https://test.okobserver.org";
-const API_ALLOW = ["/wp-json/", "/content/full-post", "/content/author-posts"]; // allow WP API + full-post helper + author-posts helper
+//   Live since the app update of 2026-11-26.
+const ORIGIN = "https://okobserver.org";
+// Public pass-through: WordPress REST reads only. The /content/* helpers are routed before this list is checked.
+// Anything else sent to the site could answer "not found" or "wrong password", and the site blocks this server's
+// one address for good after 5 of those in 5 minutes, which would stop the app for every reader.
+const API_ALLOW = ["/wp-json/"];
+const FAIL_WINDOW = 300;      // seconds, the site's own window
+const FAIL_MAX = 3;           // stop sending after this many, safely under the site's 5
+const UA = "Mozilla/5.0 (compatible; OkObserverApp)";
 
 
 const CACHE_TTL = 300;        // seconds
@@ -110,6 +116,15 @@ async function handleLogin(request, env) {
       );
     }
 
+    if ((await recentFailures("login")) >= FAIL_MAX) {
+      return json(
+        429,
+        { success: false, message: "Sign-in is paused for a few minutes after several failed attempts. Please try again shortly." },
+        { "cache-control": "no-store", "pragma": "no-cache", "expires": "0", "retry-after": String(FAIL_WINDOW) },
+        request
+      );
+    }
+
     const wpResp = await fetch(WP_JWT_ENDPOINT, {
       method: "POST",
       headers: {
@@ -133,6 +148,7 @@ async function handleLogin(request, env) {
       const isUpstreamServerError = wpResp.status >= 500;
 
       if (!isUpstreamServerError) {
+        await noteFailure("login");
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
@@ -254,11 +270,11 @@ function getJwtFromCookie(request) {
 async function fetchUpstreamWithOptionalAuth(upstream, init, hadAuth) {
   const resp = await fetch(upstream, init);
 
-  // If a bad/expired JWT breaks public reads, retry once without Authorization.
+  // If a bad/expired JWT breaks public reads (the site answers 401 or 403), retry once without Authorization.
   const method = String(init && init.method ? init.method : "GET").toUpperCase();
   const isSafeRead = method === "GET" || method === "HEAD";
 
-  if (hadAuth && isSafeRead && resp.status === 401) {
+  if (hadAuth && isSafeRead && (resp.status === 401 || resp.status === 403)) {
     const retryHeaders = new Headers(init.headers);
     retryHeaders.delete("Authorization");
     const retryInit = { ...init, headers: retryHeaders };
@@ -329,6 +345,10 @@ if (url.pathname === "/content/topic-index" && request.method === "GET") {
 if (url.pathname === "/content/about-page" && request.method === "GET") {
   return handleAboutPage(request, env);
 }
+/* ------------------ HELP PAGE (the website's own Help block, shared with the app) ------------------ */
+if (url.pathname === "/content/help-page" && request.method === "GET") {
+  return handleHelpPage(request);
+}
 /* ------------------ HOME EXTRAS (sponsor strip + Featured Columnists, read from the site's home page) ------------------ */
 if (url.pathname === "/content/home-extras" && request.method === "GET") {
   return handleHomeExtras(request, env);
@@ -391,6 +411,10 @@ if (request.method === "OPTIONS") {
           "expires": "0"
         }
       );
+    }
+
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return text(405, "Not allowed", request, { "cache-control": "no-store" });
     }
 
     /* ----------------- Build upstream WordPress URL ----------------- */
@@ -510,10 +534,38 @@ return new Response(upstreamResp.body, {
 /* ---------------- helpers ---------------- */
 const NO_STORE = { "cache-control": "no-store", "pragma": "no-cache", "expires": "0" };
 
-function basicAuthHeaders(env) {
-  const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
-  if (!basic) return null;
-  return { "Authorization": `Basic ${basic}`, "Accept": "application/json" };
+const PAGE_HEADERS = { "Accept": "text/html", "User-Agent": UA };
+const DATA_HEADERS = { "Accept": "application/json", "User-Agent": UA };
+
+// Recent failures, remembered for the site's 5-minute window (per Cloudflare location).
+const failKey = (kind) => new Request("https://oo-cache.invalid/fail-" + kind);
+async function failureTimes(kind) {
+  try {
+    const hit = await caches.default.match(failKey(kind));
+    const list = hit ? await hit.json() : [];
+    return list.filter((t) => Date.now() - t < FAIL_WINDOW * 1000);
+  } catch (_) { return []; }
+}
+async function recentFailures(kind) { return (await failureTimes(kind)).length; }
+async function noteFailure(kind) {
+  try {
+    const list = await failureTimes(kind);
+    list.push(Date.now());
+    await caches.default.put(failKey(kind), new Response(JSON.stringify(list), { headers: { "content-type": "application/json", "cache-control": "max-age=" + FAIL_WINDOW } }));
+  } catch (_) {}
+}
+// Reads a public author page without risking the site's "too many missing pages" block:
+// a name that was not found is remembered for an hour, and lookups pause after a few misses.
+async function fetchAuthorPage(slug, page) {
+  const miss = new Request("https://oo-cache.invalid/miss-author/" + slug + "/" + page);
+  if (await caches.default.match(miss)) return null;
+  if ((await recentFailures("missing")) >= FAIL_MAX) return null;
+  const resp = await fetch(ORIGIN + "/author/" + slug + "/" + (page > 1 ? "page/" + page + "/" : ""), { headers: PAGE_HEADERS, redirect: "follow" });
+  if (resp.status === 404) {
+    await noteFailure("missing");
+    await caches.default.put(miss, new Response("1", { headers: { "cache-control": "max-age=3600" } }));
+  }
+  return resp.ok ? resp : null;
 }
 
 // ---- Events: the Observer's public Google Calendar, turned into simple JSON for the app ----
@@ -615,7 +667,7 @@ function parseHomeExtras(html) {
   }
   // "Shop the Observer" picture + page
   const shopImg = (html.match(/https?:[^"'\s)]*Observer-Shop-booth[^"'\s)]*?\.(?:webp|jpe?g|png)/i) || [""])[0];
-  const shop = shopImg ? { img: shopImg, href: ORIGIN + "/shop-for-subscriptions-and-clothing/" } : null;
+  const shop = shopImg ? { img: shopImg, href: ORIGIN + "/shop/" } : null;
   return { sponsors, columnists, shop };
 }
 // The website builds its Index (topic list) into one JSON file whose name changes whenever the list is rebuilt.
@@ -624,17 +676,17 @@ function parseHomeExtras(html) {
 async function handleTopicIndex(request, env) {
   try {
     const cache = caches.default;
-    const key = new Request("https://oo-cache.invalid/topic-index-v1");
+    const key = new Request("https://oo-cache.invalid/topic-index-live1");
     const hit = await cache.match(key);
     const out = { ...corsHeaders(request), "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=3600" };
     if (hit) return new Response(await hit.text(), { status: 200, headers: out });
-    const headers = basicAuthHeaders(env) || { "Accept": "text/html" };
+    const headers = PAGE_HEADERS;
     const page = await fetch(ORIGIN + "/index/", { headers });
     if (!page.ok) return json(502, { ok: false, error: "Index page unavailable", status: page.status }, NO_STORE, request);
     const m = (await page.text()).match(/id="oogl"[^>]*data-index="([^"]+)"/);
     const src = m ? m[1].replace(/&amp;/g, "&") : "";
     if (!src.startsWith(ORIGIN + "/wp-content/uploads/oo-glossary/")) return json(502, { ok: false, error: "Index file not found" }, NO_STORE, request);
-    const file = await fetch(src, { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+    const file = await fetch(src, { headers: DATA_HEADERS });
     if (!file.ok) return json(502, { ok: false, error: "Index file unavailable", status: file.status }, NO_STORE, request);
     const body = await file.text();
     await cache.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "max-age=3600" } }));
@@ -649,11 +701,11 @@ async function handleTopicIndex(request, env) {
 async function handleAboutPage(request, env) {
   try {
     const cache = caches.default;
-    const key = new Request("https://oo-cache.invalid/about-page-v4");
+    const key = new Request("https://oo-cache.invalid/about-page-live1");
     const out = { "cache-control": "public, max-age=3600" };
     const hit = await cache.match(key);
     if (hit) return json(200, await hit.json(), out, request);
-    const resp = await fetch(ORIGIN + "/about/", { headers: basicAuthHeaders(env) || { "Accept": "text/html" } });
+    const resp = await fetch(ORIGIN + "/about/", { headers: PAGE_HEADERS });
     if (!resp.ok) return json(502, { ok: false, error: "About page unavailable", status: resp.status }, NO_STORE, request);
     const page = await resp.text();
     const start = page.indexOf('<div class="ooan">');
@@ -687,15 +739,58 @@ async function handleAboutPage(request, env) {
   }
 }
 
+// The website's Help block (<div class="ooh" id="ooh">), minus the "open the app" teaser. Because it is read from the
+// live page, the app only ever asks for videos the website itself is showing.
+async function handleHelpPage(request) {
+  try {
+    const cache = caches.default;
+    const key = new Request("https://oo-cache.invalid/help-page-live1");
+    const out = { "cache-control": "public, max-age=900" };
+    const hit = await cache.match(key);
+    if (hit) return json(200, await hit.json(), out, request);
+    const resp = await fetch(ORIGIN + "/help/", { headers: PAGE_HEADERS });
+    if (!resp.ok) return json(502, { ok: false, error: "Help page unavailable", status: resp.status }, NO_STORE, request);
+    const page = await resp.text();
+    const start = page.indexOf('<div class="ooh" id="ooh"');
+    if (start < 0) return json(502, { ok: false, error: "Help block not found" }, NO_STORE, request);
+    let depth = 0, end = -1, m;
+    const re = /<(\/?)div\b[^>]*>/g;
+    re.lastIndex = start;
+    while ((m = re.exec(page))) {
+      if (m[1] === "") depth++; else { depth--; if (depth === 0) { end = re.lastIndex; break; } }
+    }
+    if (end < 0) return json(502, { ok: false, error: "Help block not closed" }, NO_STORE, request);
+    const html = page.slice(start, end)
+      .replace(/<script\b[\s\S]*?<\/script>/gi, "")
+      .replace(/<aside class="ooh-teaser"[\s\S]*?<\/aside>/i, "")
+      // the "App" topic explains how to get the app and shows it in a frame; readers here are already in it
+      .replace(/<button\b[^>]*\bid="ooh-t-app"[\s\S]*?<\/button>/i, "")
+      .replace(/<section\b[^>]*\bid="ooh-p-app"[\s\S]*?<\/section>/i, "")
+      .replace(/<iframe\b[\s\S]*?<\/iframe>/gi, "")
+      // the website loads pictures late with its own script, which the app does not run: use the real addresses
+      .replace(/<img\b[^>]*\sdata-src=[^>]*>/gi, (tag) => tag
+        .replace(/\ssrc="data:[^"]*"/i, "")
+        .replace(/\sdata-sizes="[^"]*"/i, "")
+        .replace(/\sdata-(src|srcset)=/gi, " $1=")
+        .replace(/\blazyload\b/g, ""))
+      .replace(/\s(src|href|poster|data-m|data-d)="\/(?!\/)/g, (x, n) => " " + n + '="' + ORIGIN + "/");
+    const data = { ok: true, html };
+    await cache.put(key, new Response(JSON.stringify(data), { headers: { "content-type": "application/json", "cache-control": "max-age=900" } }));
+    return json(200, data, out, request);
+  } catch (err) {
+    return jsonError(500, "help page failed", err, request);
+  }
+}
+
 async function handleHomeExtras(request, env) {
   try {
     const cache = caches.default;
-    const key = new Request("https://oo-cache.invalid/home-extras-v2");
+    const key = new Request("https://oo-cache.invalid/home-extras-live1");
     const hit = await cache.match(key);
     if (hit) {
       return json(200, await hit.json(), { "cache-control": "public, max-age=900" }, request);
     }
-    const headers = basicAuthHeaders(env) || { "Accept": "text/html" };
+    const headers = PAGE_HEADERS;
     const resp = await fetch(ORIGIN + "/", { headers });
     if (!resp.ok) return json(502, { ok: false, error: "Home page unavailable", status: resp.status }, NO_STORE, request);
     const data = Object.assign({ ok: true }, parseHomeExtras(await resp.text()));
@@ -725,26 +820,26 @@ async function cachedValue(key, producer) {
 const AUTHOR_SCAN_PAGES = 10;
 
 async function fetchScanPages(query, env) {
-  // Same login the app's author-posts route already uses (the host firewall lets it through).
-  const headers = basicAuthHeaders(env) || { "Accept": "application/json" };
+  // Public post lists, read exactly as a signed-out visitor would.
+  const headers = DATA_HEADERS;
   const pages = [];
   for (let p = 1; p <= AUTHOR_SCAN_PAGES; p++) pages.push(p);
-  const results = await Promise.all(
-    pages.map(async (p) => {
+  const one = async (p) => {
       const u = `${ORIGIN}/wp-json/wp/v2/posts?per_page=100&page=${p}&status=publish&${query}`;
       const resp = await fetch(u, { headers });
       if (!resp.ok) return [];
       const rows = await resp.json().catch(() => []);
       return Array.isArray(rows) ? rows : [];
-    })
-  );
+  };
+  const results = [];
+  for (let i = 0; i < pages.length; i += 3) results.push(...(await Promise.all(pages.slice(i, i + 3).map(one))));
   return results.flat();
 }
 
 // GET /content/authors  ->  { ok, authors: [{ id, name }] }  (authors of the recent posts, A-Z)
 async function handleAuthorsList(request, env) {
   try {
-    const authors = await cachedValue("authors-v2", async () => {
+    const authors = await cachedValue("authors-live1", async () => {
       const rows = await fetchScanPages("_embed=author&_fields=author,_links,_embedded", env);
       const seen = new Map();
       for (const post of rows) {
@@ -764,8 +859,8 @@ async function handleAuthorLookup(request, url) {
   try {
     const slug = (url.searchParams.get("slug") || "").trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(slug)) return json(400, { ok: false, error: "Invalid slug" }, NO_STORE, request);
-    const resp = await fetch(ORIGIN + "/author/" + slug + "/", { headers: { "Accept": "text/html", "User-Agent": "Mozilla/5.0 (compatible; OkObserverApp)" }, redirect: "follow" });
-    if (!resp.ok) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
+    const resp = await fetchAuthorPage(slug, 1);
+    if (!resp) return json(404, { ok: false, error: "Author not found" }, NO_STORE, request);
     const html = await resp.text();
     const idm = html.match(/<body[^>]*class="[^"]*\bauthor-(\d+)\b/);
     const tm = html.match(/<title>([^<|]*)/);
@@ -788,7 +883,7 @@ async function handleAuthorArchive(request, url, env) {
       return json(400, { ok: false, error: "Missing or invalid author" }, NO_STORE, request);
     }
 
-    const pairs = await cachedValue("author-pairs-v2", async () => {
+    const pairs = await cachedValue("author-pairs-live1", async () => {
       const rows = await fetchScanPages("_fields=id,author", env);
       return rows.map((r) => [r.id, r.author]);
     });
@@ -797,8 +892,8 @@ async function handleAuthorArchive(request, url, env) {
       // Author has nothing in the recent window: read the site's own public author page (needs the slug).
       const aslug = (url.searchParams.get("slug") || "").trim().toLowerCase();
       if (/^[a-z0-9][a-z0-9-]{0,80}$/.test(aslug)) {
-        const pr = await fetch(ORIGIN + "/author/" + aslug + "/" + (page > 1 ? "page/" + page + "/" : ""), { headers: { "Accept": "text/html", "User-Agent": "Mozilla/5.0 (compatible; OkObserverApp)" }, redirect: "follow" });
-        if (pr.ok) {
+        const pr = await fetchAuthorPage(aslug, page);
+        if (pr) {
           const html = await pr.text();
           const found = [];
           const foundSlugs = [];
@@ -818,7 +913,7 @@ async function handleAuthorArchive(request, url, env) {
             else { up.searchParams.set("slug", foundSlugs.join(",")); up.searchParams.set("per_page", String(foundSlugs.length)); }
             up.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
             up.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
-            const ur = await fetch(up.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+            const ur = await fetch(up.toString(), { headers: DATA_HEADERS });
             if (ur.ok) {
               let rows = await ur.json().catch(() => []);
               if (Array.isArray(rows) && !found.length) rows.sort((x, y) => foundSlugs.indexOf(x.slug) - foundSlugs.indexOf(y.slug));
@@ -842,7 +937,7 @@ async function handleAuthorArchive(request, url, env) {
     upstream.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
     // Summary fields only: the post body ("content") is never requested.
     upstream.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
-    const resp = await fetch(upstream.toString(), { headers: basicAuthHeaders(env) || { "Accept": "application/json" } });
+    const resp = await fetch(upstream.toString(), { headers: DATA_HEADERS });
     if (!resp.ok) {
       return json(resp.status, { ok: false, status: resp.status, error: "Upstream posts request failed" }, NO_STORE, request);
     }
@@ -872,24 +967,9 @@ async function handleAuthorPosts(request, url, env) {
       );
     }
 
-    const basic = env && env.WP_BASIC_AUTH ? String(env.WP_BASIC_AUTH).trim() : "";
-    if (!basic) {
-      return json(
-        500,
-        { ok: false, error: "WP_BASIC_AUTH not configured" },
-        {
-          "cache-control": "no-store",
-          "pragma": "no-cache",
-          "expires": "0"
-        },
-        request
-      );
-    }
-
-    const headers = {
-      "Authorization": `Basic ${basic}`,
-      "Accept": "application/json"
-    };
+    // Public view only: this route answers anyone, so it must never use the site login (that returned
+    // members-only story text to signed-out visitors). Card fields only; the story body is never requested.
+    const headers = DATA_HEADERS;
 
 // 🚀 SPEED OPTIMIZATION
 const MAX_SCAN_PAGES = 4; // was 12 (huge slowdown)
@@ -905,6 +985,7 @@ for (let p = 1; p <= MAX_SCAN_PAGES; p++) {
       upstream.searchParams.set("per_page", String(upstreamPerPage));
       upstream.searchParams.set("page", String(p));
       upstream.searchParams.set("_embed", "author,wp:featuredmedia,wp:term");
+      upstream.searchParams.set("_fields", "id,date,link,slug,title,excerpt,author,featured_media,categories,tags,_links,_embedded");
 
             const resp = await fetch(upstream.toString(), {
         method: "GET",
@@ -1026,7 +1107,7 @@ async function handleFullPost(request, url, env, ctx) {
       !isAuthenticated &&
       !url.searchParams.has(NOCACHE_QS);
 
-    const cacheKey = new Request(`https://cache.okobserver/full-post?id=${encodeURIComponent(id)}`, {
+    const cacheKey = new Request(`https://cache.okobserver/full-post-live?id=${encodeURIComponent(id)}`, {
       method: "GET"
     });
 
@@ -1046,7 +1127,8 @@ async function handleFullPost(request, url, env, ctx) {
     }
 
     const requestHeaders = {
-      "Accept": "application/json"
+      "Accept": "application/json",
+      "User-Agent": UA
     };
 
     if (isAuthenticated) {
@@ -1072,7 +1154,7 @@ async function handleFullPost(request, url, env, ctx) {
         : undefined
     });
 
-    if (isAuthenticated && resp.status === 401) {
+    if (isAuthenticated && (resp.status === 401 || resp.status === 403)) {
       resp = await fetch(upstream.toString(), {
         method: "GET",
         headers: {
@@ -1274,6 +1356,7 @@ function corsHeaders(req) {
     path.startsWith("/content/author-posts") ||
     path.startsWith("/content/events") ||
     path.startsWith("/content/home-extras") ||
+    path.startsWith("/content/help-page") ||
     path === "/" ||
     path === "/status";
 

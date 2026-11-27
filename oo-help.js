@@ -1,5 +1,5 @@
 window.ooHelpMount=function(){
-var root=document.getElementById('ooh');if(!root)return;
+var root=document.getElementById('ooh');if(!root||!root.querySelector('.ooh-tab'))return;
 var tb=root.querySelector('.ooh-tabs'),tabs=[].slice.call(root.querySelectorAll('.ooh-tab')),panels=[].slice.call(root.querySelectorAll('.ooh-p')),devs=[].slice.call(root.querySelectorAll('.ooh-d'));
 var dev=(800>window.innerWidth)?'m':'d',cur=tabs[0].getAttribute('data-k');
 function show(){
@@ -9,6 +9,7 @@ function show(){
  panels.forEach(function(p){
   var on=p.id==='ooh-p-'+cur||p.getAttribute('data-with')===cur,v=p.querySelector('video');
   p.hidden=!on;
+  if(!v){return}
   if(on){var s=v.getAttribute('data-'+dev);if(v.getAttribute('src')!==s){v.setAttribute('src',s);v.load();}var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}
   else{v.pause();}
  });

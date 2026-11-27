@@ -3,6 +3,18 @@
 // OkObserver Main JS
 // Demo embed (iframe on another site): sign-in is switched off so bots can't use the demo to reach /auth/login.
 // KILL SWITCH: set window.OO_DEMO_LOGIN_OFF = false in index.html to restore sign-in inside iframes.
+// Story and page HTML lists extra sizes of each picture (srcset). Some of those files do not exist on the website
+// (it serves pictures through its own image service), and the website blocks a reader for good after 5 missing files
+// in 5 minutes. So the app drops the lists and asks only for the picture's main file.
+function ooDropSrcset(v) {
+  if (typeof v === 'string') {
+    if (v.indexOf('srcset') === -1) return v;
+    return v.replace(/<(?:img|source)\b[^>]*>/gi, (tag) => tag.replace(/\s(?:data-)?(?:srcset|sizes)\s*=\s*(?:"[^"]*"|'[^']*')/gi, ''));
+  }
+  if (v && typeof v === 'object') { for (const k in v) v[k] = ooDropSrcset(v[k]); }
+  return v;
+}
+
 (function () {
   let embedded = false;
   try { embedded = window.self !== window.top; } catch (_) { embedded = true; }
@@ -38,10 +50,10 @@
   const APP_BUILD_LABEL = 'OkObserver Build 2025-12-08R6-vimeoPattern — Splash & About stable; scroll debounce + grid rehydrate + Vimeo fix';
 
   // Proxy base (must always be used instead of direct WP origin)
-  // The app always reads through the Cloudflare Worker. WHICH website the Worker reads (staging now, okobserver.org at launch)
-  // is set in worker.js (ORIGIN); the website links in the menu use OO_SITE_ORIGIN in index.html.
-  // Local preview only (localhost): until the updated Worker is deployed, read the new staging site directly
-  // (add ?src=worker to the address to test through the Worker instead). This never runs on the real app.
+  // The app always reads through the Cloudflare Worker. WHICH website the Worker reads is set in worker.js (ORIGIN);
+  // the website links in the menu use OO_SITE_ORIGIN in index.html.
+  // Local preview only (localhost): read the website directly
+  // (add ?src=worker to the address to go through the Worker instead). This never runs on the real app.
   const OO_SITE_ORIGIN = String(window.OO_SITE_ORIGIN || 'https://okobserver.org').replace(/\/+$/, '');
   const OO_LOCAL_DIRECT = location.hostname === 'localhost' && !/[?&]src=worker/.test(location.search);
   const WP_API_BASE = OO_LOCAL_DIRECT
@@ -50,6 +62,17 @@
 
   // Category name(s) that should be filtered out (e.g., cartoons)
   const WORKER_BASE = 'https://okobserver-proxy.bob-b5c.workers.dev';
+
+  // A sign-in saved while the app read a different website (the test site) is not valid here: forget it once.
+  try {
+    if (localStorage.getItem('ooSite') !== OO_SITE_ORIGIN) {
+      const hadSignIn = !!(localStorage.getItem('ooJwt') || localStorage.getItem('ooLoggedIn'));
+      localStorage.removeItem('ooJwt');
+      localStorage.removeItem('ooLoggedIn');
+      localStorage.setItem('ooSite', OO_SITE_ORIGIN);
+      if (hadSignIn) fetch(WORKER_BASE + '/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    }
+  } catch (_) {}
   const EXCLUDED_CATEGORY_SLUGS = ['cartoon'];
 
   // Infinite scroll / paging settings
@@ -418,7 +441,7 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
 
-  return response.json();
+  return ooDropSrcset(await response.json());
 }
 
 
@@ -1536,7 +1559,7 @@ function cleanExcerptForLoggedIn(excerptHtml) {
     if (!cta) {
       const b = document.createElement('a');
       b.className = 'oo-advertise';
-      b.href = 'mailto:admin@okobserver.org';
+      b.href = 'mailto:info@okobserver.org';
       b.textContent = 'Advertise with us';
       sec.appendChild(b);
     }
@@ -1972,11 +1995,14 @@ if (posts.length > 0 && appendedCount === 0) {
     const box = app.querySelector('.about-html');
     try {
       if (slug === 'help') {
-        const r = await fetch('oo-help.html?v=2.2.20');
-        const html = await r.text();
+        // The website's own Help block, read live, so the app only asks for pictures and videos the website is showing.
+        const r = await fetch(WORKER_BASE + '/content/help-page');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        if (!d || !d.ok || !d.html) throw new Error('Help unavailable');
         if (!document.body.contains(box)) return;
         app.querySelector('.toc-title').hidden = true;
-        box.innerHTML = html.replace(/https:\/\/test\.okobserver\.org/g, OO_SITE_ORIGIN); // demo videos follow the site address, so launch needs no edit here
+        box.innerHTML = '<div class="oohelp oohelp-top"><h1>Help &amp; FAQs</h1></div><div class="oohelp">' + d.html + '</div>';
         if (window.ooHelpMount) window.ooHelpMount();
         if (window.ooHelpTest) window.ooHelpTest();
         return;
@@ -2027,6 +2053,7 @@ if (posts.length > 0 && appendedCount === 0) {
     // Preferred: the website's own designed About page (same block, same styles), read live through the Worker.
     fetch(WORKER_BASE + '/content/about-page')
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(ooDropSrcset)
       .then((d) => {
         if (!d || !d.html || d.html.indexOf('class="ooan"') < 0) throw new Error('bad');
         if (!document.body.contains(aboutHtmlEl)) return;
@@ -3243,7 +3270,7 @@ function renderArchive(params) {
         } else {
           totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10) || 1;
           showCount(res.headers.get('x-wp-total'));
-          posts = await res.json();
+          posts = ooDropSrcset(await res.json());
         }
       }
       {
