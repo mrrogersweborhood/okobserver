@@ -28,62 +28,10 @@
       return;
     }
 
-    window.stop(); // this outer page only holds the frame; the app itself loads inside it
-    var d = document, root = d.documentElement;
-    var el = function (tag, attrs, parent) {
-      var n = d.createElement(tag);
-      for (var k in attrs) n.setAttribute(k, attrs[k]);
-      if (parent) parent.appendChild(n);
-      return n;
-    };
-    while (root.firstChild) root.removeChild(root.firstChild);
-    var head = el('head', {}, root);
-    el('meta', { charset: 'utf-8' }, head);
-    el('meta', { name: 'viewport', content: 'width=device-width, initial-scale=1' }, head);
-    el('meta', { name: 'theme-color', content: '#0d3f95' }, head);
-    el('title', {}, head).textContent = 'The Oklahoma Observer';
-    el('link', { rel: 'icon', type: 'image/png', href: 'favicon-o.png' }, head);
-    el('link', { rel: 'manifest', href: 'manifest.json' }, head);
-    el('style', {}, head).textContent =
-      'html,body{margin:0;height:100%;overflow:hidden;background:#0b2a66}' +
-      'body{display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(3,18,60,.78),rgba(3,18,60,.88)),url(oo-dome-wide.webp) center/cover #0b2a66}' +
-      '.oo-ps{flex:none;border:8px solid #080d0e;border-radius:42px;overflow:hidden;background:#0d3f95;box-shadow:0 0 0 1px rgba(255,255,255,.28),0 30px 70px rgba(0,0,0,.55)}' +
-      '.oo-ps div{position:relative;overflow:hidden}' +
-      '.oo-ps iframe{position:absolute;top:0;left:0;width:390px;height:844px;border:0;transform-origin:0 0}' +
-      '.oo-ps.full{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}' +
-      '.oo-ps.full div,.oo-ps.full iframe{width:100%;height:100%}';
-    var body = el('body', {}, root);
-    var phone = el('div', { 'class': 'oo-ps' }, body);
-    var screenBox = el('div', {}, phone);
-    var frame = el('iframe', { title: 'The Oklahoma Observer app', allow: 'autoplay; fullscreen; clipboard-write; web-share; encrypted-media; picture-in-picture' }, screenBox);
-    var fit = function () {
-      var full = window.innerWidth < 500; // a narrow window is phone-sized already
-      phone.className = full ? 'oo-ps full' : 'oo-ps';
-      if (full) { screenBox.removeAttribute('style'); frame.removeAttribute('style'); return; }
-      var s = Math.max(.3, Math.min(1, (window.innerHeight - 40) / 844, (window.innerWidth - 40) / 390));
-      screenBox.style.width = Math.floor(390 * s) + 'px';
-      screenBox.style.height = Math.floor(844 * s) + 'px';
-      frame.style.transform = 'scale(' + s + ')';
-    };
-    // keep the address bar on the page being read, so reload, bookmarks and sharing still work
-    var follow = function () {
-      try {
-        var w = frame.contentWindow;
-        var show = function () {
-          try { history.replaceState(null, '', w.location.pathname + w.location.search + w.location.hash); d.title = w.document.title; } catch (e) {}
-        };
-        w.addEventListener('hashchange', show);
-        show();
-        w.focus();
-      } catch (e) {}
-    };
-    frame.addEventListener('load', follow);
-    window.addEventListener('hashchange', function () {
-      try { if (frame.contentWindow.location.hash !== location.hash) frame.contentWindow.location.hash = location.hash; } catch (e) {}
-    });
-    window.addEventListener('resize', fit);
-    fit();
-    frame.src = location.href;
+    // A tablet or computer: go to frame.html, a small page that holds the app in a phone-sized frame.
+    if (/frame\.html$/.test(location.pathname)) return; // this is the offline copy shown in its place: do not loop
+    window.stop(); // nothing else on this page needs to load
+    location.replace('frame.html' + location.search + location.hash);
   })();
 </script>
 <meta name="mobile-web-app-capable" content="yes">
@@ -152,7 +100,7 @@
 <script src="oo-help.js?v=2.3.0" defer></script>
   <script
   defer
-  src="main.js?v=2.3.1"
+  src="main.js?v=2.3.2"
 ></script>
 <script defer src="oo-follow.js?v=2.0.0"></script>
 <script
@@ -224,7 +172,7 @@
       
       <div class="oo-splash-tag">Independent journalism since 1968</div>
       <div class="oo-splash-bar"><span></span></div>
-      <div class="oo-splash-ver" id="oo-splash-ver">Version 2.3.1</div><script>try{var m=document.querySelector('script[src*="main.js"]');var v=m&&(m.getAttribute("src")||"").match(/[?&]v=([0-9.]+)/);if(v)document.getElementById("oo-splash-ver").textContent="Version "+v[1];}catch(e){}</script>
+      <div class="oo-splash-ver" id="oo-splash-ver">Version 2.3.2</div><script>try{var m=document.querySelector('script[src*="main.js"]');var v=m&&(m.getAttribute("src")||"").match(/[?&]v=([0-9.]+)/);if(v)document.getElementById("oo-splash-ver").textContent="Version "+v[1];}catch(e){}</script>
     </div>
   </div>
   <!-- 🔴 Splash restored -->
@@ -379,7 +327,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2.3.1'; // bump when sw.js changes
+      var SW_BUILD = '2.3.2'; // bump when sw.js changes
       var BASE = location.pathname.replace(/[^/]*$/, ''); // /okobserver/ on github.io, / on app.okobserver.org
       var SW_URL = BASE + 'sw.js';
       var SCOPE = BASE;

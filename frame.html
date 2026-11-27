@@ -1,0 +1,66 @@
+<!-- 🟢 frame.html: on a tablet or computer, holds the app in a phone-sized frame (index.html sends them here) -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0d3f95">
+<title>The Oklahoma Observer</title>
+<link rel="icon" type="image/png" href="favicon-o.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b2a66}
+  body{display:flex;align-items:center;justify-content:center;background:linear-gradient(rgba(3,18,60,.78),rgba(3,18,60,.88)),url(oo-dome-wide.webp) center/cover #0b2a66}
+  .oo-ps{flex:none;border:8px solid #080d0e;border-radius:42px;overflow:hidden;background:#0d3f95;box-shadow:0 0 0 1px rgba(255,255,255,.28),0 30px 70px rgba(0,0,0,.55)}
+  .oo-ps div{position:relative;overflow:hidden}
+  .oo-ps iframe{position:absolute;top:0;left:0;width:390px;height:844px;border:0;transform-origin:0 0}
+  .oo-ps.full{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
+  .oo-ps.full div,.oo-ps.full iframe{width:100%;height:100%}
+</style>
+</head>
+<body>
+<div class="oo-ps"><div><iframe title="The Oklahoma Observer app" allow="autoplay; fullscreen; clipboard-write; web-share; encrypted-media; picture-in-picture"></iframe></div></div>
+<script>
+(function () {
+  var app = './' + location.search + location.hash;
+  var framed = true;
+  try { framed = window.self !== window.top; } catch (e) {}
+  var phone = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) && Math.min(screen.width, screen.height) < 600;
+  // a phone, or already inside a frame: the app itself, with no second frame around it
+  if (framed || phone) { location.replace(app); return; }
+  // The address bar is changed to the app's own address only after the app has loaded (below): while it loads, the
+  // two addresses differ, so no browser can mistake the frame for a page framing itself.
+  var shell = document.querySelector('.oo-ps');
+  var screenBox = shell.firstChild;
+  var frame = screenBox.firstChild;
+  function fit() {
+    var full = window.innerWidth < 500; // a narrow window is phone-sized already
+    shell.className = full ? 'oo-ps full' : 'oo-ps';
+    if (full) { screenBox.removeAttribute('style'); frame.removeAttribute('style'); return; }
+    var s = Math.max(.3, Math.min(1, (window.innerHeight - 40) / 844, (window.innerWidth - 40) / 390));
+    screenBox.style.width = Math.floor(390 * s) + 'px';
+    screenBox.style.height = Math.floor(844 * s) + 'px';
+    frame.style.transform = 'scale(' + s + ')';
+  }
+  // keep the address bar on the page being read, so reload, bookmarks and sharing still work
+  frame.addEventListener('load', function () {
+    try {
+      var w = frame.contentWindow;
+      var show = function () {
+        try { history.replaceState(null, '', w.location.pathname + w.location.search + w.location.hash); document.title = w.document.title; } catch (e) {}
+      };
+      w.addEventListener('hashchange', show);
+      show();
+      w.focus();
+    } catch (e) {}
+  });
+  window.addEventListener('hashchange', function () {
+    try { if (frame.contentWindow.location.hash !== location.hash) frame.contentWindow.location.hash = location.hash; } catch (e) {}
+  });
+  window.addEventListener('resize', fit);
+  fit();
+  frame.src = app;
+})();
+</script>
+</body>
+</html>

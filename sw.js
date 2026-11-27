@@ -8,13 +8,13 @@
    - Static assets: cache-first with guarded network fill
    🔴 sw.js */
 
-const SW_BUILD = '2.3.1';
+const SW_BUILD = '2.3.2';
 const CACHE_NAME = 'okobserver-cache-' + SW_BUILD;
 
 // Explicit precache list (root-scope paths)
 // Base path follows wherever the app is hosted (/okobserver/ on github.io, / on app.okobserver.org)
 const BASE = new URL(self.registration.scope).pathname;
-const PRECACHE = ['', 'index.html', 'override.css', 'main.js', 'PostDetail.js', 'logo.png', 'favicon-o.png'].map((p) => BASE + p);
+const PRECACHE = ['', 'index.html', 'frame.html', 'override.css', 'main.js', 'PostDetail.js', 'logo.png', 'favicon-o.png'].map((p) => BASE + p);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -67,7 +67,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
-        const match = await cache.match(BASE + 'index.html');
+        // frame.html has its own offline copy; every other page falls back to the app itself
+        const match = (url.pathname === BASE + 'frame.html' && await cache.match(BASE + 'frame.html'))
+          || await cache.match(BASE + 'index.html');
 
         return (
           match ||
