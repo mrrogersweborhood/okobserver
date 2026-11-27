@@ -38,9 +38,9 @@
 
   /* Home / Log In / Light-Dark / Aa / voice */
   html body dialog.oo-nm .oo-nm-bar { padding: 10px 0 4px; border: 0; background: none; border-radius: 24px; }
-  html body dialog.oo-nm .oo-nm-utils { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 9.6px; margin: 0 0 14px; padding: 14.4px 16px 14px; border: 0; background: linear-gradient(90deg, rgba(255, 217, 138, 0), #ffd98a 18%, #ffd98a 82%, rgba(255, 217, 138, 0)) bottom / 100% 1px no-repeat; }
+  html:not(#z) body dialog.oo-nm .oo-nm-utils { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 10px; margin: 0 0 14px; padding: 14.4px 16px 14px; border: 0; background: linear-gradient(90deg, rgba(255, 217, 138, 0), #ffd98a 18%, #ffd98a 82%, rgba(255, 217, 138, 0)) bottom / 100% 1px no-repeat; }
   html body dialog.oo-nm .oo-nm-util { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 49.6px; height: 52px; padding: 0 17.6px; border: 1.2px solid rgba(255, 255, 255, .55); border-radius: 999px; background: #0b2a6b; color: #fff; font: 700 15.2px "Montserrat", system-ui, sans-serif; letter-spacing: .304px; text-align: center; text-decoration: none; box-sizing: border-box; cursor: pointer; }
-  html body dialog.oo-nm .oo-vp-row { display: flex; align-items: center; justify-content: center; gap: 5.6px; width: 100%; height: 52px; border-radius: 999px; background: rgba(8, 24, 70, .55); }
+  html body dialog.oo-nm .oo-vp-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 5.6px; width: 100%; height: 52px; border-radius: 999px; background: rgba(8, 24, 70, .55); }
   html body dialog.oo-nm .oo-vp-row .oo-nm-util { width: auto; min-height: 51.2px; height: 52px; }
   html body dialog.oo-nm .oo-theme-pill { flex: 1 1 auto; padding: 0 11.2px; background: #fff; color: #0b2a6b; border-color: #fff; font-size: 12.76px; letter-spacing: 0; white-space: nowrap; }
   html body dialog.oo-nm .oo-fs-btn, html body dialog.oo-nm .oo-vp-btn { flex: 0 0 54.4px; padding: 0; font-size: 15.2px; white-space: nowrap; border-color: rgba(255, 255, 255, .35); }
@@ -151,6 +151,7 @@
   html body footer.oof .oo-dir { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: "a1 a2" "a3 a3" "brand brand" "rev rev" "rule rule" "oodf oodf" "fol fol"; gap: 0 20px; margin: 0; }
   html body footer.oof .oo-dir-a1 { grid-area: a1; } html body footer.oof .oo-dir-a2 { grid-area: a2; } html body footer.oof .oo-dir-a3 { grid-area: a3; }
   html body footer.oof .oo-nm-bar .oof-legal { display: none; }
+  html:not(#z) body footer.oof .oo-dir .oo-dir-brand { display: none; }
   html body footer.oof .oo-dir-g { text-align: center; }
   html body footer.oof .oo-dir .oo-dir-g h3 { display: flex; align-items: center; justify-content: center; min-height: 72px; margin: 0 0 11.2px; padding: 4px 4px; border: 0; background: none; color: #ffd98a; font: 700 26.68px/30.68px Georgia, "Times New Roman", serif; letter-spacing: 3.2px; text-transform: none; text-align: center; }
   html body footer.oof .oo-dir .oo-dir-g h3 a { color: inherit; text-decoration: none; padding: 0; background: none; border: 0; font: inherit; letter-spacing: inherit; }
@@ -178,15 +179,11 @@
   html body footer.oof .oo-dir .oo-dir-list a { justify-content: flex-start; text-align: left; padding-left: 16px; }
 }
 
-/* Article page sized like the website at phone width (dark mode; light keeps its own panel). */
+/* Article page sized like the website at phone width. */
 @media (max-width: 640px) {
-  html body .post-detail .post-title { font-family: "Playfair Display", Georgia, serif !important; font-size: 22.87px !important; font-weight: 800 !important; letter-spacing: -.34px !important; line-height: 23.3px !important; color: #f7f3ea; text-wrap: balance; }
-  html body .post-detail .post-meta { font-size: 13px !important; font-weight: 600 !important; letter-spacing: 1.3px !important; color: #f7f3ea !important; text-align: center; }
-  html[data-oo-theme~="dark"] body .post-detail .post-content { background: transparent !important; padding: 16px 6px !important; box-shadow: none !important; border: 0 !important; }
-  html[data-oo-theme~="dark"] body .post-detail .post-content > p { font-size: calc(20px * var(--oo-read-scale, 1)); line-height: calc(37px * var(--oo-read-scale, 1)); }
-}
-@media (max-width: 640px) {
-  html body .post-detail .post-meta { font-size: 12px !important; letter-spacing: 1px !important; }
+  html body .post-detail .oo-post-head .post-title { font-family: "Playfair Display", Georgia, serif; font-size: 29px; text-wrap: balance; padding: 0 40px; }
+  html:not(#z) body .post-detail .post-content { background: transparent !important; padding: 16px 6px !important; box-shadow: none !important; border: 0 !important; }
+  html body .post-detail .post-content > p { font-size: calc(20px * var(--oo-read-scale, 1)); line-height: calc(37px * var(--oo-read-scale, 1)); }
 }
 
 /* The Light/Dark control now lives in the menu (as on the website); drop the duplicate round button. */
@@ -226,7 +223,8 @@ html body button.ood-btn i { width: 38px; height: 38px; font-size: 18px; }
 
 /* Diamond arrows (as on the website) instead of the app's old thin chevrons: home carousels + article prev/next. */
 @media (max-width: 640px) {
-  html body .oo-side, html body .oo-pn-a { font-size: 0 !important; color: #fff !important; position: absolute; }
+  html body .oo-side, html body .oo-pn-a { font-size: 0 !important; color: #fff !important; }
+  html body .oo-side { position: absolute; }
   html body .oo-side svg, html body .oo-pn-a svg { display: none !important; }
   html body .oo-side::before, html body .oo-pn-a::before { content: ""; position: absolute; top: 50%; width: 20px; height: 20px; margin-top: -10px; box-sizing: border-box; background: rgba(255, 255, 255, .55); border-top: 3.5px solid #fff; border-right: 3.5px solid #fff; filter: drop-shadow(0 1px 3px rgba(8, 26, 76, .75)); }
   html body .oo-side-next::before, html body .oo-pn-a-next::before { right: 6px; transform: rotate(45deg); }
@@ -284,17 +282,20 @@ html body button, html body a, html body [role="button"], html body summary, htm
   html body #app .back-btn{ display:none!important; }
   html body #app .post-detail-tts-row [data-act="share"] .lbl{ display:none!important; }
   html body #app .post-detail-tts-row .tts-button{
-    position:fixed!important; right:14px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:70;
-    width:52px!important; height:52px!important; padding:0!important; border-radius:50%!important;
+    position:fixed!important; right:calc(5px + env(safe-area-inset-right,0px)); bottom:calc(58px + env(safe-area-inset-bottom,0px)); z-index:70;
+    width:44px!important; height:44px!important; min-width:44px!important; padding:0!important; border-radius:50%!important;
     background:#0e2d6e!important; border:2px solid #e9b94c!important; box-shadow:0 8px 20px rgba(0,0,0,.45)!important;
     display:flex!important; align-items:center; justify-content:center;
   }
   html body #app .post-detail-tts-row .tts-button::after{ display:none!important; }
   html body #app .oo-post-head{
-    margin-left:-14px!important; margin-right:-14px!important; width:calc(100% + 28px)!important;
-    border-radius:0!important; border:0!important; border-top:2px solid #e9b94c!important;
-    background:rgba(9,32,86,.72)!important; box-shadow:none!important;
+    height:126px; padding:5px 14px 3px; margin:0 -14px; width:calc(100% + 28px);
+    border-radius:0; border:0; border-top:2px solid #e9b94c;
+    background:rgba(9,32,86,.72); color:#f7f3ea;
   }
+  html body #app .oo-post-head :is(.oo-post-by,.post-title,.post-meta){ color:#f7f3ea; }
+  html[data-oo-theme~="light"] body #app .oo-post-head{ background:#f6f2e8; }
+  html[data-oo-theme~="light"] body #app .oo-post-head :is(.oo-post-by,.post-title,.post-meta){ color:#0b1f52; }
 }
 /* the page fade-in leaves a transform that would pin the floating listen button to the page, not the screen */
 @media (max-width:640px){ html body #app > .post-detail{ animation:none!important; transform:none!important; } }
@@ -367,8 +368,11 @@ html body button, html body a, html body [role="button"], html body summary, htm
 @media (max-width: 640px) {
   html body img.oo-logo { margin-top: -2px !important; }
   html body .oo-motto { margin-top: 13px !important; color: rgba(255,255,255,.96) !important; text-shadow: 0 2px 10px rgba(0,0,0,.22), 0 1px 2px rgba(2,10,30,.35); }
-  html body .oo-hamburger { width: 40px !important; height: 38px !important; position: relative !important; left: 6px; top: -4px; margin: 0 !important; }
-  html body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#fff, #fff) center 11px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 18px / 22px 2px no-repeat, linear-gradient(#fff, #fff) center 25px / 22px 2px no-repeat !important; }
+  html body .oo-hamburger { width: 50px !important; height: 50px !important; position: relative !important; left: 6px; top: 1px; margin: 0 0 -12px !important; border-radius: 50% !important; box-shadow: 0 0 0 1px rgba(8,32,92,.3) !important; }
+  html body .oo-hamburger:not([aria-expanded="true"]) { background: linear-gradient(#fff, #fff) center 19px / 16px 2px no-repeat, linear-gradient(#fff, #fff) center 24px / 16px 2px no-repeat, linear-gradient(#fff, #fff) center 29px / 16px 2px no-repeat !important; }
+  html body .oo-hamburger::before { content: ""; position: absolute; inset: 0; padding: 2px; border-radius: 50%; pointer-events: none; background: conic-gradient(#3f7bff 0%, #9bbcff 12%, #fff 24%, #fff1cf 33%, #f3cf7a 42%, #fff1cf 51%, #fff 60%, #a9c5ff 74%, #5d8fff 88%, #3f7bff 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: oo-menu-ring 12s linear infinite; }
+  @keyframes oo-menu-ring { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { html body .oo-hamburger::before { animation: none; } }
 }
 
 /* Text inside buttons is always centered (desktop, tablet, phone, app). */
@@ -485,12 +489,10 @@ html body [data-act], html body .oo-act, html body .oo-section-link, html body .
 
 /* Footer gold divider lines, as on the mobile site: 2px gold gradient above Contact, Reviews, Support, Follow and the app block (and below the app block) */
 @media (max-width:1023px){
-  html body footer.oof .oo-dir-contact::before,
   html body footer.oof .oo-dir-rev::before,
   html body footer.oof .oo-dir-fol::before,
   html body footer.oof .oo-app::before,
   html body footer.oof .oo-app::after { content:"" !important; display:block !important; flex:0 0 auto !important; width:100% !important; height:2px !important; background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) !important; }
-  html body footer.oof .oo-dir-contact::before,
   html body footer.oof .oo-dir-rev::before,
   html body footer.oof .oo-dir-fol::before { margin:0 0 17.6px !important; }
   html body footer.oof .oo-dir-sup > .oo-dir-rule { background:linear-gradient(90deg,rgba(0,0,0,0),#ffd98a 10%,#ffd98a 90%,rgba(0,0,0,0)) top/100% 2px no-repeat !important; padding-top:19.6px !important; }
@@ -537,9 +539,6 @@ html[data-oo-theme~="light"] body footer.oof a.oof-btn--p i { background:#0b2a6b
 /* Light mode swipe arrows: softer, faded blue (was a solid blue) */
 html[data-oo-theme~="light"] body .oo-side::before, html[data-oo-theme~="light"] body .oo-pn-a::before { background: rgba(110,160,235,.45) !important; border-color: rgba(255,255,255,.85) !important; filter: none !important; }
 
-/* Single post: prev/next arrows sit at the left and right edges (they were stacked on the left) and lose the old horizontal line */
-html body .oo-pn-arrows > .oo-pn-a { position: relative !important; background: none !important; }
-
 /* menu buttons (Home, Log Out, Search, text size, reading voice, Close) take the directory panel's blue in dark mode */
 html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm :is(a.oo-nm-util, button.oo-nm-util, .oo-nm-search button, .oo-nm-close):not(.oo-theme-pill) { background: rgba(7, 22, 66, .78) !important; }
 
@@ -565,14 +564,7 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { background: #fff !important; }
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-fs-btn, html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-vp-btn { background: rgba(255, 255, 255, .97) !important; }
 
-  /* Contact Us: large gold serif link with a soft glow, like the website */
-  html:not(#z):not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { display: block !important; width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 !important; font: 700 23.2px/1.3 Georgia, serif !important; letter-spacing: .12em !important; text-transform: none !important; }
-  html[data-oo-fsz="1.15"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 26.68px !important; }
-  html[data-oo-fsz="1.3"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 30.16px !important; }
-  html[data-oo-fsz="1.5"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { font-size: 34.8px !important; }
-  html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { color: #ffd98a !important; }
   html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z) body .oo-dir-contact :is(h3, h3 a, .oo-dir-addr) { text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 0 8px rgba(0, 0, 0, .6) !important; }
-  html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact h3 a { color: #b98a2e !important; }
   html[data-oo-theme~="light"]:not(#z):not(#z):not(#z) body .oo-dir-contact :is(h3, h3 a, .oo-dir-addr) { text-shadow: 0 0 6px #fff, 0 0 12px #fff !important; }
 }
 
@@ -616,7 +608,7 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
 @media (max-width: 767.98px) {
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-icons { display: flex !important; flex-wrap: nowrap !important; justify-content: center !important; gap: 5.6px !important; grid-template-columns: none !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-fol a { min-width: 0 !important; min-height: 0 !important; flex: 0 0 36.8px !important; }
-  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { padding: 0 !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { padding: 18px 0 0 !important; }
 }
 
 /* Listen button and playback bar: blues and whites by mode (not gold), matching the read-aloud highlight. */
@@ -704,3 +696,10 @@ html body #app .login-submit{ border-radius:999px!important; }
 /* 2026-11-23: sign-in error messages were small, thin and easy to miss; show them as a clear callout */
 html body #app .login-error:not(:empty){ font-size:16px!important; font-weight:700!important; line-height:1.35!important; padding:11px 14px!important; border-radius:10px!important; color:#fff!important; background:#b3261e!important; border:1.5px solid #ffd0cc!important; }
 html[data-oo-theme~="light"] body #app .login-error:not(:empty){ color:#7a1510!important; background:#fde8e6!important; border:1.5px solid #b3261e!important; }
+
+/* Phone story page: the speaker is drawn like the one on the other pages (and on the website). */
+@media (max-width:640px){
+  html:not(#z) body #app .post-detail-tts-row .tts-button, html:not(#z) body #app .post-detail-tts-row .tts-button.oo-speaking{ font-size:0!important; color:#0b3d91!important; }
+  html:not(#z)[data-oo-theme~="light"] body #app .post-detail-tts-row .tts-button{ color:#fff!important; }
+  html:not(#z):not(#y) body #app .post-detail-tts-row .tts-button::before{ content:""!important; display:block!important; width:22px!important; height:22px!important; border-radius:0!important; background:currentColor!important; -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 9v6h4l5 4V5L8 9H4z'/%3E%3Cpath d='M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 9v6h4l5 4V5L8 9H4z'/%3E%3Cpath d='M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+}

@@ -449,6 +449,7 @@ const shouldSendCreds = isAuthCall || (typeof isClientLoggedIn === 'function' &&
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
+  if (typeof options.onResponse === 'function') options.onResponse(response);
 
   return ooDropSrcset(await response.json());
 }
@@ -615,7 +616,13 @@ async function fetchPostById(id) {
     const url =
   `${WP_API_BASE}/posts?search=${enc}&per_page=${POSTS_PER_PAGE}&page=${page}&_embed=author,wp:featuredmedia,wp:term`;
 
-    return fetchJson(url);
+    // the first page's headers carry how many stories match in all
+    return fetchJson(url, page === 1 ? { onResponse: (r) => { searchTotal = parseInt(r.headers.get('x-wp-total'), 10) || 0; } } : {});
+  }
+  let searchTotal = 0;
+  function searchCountText(shown) {
+    const n = Math.max(searchTotal, shown);
+    return `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} result${n === 1 ? '' : 's'}`;
   }
 
 
@@ -1054,7 +1061,84 @@ if (window.AndroidTTS && typeof window.AndroidTTS.speak === 'function') {
     const old = document.querySelector('.oo-listen-box');
     if (old) old.remove();
     document.querySelectorAll('.tts-button.oo-speaking').forEach((b) => b.classList.remove('oo-speaking'));
+    const f = document.getElementById('oo-ls');
+    if (f) { f.classList.remove('on'); f.setAttribute('aria-pressed', 'false'); }
   }
+
+  // ---- Floating buttons, like the website on phones: read this page aloud, and back to top ----
+  // The words a reader can see on the page, block by block (buttons, forms and hidden parts left out).
+  function ooPageText() {
+    const skip = 'button, input, select, textarea, label, nav, script, style, noscript, iframe, video, audio, svg, [hidden], [aria-hidden="true"], .oo-tools, .sr-only';
+    const blocks = [];
+    let lastBox = null;
+    const walk = document.createTreeWalker(app, NodeFilter.SHOW_TEXT, null);
+    let n;
+    while ((n = walk.nextNode())) {
+      const el = n.parentElement;
+      const t = n.nodeValue.replace(/\bhttps?:\/\/[^\s]+/gi, '');
+      if (!el || !t.trim() || el.closest(skip) || !el.getClientRects().length) continue;
+      // the nearest thing drawn on its own line (a floated first letter still belongs to its word)
+      let box = el;
+      while (box !== app) {
+        const c = getComputedStyle(box);
+        if (c.float === 'none' && !c.display.startsWith('inline') && c.display !== 'contents') break;
+        box = box.parentElement;
+      }
+      if (box === lastBox) blocks[blocks.length - 1] += (n.previousSibling && n.previousSibling.nodeName === 'BR' ? ' ' : '') + t;
+      else blocks.push(t);
+      lastBox = box;
+    }
+    return blocks.map((b) => b.replace(/\s+/g, ' ').trim()).filter(Boolean)
+      .map((b) => (/[.!?:;,]["'”’)]*$/.test(b) ? b : b + '.')).join(' ');
+  }
+  // Same pages as the website: not home, search, columnists, contact or sign-in. Stories keep their own speaker button.
+  function ooPageHasListen() {
+    const { path, params } = parseHashRoute();
+    if (path === '/about' || path === '/events' || path === '/browse') return true;
+    if (path === '/page') return !!params && params.slug !== 'contact';
+    return path === '/archive' && !!params && params.type === 'author';
+  }
+  function ooFloatButtons() {
+    if (document.getElementById('oo-top')) return;
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.id = 'oo-top';
+    up.setAttribute('aria-label', 'Back to top');
+    up.addEventListener('click', () => {
+      const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' });
+    });
+    const ls = document.createElement('button');
+    ls.type = 'button';
+    ls.id = 'oo-ls';
+    ls.setAttribute('aria-label', 'Listen to this page (text read aloud)');
+    ls.setAttribute('aria-pressed', 'false');
+    ls.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    ls.addEventListener('click', () => {
+      if (ls.classList.contains('on')) { stopTtsPlayback(); return; }
+      const text = ooPageText();
+      if (!text) return;
+      __okobsTtsBase = 0;
+      __okobsTtsPaused = false;
+      speakChunksSequentially(text, 'page');
+      if (currentTtsPostId === 'page') { ls.classList.add('on'); ls.setAttribute('aria-pressed', 'true'); }
+    });
+    document.body.append(ls, up);
+    let queued = 0;
+    const tick = () => {
+      queued = 0;
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      up.classList.toggle('on', y > 150 && document.documentElement.scrollHeight - window.innerHeight > 200);
+      ls.hidden = !ooPageHasListen();
+    };
+    const queue = () => { if (!queued) queued = requestAnimationFrame(tick); };
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue);
+    window.addEventListener('hashchange', () => { if (ls.classList.contains('on')) stopTtsPlayback(); queue(); });
+    if (window.MutationObserver) new MutationObserver(queue).observe(app, { childList: true, subtree: true });
+    tick();
+  }
+
   function showListenBox() {
     hideListenBox();
     __okobsTtsPaused = false;
@@ -1993,6 +2077,11 @@ if (posts.length > 0 && appendedCount === 0) {
   }
 
   const pageCache = {};
+  // Same card as the website's phone version of /contact/.
+  const OO_CONTACT_HTML = '<div class="oo-contact"><h1>Contact Us</h1>'
+    + '<address>The Oklahoma Observer<br>PO Box 14275<br>Oklahoma City, OK 73113</address>'
+    + '<a class="oo-contact-row oo-contact-tel" href="tel:+14054788700">(405) 478-8700</a>'
+    + '<a class="oo-contact-row oo-contact-mail" href="mailto:info@okobserver.org">info@okobserver.org</a></div>';
   async function renderWpPage(params) {
     stopTtsPlayback();
     const slug = String((params && params.slug) || '').replace(/[^a-z0-9-]/gi, '');
@@ -2002,6 +2091,12 @@ if (posts.length > 0 && appendedCount === 0) {
     app.innerHTML = `<article class="about-view page-view"><h1 class="toc-title">${escapeHtml(label)}</h1><div class="about-html"><p>Loading…</p></div></article>`;
     if (!section) scrollToTop();
     const box = app.querySelector('.about-html');
+    if (slug === 'contact') {
+      app.querySelector('.toc-title').hidden = true;
+      app.querySelector('.page-view').classList.add('is-contact');
+      box.innerHTML = OO_CONTACT_HTML;
+      return;
+    }
     try {
       if (slug === 'help') {
         // The website's own Help block, read live, so the app only asks for pictures and videos the website is showing.
@@ -3505,6 +3600,7 @@ async function performSearch(term, statusEl, grid) {
     teardownSearchInfiniteScroll();
 
     // Always fetch first page explicitly
+    searchTotal = 0;
     const results = await fetchSearchResults(term, 1);
     if (!Array.isArray(results) || results.length === 0) {
       hasMoreSearchPages = false;
@@ -3532,8 +3628,7 @@ async function performSearch(term, statusEl, grid) {
 
       statusEl.classList.remove('is-loading');
       if (statusTextEl) {
-        statusTextEl.textContent =
-          `${rendered} result${rendered === 1 ? '' : 's'} found.`;
+        statusTextEl.textContent = searchCountText(rendered);
       }
 
       // Enable infinite scroll ONLY if a full page came back
@@ -3652,6 +3747,113 @@ function escapeHtml(s) {
   // ---------------------------------------------------------------------------
   // Post detail view
   // ---------------------------------------------------------------------------
+  // Story heading, laid out like the website: author line, headline, date.
+  function ooPostHeadHtml(post, titleHtml) {
+    const author = getAuthorName(post);
+    const d = new Date(post.date || '');
+    const date = Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const img = getFeaturedImageUrl(post);
+    const bg = img ? ` style="--oo-hd:url('${String(img).replace(/'/g, '%27')}')"` : '';
+    return `<div class="oo-post-head" data-post="${Number(post.id) || 0}"${bg}>
+      <p class="oo-post-by">${author ? 'By ' + escapeHtml(author) : ''}</p>
+      <div class="oo-post-titlebox"><h1 class="post-title">${titleHtml}</h1></div>
+      <div class="post-meta">${date}</div>
+    </div>`;
+  }
+
+  // The "Columnists" category and the categories under it (looked up once, like the website decides "A column by").
+  let ooColumnCatsPromise = null;
+  function ooColumnCats() {
+    if (!ooColumnCatsPromise) {
+      ooColumnCatsPromise = (async () => {
+        const top = await fetchJson(`${WP_API_BASE}/categories?slug=columnists&_fields=id`);
+        const id = Array.isArray(top) && top[0] && top[0].id;
+        if (!id) return [];
+        const kids = await fetchJson(`${WP_API_BASE}/categories?parent=${id}&per_page=100&_fields=id`).catch(() => []);
+        return [id].concat((Array.isArray(kids) ? kids : []).map((c) => c.id));
+      })().catch(() => { ooColumnCatsPromise = null; return []; });
+    }
+    return ooColumnCatsPromise;
+  }
+
+  // Columnist stories: "A column by ..." and the website's gold drop cap on the first paragraph.
+  function ooMarkColumn(post) {
+    if (!post || !post.id) return;
+    const cats = Array.isArray(post.categories) && post.categories.length ? post.categories : (extractCategories(post) || []).map((c) => c.id);
+    if (!cats.length) return;
+    ooColumnCats().then((ids) => {
+      if (!cats.some((c) => ids.indexOf(c) !== -1)) return;
+      const head = app.querySelector('.oo-post-head[data-post="' + post.id + '"]');
+      if (!head) return;
+      const author = getAuthorName(post);
+      if (author) head.querySelector('.oo-post-by').textContent = 'A column by ' + author;
+      const body = head.parentElement.querySelector('.post-detail-content');
+      if (!body) return;
+      const first = Array.from(body.querySelectorAll('p, div')).find((el) =>
+        !el.closest('.post-detail-tts-row, .oo-invite, .post-hero, figure, blockquote, table, .oo-detail-loading-inline') &&
+        !el.querySelector('p, div, img, iframe, figure, table, ul, ol') && el.textContent.trim().length > 40);
+      if (first && /^[A-Za-z]/.test(first.textContent.trim())) first.classList.add('oo-dropcap');
+    });
+  }
+
+  // "A Little More Observer" (the website's panel under each story). Closed until tapped, and nothing is fetched before that.
+  const OO_MORE_HTML = '<section class="oo-more" aria-label="Explore and support The Oklahoma Observer"><details><summary><span>A Little More Observer</span><i aria-hidden="true"></i></summary><div class="oo-more-body"></div></details></section>';
+  let ooMoreTimer = null;
+  function ooBindMore() {
+    const d = app.querySelector('.oo-more details');
+    if (!d) return;
+    d.addEventListener('toggle', () => { if (d.open && !d.dataset.built) { d.dataset.built = '1'; ooBuildMore(d.querySelector('.oo-more-body')); } });
+  }
+  async function ooBuildMore(body) {
+    const pill = (m) => {
+      const a = document.querySelector('footer.oof .oo-dir-pill[aria-label*="' + m + '"]');
+      return a ? a.outerHTML : '';
+    };
+    body.innerHTML =
+      '<div class="oo-more-toon" hidden></div>' +
+      '<div class="oo-more-give"><a class="oo-more-btn" href="#/page?slug=donate&label=Donate">Donate to the Observer</a></div>' +
+      '<div class="oo-more-rev"><p>Like what you see? Review us.</p><div>' + pill('Google') + pill('Facebook') + '</div></div>' +
+      '<div class="oo-more-ad" hidden></div>';
+    let toons = [], ads = [], n = 0;
+    const toonBox = body.querySelector('.oo-more-toon');
+    const adBox = body.querySelector('.oo-more-ad');
+    const ready = (src) => new Promise((done) => { const i = new Image(); i.onload = i.onerror = done; i.src = src; });
+    const show = async () => {
+      // fetch the next pictures first, so a change never flashes an empty box
+      await Promise.all([toons.length && ready(toons[n % toons.length].img), ads.length && ready(ads[n % ads.length].img)]);
+      if (toons.length) {
+        const t = toons[n % toons.length];
+        toonBox.innerHTML = '<a href="#/post/' + t.id + '"><img src="' + escapeAttr(t.img) + '" alt="' + escapeAttr(t.title) + '" decoding="async" /><span>' + escapeHtml(t.title) + '</span></a>';
+        toonBox.hidden = false;
+      }
+      if (ads.length) {
+        const s = ads[n % ads.length];
+        adBox.innerHTML = '<a href="' + escapeAttr(s.href || '#') + '" target="_blank" rel="noopener sponsored" aria-label="' + escapeAttr(s.name || 'Sponsor') + '"><img src="' + escapeAttr(s.img) + '" alt="' + escapeAttr(s.name || 'Sponsor') + '" decoding="async" /></a>';
+        adBox.hidden = false;
+      }
+    };
+    try {
+      const c = await fetchJson(`${WP_API_BASE}/categories?slug=cartoon&_fields=id`);
+      if (c && c[0]) {
+        const rows = await fetchJson(`${WP_API_BASE}/posts?categories=${c[0].id}&per_page=5&_embed=wp:featuredmedia&_fields=id,title,_links,_embedded`);
+        toons = (Array.isArray(rows) ? rows : []).map((r) => {
+          const fm = r._embedded && r._embedded['wp:featuredmedia'] && r._embedded['wp:featuredmedia'][0];
+          const sz = fm && fm.media_details && fm.media_details.sizes;
+          const img = fm ? ((sz && sz.medium_large && sz.medium_large.source_url) || fm.source_url) : '';
+          return { id: r.id, title: stripHtml((r.title && r.title.rendered) || ''), img };
+        }).filter((t) => t.img);
+        show();
+      }
+    } catch (_) {}
+    try { const x = await loadHomeExtras(); ads = (x && Array.isArray(x.sponsors)) ? x.sponsors : []; show(); } catch (_) {}
+    clearInterval(ooMoreTimer);
+    ooMoreTimer = setInterval(() => {
+      if (!body.isConnected) { clearInterval(ooMoreTimer); return; }
+      if (document.hidden || !body.parentElement.open) return;
+      n++; show();
+    }, 8000);
+  }
+
   // Option A helper: render a fast “detail shell” from the clicked summary post
   function renderPostDetailShellFromSummary(summaryPost) {
     if (!summaryPost) return;
@@ -3660,17 +3862,6 @@ function escapeHtml(s) {
       summaryPost.title && summaryPost.title.rendered
         ? summaryPost.title.rendered
         : '(Untitled)';
-
-     const dateStr = formatDate(summaryPost.date);
-    const authorName = getAuthorName(summaryPost);
-    const metaParts = [];
-if (authorName) {
-  metaParts.push(escapeHtml(authorName));
-}
-    if (dateStr) metaParts.push(dateStr);
-    const metaHtml = metaParts.length
-      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
-      : '';
 
     const featuredImageUrl = getFeaturedImageUrl(summaryPost);
     let heroHtml = '';
@@ -3693,11 +3884,12 @@ if (authorName) {
 
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
-        <div class="oo-post-head"><h1 class="post-title">${rawTitle}</h1>
-        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div></div>
+        ${ooPostHeadHtml(summaryPost, rawTitle)}
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
+            <a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a>
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+            <a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a>
           </div>
           ${heroHtml}
           ${excerptHtml}
@@ -3963,18 +4155,6 @@ async function loadPostNav(post) {
     const rawTitle = post.title && post.title.rendered ? post.title.rendered : '(Untitled)';
     const titleHtml = rawTitle;
 
-    const dateStr = formatDate(post.date);
-    const authorName = getAuthorName(post);
-    const metaParts = [];
-if (authorName) {
-  metaParts.push(escapeHtml(authorName));
-}
-
-    if (dateStr) metaParts.push(dateStr);
-    const metaHtml = metaParts.length
-      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
-      : '';
-
     // Use the summary excerpt as temporary content (kept lightweight)
     const excerptHtml =
       post.excerpt && post.excerpt.rendered ? post.excerpt.rendered : '';
@@ -3992,11 +4172,12 @@ if (authorName) {
 
     app.innerHTML = `
       <div class="post-detail oo-detail-prefill">
-        <div class="oo-post-head"><h1 class="post-title">${titleHtml}</h1>
-        ${metaHtml}<div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div></div>
+        ${ooPostHeadHtml(post, titleHtml)}
         <div class="post-content post-detail-content entry-content">
           <div class="post-detail-tts-row">
+            <a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a>
             <button class="tts-button tts-button--placeholder" type="button" title="Listen" aria-label="Listen" disabled>🔊</button>
+            <a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a>
           </div>
           ${heroHtml}
           <div class="oo-detail-loading-inline" aria-live="polite">
@@ -4051,16 +4232,6 @@ let contentHtml = post.content && post.content.rendered ? post.content.rendered 
 
 
 
-    const dateStr = formatDate(post.date);
-    const authorName = getAuthorName(post);
-    const metaParts = [];
-if (authorName) {
-  metaParts.push(escapeHtml(authorName));
-}
-    if (dateStr) metaParts.push(dateStr);
-    const metaHtml = metaParts.length
-      ? `<div class="post-meta">${metaParts.join(' • ')}</div>`
-      : '';
 // --- DETAIL TAGS/CATEGORIES (restore) ---
 const cats = extractCategories(post) || [];
 const tags = extractTags(post) || [];
@@ -4159,20 +4330,18 @@ const ttsButtonHtml = `
   </span>
 `;
 
-const headBg = featuredImageUrl ? ` style="--oo-hd:url('${String(featuredImageUrl).replace(/'/g, '%27')}')"` : '';
 const detailInnerHtml = `
-  <div class="oo-post-head"${headBg}>
-  <h1 class="post-title">${titleHtml}</h1>
-  ${metaHtml}
-  <div class="oo-pn-arrows"><a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a><a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a></div>
-  </div>
+  ${ooPostHeadHtml(post, titleHtml)}
   <div class="post-content post-detail-content entry-content">
 <div class="post-detail-tts-row">
+      <a class="oo-pn-a oo-pn-a-prev is-off" aria-label="Previous (newer) story" aria-disabled="true">&larr;</a>
       ${ttsButtonHtml}
+      <a class="oo-pn-a oo-pn-a-next is-off" aria-label="Next (older) story" aria-disabled="true">&rarr;</a>
     </div>
     ${heroHtml}
     ${contentHtml}
     </div>
+  ${OO_MORE_HTML}
   ${taxHtml}
   ${authorBoxHtml}
   <section class="oo-comments" data-oo-comments="${post.id}" hidden></section>
@@ -4196,6 +4365,8 @@ if (existingPrefill) {
 }
 
 loadPostNav(post);
+ooMarkColumn(post);
+ooBindMore();
 try { ooLoadComments(post); } catch (_) {}
 try { ooFitPostTitle(); requestAnimationFrame(ooFitPostTitle); } catch (_) {}
 
@@ -4702,26 +4873,14 @@ window.location.replace(target);
     }
   }
 
-  // Fixed-height title box (same idea as the website): the box is always the same height, the title shrinks to fit.
+  // Fixed-height title box (same idea as the website): the box is always the same height, the headline shrinks to fit.
   function ooFitPostTitle() {
-    const head = app.querySelector(".oo-post-head");
-    const h1 = head && head.querySelector(".post-title");
-    if (!head || !h1) return;
-    const meta = head.querySelector(".post-meta");
-    h1.style.fontSize = ""; h1.style.marginTop = ""; h1.style.marginBottom = "";
-    const hs = getComputedStyle(head), ts = getComputedStyle(h1);
-    const max = window.innerWidth >= 700 ? 46 : 42; // short titles grow up to this, long ones shrink to fit
-    const inner = head.clientHeight - (parseFloat(hs.paddingTop) || 0) - (parseFloat(hs.paddingBottom) || 0);
-    let used = (parseFloat(ts.marginTop) || 0) + (parseFloat(ts.marginBottom) || 0);
-    if (meta) { const ms = getComputedStyle(meta); used += meta.offsetHeight + (parseFloat(ms.marginTop) || 0) + (parseFloat(ms.marginBottom) || 0); }
-    const room = inner - used;
-    let size = max;
+    const box = app.querySelector(".oo-post-head .oo-post-titlebox");
+    const h1 = box && box.querySelector(".post-title");
+    if (!h1) return;
+    let size = window.innerWidth >= 700 ? 46 : 29; // the website's headline size; long headlines shrink to fit
     h1.style.fontSize = size + "px";
-    while (size > 17 && h1.getBoundingClientRect().height > room) { size -= 1; h1.style.fontSize = size + "px"; }
-    // split the leftover space evenly above/below the title so the byline and gold line always sit at the bottom of the box (build 2.1.21)
-    const free = Math.max(0, room - h1.getBoundingClientRect().height);
-    h1.style.marginTop = Math.floor(free / 2) + "px";
-    h1.style.marginBottom = ((parseFloat(ts.marginBottom) || 0) + Math.ceil(free / 2)) + "px";
+    while (size > 17 && h1.getBoundingClientRect().height > box.clientHeight + 1) { size -= 1; h1.style.fontSize = size + "px"; }
   }
   window.addEventListener("resize", () => { try { ooFitPostTitle(); } catch (_) {} });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { try { ooFitPostTitle(); } catch (_) {} });
@@ -5103,9 +5262,9 @@ showPagingStatus('Loading more…');
         const total = grid.querySelectorAll('.post-card').length;
         const statusTextEl = statusEl.querySelector('.search-status-text');
         if (statusTextEl) {
-          statusTextEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+          statusTextEl.textContent = searchCountText(total);
         } else {
-          statusEl.textContent = `${total} result${total === 1 ? '' : 's'} loaded.`;
+          statusEl.textContent = searchCountText(total);
         }
 
         currentSearchPage = nextPage;
@@ -5137,6 +5296,7 @@ showPagingStatus('Loading more…');
     console.log('[OkObserver] Initializing app, build:', APP_BUILD_LABEL);
 
     onRouteChange();
+    ooFloatButtons();
 
     document.addEventListener('okobs:route', (ev) => {
       const path =
