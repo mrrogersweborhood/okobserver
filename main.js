@@ -1,8 +1,9 @@
 // 🟢 main.js
 // 🟢 main.js — start of file
 // OkObserver Main JS
-// Demo embed (iframe on another site): sign-in is switched off so bots can't use the demo to reach /auth/login.
-// KILL SWITCH: set window.OO_DEMO_LOGIN_OFF = false in index.html to restore sign-in inside iframes.
+// Demo embed (iframe on someone else's site): sign-in is switched off so bots can't use the demo to reach /auth/login.
+// The app inside its own phone-sized frame, or inside the Observer website's pop-up, is the real app.
+// KILL SWITCH: set window.OO_DEMO_LOGIN_OFF = false in index.html to restore sign-in inside every iframe.
 // Story and page HTML lists extra sizes of each picture (srcset). Some of those files do not exist on the website
 // (it serves pictures through its own image service), and the website blocks a reader for good after 5 missing files
 // in 5 minutes. So the app drops the lists and asks only for the picture's main file.
@@ -18,7 +19,15 @@ function ooDropSrcset(v) {
 (function () {
   let embedded = false;
   try { embedded = window.self !== window.top; } catch (_) { embedded = true; }
-  window.OO_EMBEDDED = embedded && window.OO_DEMO_LOGIN_OFF !== false;
+  function ownFrame() {
+    const ours = ['https://okobserver.org', 'https://www.okobserver.org', location.origin];
+    try {
+      const above = location.ancestorOrigins; // every page around this one; not offered by all browsers
+      if (above && above.length) return Array.prototype.every.call(above, (o) => ours.indexOf(o) !== -1);
+      return ours.indexOf(new URL(document.referrer).origin) !== -1;
+    } catch (_) { return false; }
+  }
+  window.OO_EMBEDDED = embedded && !ownFrame() && window.OO_DEMO_LOGIN_OFF !== false;
   if (window.OO_EMBEDDED) {
     const st = document.createElement('style');
     st.textContent = '#ooSignInLink,#ooSignOutLink{display:none!important}';
@@ -2933,7 +2942,7 @@ window.__ooRefreshHome = refreshHome;
 (function setupLeaveNotice() {
   let box = null; let pending = null; let openedAt = 0;
   // Embedded in a demo page (iframe): never open anything outside; offer only "Back to the app".
-  let embedded = false; try { embedded = window.self !== window.top; } catch (_) { embedded = true; }
+  const embedded = !!window.OO_EMBEDDED;
   function hostOf(u) { try { return new URL(u, location.href); } catch (_) { return null; } }
   function isExternal(href) {
     if (!href) return false;

@@ -284,9 +284,90 @@ async function fetchUpstreamWithOptionalAuth(upstream, init, hadAuth) {
   return resp;
 }
 
+/* ---------------- PEOPLE ONLY (Cloudflare Turnstile) ----------------
+   The app earns a short pass by passing Turnstile (POST /human) and sends it with every content request.
+   HUMAN_CHECK in wrangler.toml: "off", "watch" (note requests without a pass, still answer them) or "on".
+   Needs the TURNSTILE_SECRET secret; without it the check stays off so the app keeps working. */
+const HUMAN_PASS_SECONDS = 12 * 60 * 60;
+const turnstileSecret = (env) => (env && env.TURNSTILE_SECRET ? String(env.TURNSTILE_SECRET).trim() : "");
+function humanMode(env) {
+  const m = String((env && env.HUMAN_CHECK) || "").trim().toLowerCase();
+  return (m === "on" || m === "watch") && turnstileSecret(env) ? m : "off";
+}
+const humanKey = (env) => crypto.subtle.importKey("raw", new TextEncoder().encode("oo-human-pass-v1|" + turnstileSecret(env)),
+  { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+// a pass works until it runs out, and only with the same browser name it was given to
+const humanText = (until, request) => new TextEncoder().encode(until + "|" + (request.headers.get("User-Agent") || ""));
+
+async function hasHumanPass(request, env, pass) {
+  const m = /^(\d{10})\.([A-Za-z0-9_-]{43})$/.exec(pass || "");
+  if (!m || Number(m[1]) < Date.now() / 1000) return false;
+  const sig = Uint8Array.from(atob(m[2].replace(/-/g, "+").replace(/_/g, "/") + "="), (c) => c.charCodeAt(0));
+  return crypto.subtle.verify("HMAC", await humanKey(env), sig, humanText(m[1], request));
+}
+
+async function handleHuman(request, env) {
+  const noStore = { "cache-control": "no-store" };
+  const answer = (status, obj) => json(status, obj, noStore, request);
+  if (!turnstileSecret(env)) return answer(503, { ok: false, message: "The check is not set up." });
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  try {
+    // its own, roomier limit: many readers can share one address on a phone network
+    if (env.HUMAN_LIMITER) {
+      const rl = await env.HUMAN_LIMITER.limit({ key: ip || "unknown" });
+      if (rl && rl.success === false) return answer(429, { ok: false, message: "Please wait a minute and try again." });
+    }
+  } catch (_) {}
+  let token = "";
+  try { token = String((await request.json()).turnstile || ""); } catch (_) {}
+  if (!token || token.length > 2048) return answer(400, { ok: false, message: "Please complete the check." });
+  let passed = false;
+  try {
+    const form = new URLSearchParams({ secret: turnstileSecret(env), response: token });
+    if (ip) form.set("remoteip", ip);
+    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
+    const v = await r.json();
+    passed = !!(v && v.success);
+  } catch (_) {
+    return answer(503, { ok: false, message: "The check is unavailable. Please try again." });
+  }
+  console.log(JSON.stringify({ oo_human: passed ? "passed" : "failed" }));
+  if (!passed) return answer(403, { ok: false, message: "The check did not pass." });
+  const expires = Math.floor(Date.now() / 1000) + HUMAN_PASS_SECONDS;
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", await humanKey(env), humanText(String(expires), request)));
+  const b64 = btoa(String.fromCharCode(...sig)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return answer(200, { ok: true, pass: expires + "." + b64, expires });
+}
+
+// Content requests: check the pass, then take it off the address so caching and the website never see it.
+async function humanGate(request, url, env) {
+  const guarded = (request.method === "GET" || request.method === "HEAD") && /^\/(wp-json|content)\//.test(url.pathname);
+  if (!guarded) return { request, url };
+  const pass = url.searchParams.get("ooh");
+  const mode = humanMode(env);
+  if (mode !== "off" && !(await hasHumanPass(request, env, pass))) {
+    if (mode === "on") {
+      return { stop: json(403, { code: "oo_human_required", message: "Please open the Observer app to read this." }, { "cache-control": "no-store" }, request) };
+    }
+    console.log(JSON.stringify({ oo_human: "no pass", path: url.pathname }));
+  }
+  if (pass === null) return { request, url };
+  const clean = new URL(url);
+  clean.searchParams.delete("ooh");
+  return { request: new Request(clean.toString(), request), url: clean };
+}
+
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    let url = new URL(request.url);
+
+    if (url.pathname === "/human" && request.method === "POST") {
+      return handleHuman(request, env);
+    }
+    const gate = await humanGate(request, url, env);
+    if (gate.stop) return gate.stop;
+    request = gate.request;
+    url = gate.url;
 
     // Friendly root for Cloudflare Preview
     if (url.pathname === "/" && request.method === "GET") {

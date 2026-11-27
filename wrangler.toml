@@ -4,11 +4,22 @@ compatibility_date = "2025-09-30"
 account_id = "b5c3ab21040b7fbc26ad5e20c3e79504"
 preview_urls = false
 
+[vars]
+# People-only check: "off", "watch" (note requests without a pass but still answer) or "on" (refuse them)
+HUMAN_CHECK = "watch"
+
 [[ratelimits]]
 name = "LOGIN_LIMITER"
 namespace_id = "1001"
   [ratelimits.simple]
   limit = 8
+  period = 60
+
+[[ratelimits]]
+name = "HUMAN_LIMITER"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 60
   period = 60
 
 [observability]
