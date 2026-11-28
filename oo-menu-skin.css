@@ -34,7 +34,7 @@
   html body dialog.oo-nm .oo-nm-search { display: flex; gap: 9.6px; height: 56px; margin: 0; }
   html body dialog.oo-nm .oo-nm-search input { flex: 1 1 auto; min-width: 0; height: 56px; padding: 0 19.2px; border: 1.2px solid rgba(255, 217, 138, .8); border-radius: 999px; background: rgba(255, 255, 255, .95); color: #0b2a6b; font: 400 17.6px "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; box-shadow: 0 8px 20px rgba(4, 22, 64, .28); }
   html body dialog.oo-nm .oo-nm-search input::placeholder { font-size: 14px; color: #44527a; }
-  html body dialog.oo-nm .oo-nm-search button { flex: 0 0 auto; height: 56px; padding: 0 22.4px; border: 1.2px solid rgba(255, 255, 255, .35); border-radius: 999px; background: #0b2a6b; color: #fff; font: 700 16.8px "Montserrat", system-ui, sans-serif; letter-spacing: .336px; box-shadow: 0 8px 20px rgba(4, 22, 64, .28); }
+  html body dialog.oo-nm .oo-nm-search button { flex: 0 0 auto; height: 56px; padding: 0 22.4px; border: 1.2px solid rgba(255, 255, 255, .35); border-radius: 999px; background: #0b2a6b; color: #fff; font: 700 calc(16.8px * var(--oos, 1)) "Montserrat", system-ui, sans-serif; letter-spacing: .336px; box-shadow: 0 8px 20px rgba(4, 22, 64, .28); }
 
   /* Home / Log In / Light-Dark / Aa / voice */
   html body dialog.oo-nm .oo-nm-bar { padding: 10px 0 4px; border: 0; background: none; border-radius: 24px; }
@@ -547,9 +547,9 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-bar { padding: 10px 0 4px !important; background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 24px !important; max-width: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-close { font-size: 15.6px !important; letter-spacing: .312px !important; }
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-search input { height: 56px !important; box-sizing: border-box !important; padding: 0 19.2px !important; font-size: 17.6px !important; }
-  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { font-size: 15.2px !important; letter-spacing: .304px !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm a.oo-nm-util { font-size: calc(15.2px * var(--oos, 1)) !important; letter-spacing: .304px !important; box-shadow: none !important; }
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-vp-btn { font-size: 15.2px !important; letter-spacing: normal !important; box-shadow: none !important; }
-  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-theme-pill { font-size: 13.26px !important; box-shadow: none !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-theme-pill { font-size: calc(13.26px * var(--oos, 1)) !important; box-shadow: none !important; }
   html:not(#z):not(#z):not(#z):not(#z) body dialog.oo-nm .oo-nm-util.oo-fs-btn { box-shadow: none !important; }
 
   /* blue (dark) mode */
@@ -579,7 +579,7 @@ html:not([data-oo-theme~="light"]):not(#z):not(#z):not(#z):not(#z) body dialog.o
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-q { display: block !important; font: italic 400 32px/38.4px "Playfair Display", Georgia, serif !important; letter-spacing: 1.92px !important; text-transform: none !important; text-align: center !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rev-a { display: block !important; margin: 8px 0 12.8px !important; font: 700 12.48px/15.2px Montserrat, system-ui, sans-serif !important; letter-spacing: 1.4976px !important; text-transform: uppercase !important; text-align: center !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill { display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: 100% !important; height: 48px !important; padding: 0 20.8px !important; border-radius: 999px !important; background: #fff !important; color: #0b2a6b !important; box-shadow: none !important; font: 700 16.8px Montserrat, system-ui, sans-serif !important; }
-  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill span { font: 700 16.8px Montserrat, system-ui, sans-serif !important; color: #0b2a6b !important; }
+  html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill span { font: 700 calc(16.8px * var(--oos, 1)) Montserrat, system-ui, sans-serif !important; color: #0b2a6b !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill svg, html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-pill img { width: 22.4px !important; height: 22.4px !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule { margin: 14px 0 9.6px !important; font: italic 400 23.2px/29px "Playfair Display", Georgia, serif !important; letter-spacing: normal !important; text-transform: none !important; text-align: center !important; display: block !important; }
   html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule::before, html:not(#z):not(#z):not(#z):not(#z) body footer.oof .oo-dir-rule::after { display: none !important; }

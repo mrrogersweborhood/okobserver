@@ -2862,11 +2862,15 @@ async function sharePost(post) {
 }
 
 // ---- Reader controls (text size + line spacing, remembered) ----
-const READ_SIZES = [0.9, 1, 1.12, 1.25, 1.4];
+const READ_SIZES = [1, 1.12, 1.25, 1.4];
 function applyReader() {
   const root = document.documentElement;
-  root.style.setProperty('--oo-read-scale', String(LS.get('ooReadScale', 1)));
+  const scale = Math.max(1, LS.get('ooReadScale', 1)); // a saved 90% (a step since removed) shows as normal
+  root.style.setProperty('--oo-read-scale', String(scale));
   root.style.setProperty('--oo-read-leading', LS.get('ooReadLoose', 0) ? '2' : '1.72');
+  // Menu and footer grow too, using the website's three larger steps (one column at the largest).
+  const step = scale >= 1.4 ? '1.5' : scale >= 1.25 ? '1.3' : scale >= 1.12 ? '1.15' : '';
+  if (step) root.setAttribute('data-oo-fsz', step); else root.removeAttribute('data-oo-fsz');
 }
 function stepReader(dir) {
   const cur = LS.get('ooReadScale', 1);
