@@ -38,9 +38,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Observer">
-<link rel="apple-touch-icon" href="favicon-o.png">
+<link rel="apple-touch-icon" href="favicon-o.png?v=2.3.5">
   <title>The Oklahoma Observer</title>
-<link rel="icon" type="image/png" href="favicon-o.png" />
+<link rel="icon" type="image/png" href="favicon-o.png?v=2.3.5" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#7d94c4" />
 
@@ -80,16 +80,16 @@
   <!-- CSS -->
   <link
     rel="preload"
-    href="override.css?v=2.3.4"
+    href="override.css?v=2.3.5"
     as="style"
   />
   <link
     rel="stylesheet"
-    href="override.css?v=2.3.4"
+    href="override.css?v=2.3.5"
   />
-  <link rel="stylesheet" href="oo-site-block.css?v=2.3.4" />
-  <link rel="stylesheet" href="oo-menu-skin.css?v=2.3.4" />
-  <link rel="stylesheet" href="oo-directory-rows.css?v=2.3.4" />
+  <link rel="stylesheet" href="oo-site-block.css?v=2.3.5" />
+  <link rel="stylesheet" href="oo-menu-skin.css?v=2.3.5" />
+  <link rel="stylesheet" href="oo-directory-rows.css?v=2.3.5" />
   <link rel="stylesheet" href="oo-terms.css?v=2.2.17" />
   <link rel="stylesheet" href="oo-help.css?v=2.2.25">
   <link rel="stylesheet" href="oo-events.css?v=2.2.25">
@@ -100,7 +100,7 @@
 <script src="oo-help.js?v=2.3.0" defer></script>
   <script
   defer
-  src="main.js?v=2.3.4"
+  src="main.js?v=2.3.5"
 ></script>
 <script defer src="oo-follow.js?v=2.0.0"></script>
 <script
@@ -172,7 +172,7 @@
       
       <div class="oo-splash-tag">Independent journalism since 1968</div>
       <div class="oo-splash-bar"><span></span></div>
-      <div class="oo-splash-ver" id="oo-splash-ver">Version 2.3.4</div><script>try{var m=document.querySelector('script[src*="main.js"]');var v=m&&(m.getAttribute("src")||"").match(/[?&]v=([0-9.]+)/);if(v)document.getElementById("oo-splash-ver").textContent="Version "+v[1];}catch(e){}</script>
+      <div class="oo-splash-ver" id="oo-splash-ver">Version 2.3.5</div><script>try{var m=document.querySelector('script[src*="main.js"]');var v=m&&(m.getAttribute("src")||"").match(/[?&]v=([0-9.]+)/);if(v)document.getElementById("oo-splash-ver").textContent="Version "+v[1];}catch(e){}</script>
     </div>
   </div>
   <!-- 🔴 Splash restored -->
@@ -327,7 +327,7 @@ syncAuthClass();
         return;
       }
 
-      var SW_BUILD = '2.3.4'; // bump when sw.js changes
+      var SW_BUILD = '2.3.5'; // bump when sw.js changes
       var BASE = location.pathname.replace(/[^/]*$/, ''); // /okobserver/ on github.io, / on app.okobserver.org
       var SW_URL = BASE + 'sw.js';
       var SCOPE = BASE;
